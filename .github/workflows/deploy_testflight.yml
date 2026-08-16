@@ -94,9 +94,19 @@ jobs:
           security unlock-keychain -p "$KEYCHAIN_PASS" "$KEYCHAIN_PATH"
           
           # Decode and import P12 certificate
-          P12_PATH=$RUNNER_TEMP/certificate.p12
-          echo "$APPLE_CERTIFICATE_P12_BASE64" | base64 --decode > "$P12_PATH"
-          security import "$P12_PATH" -k "$KEYCHAIN_PATH" -P "$APPLE_CERTIFICATE_PASS" -T /usr/bin/codesign -T /usr/bin/productsign
+          P12_RAW_PATH=$RUNNER_TEMP/certificate_raw.p12
+          P12_LEGACY_PATH=$RUNNER_TEMP/certificate_legacy.p12
+          echo "$APPLE_CERTIFICATE_P12_BASE64" | base64 --decode > "$P12_RAW_PATH"
+          
+          if ! security import "$P12_RAW_PATH" -k "$KEYCHAIN_PATH" -P "$APPLE_CERTIFICATE_PASS" -T /usr/bin/codesign -T /usr/bin/productsign 2>/dev/null; then
+            echo "Modern PKCS12 format detected, converting to Apple legacy format..."
+            openssl pkcs12 -in "$P12_RAW_PATH" -passin pass:"$APPLE_CERTIFICATE_PASS" -out "$RUNNER_TEMP/cert_temp.pem" -nodes -passout pass:""
+            openssl pkcs12 -export -in "$RUNNER_TEMP/cert_temp.pem" -out "$P12_LEGACY_PATH" -passout pass:"$APPLE_CERTIFICATE_PASS" -legacy
+            security import "$P12_LEGACY_PATH" -k "$KEYCHAIN_PATH" -P "$APPLE_CERTIFICATE_PASS" -T /usr/bin/codesign -T /usr/bin/productsign
+            rm -f "$RUNNER_TEMP/cert_temp.pem" "$P12_LEGACY_PATH"
+          fi
+          rm -f "$P12_RAW_PATH"
+
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASS" "$KEYCHAIN_PATH"
           security default-keychain -s "$KEYCHAIN_PATH"
           
