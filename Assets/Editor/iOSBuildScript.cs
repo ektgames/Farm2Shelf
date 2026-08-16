@@ -105,7 +105,7 @@ namespace Farm2Shelf.Editor
 
         private static string GetCommandLineArg(string name)
         {
-            string[] args = Environment.GetCommandLineArgs();
+            string[] args = System.Environment.GetCommandLineArgs();
             for (int i = 0; i < args.Length; i++)
             {
                 if (args[i] == name && i + 1 < args.Length)
