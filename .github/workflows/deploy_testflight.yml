@@ -51,20 +51,32 @@ jobs:
           targetPlatform: iOS
           unityVersion: 6000.4.9f1
           buildMethod: Farm2Shelf.Editor.iOSBuildScript.BuildForiOS
-          buildPath: build/iOS
+          buildPath: build
           customParameters: -buildNumber ${{ github.event.inputs.build_number || github.run_number }}
 
-      # 5. Verify Unity Output Xcode Project Structure
+      # 5. Diagnostic Directory Listing
+      - name: Diagnostic Directory Listing
+        run: |
+          echo "=== Directory Listing under build/ ==="
+          if [ -d "build" ]; then
+            find build -maxdepth 6 | sort
+          else
+            echo "Directory build does not exist in root."
+          fi
+          echo "======================================"
+
+      # 6. Verify Unity Output Xcode Project Structure
       - name: Verify Exported Xcode Project
         run: |
-          XCODE_PROJ_FILE="build/iOS/Unity-iPhone.xcodeproj/project.pbxproj"
-          if [ ! -f "$XCODE_PROJ_FILE" ]; then
-            echo "❌ ERROR: Unity build failed to export Unity-iPhone.xcodeproj/project.pbxproj"
+          PBXPROJ_FILE=$(find build -name "project.pbxproj" | head -n 1)
+          if [ -z "$PBXPROJ_FILE" ] || [ ! -f "$PBXPROJ_FILE" ]; then
+            echo "❌ ERROR: Unity build failed to export project.pbxproj anywhere under build/"
             exit 1
           fi
-          echo "✅ Verified exported Xcode project structure at build/iOS/Unity-iPhone.xcodeproj"
+          XCODE_PROJ_DIR=$(dirname $(dirname "$PBXPROJ_FILE"))
+          echo "✅ Verified exported Xcode project structure at $XCODE_PROJ_DIR"
 
-      # 6. Apple Certificate & Provisioning Profile Installation
+      # 7. Apple Certificate & Provisioning Profile Installation
       - name: Install Apple Certificate & Provisioning Profile
         env:
           APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
@@ -107,23 +119,29 @@ jobs:
           echo " - Profile UUID: $PP_UUID"
           echo " - Team ID:     $PP_TEAM"
 
-      # 7. Xcode Archive & Export IPA
+      # 8. Xcode Archive & Export IPA
       - name: Build Xcode Archive & Export IPA
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -e
-          XCODE_PROJ_PATH="build/iOS/Unity-iPhone.xcodeproj"
-          ARCHIVE_PATH="build/iOS/Farm2Shelf.xcarchive"
-          EXPORT_OPTIONS_PATH="build/iOS/ExportOptions.plist"
-          OUTPUT_PATH="build/iOS/output"
+          XCODE_PROJ_PATH=$(find build -name "Unity-iPhone.xcodeproj" | head -n 1)
+          if [ -z "$XCODE_PROJ_PATH" ]; then
+            echo "❌ ERROR: Unity-iPhone.xcodeproj not found under build/"
+            exit 1
+          fi
+
+          XCODE_BASE_DIR=$(dirname "$XCODE_PROJ_PATH")
+          ARCHIVE_PATH="$XCODE_BASE_DIR/Farm2Shelf.xcarchive"
+          EXPORT_OPTIONS_PATH="$XCODE_BASE_DIR/ExportOptions.plist"
+          OUTPUT_PATH="$XCODE_BASE_DIR/output"
           
           mkdir -p "$OUTPUT_PATH"
 
           # Create ExportOptions.plist
           cat <<EOF > "$EXPORT_OPTIONS_PATH"
           <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.plist">
           <plist version="1.0">
           <dict>
               <key>method</key>
@@ -158,14 +176,14 @@ jobs:
                      -exportOptionsPlist "$EXPORT_OPTIONS_PATH" \
                      -exportPath "$OUTPUT_PATH"
 
-      # 8. Inspect & Validate Exported IPA
+      # 9. Inspect & Validate Exported IPA
       - name: Inspect & Validate IPA
         run: |
           set -e
-          IPA_PATH=$(find build/iOS/output -name "*.ipa" | head -n 1)
+          IPA_PATH=$(find build -name "*.ipa" | head -n 1)
           
           if [ -z "$IPA_PATH" ] || [ ! -f "$IPA_PATH" ]; then
-            echo "❌ ERROR: No IPA file found in build/iOS/output"
+            echo "❌ ERROR: No IPA file found under build/"
             exit 1
           fi
 
@@ -193,7 +211,7 @@ jobs:
             exit 1
           fi
 
-      # 9. Upload IPA to App Store Connect / TestFlight
+      # 10. Upload IPA to App Store Connect / TestFlight
       - name: Upload IPA to App Store Connect
         env:
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
@@ -201,7 +219,7 @@ jobs:
           APP_STORE_CONNECT_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_KEY_CONTENT }}
         run: |
           set -e
-          IPA_PATH=$(find build/iOS/output -name "*.ipa" | head -n 1)
+          IPA_PATH=$(find build -name "*.ipa" | head -n 1)
           
           # Securely write API Key .p8 file
           API_KEY_DIR=~/.private_keys
@@ -218,7 +236,7 @@ jobs:
 
           echo "✅ IPA Upload completed successfully!"
 
-      # 10. Post-Job Clean Up
+      # 11. Post-Job Clean Up
       - name: Clean Up Temporary Credentials & Keys
         if: always()
         run: |
