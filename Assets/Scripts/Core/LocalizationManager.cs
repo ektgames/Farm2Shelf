@@ -29,7 +29,7 @@ namespace Farm2Shelf.Core
                 if (instance == null)
                 {
                     instance = UnityEngine.Object.FindFirstObjectByType<LocalizationManager>();
-                    if (instance == null && Application.isPlaying)
+                    if (instance == null && Application.isPlaying && !isQuitting)
                     {
                         GameObject go = new GameObject("[LocalizationManager]");
                         instance = go.AddComponent<LocalizationManager>();
@@ -68,6 +68,7 @@ namespace Farm2Shelf.Core
         {
             if (instance == this)
             {
+                isQuitting = true;
                 instance = null;
             }
         }
@@ -91,7 +92,7 @@ namespace Farm2Shelf.Core
             PlayerPrefs.SetString(PREF_KEY_LANGUAGE, language.ToString());
             PlayerPrefs.Save();
 
-            Debug.Log($"[LocalizationManager] Dil değiştirildi: {CurrentLanguage}");
+            Debug.Log($"[LocalizationManager] Dil değiştirildi -> {CurrentLanguage}");
             OnLanguageChanged?.Invoke(CurrentLanguage);
         }
 
@@ -106,11 +107,6 @@ namespace Farm2Shelf.Core
         /// </summary>
         public static string L(string key, string turkishText, string englishText)
         {
-            if (instance == null && !isQuitting && Application.isPlaying)
-            {
-                _ = Instance;
-            }
-
             if (instance != null && instance.CurrentLanguage == GameLanguage.English)
             {
                 return englishText;
