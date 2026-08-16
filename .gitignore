@@ -33,3 +33,12 @@
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# iOS & Certificates Security
+*.p12
+*.mobileprovision
+*.cer
+*.p8
+*.ipa
+*.xcarchive
+

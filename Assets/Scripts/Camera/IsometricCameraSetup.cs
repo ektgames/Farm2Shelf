@@ -51,14 +51,14 @@ namespace Farm2Shelf.CameraSystem
 
         private void OnEnable()
         {
-#if ENABLE_INPUT_SYSTEM && !UNITY_EDITOR && (UNITY_ANDROID || UNITY_IOS)
+#if ENABLE_INPUT_SYSTEM
             EnhancedTouchSupport.Enable();
 #endif
         }
 
         private void OnDisable()
         {
-#if ENABLE_INPUT_SYSTEM && !UNITY_EDITOR && (UNITY_ANDROID || UNITY_IOS)
+#if ENABLE_INPUT_SYSTEM
             EnhancedTouchSupport.Disable();
 #endif
         }
@@ -94,13 +94,15 @@ namespace Farm2Shelf.CameraSystem
         {
             // Bilgisayarda / Editörde Fare Sol Tıkının kamerayı kaydırmasını veya zoom yapmasını kesin olarak engeller!
 #if !UNITY_EDITOR && (UNITY_ANDROID || UNITY_IOS)
-            int touchCount = Input.touchCount;
+#if ENABLE_INPUT_SYSTEM
+            var activeTouches = Touch.activeTouches;
+            int touchCount = activeTouches.Count;
             if (touchCount == 1)
             {
-                UnityEngine.Touch touch = Input.GetTouch(0);
-                if (touch.phase == TouchPhase.Moved)
+                var touch = activeTouches[0];
+                if (touch.phase == UnityEngine.InputSystem.TouchPhase.Moved)
                 {
-                    Vector2 delta = touch.deltaPosition;
+                    Vector2 delta = touch.delta;
                     Quaternion yawRot = Quaternion.Euler(0f, yawAngle, 0f);
                     Vector3 moveDir = yawRot * new Vector3(-delta.x, 0f, -delta.y);
 
@@ -110,19 +112,19 @@ namespace Farm2Shelf.CameraSystem
             }
             else if (touchCount >= 2)
             {
-                UnityEngine.Touch touch0 = Input.GetTouch(0);
-                UnityEngine.Touch touch1 = Input.GetTouch(1);
+                var touch0 = activeTouches[0];
+                var touch1 = activeTouches[1];
 
-                Vector2 pos0 = touch0.position;
-                Vector2 pos1 = touch1.position;
+                Vector2 pos0 = touch0.screenPosition;
+                Vector2 pos1 = touch1.screenPosition;
 
                 float currentPinchDist = Vector2.Distance(pos0, pos1);
 
-                if (touch0.phase == TouchPhase.Began || touch1.phase == TouchPhase.Began)
+                if (touch0.phase == UnityEngine.InputSystem.TouchPhase.Began || touch1.phase == UnityEngine.InputSystem.TouchPhase.Began)
                 {
                     lastPinchDistance = currentPinchDist;
                 }
-                else if (touch0.phase == TouchPhase.Moved || touch1.phase == TouchPhase.Moved)
+                else if (touch0.phase == UnityEngine.InputSystem.TouchPhase.Moved || touch1.phase == UnityEngine.InputSystem.TouchPhase.Moved)
                 {
                     float deltaDist = currentPinchDist - lastPinchDistance;
                     float zoomDelta = -deltaDist * pinchSensitivity * 0.1f;
@@ -134,6 +136,52 @@ namespace Farm2Shelf.CameraSystem
                     lastPinchDistance = currentPinchDist;
                 }
             }
+#else
+            try
+            {
+                int touchCount = Input.touchCount;
+                if (touchCount == 1)
+                {
+                    UnityEngine.Touch touch = Input.GetTouch(0);
+                    if (touch.phase == UnityEngine.TouchPhase.Moved)
+                    {
+                        Vector2 delta = touch.deltaPosition;
+                        Quaternion yawRot = Quaternion.Euler(0f, yawAngle, 0f);
+                        Vector3 moveDir = yawRot * new Vector3(-delta.x, 0f, -delta.y);
+
+                        targetPosition += moveDir * panSensitivity * (cam.orthographicSize / 14f);
+                        ClampTargetPosition();
+                    }
+                }
+                else if (touchCount >= 2)
+                {
+                    UnityEngine.Touch touch0 = Input.GetTouch(0);
+                    UnityEngine.Touch touch1 = Input.GetTouch(1);
+
+                    Vector2 pos0 = touch0.position;
+                    Vector2 pos1 = touch1.position;
+
+                    float currentPinchDist = Vector2.Distance(pos0, pos1);
+
+                    if (touch0.phase == UnityEngine.TouchPhase.Began || touch1.phase == UnityEngine.TouchPhase.Began)
+                    {
+                        lastPinchDistance = currentPinchDist;
+                    }
+                    else if (touch0.phase == UnityEngine.TouchPhase.Moved || touch1.phase == UnityEngine.TouchPhase.Moved)
+                    {
+                        float deltaDist = currentPinchDist - lastPinchDistance;
+                        float zoomDelta = -deltaDist * pinchSensitivity * 0.1f;
+                        orthographicSize = Mathf.Clamp(orthographicSize + zoomDelta, minZoom, maxZoom);
+                        distance = Mathf.Clamp(distance + (zoomDelta * 1.5f), 6f, 60f);
+
+                        if (cam != null) cam.orthographicSize = orthographicSize;
+
+                        lastPinchDistance = currentPinchDist;
+                    }
+                }
+            }
+            catch (System.InvalidOperationException) {}
+#endif
 #endif
         }
 
