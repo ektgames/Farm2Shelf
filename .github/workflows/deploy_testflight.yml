@@ -51,6 +51,7 @@ jobs:
           targetPlatform: iOS
           unityVersion: 6000.4.9f1
           buildMethod: Farm2Shelf.Editor.iOSBuildScript.BuildForiOS
+          buildPath: build/iOS
           customParameters: -buildNumber ${{ github.event.inputs.build_number || github.run_number }}
 
       # 5. Verify Unity Output Xcode Project Structure
