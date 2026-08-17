@@ -25,7 +25,6 @@ namespace Farm2Shelf.Editor
             PlayerSettings.bundleVersion = "0.1.0";
 
             // iOS Orientation Ayarları (Sadece Yatay / Landscape-only)
-            PlayerSettings.defaultScreenOrientation = UIOrientation.AutoRotation;
             PlayerSettings.allowedAutorotateToPortrait = false;
             PlayerSettings.allowedAutorotateToPortraitUpsideDown = false;
             PlayerSettings.allowedAutorotateToLandscapeLeft = true;
