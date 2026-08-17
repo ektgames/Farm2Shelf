@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
@@ -114,7 +115,7 @@ namespace Farm2Shelf.UI
             CanvasGroup cg = introPanel.AddComponent<CanvasGroup>();
             cg.alpha = 1f;
 
-            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            Font font = GetSafeFont();
 
             // Barkod Konteyner Alanı
             GameObject barcodeContainer = new GameObject("BarcodeContainer");
@@ -166,7 +167,7 @@ namespace Farm2Shelf.UI
 
             Text barcodeLabelTxt = barcodeLabelGo.AddComponent<Text>();
             barcodeLabelTxt.text = "EKT-7928-GAMES";
-            barcodeLabelTxt.font = font;
+            if (font != null) barcodeLabelTxt.font = font;
             barcodeLabelTxt.fontSize = 12;
             barcodeLabelTxt.color = new Color(0.6f, 0.6f, 0.65f, 1f);
             barcodeLabelTxt.alignment = TextAnchor.MiddleCenter;
@@ -204,7 +205,7 @@ namespace Farm2Shelf.UI
 
             Text neonGlowTxt = neonGlowGo.AddComponent<Text>();
             neonGlowTxt.text = "EKT GAMES";
-            neonGlowTxt.font = font;
+            if (font != null) neonGlowTxt.font = font;
             neonGlowTxt.fontSize = 46;
             neonGlowTxt.fontStyle = FontStyle.Bold;
             neonGlowTxt.alignment = TextAnchor.MiddleCenter;
@@ -223,7 +224,7 @@ namespace Farm2Shelf.UI
 
             Text neonCoreTxt = neonCoreGo.AddComponent<Text>();
             neonCoreTxt.text = "EKT GAMES";
-            neonCoreTxt.font = font;
+            if (font != null) neonCoreTxt.font = font;
             neonCoreTxt.fontSize = 44;
             neonCoreTxt.fontStyle = FontStyle.Bold;
             neonCoreTxt.alignment = TextAnchor.MiddleCenter;
@@ -241,115 +242,177 @@ namespace Farm2Shelf.UI
 
             Text presentsTxt = presentsGo.AddComponent<Text>();
             presentsTxt.text = "PRESENTS";
-            presentsTxt.font = font;
+            if (font != null) presentsTxt.font = font;
             presentsTxt.fontSize = 14;
             presentsTxt.color = new Color(0.6f, 0.6f, 0.7f, 0f);
             presentsTxt.alignment = TextAnchor.MiddleCenter;
 
-            // Animasyon Döngüsü (Toplam 4.5 saniye)
-            float elapsed = 0f;
-            bool hasBeeped = false;
-
-            while (elapsed < 4.5f)
+            try
             {
-                elapsed += Mathf.Min(Time.unscaledDeltaTime, 0.05f);
+                // Animasyon Döngüsü (Toplam 4.5 saniye)
+                float elapsed = 0f;
+                bool hasBeeped = false;
 
-                // Dokunma / Tıklama ile atlama kontrolü (1.2 saniyeden sonra)
-                bool skipPressed = false;
+                while (elapsed < 4.5f)
+                {
+                    elapsed += Mathf.Min(Time.unscaledDeltaTime, 0.05f);
+
+                    // Dokunma / Tıklama ile atlama kontrolü (1.2 saniyeden sonra)
+                    bool skipPressed = false;
 #if ENABLE_INPUT_SYSTEM
-                if (UnityEngine.InputSystem.Mouse.current != null && UnityEngine.InputSystem.Mouse.current.leftButton.wasPressedThisFrame)
-                {
-                    skipPressed = true;
-                }
-                if (UnityEngine.InputSystem.Keyboard.current != null && 
-                    (UnityEngine.InputSystem.Keyboard.current.spaceKey.wasPressedThisFrame || UnityEngine.InputSystem.Keyboard.current.enterKey.wasPressedThisFrame))
-                {
-                    skipPressed = true;
-                }
-                if (UnityEngine.InputSystem.Touchscreen.current != null && UnityEngine.InputSystem.Touchscreen.current.primaryTouch.press.wasPressedThisFrame)
-                {
-                    skipPressed = true;
-                }
-#else
-                try
-                {
-                    skipPressed = Input.GetMouseButtonDown(0) || Input.touchCount > 0;
-                }
-                catch { }
-#endif
-                if (skipPressed && elapsed > 1.2f)
-                {
-                    break;
-                }
-
-                // Aşama 1: Barkod Tarama (0.0s - 2.0s)
-                if (elapsed < 2.0f)
-                {
-                    float scanAlpha = Mathf.Clamp01((2.0f - elapsed) / 0.3f);
-                    barcodeCg.alpha = scanAlpha;
-
-                    float laserProgress = Mathf.Clamp01(elapsed / 1.5f);
-                    rtLaserGlow.anchoredPosition = new Vector2(0f, -laserProgress * 60f);
-
-                    if (elapsed >= 1.2f && !hasBeeped)
+                    if (UnityEngine.InputSystem.Mouse.current != null && UnityEngine.InputSystem.Mouse.current.leftButton.wasPressedThisFrame)
                     {
-                        hasBeeped = true;
-                        if (AudioManager.Instance != null)
+                        skipPressed = true;
+                    }
+                    if (UnityEngine.InputSystem.Keyboard.current != null &&
+                        (UnityEngine.InputSystem.Keyboard.current.spaceKey.wasPressedThisFrame || UnityEngine.InputSystem.Keyboard.current.enterKey.wasPressedThisFrame))
+                    {
+                        skipPressed = true;
+                    }
+                    if (UnityEngine.InputSystem.Touchscreen.current != null && UnityEngine.InputSystem.Touchscreen.current.primaryTouch.press.wasPressedThisFrame)
+                    {
+                        skipPressed = true;
+                    }
+#else
+                    try
+                    {
+                        skipPressed = Input.GetMouseButtonDown(0) || Input.touchCount > 0;
+                    }
+                    catch { }
+#endif
+                    if (skipPressed && elapsed > 1.2f)
+                    {
+                        break;
+                    }
+
+                    // Aşama 1: Barkod Tarama (0.0s - 2.0s)
+                    if (elapsed < 2.0f)
+                    {
+                        float scanAlpha = Mathf.Clamp01((2.0f - elapsed) / 0.3f);
+                        barcodeCg.alpha = scanAlpha;
+
+                        float laserProgress = Mathf.Clamp01(elapsed / 1.5f);
+                        rtLaserGlow.anchoredPosition = new Vector2(0f, -laserProgress * 60f);
+
+                        if (elapsed >= 1.2f && !hasBeeped)
                         {
-                            AudioManager.Instance.PlayTabletTap();
+                            hasBeeped = true;
+                            if (AudioManager.Instance != null)
+                            {
+                                AudioManager.Instance.PlayTabletTap();
+                            }
                         }
                     }
-                }
-                else
-                {
-                    barcodeContainer.SetActive(false);
-                }
-
-                // Aşama 2: Neon Titreşimli Logo Belirme (1.3s+)
-                if (elapsed >= 1.3f)
-                {
-                    float logoAlpha = Mathf.Clamp01((elapsed - 1.3f) / 0.4f);
-
-                    bool isFlickerOn = true;
-                    if (elapsed > 1.3f && elapsed < 2.1f)
+                    else
                     {
-                        isFlickerOn = (Random.value > 0.35f);
+                        barcodeContainer.SetActive(false);
                     }
 
-                    float pulse = Mathf.PingPong(Time.unscaledTime * 2.0f, 1f);
-                    float neonIntensity = 0.6f + pulse * 0.4f;
-                    if (elapsed > 1.3f && elapsed < 2.1f && !isFlickerOn)
+                    // Aşama 2: Neon Titreşimli Logo Belirme (1.3s+)
+                    if (elapsed >= 1.3f)
                     {
-                        neonIntensity = 0.05f;
+                        float logoAlpha = Mathf.Clamp01((elapsed - 1.3f) / 0.4f);
+
+                        bool isFlickerOn = true;
+                        if (elapsed > 1.3f && elapsed < 2.1f)
+                        {
+                            isFlickerOn = (Random.value > 0.35f);
+                        }
+
+                        float pulse = Mathf.PingPong(Time.unscaledTime * 2.0f, 1f);
+                        float neonIntensity = 0.6f + pulse * 0.4f;
+                        if (elapsed > 1.3f && elapsed < 2.1f && !isFlickerOn)
+                        {
+                            neonIntensity = 0.05f;
+                        }
+
+                        neonGlowTxt.color = new Color(0f, 0.7f, 1f, neonIntensity * 0.8f * logoAlpha);
+                        neonCoreTxt.color = new Color(1f, 1f, 1f, logoAlpha * (isFlickerOn ? 1f : 0.1f));
+
+                        float presentsAlpha = Mathf.Clamp01((elapsed - 1.4f) / 0.6f);
+                        presentsTxt.color = new Color(0.6f, 0.6f, 0.7f, presentsAlpha);
                     }
 
-                    neonGlowTxt.color = new Color(0f, 0.7f, 1f, neonIntensity * 0.8f * logoAlpha);
-                    neonCoreTxt.color = new Color(1f, 1f, 1f, logoAlpha * (isFlickerOn ? 1f : 0.1f));
+                    // Aşama 3: Yumuşak Karartma (3.8s+)
+                    if (elapsed >= 3.8f)
+                    {
+                        float fadeOutAlpha = Mathf.Clamp01((4.5f - elapsed) / 0.7f);
+                        cg.alpha = fadeOutAlpha;
+                    }
 
-                    float presentsAlpha = Mathf.Clamp01((elapsed - 1.4f) / 0.6f);
-                    presentsTxt.color = new Color(0.6f, 0.6f, 0.7f, presentsAlpha);
+                    yield return null;
                 }
-
-                // Aşama 3: Yumuşak Karartma (3.8s+)
-                if (elapsed >= 3.8f)
-                {
-                    float fadeOutAlpha = Mathf.Clamp01((4.5f - elapsed) / 0.7f);
-                    cg.alpha = fadeOutAlpha;
-                }
-
-                yield return null;
             }
-
-            // Temizlik, İntro Bitiş Bayrağı ve Ana Menüye Geçiş (Önce Ana Menü oluşturulur, 0ms boşluk kalır!)
-            HasIntroFinished = true;
-
-            if (MainMenuUI.Instance != null)
+            finally
             {
-                MainMenuUI.Instance.ShowMenu();
-            }
+                // Temizlik, İntro Bitiş Bayrağı ve Ana Menüye Geçiş
+                HasIntroFinished = true;
 
-            if (blackCurtainObj != null) Destroy(blackCurtainObj);
-            Destroy(canvasObj);
+                try
+                {
+                    if (MainMenuUI.Instance != null)
+                    {
+                        MainMenuUI.Instance.ShowMenu();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogException(ex);
+                }
+
+                try
+                {
+                    if (blackCurtainObj != null)
+                    {
+                        Destroy(blackCurtainObj);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogException(ex);
+                }
+
+                try
+                {
+                    if (canvasObj != null)
+                    {
+                        Destroy(canvasObj);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogException(ex);
+                }
+            }
+        }
+
+        private Font GetSafeFont()
+        {
+            Font font = null;
+            try { font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); } catch {}
+            if (font != null) return font;
+
+            try { font = Resources.GetBuiltinResource<Font>("Arial.ttf"); } catch {}
+            if (font != null) return font;
+
+            try { font = Font.CreateDynamicFontFromOSFont("Arial", 16); } catch {}
+            if (font != null) return font;
+
+            try
+            {
+                Text[] sceneTexts = Object.FindObjectsOfType<Text>(true);
+                if (sceneTexts != null && sceneTexts.Length > 0)
+                {
+                    foreach (var st in sceneTexts)
+                    {
+                        if (st != null && st.font != null) return st.font;
+                    }
+                }
+            }
+            catch {}
+
+            return font;
+        }
         }
     }
 }
