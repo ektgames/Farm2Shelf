@@ -88,6 +88,7 @@ namespace Farm2Shelf.UI
 
         private void Start()
         {
+            Debug.Log($"[MAIN_MENU] Start | HasIntroFinished: {EKTReklamIntroManager.HasIntroFinished}");
             if (LocalizationManager.Instance != null)
             {
                 LocalizationManager.Instance.OnLanguageChanged -= HandleLanguageChanged;
@@ -97,6 +98,7 @@ namespace Farm2Shelf.UI
             // Eğer EKT Reklam İntrosu henüz bitmediyse, introyu bekle. İntro tamamlandığında ShowMenu() otomatik çağrılacaktır.
             if (EKTReklamIntroManager.Instance != null && !EKTReklamIntroManager.HasIntroFinished)
             {
+                Debug.Log("[MAIN_MENU] Intro active. Waiting for intro to complete before showing Main Menu.");
                 Time.timeScale = 0f;
                 return;
             }
@@ -106,6 +108,7 @@ namespace Farm2Shelf.UI
 
         public void ShowMenu()
         {
+            Debug.Log("[MAIN_MENU] ShowMenu called");
             Time.timeScale = 0f; // Ana menüdeyken oyun zamanını duraklat
             if (GameHUDManager.Instance != null)
             {
@@ -116,6 +119,7 @@ namespace Farm2Shelf.UI
 
         public void HideMenu()
         {
+            Debug.Log("[MAIN_MENU] HideMenu called");
             Time.timeScale = 1.0f; // Oyun zamanını başlat
             if (canvasObj != null)
             {
@@ -129,6 +133,7 @@ namespace Farm2Shelf.UI
 
         private void BuildUI()
         {
+            Debug.Log("[MAIN_MENU] BuildUI building Main Menu Canvas");
             if (canvasObj != null) Destroy(canvasObj);
 
             canvasObj = new GameObject("Farm2Shelf_MainMenu_Canvas");

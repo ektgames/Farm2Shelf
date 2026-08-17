@@ -22,6 +22,7 @@ namespace Farm2Shelf.UI
 
         private void Awake()
         {
+            Debug.Log($"[INTRO] Awake | Instance null?: {Instance == null}, HasIntroFinished: {HasIntroFinished}");
             if (Instance == null)
             {
                 Instance = this;
@@ -34,6 +35,7 @@ namespace Farm2Shelf.UI
             }
             else if (Instance != this)
             {
+                Debug.Log("[INTRO] Duplicate EKTReklamIntroManager instance destroyed.");
                 Destroy(gameObject);
             }
         }
@@ -41,6 +43,7 @@ namespace Farm2Shelf.UI
         private void CreateInstantBlackCurtain()
         {
             if (blackCurtainObj != null) return;
+            Debug.Log("[INTRO] Creating instant black curtain.");
             blackCurtainObj = new GameObject("[EKT_Intro_BlackCurtain]");
             DontDestroyOnLoad(blackCurtainObj);
             Canvas c = blackCurtainObj.AddComponent<Canvas>();
@@ -59,6 +62,7 @@ namespace Farm2Shelf.UI
 
         private void Start()
         {
+            Debug.Log($"[INTRO] Start | introPlayed: {introPlayed}, HasIntroFinished: {HasIntroFinished}");
             if (!introPlayed && !HasIntroFinished)
             {
                 StartCoroutine(PlayEktIntroSequenceRoutine());
@@ -67,6 +71,7 @@ namespace Farm2Shelf.UI
 
         public void PlayIntroManually()
         {
+            Debug.Log("[INTRO] PlayIntroManually requested.");
             HasIntroFinished = false;
             CreateInstantBlackCurtain();
             StartCoroutine(PlayEktIntroSequenceRoutine());
@@ -74,12 +79,14 @@ namespace Farm2Shelf.UI
 
         private IEnumerator PlayEktIntroSequenceRoutine()
         {
+            Debug.Log("[INTRO] Routine started");
             introPlayed = true;
             Time.timeScale = 0f; // Intro boyunca zamanı duraklat
 
             // Ana Menüyü intro esnasında gizli tut
             if (MainMenuUI.Instance != null)
             {
+                Debug.Log("[INTRO] MainMenuUI Instance found, hiding menu during intro.");
                 MainMenuUI.Instance.HideMenu();
             }
 
@@ -98,6 +105,7 @@ namespace Farm2Shelf.UI
             // Geçici siyah perdeyi kaldır, çünkü artık intro UI'ı siyah paneliyle ekranda!
             if (blackCurtainObj != null)
             {
+                Debug.Log("[INTRO] Destroying temporary black curtain before canvas creation.");
                 Destroy(blackCurtainObj);
             }
 
@@ -116,6 +124,7 @@ namespace Farm2Shelf.UI
             cg.alpha = 1f;
 
             Font font = GetSafeFont();
+            Debug.Log($"[INTRO] Font resolved: {(font != null ? font.name : "NULL")}");
 
             // Barkod Konteyner Alanı
             GameObject barcodeContainer = new GameObject("BarcodeContainer");
@@ -249,9 +258,13 @@ namespace Farm2Shelf.UI
 
             try
             {
+                Debug.Log("[INTRO] Entered animation loop");
                 // Animasyon Döngüsü (Toplam 4.5 saniye)
                 float elapsed = 0f;
                 bool hasBeeped = false;
+                bool logged12 = false;
+                bool logged20 = false;
+                bool logged38 = false;
 
                 while (elapsed < 4.5f)
                 {
@@ -282,6 +295,7 @@ namespace Farm2Shelf.UI
 #endif
                     if (skipPressed && elapsed > 1.2f)
                     {
+                        Debug.Log($"[INTRO] Skip pressed at elapsed={elapsed:F2}s");
                         break;
                     }
 
@@ -297,6 +311,11 @@ namespace Farm2Shelf.UI
                         if (elapsed >= 1.2f && !hasBeeped)
                         {
                             hasBeeped = true;
+                            if (!logged12)
+                            {
+                                logged12 = true;
+                                Debug.Log("[INTRO] 1.2s reached");
+                            }
                             if (AudioManager.Instance != null)
                             {
                                 AudioManager.Instance.PlayTabletTap();
@@ -305,6 +324,11 @@ namespace Farm2Shelf.UI
                     }
                     else
                     {
+                        if (!logged20)
+                        {
+                            logged20 = true;
+                            Debug.Log("[INTRO] 2.0s reached");
+                        }
                         barcodeContainer.SetActive(false);
                     }
 
@@ -336,23 +360,33 @@ namespace Farm2Shelf.UI
                     // Aşama 3: Yumuşak Karartma (3.8s+)
                     if (elapsed >= 3.8f)
                     {
+                        if (!logged38)
+                        {
+                            logged38 = true;
+                            Debug.Log("[INTRO] 3.8s reached");
+                        }
                         float fadeOutAlpha = Mathf.Clamp01((4.5f - elapsed) / 0.7f);
                         cg.alpha = fadeOutAlpha;
                     }
 
                     yield return null;
                 }
+
+                Debug.Log("[INTRO] Routine finished");
             }
             finally
             {
                 // Temizlik, İntro Bitiş Bayrağı ve Ana Menüye Geçiş
+                Debug.Log("[INTRO] HasIntroFinished=true");
                 HasIntroFinished = true;
 
                 try
                 {
+                    Debug.Log($"[INTRO] Calling MainMenuUI.ShowMenu | MainMenuUI.Instance null?: {MainMenuUI.Instance == null}");
                     if (MainMenuUI.Instance != null)
                     {
                         MainMenuUI.Instance.ShowMenu();
+                        Debug.Log("[INTRO] MainMenuUI.ShowMenu returned");
                     }
                 }
                 catch (Exception ex)
@@ -364,6 +398,7 @@ namespace Farm2Shelf.UI
                 {
                     if (blackCurtainObj != null)
                     {
+                        Debug.Log("[INTRO] Destroying black curtain");
                         Destroy(blackCurtainObj);
                     }
                 }
@@ -376,6 +411,7 @@ namespace Farm2Shelf.UI
                 {
                     if (canvasObj != null)
                     {
+                        Debug.Log("[INTRO] Destroying intro canvas");
                         Destroy(canvasObj);
                     }
                 }
