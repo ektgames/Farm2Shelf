@@ -7,6 +7,7 @@ on:
         description: 'iOS Build Number'
         required: false
         default: ''
+        type: string
 
 jobs:
   build-and-deploy-ios:
