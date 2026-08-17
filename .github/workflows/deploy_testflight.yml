@@ -215,6 +215,8 @@ jobs:
 
       # 9. Inspect & Validate Exported IPA
       - name: Inspect & Validate IPA
+        env:
+          EXPECTED_BUILD_NUMBER: ${{ github.event.inputs.build_number || github.run_number }}
         run: |
           set -e
           IPA_PATH=$(find build -name "*.ipa" | head -n 1)
@@ -228,25 +230,61 @@ jobs:
           
           # Unzip and inspect Payload Info.plist
           INSPECT_DIR=$RUNNER_TEMP/ipa_inspect
+          rm -rf "$INSPECT_DIR"
           mkdir -p "$INSPECT_DIR"
           unzip -q "$IPA_PATH" -d "$INSPECT_DIR"
           
-          INFO_PLIST=$(find "$INSPECT_DIR/Payload" -name "Info.plist" | head -n 1)
+          APP_BUNDLE=$(find "$INSPECT_DIR/Payload" -maxdepth 1 -type d -name "*.app" | head -n 1)
+          if [ -z "$APP_BUNDLE" ]; then
+            echo "❌ ERROR: No .app bundle found directly under Payload/!"
+            echo "Payload directory contents:"
+            ls -la "$INSPECT_DIR/Payload" || true
+            exit 1
+          fi
+
+          INFO_PLIST="$APP_BUNDLE/Info.plist"
+          if [ ! -f "$INFO_PLIST" ]; then
+            echo "❌ ERROR: Info.plist not found at expected path: $INFO_PLIST"
+            echo "App bundle contents:"
+            ls -la "$APP_BUNDLE" || true
+            exit 1
+          fi
+
+          echo "Inspecting App bundle Info.plist at: $INFO_PLIST"
           
-          IPA_BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$INFO_PLIST")
-          IPA_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$INFO_PLIST")
-          IPA_BUILD=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$INFO_PLIST")
+          IPA_BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$INFO_PLIST" 2>/dev/null || echo "")
+          IPA_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$INFO_PLIST" 2>/dev/null || echo "")
+          IPA_BUILD=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$INFO_PLIST" 2>/dev/null || echo "")
           
           echo "=== IPA Inspection Details ==="
+          echo " - App Bundle:        $(basename "$APP_BUNDLE")"
           echo " - Bundle Identifier: $IPA_BUNDLE_ID"
           echo " - Short Version:     $IPA_VERSION"
           echo " - Build Number:      $IPA_BUILD"
           echo "=============================="
 
+          if [ -z "$IPA_BUNDLE_ID" ]; then
+            echo "❌ ERROR: Failed to read CFBundleIdentifier from $INFO_PLIST"
+            exit 1
+          fi
+
           if [ "$IPA_BUNDLE_ID" != "com.ektgames.farm2shelf" ]; then
             echo "❌ ERROR: IPA Bundle Identifier ($IPA_BUNDLE_ID) does not match expected com.ektgames.farm2shelf"
             exit 1
           fi
+
+          EXPECTED_VERSION="0.1.0"
+          if [ "$IPA_VERSION" != "$EXPECTED_VERSION" ]; then
+            echo "❌ ERROR: IPA Short Version ($IPA_VERSION) does not match expected $EXPECTED_VERSION"
+            exit 1
+          fi
+
+          if [ "$IPA_BUILD" != "$EXPECTED_BUILD_NUMBER" ]; then
+            echo "❌ ERROR: IPA Build Number ($IPA_BUILD) does not match expected $EXPECTED_BUILD_NUMBER"
+            exit 1
+          fi
+
+          echo "✅ All IPA validations passed successfully!"
 
       # 10. Upload IPA to App Store Connect / TestFlight
       - name: Upload IPA to App Store Connect
