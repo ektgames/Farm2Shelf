@@ -1,31 +1,34 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Farm2Shelf.UI
 {
     /// <summary>
-    /// iOS / TestFlight Intro ve UI Akışı Teşhis Ekranı (Diagnostic Overlay).
-    /// IMGUI (OnGUI) kullanarak ekranda en üst katmanda bağımsız bir panelle
-    /// intro aşamalarını, aktif canvas'ları, istisnaları (exception) ve zaman durumunu gösterir.
+    /// UGUI tabanlı en üst katman (sortingOrder = 32000) iOS / TestFlight teşhis paneli.
+    /// OnGUI yerine yerel UGUI Canvas kullanarak iPhone ekranında en üst sırada
+    /// intro akışını, timeScale durumunu, exception hatalarını ve event geçmişini basar.
+    /// Touch ve Raycast girdilerini kesinlikle engellemez (GraphicRaycaster yoktur, blocksRaycasts = false).
     /// </summary>
     public class iOSIntroDiagnosticOverlay : MonoBehaviour
     {
         public static iOSIntroDiagnosticOverlay Instance { get; private set; }
 
-        private string currentStage = "Initializing";
+        private string currentStage = "[DIAGNOSTIC] Runtime overlay created";
         private string lastError = "None";
         private List<string> eventHistory = new List<string>();
-        private const int MaxHistory = 8;
+        private const int MaxHistory = 7;
 
-        private Texture2D backgroundTexture;
+        private Text diagnosticText;
+        private Canvas overlayCanvas;
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void AutoInitialize()
         {
             if (Instance == null)
             {
-                GameObject go = new GameObject("[iOS_Diagnostic_Overlay]");
+                GameObject go = new GameObject("[iOS_UGUI_Diagnostic_Overlay]");
                 DontDestroyOnLoad(go);
                 Instance = go.AddComponent<iOSIntroDiagnosticOverlay>();
             }
@@ -44,23 +47,14 @@ namespace Farm2Shelf.UI
                 return;
             }
 
-            // Arka plan dokusunu bir kez oluştur
-            backgroundTexture = new Texture2D(1, 1);
-            backgroundTexture.SetPixel(0, 0, new Color(0.02f, 0.04f, 0.08f, 0.88f));
-            backgroundTexture.Apply();
-
             Application.logMessageReceived += HandleLog;
-            AddEvent("[DIAGNOSTIC] Overlay Initialized");
+            CreateUGUIPanel();
+            Debug.LogError("[DIAGNOSTIC] UGUI OVERLAY CREATED");
         }
 
         private void OnDestroy()
         {
             Application.logMessageReceived -= HandleLog;
-
-            if (backgroundTexture != null)
-            {
-                Destroy(backgroundTexture);
-            }
         }
 
         private void HandleLog(string logString, string stackTrace, LogType type)
@@ -77,7 +71,7 @@ namespace Farm2Shelf.UI
             }
         }
 
-        public void AddEvent(string evt)
+        private void AddEvent(string evt)
         {
             if (eventHistory.Count >= MaxHistory)
             {
@@ -86,88 +80,139 @@ namespace Farm2Shelf.UI
             eventHistory.Add($"{DateTime.Now:HH:mm:ss} - {evt}");
         }
 
-        private void OnGUI()
+        private void CreateUGUIPanel()
         {
-            // Retina ve yüksek çözünürlük ölçeklemesi
-            float scale = Mathf.Max(1f, Screen.height / 600f);
-            Matrix4x4 origMatrix = GUI.matrix;
-            GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(scale, scale, 1f));
+            // En Üst Katman UGUI Canvas (sortingOrder = 32000)
+            overlayCanvas = gameObject.AddComponent<Canvas>();
+            overlayCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            overlayCanvas.sortingOrder = 32000;
 
-            // Sol üst köşe stili
-            GUIStyle boxStyle = new GUIStyle(GUI.skin.box);
-            if (backgroundTexture != null)
-            {
-                boxStyle.normal.background = backgroundTexture;
-            }
+            CanvasScaler scaler = gameObject.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920, 1080);
+            scaler.matchWidthOrHeight = 0.5f;
 
-            GUIStyle titleStyle = new GUIStyle(GUI.skin.label);
-            titleStyle.fontStyle = FontStyle.Bold;
-            titleStyle.fontSize = 11;
-            titleStyle.normal.textColor = new Color(1f, 0.85f, 0.2f, 1f);
+            // Dokunmaları kesinlikle engellemesin!
+            CanvasGroup cg = gameObject.AddComponent<CanvasGroup>();
+            cg.alpha = 1f;
+            cg.blocksRaycasts = false;
+            cg.interactable = false;
 
-            GUIStyle textStyle = new GUIStyle(GUI.skin.label);
-            textStyle.fontSize = 9;
-            textStyle.normal.textColor = Color.white;
+            // Siyah Yarı Şeffaf Arka Plan Paneli (Sol Üst)
+            GameObject panelObj = new GameObject("DiagnosticPanel");
+            panelObj.transform.SetParent(transform, false);
 
-            GUIStyle errStyle = new GUIStyle(GUI.skin.label);
-            errStyle.fontSize = 9;
-            errStyle.normal.textColor = new Color(1f, 0.35f, 0.35f, 1f);
+            RectTransform rtPanel = panelObj.AddComponent<RectTransform>();
+            rtPanel.anchorMin = new Vector2(0f, 1f);
+            rtPanel.anchorMax = new Vector2(0f, 1f);
+            rtPanel.pivot = new Vector2(0f, 1f);
+            rtPanel.anchoredPosition = new Vector2(10f, -10f);
+            rtPanel.sizeDelta = new Vector2(550f, 380f);
 
-            Rect panelRect = new Rect(8, 8, 380, 260);
-            GUI.Box(panelRect, GUIContent.none, boxStyle);
+            Image panelBg = panelObj.AddComponent<Image>();
+            panelBg.color = new Color(0.02f, 0.04f, 0.08f, 0.88f);
+            panelBg.raycastTarget = false;
 
-            GUILayout.BeginArea(new Rect(12, 12, 372, 252));
+            // Metin Alanı
+            GameObject textObj = new GameObject("DiagnosticText");
+            textObj.transform.SetParent(panelObj.transform, false);
 
-            GUILayout.Label("=== FARM2SHELF iOS DIAGNOSTIC ===", titleStyle);
-            GUILayout.Space(2);
+            RectTransform rtText = textObj.AddComponent<RectTransform>();
+            rtText.anchorMin = Vector2.zero;
+            rtText.anchorMax = Vector2.one;
+            rtText.sizeDelta = new Vector2(-16f, -16f);
+            rtText.anchoredPosition = Vector2.zero;
 
-            // Real-time Durum Değerleri
+            diagnosticText = textObj.AddComponent<Text>();
+            diagnosticText.font = GetSafeFont();
+            diagnosticText.fontSize = 13;
+            diagnosticText.color = Color.white;
+            diagnosticText.alignment = TextAnchor.UpperLeft;
+            diagnosticText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            diagnosticText.verticalOverflow = VerticalWrapMode.Truncate;
+            diagnosticText.raycastTarget = false;
+
+            UpdateDisplayText();
+        }
+
+        private void Update()
+        {
+            UpdateDisplayText();
+        }
+
+        private void UpdateDisplayText()
+        {
+            if (diagnosticText == null) return;
+
             bool hasIntroFin = EKTReklamIntroManager.HasIntroFinished;
             bool introInstOK = EKTReklamIntroManager.Instance != null;
             bool mainInstOK = MainMenuUI.Instance != null;
-            
+
             GameObject introCanvasObj = GameObject.Find("EKT_Reklam_Intro_Canvas");
             GameObject blackCurtainObj = GameObject.Find("[EKT_Intro_BlackCurtain]");
 
-            GUILayout.Label($"Stage: {currentStage}", textStyle);
-            GUILayout.Label($"HasIntroFinished: {hasIntroFin} | Frame: {Time.frameCount}", textStyle);
-            GUILayout.Label($"Intro Instance: {(introInstOK ? "OK" : "NULL")} | MainMenu Instance: {(mainInstOK ? "OK" : "NULL")}", textStyle);
-            GUILayout.Label($"Intro Canvas: {(introCanvasObj != null ? "ALIVE" : "NULL")} | Black Curtain: {(blackCurtainObj != null ? "ALIVE" : "NULL")}", textStyle);
-            GUILayout.Label($"Time.timeScale: {Time.timeScale:F1} | Unscaled Time: {Time.unscaledTime:F1}s", textStyle);
-
-            // Aktif Canvas Tespiti
-            Canvas[] activeCanvases = FindObjectsOfType<Canvas>();
-            string canvasNames = "";
-            int count = 0;
+            Canvas[] activeCanvases = UnityEngine.Object.FindObjectsOfType<Canvas>();
+            string canvasListStr = "";
+            int activeCanvasCount = 0;
             if (activeCanvases != null)
             {
                 foreach (var c in activeCanvases)
                 {
                     if (c != null && c.gameObject.activeInHierarchy)
                     {
-                        if (count < 4) canvasNames += $"{c.gameObject.name}(order:{c.sortingOrder}), ";
-                        count++;
+                        if (activeCanvasCount < 4)
+                        {
+                            canvasListStr += $"{c.gameObject.name}(so:{c.sortingOrder}), ";
+                        }
+                        activeCanvasCount++;
                     }
                 }
             }
-            GUILayout.Label($"Active Canvases ({count}): {(string.IsNullOrEmpty(canvasNames) ? "None" : canvasNames.TrimEnd(',', ' '))}", textStyle);
 
-            // Son Hata/Exception
-            if (lastError != "None")
-            {
-                GUILayout.Label($"Last Error: {lastError}", errStyle);
-            }
-
-            GUILayout.Space(2);
-            GUILayout.Label("--- Event History (Last 8) ---", titleStyle);
+            string historyStr = "";
             for (int i = eventHistory.Count - 1; i >= 0; i--)
             {
-                GUILayout.Label(eventHistory[i], textStyle);
+                historyStr += $"\n • {eventHistory[i]}";
             }
 
-            GUILayout.EndArea();
+            diagnosticText.text =
+                $"<b><color=#FFD700>=== FARM2SHELF DIAGNOSTIC ACTIVE ===</color></b>\n" +
+                $"Stage: <color=#00FFFF>{currentStage}</color>\n" +
+                $"Frame: {Time.frameCount} | Time.timeScale: {Time.timeScale:F1} | Unscaled: {Time.unscaledTime:F1}s\n" +
+                $"HasIntroFinished: <b>{(hasIntroFin ? "<color=#00FF00>TRUE</color>" : "<color=#FF4500>FALSE</color>")}</b>\n" +
+                $"Intro Inst: {(introInstOK ? "OK" : "NULL")} | MainMenu Inst: {(mainInstOK ? "OK" : "NULL")}\n" +
+                $"Intro Canvas: {(introCanvasObj != null ? "<color=#FF4500>ALIVE</color>" : "NULL")} | Black Curtain: {(blackCurtainObj != null ? "<color=#FF4500>ALIVE</color>" : "NULL")}\n" +
+                $"Canvases ({activeCanvasCount}): {(string.IsNullOrEmpty(canvasListStr) ? "None" : canvasListStr.TrimEnd(',', ' '))}\n" +
+                $"<color=#FF6347>Last Error: {lastError}</color>\n" +
+                $"<b>History (Last {eventHistory.Count}):</b>{historyStr}";
+        }
 
-            GUI.matrix = origMatrix;
+        private Font GetSafeFont()
+        {
+            Font font = null;
+            try { font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); } catch { }
+            if (font != null) return font;
+
+            try { font = Resources.GetBuiltinResource<Font>("Arial.ttf"); } catch { }
+            if (font != null) return font;
+
+            try { font = Font.CreateDynamicFontFromOSFont("Arial", 14); } catch { }
+            if (font != null) return font;
+
+            try
+            {
+                Text[] sceneTexts = UnityEngine.Object.FindObjectsOfType<Text>(true);
+                if (sceneTexts != null && sceneTexts.Length > 0)
+                {
+                    foreach (var st in sceneTexts)
+                    {
+                        if (st != null && st.font != null) return st.font;
+                    }
+                }
+            }
+            catch { }
+
+            return font;
         }
     }
 }
