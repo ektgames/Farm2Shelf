@@ -111,20 +111,20 @@ jobs:
 
           # Parse Contents.json for 1024x1024 / ios-marketing icon filename
           ICON_FILENAME=$(python3 -c "
-import json, sys
-try:
-    with open('$CONTENTS_JSON') as f:
-        data = json.load(f)
-    for img in data.get('images', []):
-        if img.get('idiom') == 'ios-marketing' or img.get('size') == '1024x1024':
-            fn = img.get('filename')
-            if fn:
-                print(fn)
-                sys.exit(0)
-except Exception:
-    pass
-sys.exit(1)
-" || echo "")
+          import json, sys
+          try:
+              with open('$CONTENTS_JSON') as f:
+                  data = json.load(f)
+              for img in data.get('images', []):
+                  if img.get('idiom') == 'ios-marketing' or img.get('size') == '1024x1024':
+                      fn = img.get('filename')
+                      if fn:
+                          print(fn)
+                          sys.exit(0)
+          except Exception:
+              pass
+          sys.exit(1)
+          " || echo "")
 
           if [ -z "$ICON_FILENAME" ]; then
             echo "❌ ERROR: 1024x1024 / ios-marketing App Store icon filename entry is missing or empty in $CONTENTS_JSON!"
@@ -147,18 +147,18 @@ sys.exit(1)
           fi
 
           DIMENSIONS=$(python3 -c "
-import struct, sys
-try:
-    with open('$ICON_FILE_PATH', 'rb') as f:
-        header = f.read(24)
-        if header[:8] == b'\x89PNG\r\n\x1a\n':
-            w, h = struct.unpack('>II', header[16:24])
-            print(f'{w}x{h}')
-            sys.exit(0)
-except Exception:
-    pass
-sys.exit(1)
-" || echo "")
+          import struct, sys
+          try:
+              with open('$ICON_FILE_PATH', 'rb') as f:
+                  header = f.read(24)
+                  if header[:8] == b'\x89PNG\r\n\x1a\n':
+                      w, h = struct.unpack('>II', header[16:24])
+                      print(f'{w}x{h}')
+                      sys.exit(0)
+          except Exception:
+              pass
+          sys.exit(1)
+          " || echo "")
 
           echo "Referenced marketing icon dimensions: $DIMENSIONS"
 
