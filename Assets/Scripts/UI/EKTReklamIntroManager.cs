@@ -413,6 +413,5 @@ namespace Farm2Shelf.UI
 
             return font;
         }
-        }
     }
 }
