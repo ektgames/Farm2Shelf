@@ -11,7 +11,7 @@ on:
 jobs:
   build-and-deploy-ios:
     name: Build iOS Xcode Project & Deploy to TestFlight
-    runs-on: macos-14
+    runs-on: macos-26
     timeout-minutes: 120
 
     steps:
@@ -22,13 +22,27 @@ jobs:
           lfs: true
 
       # 2. Xcode Environment Setup & Verification
+      - name: Select Xcode Version
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26.6'
+
       - name: Verify Xcode & iOS SDK Environment
         run: |
           echo "=== Xcode Environment Information ==="
-          xcode-select -p
+          DEVELOPER_DIR=$(xcode-select -p)
+          echo "Developer Directory: $DEVELOPER_DIR"
           xcodebuild -version
-          xcrun --sdk iphoneos --show-sdk-version
+          SDK_VER=$(xcrun --sdk iphoneos --show-sdk-version)
+          echo "iOS SDK Version:     $SDK_VER"
           echo "====================================="
+
+          SDK_MAJOR=$(echo "$SDK_VER" | cut -d. -f1)
+          if [ "$SDK_MAJOR" -lt 26 ]; then
+            echo "❌ ERROR: iOS SDK version ($SDK_VER) is less than required iOS 26 SDK!"
+            echo "App Store Connect requires iOS 26 SDK or later, included in Xcode 26 or later."
+            exit 1
+          fi
 
       # 3. Unity Library Cache
       - name: Cache Unity Library
