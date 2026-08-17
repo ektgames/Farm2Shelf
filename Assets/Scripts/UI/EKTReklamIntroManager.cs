@@ -316,7 +316,7 @@ namespace Farm2Shelf.UI
                         bool isFlickerOn = true;
                         if (elapsed > 1.3f && elapsed < 2.1f)
                         {
-                            isFlickerOn = (Random.value > 0.35f);
+                            isFlickerOn = (UnityEngine.Random.value > 0.35f);
                         }
 
                         float pulse = Mathf.PingPong(Time.unscaledTime * 2.0f, 1f);
@@ -400,7 +400,7 @@ namespace Farm2Shelf.UI
 
             try
             {
-                Text[] sceneTexts = Object.FindObjectsOfType<Text>(true);
+                Text[] sceneTexts = UnityEngine.Object.FindObjectsOfType<Text>(true);
                 if (sceneTexts != null && sceneTexts.Length > 0)
                 {
                     foreach (var st in sceneTexts)
