@@ -24,6 +24,14 @@ namespace Farm2Shelf.Editor
             PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.iOS, "com.ektgames.farm2shelf");
             PlayerSettings.bundleVersion = "0.1.0";
 
+            // iOS Orientation Ayarları (Sadece Yatay / Landscape-only)
+            PlayerSettings.defaultScreenOrientation = UIOrientation.AutoRotation;
+            PlayerSettings.allowedAutorotateToPortrait = false;
+            PlayerSettings.allowedAutorotateToPortraitUpsideDown = false;
+            PlayerSettings.allowedAutorotateToLandscapeLeft = true;
+            PlayerSettings.allowedAutorotateToLandscapeRight = true;
+            Debug.Log("[iOSBuildScript] iOS orientation forced to Landscape-only.");
+
             // Komut satırından dinamik -buildNumber parametresi oku (Varsayılan: "1")
             string buildNumberStr = GetCommandLineArg("-buildNumber");
             if (string.IsNullOrEmpty(buildNumberStr))
