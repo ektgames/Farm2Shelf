@@ -32,6 +32,19 @@ namespace Farm2Shelf.Editor
             }
             PlayerSettings.iOS.buildNumber = buildNumberStr;
 
+            // App Icon Yapılandırması (1024x1024 App Store & iOS App Icons)
+            string iconPath = "Assets/Resources/UI/AppIcon/AppIcon_Farm2Shelf.jpg";
+            Texture2D iconTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(iconPath);
+            if (iconTexture != null)
+            {
+                PlayerSettings.SetIconsForTargetGroup(BuildTargetGroup.iOS, new Texture2D[] { iconTexture });
+                Debug.Log($"[iOSBuildScript] ✅ iOS App Icon ({iconPath}) başarıyla PlayerSettings'e bağlandı.");
+            }
+            else
+            {
+                Debug.LogWarning($"[iOSBuildScript] ⚠️ UYARI: App Icon görseli şu konumda yüklenemedi: {iconPath}");
+            }
+
             Debug.Log($"[iOSBuildScript] Yapılandırılan Bundle ID: {PlayerSettings.GetApplicationIdentifier(BuildTargetGroup.iOS)}");
             Debug.Log($"[iOSBuildScript] Yapılandırılan Sürüm: {PlayerSettings.bundleVersion}, Build No: {PlayerSettings.iOS.buildNumber}");
 

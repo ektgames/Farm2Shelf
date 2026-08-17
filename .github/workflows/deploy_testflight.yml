@@ -90,6 +90,84 @@ jobs:
           XCODE_PROJ_DIR=$(dirname $(dirname "$PBXPROJ_FILE"))
           echo "✅ Verified exported Xcode project structure at $XCODE_PROJ_DIR"
 
+          # Verify AppIcon Asset Catalog (AppIcon.appiconset & Contents.json)
+          APPICON_SET=$(find build -name "AppIcon.appiconset" -type d | head -n 1)
+          if [ -z "$APPICON_SET" ] || [ ! -d "$APPICON_SET" ]; then
+            echo "❌ ERROR: AppIcon.appiconset directory not found in exported Xcode project!"
+            exit 1
+          fi
+
+          CONTENTS_JSON="$APPICON_SET/Contents.json"
+          if [ ! -f "$CONTENTS_JSON" ]; then
+            echo "❌ ERROR: Contents.json not found inside $APPICON_SET"
+            exit 1
+          fi
+
+          echo "=== AppIcon.appiconset Inspection ==="
+          echo "Location: $APPICON_SET"
+          cat "$CONTENTS_JSON"
+          echo "====================================="
+
+          # Parse Contents.json for 1024x1024 / ios-marketing icon filename
+          ICON_FILENAME=$(python3 -c "
+import json, sys
+try:
+    with open('$CONTENTS_JSON') as f:
+        data = json.load(f)
+    for img in data.get('images', []):
+        if img.get('idiom') == 'ios-marketing' or img.get('size') == '1024x1024':
+            fn = img.get('filename')
+            if fn:
+                print(fn)
+                sys.exit(0)
+except Exception:
+    pass
+sys.exit(1)
+" || echo "")
+
+          if [ -z "$ICON_FILENAME" ]; then
+            echo "❌ ERROR: 1024x1024 / ios-marketing App Store icon filename entry is missing or empty in $CONTENTS_JSON!"
+            exit 1
+          fi
+
+          ICON_FILE_PATH="$APPICON_SET/$ICON_FILENAME"
+          if [ ! -f "$ICON_FILE_PATH" ]; then
+            echo "❌ ERROR: Referenced 1024x1024 marketing icon file ($ICON_FILENAME) does not exist at $ICON_FILE_PATH!"
+            exit 1
+          fi
+
+          # Verify the referenced icon is a valid 1024x1024 PNG image
+          FILE_TYPE=$(file -b "$ICON_FILE_PATH" || echo "")
+          echo "Referenced marketing icon file type: $FILE_TYPE"
+
+          if ! echo "$FILE_TYPE" | grep -qi "PNG"; then
+            echo "❌ ERROR: Referenced marketing icon file ($ICON_FILE_PATH) is not a PNG image (type: $FILE_TYPE)!"
+            exit 1
+          fi
+
+          DIMENSIONS=$(python3 -c "
+import struct, sys
+try:
+    with open('$ICON_FILE_PATH', 'rb') as f:
+        header = f.read(24)
+        if header[:8] == b'\x89PNG\r\n\x1a\n':
+            w, h = struct.unpack('>II', header[16:24])
+            print(f'{w}x{h}')
+            sys.exit(0)
+except Exception:
+    pass
+sys.exit(1)
+" || echo "")
+
+          echo "Referenced marketing icon dimensions: $DIMENSIONS"
+
+          if [ "$DIMENSIONS" != "1024x1024" ]; then
+            echo "❌ ERROR: Referenced marketing icon dimensions ($DIMENSIONS) do not match required 1024x1024!"
+            exit 1
+          fi
+
+          echo "✅ Verified 1024x1024 App Store Marketing icon PNG ($ICON_FILENAME) dimensions ($DIMENSIONS)!"
+
       # 7. Apple Certificate & Provisioning Profile Installation
       - name: Install Apple Certificate & Provisioning Profile
         env:
