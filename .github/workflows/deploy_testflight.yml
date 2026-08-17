@@ -204,7 +204,7 @@ jobs:
                      archive \
                      DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
                      CODE_SIGN_STYLE="Manual" \
-                     PROVISIONING_PROFILE_SPECIFIER="Farm2Shelf GitHub Actions" \
+                     PROVISIONING_PROFILE_SPECIFIER_APP="Farm2Shelf GitHub Actions" \
                      CODE_SIGN_IDENTITY="Apple Distribution"
 
           echo "Exporting IPA package..."
