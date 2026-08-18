@@ -18,16 +18,12 @@ namespace Farm2Shelf.UI
         {
             get
             {
-                if (modalState)
+                bool anyActive = IsAnyModalCanvasActive();
+                if (modalState && !anyActive)
                 {
-                    // Otomatik Kurtarma Kontrolü (Auto-Recovery Sanity Check):
-                    // Ekranda aktif/görünür hiçbir modal canvas yoksa kilitlenmeyi engellemek için modalState = false yap!
-                    if (!IsAnyModalCanvasActive())
-                    {
-                        modalState = false;
-                    }
+                    modalState = false;
                 }
-                return modalState;
+                return modalState && anyActive;
             }
         }
 
@@ -37,7 +33,7 @@ namespace Farm2Shelf.UI
             Debug.Log($"[Farm2Shelf] Modal Durumu: {(modalState ? "AÇIK (Arka Plan Kilitli)" : "KAPALI (Arka Plan Serbest)")}");
         }
 
-        private static bool IsAnyModalCanvasActive()
+        public static bool IsAnyModalCanvasActive()
         {
             GameObject globalPopup = GameObject.Find("Global_Modal_Popup_Canvas");
             if (globalPopup != null && globalPopup.activeSelf) return true;
@@ -160,8 +156,9 @@ namespace Farm2Shelf.UI
             Button btn = btnObj.AddComponent<Button>();
             btn.targetGraphic = bBg;
             btn.onClick.AddListener(() => {
+                if (canvasObj != null) canvasObj.SetActive(false);
                 SetModalOpen(false);
-                Object.Destroy(canvasObj);
+                if (canvasObj != null) Object.Destroy(canvasObj);
             });
 
             GameObject btnTxtObj = new GameObject("Label");

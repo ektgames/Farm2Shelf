@@ -123,7 +123,11 @@ namespace Farm2Shelf.Core
         public void OnPointerDown(PointerEventData eventData)
         {
             if (eventData != null && eventData.button != PointerEventData.InputButton.Left) return;
-            if (ModalManager.IsModalOpen) return;
+            if (ModalManager.IsModalOpen)
+            {
+                if (!ModalManager.IsAnyModalCanvasActive()) ModalManager.SetModalOpen(false);
+                else return;
+            }
             if (EKTPhoneManager.IsTabletOpen) return;
             if (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing) return;
 
@@ -215,8 +219,6 @@ namespace Farm2Shelf.Core
 
             if (TouchInputHelper.IsCleanTapThisFrame(out Vector2 pointerPos))
             {
-                if (Time.time - lastGlobalClickTime < 0.15f) return;
-
                 if (ModalManager.IsModalOpen) return;
                 if (EKTPhoneManager.IsTabletOpen) return;
                 if (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing) return;
@@ -226,7 +228,7 @@ namespace Farm2Shelf.Core
 
                 Ray ray = mainCam.ScreenPointToRay(pointerPos);
 
-                RaycastHit[] hits = Physics.RaycastAll(ray, 100f);
+                RaycastHit[] hits = Physics.RaycastAll(ray, 150f);
                 if (hits != null && hits.Length > 0)
                 {
                     System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
@@ -238,8 +240,11 @@ namespace Farm2Shelf.Core
 
                         if (ctrl == this)
                         {
-                            lastGlobalClickTime = Time.time;
-                            OnClickDetected();
+                            if (Time.time - lastGlobalClickTime >= 0.15f)
+                            {
+                                lastGlobalClickTime = Time.time;
+                                OnClickDetected();
+                            }
                             break;
                         }
                     }
@@ -511,7 +516,11 @@ namespace Farm2Shelf.Core
 
         public void OnClickDetected()
         {
-            if (ModalManager.IsModalOpen) return;
+            if (ModalManager.IsModalOpen)
+            {
+                if (!ModalManager.IsAnyModalCanvasActive()) ModalManager.SetModalOpen(false);
+                else return;
+            }
             if (EKTPhoneManager.IsTabletOpen) return;
             if (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing) return;
 
@@ -593,7 +602,8 @@ namespace Farm2Shelf.Core
                     }
                 }
 
-                // Mevcut kurulu objeyi kaldır
+                // Mevcut kurulu objeyi listeden kaldır ve imha et
+                AllPlacedFurniture.Remove(this);
                 Destroy(gameObject);
 
                 // Tekrar yerleştirme modunu başlat
@@ -661,7 +671,7 @@ namespace Farm2Shelf.Core
             EnsureChildClickForwarders();
         }
 
-        public Vector3 GetFrontInteractionPosition(float offset = 1.2f)
+        public Vector3 GetFrontInteractionPosition(float offset = 0.75f)
         {
             return transform.position - transform.forward * offset;
         }

@@ -81,8 +81,9 @@ namespace Farm2Shelf.UI
         {
             if (currentTrackText != null)
             {
+                int totalTracks = AudioManager.Instance != null ? AudioManager.Instance.TotalTracks : 12;
                 string trackLabel = LocalizationManager.L("Track_Label", "Parça", "Track");
-                currentTrackText.text = $"🎵 <b>{trackLabel} {trackNum}/10:</b> {trackTitle}";
+                currentTrackText.text = $"🎵 <b>{trackLabel} {trackNum}/{totalTracks}:</b> {trackTitle}";
             }
         }
 
@@ -193,9 +194,10 @@ namespace Farm2Shelf.UI
             currentTrackText = trackObj.AddComponent<Text>();
             currentTrackText.font = font;
             int trNum = AudioManager.Instance != null ? AudioManager.Instance.CurrentTrackIndex : 1;
-            string trTitle = AudioManager.Instance != null ? AudioManager.Instance.GetCurrentTrackTitle() : "Çiftlikte Sabah Güneşi 🌾";
+            string trTitle = AudioManager.Instance != null ? AudioManager.Instance.GetCurrentTrackTitle() : "İlham Veren Akustik Folk 🌾";
             string trackTextLabel = LocalizationManager.L("Track_Label", "Parça", "Track");
-            currentTrackText.text = $"🎵 <b>{trackTextLabel} {trNum}/10:</b> {trTitle}";
+            int totalTracksCount = AudioManager.Instance != null ? AudioManager.Instance.TotalTracks : 12;
+            currentTrackText.text = $"🎵 <b>{trackTextLabel} {trNum}/{totalTracksCount}:</b> {trTitle}";
             currentTrackText.fontSize = 16;
             currentTrackText.alignment = TextAnchor.MiddleLeft;
             currentTrackText.color = new Color(0.35f, 0.85f, 0.95f);

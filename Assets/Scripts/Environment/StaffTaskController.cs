@@ -42,6 +42,10 @@ namespace Farm2Shelf.Environment
             public float walkCycleTimer;
             public float taskTimer;
             public bool isLeavingShift;
+            public Vector3 finalDestination;
+            public float stuckTimer;
+            public Vector3 lastStuckCheckPos;
+            public float lastStuckCheckTime;
 
             // Reyoncu Özel Eşik Stoğu Verileri (Kamyon ve Depo Taşıma)
             public PlacedFurnitureController targetShelf;
@@ -91,6 +95,35 @@ namespace Farm2Shelf.Environment
                 return;
             }
             Instance = this;
+        }
+
+        public bool HasLeavingStaff()
+        {
+            if (staffTaskList == null || staffTaskList.Count == 0) return false;
+            for (int i = 0; i < staffTaskList.Count; i++)
+            {
+                var data = staffTaskList[i];
+                if (data != null && data.staffObj != null && data.isLeavingShift && data.currentState != StaffAIState.Despawned)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public static bool IsCashierWorkingAt(PlacedFurnitureController cashier)
+        {
+            if (Instance == null || Instance.staffTaskList == null) return false;
+            for (int i = 0; i < Instance.staffTaskList.Count; i++)
+            {
+                var task = Instance.staffTaskList[i];
+                if (task != null && task.staffObj != null && task.staffMember != null && task.staffMember.role == StaffRole.Kasiyer)
+                {
+                    if (task.currentState == StaffAIState.WorkingOnTask) return true;
+                    if (cashier != null && Vector3.Distance(task.staffObj.transform.position, cashier.transform.position) < 4.5f) return true;
+                }
+            }
+            return false;
         }
 
         public static bool IsStaffShiftActive(StaffMember staff, int currentHour, out bool isEarlyArrivalWindow)
@@ -259,10 +292,9 @@ namespace Farm2Shelf.Environment
             staffTaskList.Add(data);
 
             StaffClickableTarget target = obj.GetComponent<StaffClickableTarget>();
-            if (target != null)
-            {
-                target.taskData = data;
-            }
+            if (target == null) target = obj.AddComponent<StaffClickableTarget>();
+            target.staffMember = member;
+            target.taskData = data;
         }
 
         // ==================== PERSONEL DİNLENME ODASI MAVİ KOLTUK OTURMA SİSTEMİ ====================
@@ -569,12 +601,7 @@ namespace Farm2Shelf.Environment
                             else if (level >= 3) entranceZ = 16.0f;
                         }
 
-                        data.waypoints = new List<Vector3>
-                        {
-                            data.staffObj.transform.position,
-                            new Vector3(7.0f, 0.05f, entranceZ),
-                            lockerStandPos
-                        };
+                        data.waypoints = BuildStructuredStaffWaypoints(data.staffObj.transform.position, lockerStandPos);
                         data.currentWaypointIndex = 1;
                         data.currentState = StaffAIState.WalkingToBreakRoom;
                     }
@@ -694,6 +721,93 @@ namespace Farm2Shelf.Environment
             }
         }
 
+        public static List<Vector3> BuildStructuredStaffWaypoints(Vector3 startPos, Vector3 endPos)
+        {
+            List<Vector3> route = new List<Vector3>();
+            route.Add(startPos);
+
+            // Alt Bölgeler
+            bool startInStaffRoom = (startPos.x > 2.8f && startPos.z >= 4.5f);
+            bool endInStaffRoom   = (endPos.x > 2.8f && endPos.z >= 4.5f);
+
+            bool startInStorage   = (startPos.x > 2.8f && startPos.z < 4.5f && startPos.z > -2.8f);
+            bool endInStorage     = (endPos.x > 2.8f && endPos.z < 4.5f && endPos.z > -2.8f);
+
+            bool startInStore     = (startPos.x <= 2.8f && startPos.z > -2.8f);
+            bool endInStore       = (endPos.x <= 2.8f && endPos.z > -2.8f);
+
+            bool startOutside     = (startPos.z <= -2.8f);
+            bool endOutside       = (endPos.z <= -2.8f);
+
+            // 1. PERSONEL ODASI <-> DEPO GEÇİŞİ (Personel Odası Kapısından Geçiş Zorunlu)
+            if (startInStaffRoom && endInStorage)
+            {
+                route.Add(new Vector3(7.0f, 0.05f, 6.0f)); // Personel Odası Kapısı
+                route.Add(new Vector3(7.2f, 0.05f, 1.2f)); // Depo Sağ Açık Koridoru (Rafların etrafından dolanır)
+            }
+            else if (startInStorage && endInStaffRoom)
+            {
+                route.Add(new Vector3(7.2f, 0.05f, 1.2f)); // Depo Sağ Açık Koridoru (Rafların etrafından dolanır)
+                route.Add(new Vector3(7.0f, 0.05f, 6.0f)); // Personel Odası Kapısı
+            }
+            // 2. PERSONEL ODASI <-> DÜKKAN / DIŞARI GEÇİŞİ
+            else if (startInStaffRoom && (endInStore || endOutside))
+            {
+                route.Add(new Vector3(7.0f, 0.05f, 6.0f));   // Personel Odası Kapısı
+                route.Add(new Vector3(7.2f, 0.05f, 1.2f));   // Depo Sağ Açık Koridoru (Rafların etrafından dolanır)
+                route.Add(new Vector3(3.0f, 0.05f, 1.2f));   // Depo Kapısı Önü (Storage_DoubleDoor)
+                route.Add(new Vector3(-5.0f, 0.05f, 0.5f));  // Dükkan Ana Fuayesi (İçeride Z = 0.5f)
+                if (endOutside)
+                {
+                    route.Add(new Vector3(-5.0f, 0.05f, -4.5f));
+                }
+            }
+            else if ((startInStore || startOutside) && endInStaffRoom)
+            {
+                if (startOutside)
+                {
+                    route.Add(new Vector3(-5.0f, 0.05f, -4.5f));
+                }
+                route.Add(new Vector3(-5.0f, 0.05f, 0.5f));  // Dükkan Ana Fuayesi (İçeride Z = 0.5f)
+                route.Add(new Vector3(3.0f, 0.05f, 1.2f));   // Depo Kapısı Önü (Storage_DoubleDoor)
+                route.Add(new Vector3(7.2f, 0.05f, 1.2f));   // Depo Sağ Açık Koridoru (Rafların etrafından dolanır)
+                route.Add(new Vector3(7.0f, 0.05f, 6.0f));   // Personel Odası Kapısı
+            }
+            // 3. DEPO <-> DÜKKAN / DIŞARI GEÇİŞİ
+            else if (startInStorage && (endInStore || endOutside))
+            {
+                route.Add(new Vector3(3.0f, 0.05f, 1.2f));   // Depo Kapısı (Storage_DoubleDoor)
+                route.Add(new Vector3(-5.0f, 0.05f, 0.5f));  // Dükkan Ana Fuayesi (İçeride Z = 0.5f)
+                if (endOutside)
+                {
+                    route.Add(new Vector3(-5.0f, 0.05f, -4.5f));
+                }
+            }
+            else if ((startInStore || startOutside) && endInStorage)
+            {
+                if (startOutside)
+                {
+                    route.Add(new Vector3(-5.0f, 0.05f, -4.5f));
+                }
+                route.Add(new Vector3(-5.0f, 0.05f, 0.5f));  // Dükkan Ana Fuayesi (İçeride Z = 0.5f)
+                route.Add(new Vector3(3.0f, 0.05f, 1.2f));   // Depo Kapısı (Storage_DoubleDoor)
+            }
+            // 4. DÜKKAN <-> DIŞARI GEÇİŞİ
+            else if (startInStore && endOutside)
+            {
+                route.Add(new Vector3(-5.0f, 0.05f, -1.0f));
+                route.Add(new Vector3(-5.0f, 0.05f, -4.5f));
+            }
+            else if (startOutside && endInStore)
+            {
+                route.Add(new Vector3(-5.0f, 0.05f, -4.5f));
+                route.Add(new Vector3(-5.0f, 0.05f, -1.0f));
+            }
+
+            route.Add(endPos);
+            return route;
+        }
+
         private void AssignStaffToTaskPosition(StaffTaskData data)
         {
             FreeSofaSeat(data);
@@ -712,15 +826,7 @@ namespace Farm2Shelf.Environment
             }
             else
             {
-                // Personel Odası (7, 9) -> Oda Kapısı (7, 6) -> Depo Kapısı (3, 2) -> Ana Fuaye (-5, -1) -> Görev Noktası
-                data.waypoints = new List<Vector3>
-                {
-                    data.staffObj.transform.position,
-                    new Vector3(7.0f, 0.05f, 6.0f),   // 1. Personel Odası Kapısından Çıkış (StaffRoom_DoubleDoor)
-                    new Vector3(3.0f, 0.05f, 2.0f),   // 2. Depo Kapısından Çıkış (Storage_DoubleDoor)
-                    new Vector3(-5.0f, 0.05f, -1.0f), // 3. Ana Fuaye
-                    taskPos                           // 4. Görev Noktası
-                };
+                data.waypoints = BuildStructuredStaffWaypoints(data.staffObj.transform.position, taskPos);
             }
             data.currentWaypointIndex = 1;
             data.currentState = StaffAIState.ProceedingToTask;
@@ -1161,6 +1267,48 @@ namespace Farm2Shelf.Environment
             Destroy(popupObj, 1.5f);
         }
 
+        private bool IsShelfRowClaimedByOtherRestocker(StaffTaskData currentData, PlacedFurnitureController storeShelf, int rowId)
+        {
+            if (storeShelf == null || rowId < 0 || staffTaskList == null) return false;
+            for (int i = 0; i < staffTaskList.Count; i++)
+            {
+                var other = staffTaskList[i];
+                if (other == null || other == currentData || other.staffMember == null || other.staffMember.role != StaffRole.Reyoncu) continue;
+
+                if ((other.targetShelf1 == storeShelf && other.targetRowId1 == rowId) ||
+                    (other.targetShelf2 == storeShelf && other.targetRowId2 == rowId))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private bool IsStorageRowClaimedByOtherRestocker(StaffTaskData currentData, PlacedFurnitureController storageShelf, int storageRowId)
+        {
+            if (storageShelf == null || storageRowId < 0 || staffTaskList == null) return false;
+            int timesClaimed = 0;
+            for (int i = 0; i < staffTaskList.Count; i++)
+            {
+                var other = staffTaskList[i];
+                if (other == null || other == currentData || other.staffMember == null || other.staffMember.role != StaffRole.Reyoncu) continue;
+
+                if (other.sourceStorageShelf == storageShelf && other.sourceStorageRowId == storageRowId) timesClaimed++;
+                if (other.sourceStorageShelf2 == storageShelf && other.sourceStorageRowId2 == storageRowId) timesClaimed++;
+            }
+
+            if (storageRowId < storageShelf.rows.Length)
+            {
+                var sRow = storageShelf.rows[storageRowId];
+                if (sRow != null)
+                {
+                    int remainingStock = sRow.currentStock - (timesClaimed * 20);
+                    return remainingStock <= 0;
+                }
+            }
+            return false;
+        }
+
         private void ExecuteRestockerTask(StaffTaskData data, float deltaTime)
         {
             // 1. Yol İzleme Aşaması
@@ -1591,6 +1739,9 @@ namespace Farm2Shelf.Environment
                     ShelfRowData rData = s.rows[r];
                     if (rData == null || rData.IsUnassigned || string.IsNullOrEmpty(rData.productName)) continue;
 
+                    // EĞER BU RAF VE SIRA BAŞKA BİR REYONCU TARAFINDAN HEDEFLENDİYDSE ATLA! (GÖREV DAĞILIMI)
+                    if (IsShelfRowClaimedByOtherRestocker(data, s, r)) continue;
+
                     if (rData.currentStock == 0 || rData.currentStock <= Mathf.RoundToInt(rData.maxCapacity * 0.60f))
                     {
                         foreach (var storage in shelves)
@@ -1601,6 +1752,8 @@ namespace Farm2Shelf.Environment
                                 var sRow = storage.rows[sr];
                                 if (sRow != null && sRow.productName == rData.productName && sRow.currentStock > 0)
                                 {
+                                    if (IsStorageRowClaimedByOtherRestocker(data, storage, sr)) continue;
+
                                     data.targetShelf1 = s;
                                     data.targetRowId1 = r;
                                     data.sourceStorageShelf = storage;
@@ -1628,6 +1781,8 @@ namespace Farm2Shelf.Environment
                         ShelfRowData rData = s.rows[r];
                         if (rData == null || rData.IsUnassigned || string.IsNullOrEmpty(rData.productName)) continue;
 
+                        if ((s != data.targetShelf1 || r != data.targetRowId1) && IsShelfRowClaimedByOtherRestocker(data, s, r)) continue;
+
                         int estimatedStockAfterBox1 = rData.currentStock;
                         if (s == data.targetShelf1 && r == data.targetRowId1)
                         {
@@ -1646,7 +1801,7 @@ namespace Farm2Shelf.Environment
                                     int availableStorage = (sRow != null && sRow.productName == rData.productName) ? sRow.currentStock : 0;
                                     if (storage == data.sourceStorageShelf && sr == data.sourceStorageRowId) availableStorage -= 20;
 
-                                    if (availableStorage > 0)
+                                    if (availableStorage > 0 && !IsStorageRowClaimedByOtherRestocker(data, storage, sr))
                                     {
                                         data.targetShelf2 = s;
                                         data.targetRowId2 = r;
@@ -1684,14 +1839,7 @@ namespace Farm2Shelf.Environment
 
             if (Vector3.Distance(data.staffObj.transform.position, restSpot) > 1.8f && (data.waypoints == null || data.currentWaypointIndex >= data.waypoints.Count))
             {
-                data.waypoints = new List<Vector3>
-                {
-                    data.staffObj.transform.position,
-                    new Vector3(-5.0f, 0.05f, -1.0f), // Ana Fuaye
-                    new Vector3(3.0f, 0.05f, 2.0f),   // Depo Kapısı (Storage_DoubleDoor)
-                    new Vector3(7.0f, 0.05f, 6.0f),   // Oda Kapısı (StaffRoom_DoubleDoor)
-                    restSpot                          // Dinlenme Odası Mavi Koltuk Noktası
-                };
+                data.waypoints = BuildStructuredStaffWaypoints(data.staffObj.transform.position, restSpot);
                 data.currentWaypointIndex = 1;
                 return;
             }
@@ -1733,11 +1881,7 @@ namespace Farm2Shelf.Environment
                 {
                     FreeSofaSeat(data);
                     data.targetTrashObj = nearestTrash;
-                    data.waypoints = new List<Vector3>
-                    {
-                        data.staffObj.transform.position,
-                        nearestTrash.transform.position
-                    };
+                    data.waypoints = BuildStructuredStaffWaypoints(data.staffObj.transform.position, nearestTrash.transform.position);
                     data.currentWaypointIndex = 1;
                     return;
                 }
@@ -1748,14 +1892,7 @@ namespace Farm2Shelf.Environment
 
             if (Vector3.Distance(data.staffObj.transform.position, restSpot) > 1.8f && (data.waypoints == null || data.currentWaypointIndex >= data.waypoints.Count))
             {
-                data.waypoints = new List<Vector3>
-                {
-                    data.staffObj.transform.position,
-                    new Vector3(-5.0f, 0.05f, -1.0f), // Ana Fuaye
-                    new Vector3(3.0f, 0.05f, 2.0f),   // Depo Kapısı (Storage_DoubleDoor)
-                    new Vector3(7.0f, 0.05f, 6.0f),   // Oda Kapısı (StaffRoom_DoubleDoor)
-                    restSpot                          // Dinlenme Odası Mavi Koltuk Noktası
-                };
+                data.waypoints = BuildStructuredStaffWaypoints(data.staffObj.transform.position, restSpot);
                 data.currentWaypointIndex = 1;
                 return;
             }
@@ -1831,55 +1968,69 @@ namespace Farm2Shelf.Environment
 
         #region Helper Movement & Animations
 
+        private static bool IsSolidObstacle(Collider col, GameObject selfObj)
+        {
+            if (col == null || col.isTrigger) return false;
+            if (selfObj != null && (col.gameObject == selfObj || col.transform.IsChildOf(selfObj.transform))) return false;
+
+            // SADECE VE SADECE DUVARLAR (WALLS / BUILDINGS / DIVIDERS) KATI ENGELDİR!
+            // Dükkan ve bina duvarları haricindeki mobilyalar, raflar, buzdolapları, stantlar, kasalar, tezgahlar, koliler, paletler, müşteriler ve personeller engellere takılmaz.
+            string n = col.name.ToLower();
+            if (n.Contains("wall") || n.Contains("duvar") || n.Contains("building") ||
+                n.Contains("fence") || n.Contains("facade") || n.Contains("partition") ||
+                n.Contains("divider") || n.Contains("boundary") || n.Contains("border") ||
+                n.Contains("outerwall") || n.Contains("storewall") || n.Contains("storagewall") ||
+                n.Contains("roomwall"))
+            {
+                return true;
+            }
+
+            // DÜKKAN İÇİNDEKİ HER ŞEYİN (Raf, Dolap, Tezgah, Kasa, Koli, Palet, Müşteri, Personel vb.) İÇİNDEN GEÇİLİR!
+            return false;
+        }
+
         private Vector3 CalculateAvoidanceDirection(GameObject staffObj, Vector3 currentPos, Vector3 desiredDir, float stepDist)
         {
             if (desiredDir == Vector3.zero || staffObj == null) return desiredDir;
 
-            float checkRadius = 0.42f;
-            float checkDistance = Mathf.Max(0.85f, stepDist + 0.40f);
+            float checkRadius = 0.25f; // Gövde yarıçapı
+            float checkDistance = Mathf.Max(0.60f, stepDist + 0.25f);
             Vector3 rayStart = currentPos + Vector3.up * 0.5f;
 
             RaycastHit[] hits = Physics.SphereCastAll(rayStart, checkRadius, desiredDir, checkDistance);
             bool hitObstacle = false;
-            float minHitDistance = checkDistance;
 
             if (hits != null && hits.Length > 0)
             {
                 foreach (var hit in hits)
                 {
-                    if (hit.collider == null || hit.collider.isTrigger) continue;
-                    if (hit.collider.gameObject == staffObj || hit.collider.transform.IsChildOf(staffObj.transform)) continue;
-
-                    PlacedFurnitureController furniture = hit.collider.GetComponentInParent<PlacedFurnitureController>();
-                    if (furniture != null && PlacedFurnitureController.IsWalkableFloorDecoration(furniture.FurnitureType)) continue;
-
-                    hitObstacle = true;
-                    if (hit.distance < minHitDistance) minHitDistance = hit.distance;
-                    break;
+                    if (IsSolidObstacle(hit.collider, staffObj))
+                    {
+                        hitObstacle = true;
+                        break;
+                    }
                 }
             }
 
             if (!hitObstacle) return desiredDir;
 
-            float[] checkAngles = new float[] { 35f, -35f, 70f, -70f, 105f, -105f, 135f, -135f };
+            // DUVARA YAKINSA DUVAR YÜZEYİ BOYUNCA AÇISAL ARAMA
+            float[] checkAngles = new float[] { 20f, -20f, 40f, -40f, 60f, -60f, 80f, -80f, 100f, -100f, 120f, -120f, 140f, -140f };
             foreach (float angle in checkAngles)
             {
                 Vector3 testDir = Quaternion.Euler(0f, angle, 0f) * desiredDir;
-                RaycastHit[] testHits = Physics.SphereCastAll(rayStart, checkRadius, testDir, checkDistance * 0.85f);
+                RaycastHit[] testHits = Physics.SphereCastAll(rayStart, checkRadius, testDir, checkDistance * 0.80f);
                 bool testHitObstacle = false;
 
                 if (testHits != null && testHits.Length > 0)
                 {
                     foreach (var th in testHits)
                     {
-                        if (th.collider == null || th.collider.isTrigger) continue;
-                        if (th.collider.gameObject == staffObj || th.collider.transform.IsChildOf(staffObj.transform)) continue;
-
-                        PlacedFurnitureController f = th.collider.GetComponentInParent<PlacedFurnitureController>();
-                        if (f != null && PlacedFurnitureController.IsWalkableFloorDecoration(f.FurnitureType)) continue;
-
-                        testHitObstacle = true;
-                        break;
+                        if (IsSolidObstacle(th.collider, staffObj))
+                        {
+                            testHitObstacle = true;
+                            break;
+                        }
                     }
                 }
 
@@ -1889,18 +2040,12 @@ namespace Farm2Shelf.Environment
                 }
             }
 
-            // Duvara tam olarak dayandıysa duvarı delmeyi %100 engeller!
-            if (minHitDistance < checkRadius + 0.05f)
-            {
-                return Vector3.zero;
-            }
-
-            return desiredDir * 0.05f;
+            return desiredDir;
         }
 
         private void FollowWaypoints(StaffTaskData data, float deltaTime, System.Action onComplete)
         {
-            if (data.waypoints == null || data.currentWaypointIndex >= data.waypoints.Count)
+            if (data.waypoints == null || data.currentWaypointIndex >= data.waypoints.Count || data.staffObj == null)
             {
                 onComplete?.Invoke();
                 return;
@@ -1910,9 +2055,22 @@ namespace Farm2Shelf.Environment
             Vector3 targetWaypoint = data.waypoints[data.currentWaypointIndex];
             Vector3 toTarget = targetWaypoint - currentPos;
 
-            if (toTarget.magnitude < 0.5f)
+            // Hedef Noktayı Kaydet
+            if (data.waypoints != null && data.waypoints.Count > 0)
+            {
+                data.finalDestination = data.waypoints[data.waypoints.Count - 1];
+            }
+
+            bool isFinalWaypoint = (data.currentWaypointIndex == data.waypoints.Count - 1);
+            float arrivalThreshold = isFinalWaypoint ? 0.95f : 0.85f;
+
+            // 1. VARMA KONTROLÜ
+            if (toTarget.magnitude < arrivalThreshold)
             {
                 data.currentWaypointIndex++;
+                data.stuckTimer = 0f;
+                data.lastStuckCheckPos = currentPos;
+
                 if (data.currentWaypointIndex >= data.waypoints.Count)
                 {
                     data.waypoints = null;
@@ -1923,7 +2081,38 @@ namespace Farm2Shelf.Environment
                 toTarget = targetWaypoint - currentPos;
             }
 
+            // 2. YALNIZCA GERÇEKTEN DURAĞAN HALE GELDİĞİNDE (0.75 SANİYE TAKILDIĞINDA) ROTA YENİLE
+            if (Time.time - data.lastStuckCheckTime > 0.75f)
+            {
+                float movedDist = Vector3.Distance(currentPos, data.lastStuckCheckPos);
+                data.lastStuckCheckPos = currentPos;
+                data.lastStuckCheckTime = Time.time;
+
+                if (movedDist < 0.12f)
+                {
+                    data.stuckTimer += 0.75f;
+                    if (data.stuckTimer >= 0.75f && data.finalDestination != Vector3.zero)
+                    {
+                        List<Vector3> freshRoute = BuildStructuredStaffWaypoints(currentPos, data.finalDestination);
+                        if (freshRoute != null && freshRoute.Count > 1)
+                        {
+                            data.waypoints = freshRoute;
+                            data.currentWaypointIndex = 1;
+                            targetWaypoint = data.waypoints[data.currentWaypointIndex];
+                            toTarget = targetWaypoint - currentPos;
+                        }
+                        data.stuckTimer = 0f;
+                    }
+                }
+                else
+                {
+                    data.stuckTimer = 0f;
+                }
+            }
+
             Vector3 moveDir = toTarget.normalized;
+
+            // 3. İLERLEME VE KAÇINMA YÖNÜ HESAPLAMA (14 Açılı Dairesel Kaçınma & Duvar Kayması)
             float stepDist = WALK_SPEED * deltaTime;
             Vector3 avoidanceDir = CalculateAvoidanceDirection(data.staffObj, currentPos, moveDir, stepDist);
 

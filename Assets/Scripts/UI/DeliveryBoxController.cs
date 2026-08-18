@@ -184,13 +184,13 @@ namespace Farm2Shelf.UI
 
         public void OnPointerDown(PointerEventData eventData)
         {
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || IsPointerOverUIButton()) return;
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen) return;
             TriggerPlacement();
         }
 
         public void OnPointerClick(PointerEventData eventData)
         {
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || IsPointerOverUIButton()) return;
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen) return;
             TriggerPlacement();
         }
 

@@ -128,7 +128,7 @@ namespace Farm2Shelf.UI
             mainRect.anchorMin = new Vector2(0f, 0f);
             mainRect.anchorMax = new Vector2(0f, 0f);
             mainRect.pivot = new Vector2(0f, 0f);
-            mainRect.anchoredPosition = new Vector2(180f, 25f);
+            mainRect.anchoredPosition = new Vector2(30f, 30f); // Sol alt köşe
             mainRect.sizeDelta = new Vector2(360f, 440f);
 
             // Kart Arka Planı
@@ -147,38 +147,6 @@ namespace Farm2Shelf.UI
             topRect.sizeDelta = new Vector2(0f, 6f);
             Image topImg = topDeco.AddComponent<Image>();
             topImg.color = new Color(0.65f, 0.35f, 0.95f);
-
-            // Üst Sağ Kapat Butonu (X)
-            GameObject closeBtnObj = new GameObject("CloseButton");
-            closeBtnObj.transform.SetParent(cardPanel.transform, false);
-            RectTransform closeRect = closeBtnObj.AddComponent<RectTransform>();
-            closeRect.anchorMin = new Vector2(1f, 1f);
-            closeRect.anchorMax = new Vector2(1f, 1f);
-            closeRect.pivot = new Vector2(1f, 1f);
-            closeRect.anchoredPosition = new Vector2(-10f, -10f);
-            closeRect.sizeDelta = new Vector2(38f, 38f);
-
-            Image closeImg = closeBtnObj.AddComponent<Image>();
-            closeImg.color = new Color(0.85f, 0.20f, 0.20f);
-            closeImg.raycastTarget = true;
-
-            Button closeBtn = closeBtnObj.AddComponent<Button>();
-            closeBtn.targetGraphic = closeImg;
-            closeBtn.onClick.AddListener(HideModal);
-
-            GameObject closeTxtObj = new GameObject("Text");
-            closeTxtObj.transform.SetParent(closeBtnObj.transform, false);
-            RectTransform cTxtRect = closeTxtObj.AddComponent<RectTransform>();
-            cTxtRect.anchorMin = Vector2.zero;
-            cTxtRect.anchorMax = Vector2.one;
-            Text cTxt = closeTxtObj.AddComponent<Text>();
-            cTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (cTxt.font == null) cTxt.font = Font.CreateDynamicFontFromOSFont("Arial", 22);
-            cTxt.text = "✕";
-            cTxt.fontSize = 22;
-            cTxt.alignment = TextAnchor.MiddleCenter;
-            cTxt.color = Color.white;
-            cTxt.raycastTarget = false;
 
             // Panel Başlığı (MÜŞTERİ PROFİLİ)
             GameObject titleObj = new GameObject("PanelTitle");
@@ -201,6 +169,41 @@ namespace Farm2Shelf.UI
             titleTxt.fontStyle = FontStyle.Bold;
             titleTxt.alignment = TextAnchor.MiddleLeft;
             titleTxt.color = new Color(0.75f, 0.45f, 0.95f);
+            titleTxt.raycastTarget = false;
+
+            // Üst Sağ Kapat Butonu (X)
+            GameObject closeBtnObj = new GameObject("CloseButton");
+            closeBtnObj.transform.SetParent(cardPanel.transform, false);
+            RectTransform closeRect = closeBtnObj.AddComponent<RectTransform>();
+            closeRect.anchorMin = new Vector2(1f, 1f);
+            closeRect.anchorMax = new Vector2(1f, 1f);
+            closeRect.pivot = new Vector2(1f, 1f);
+            closeRect.anchoredPosition = new Vector2(-10f, -10f);
+            closeRect.sizeDelta = new Vector2(40f, 40f);
+
+            Image closeImg = closeBtnObj.AddComponent<Image>();
+            closeImg.color = new Color(0.90f, 0.20f, 0.20f);
+            closeImg.raycastTarget = true;
+
+            Button closeBtn = closeBtnObj.AddComponent<Button>();
+            closeBtn.targetGraphic = closeImg;
+            closeBtn.onClick.AddListener(HideModal);
+
+            GameObject closeTxtObj = new GameObject("Text");
+            closeTxtObj.transform.SetParent(closeBtnObj.transform, false);
+            RectTransform cTxtRect = closeTxtObj.AddComponent<RectTransform>();
+            cTxtRect.anchorMin = Vector2.zero;
+            cTxtRect.anchorMax = Vector2.one;
+            Text cTxt = closeTxtObj.AddComponent<Text>();
+            cTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (cTxt.font == null) cTxt.font = Font.CreateDynamicFontFromOSFont("Arial", 22);
+            cTxt.text = "✕";
+            cTxt.fontSize = 24;
+            cTxt.alignment = TextAnchor.MiddleCenter;
+            cTxt.color = Color.white;
+            cTxt.raycastTarget = false;
+
+            closeBtnObj.transform.SetAsLastSibling();
 
             // 1. PROFİL FOTOĞRAFI KUTUSU (Avatar Box)
             GameObject avatarBox = new GameObject("AvatarBox");

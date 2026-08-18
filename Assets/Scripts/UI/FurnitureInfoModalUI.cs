@@ -57,176 +57,182 @@ namespace Farm2Shelf.UI
 
         public void ShowModal(PlacedFurnitureController furniture)
         {
-            if (furniture == null) return;
+            if (furniture == null || furniture.gameObject == null) return;
             this.currentFurniture = furniture;
 
-            ModalManager.SetModalOpen(true);
-
-            // Varsa eski pencereyi temizle
-            if (modalCanvasObj != null) Destroy(modalCanvasObj);
-
-            // UI Canvas Oluşturma
-            modalCanvasObj = new GameObject("Furniture_Info_Modal_Canvas");
-            Canvas canvas = modalCanvasObj.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 180;
-
-            CanvasScaler scaler = modalCanvasObj.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920, 1080);
-            scaler.matchWidthOrHeight = 0.5f;
-
-            modalCanvasObj.AddComponent<GraphicRaycaster>();
-
-            // Arka Plan Karartma (Overlay Backdrop)
-            GameObject backdrop = new GameObject("Backdrop");
-            backdrop.transform.SetParent(modalCanvasObj.transform, false);
-            RectTransform bdRect = backdrop.AddComponent<RectTransform>();
-            bdRect.anchorMin = Vector2.zero;
-            bdRect.anchorMax = Vector2.one;
-            bdRect.sizeDelta = Vector2.zero;
-
-            Image bdImg = backdrop.AddComponent<Image>();
-            bdImg.color = new Color(0.05f, 0.08f, 0.12f, 0.75f);
-
-            Button bdBtn = backdrop.AddComponent<Button>();
-            bdBtn.onClick.AddListener(CloseModal);
-
-            FurnitureItemDef def = FurnitureDatabase.GetDef(furniture.FurnitureType);
-
-            // Müşteri Hizmetleri Masası ise Özel Görev & Tanım Modalını Göster!
-            if (furniture.FurnitureType == FurnitureType.CustomerServiceDesk)
+            try
             {
-                ShowCustomerServiceDeskModal(backdrop, furniture, def);
-                return;
-            }
+                ModalManager.SetModalOpen(true);
 
-            // Kasa veya Alışveriş Sepeti Stantı ise Genel Mobilya Bilgi Modalını Göster!
-            if (furniture.FurnitureType == FurnitureType.Cashier || furniture.FurnitureType == FurnitureType.ShoppingCart)
-            {
-                ShowGenericFurnitureModal(backdrop, furniture, def);
-                return;
-            }
+                // Varsa eski pencereyi temizle
+                if (modalCanvasObj != null) Destroy(modalCanvasObj);
 
-            // Eğer bir Dekorasyon ögesi ise Pasif Gelir Modalını Göster!
-            if (def != null && def.category == FurnitureCategory.Decoration)
-            {
-                ShowDecorationModal(backdrop, furniture, def);
-                return;
-            }
+                // UI Canvas Oluşturma
+                modalCanvasObj = new GameObject("Furniture_Info_Modal_Canvas");
+                Canvas canvas = modalCanvasObj.AddComponent<Canvas>();
+                canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                canvas.sortingOrder = 180;
 
-            // Normal Mobilya & Raf Modalı (740x690)
-            GameObject panel = new GameObject("Modal_Panel");
-            panel.transform.SetParent(backdrop.transform, false);
-            RectTransform pRect = panel.AddComponent<RectTransform>();
-            pRect.anchorMin = new Vector2(0.5f, 0.5f);
-            pRect.anchorMax = new Vector2(0.5f, 0.5f);
-            pRect.pivot = new Vector2(0.5f, 0.5f);
-            pRect.sizeDelta = new Vector2(740, 690);
+                CanvasScaler scaler = modalCanvasObj.AddComponent<CanvasScaler>();
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1920, 1080);
+                scaler.matchWidthOrHeight = 0.5f;
 
-            Image pImg = panel.AddComponent<Image>();
-            pImg.color = new Color(0.10f, 0.14f, 0.20f, 0.95f);
+                modalCanvasObj.AddComponent<GraphicRaycaster>();
 
-            // Üst Başlık Şeridi
-            GameObject header = new GameObject("Header");
-            header.transform.SetParent(panel.transform, false);
-            RectTransform hRect = header.AddComponent<RectTransform>();
-            hRect.anchorMin = new Vector2(0, 1);
-            hRect.anchorMax = new Vector2(1, 1);
-            hRect.pivot = new Vector2(0.5f, 1);
-            hRect.anchoredPosition = Vector2.zero;
-            hRect.sizeDelta = new Vector2(0, 65);
+                // Arka Plan Karartma (Overlay Backdrop)
+                GameObject backdrop = new GameObject("Backdrop");
+                backdrop.transform.SetParent(modalCanvasObj.transform, false);
+                RectTransform bdRect = backdrop.AddComponent<RectTransform>();
+                bdRect.anchorMin = Vector2.zero;
+                bdRect.anchorMax = Vector2.one;
+                bdRect.sizeDelta = Vector2.zero;
 
-            Image hImg = header.AddComponent<Image>();
-            hImg.color = (furniture.FurnitureType == FurnitureType.StorageShelf) 
-                ? new Color(0.85f, 0.40f, 0.10f, 1f) 
-                : new Color(0.12f, 0.65f, 0.85f, 1f);
+                Image bdImg = backdrop.AddComponent<Image>();
+                bdImg.color = new Color(0.05f, 0.08f, 0.12f, 0.75f);
 
-            string titleName = def != null ? def.name : furniture.FurnitureType.ToString();
-            string iconEmoji = def != null ? def.iconEmoji : "🗄️";
+                Button bdBtn = backdrop.AddComponent<Button>();
+                bdBtn.onClick.AddListener(CloseModal);
 
-            Text hText = CreateText(header, $"{iconEmoji} {titleName} - Stok & Raf Bilgisi", 24, FontStyle.Bold, Color.white);
-            hText.alignment = TextAnchor.MiddleCenter;
+                FurnitureItemDef def = FurnitureDatabase.GetDef(furniture.FurnitureType);
 
-            // Özet Bilgi Çubuğu
-            int totalStock = 0;
-            int totalCapacity = 0;
-            if (furniture.rows != null)
-            {
-                foreach (var r in furniture.rows)
+                // Müşteri Hizmetleri Masası ise Özel Görev & Tanım Modalını Göster!
+                if (furniture.FurnitureType == FurnitureType.CustomerServiceDesk)
                 {
-                    if (r == null) continue;
-                    totalStock += r.currentStock;
-                    totalCapacity += r.maxCapacity;
+                    ShowCustomerServiceDeskModal(backdrop, furniture, def);
+                    return;
                 }
-            }
 
-            GameObject subHeader = new GameObject("SubHeader");
-            subHeader.transform.SetParent(panel.transform, false);
-            RectTransform shRect = subHeader.AddComponent<RectTransform>();
-            shRect.anchorMin = new Vector2(0, 1);
-            shRect.anchorMax = new Vector2(1, 1);
-            shRect.pivot = new Vector2(0.5f, 1);
-            shRect.anchoredPosition = new Vector2(0, -70);
-            shRect.sizeDelta = new Vector2(-20, 35);
-
-            int numRows = furniture.rows != null ? furniture.rows.Length : 4;
-            string zoneStr = (furniture.FurnitureType == FurnitureType.StorageShelf) ? $"📦 Depo ({numRows} Sıra x 50)" : $"📍 Mağaza ({numRows} Sıra x 50)";
-            float fillRatio = totalCapacity > 0 ? ((float)totalStock / totalCapacity * 100f) : 0f;
-            Text shText = CreateText(subHeader, $"{zoneStr} | Toplam Stok: {totalStock} / {totalCapacity} Adet (%{fillRatio:F0} Dolu)", 16, FontStyle.Bold, new Color(0.85f, 0.90f, 0.95f));
-            shText.alignment = TextAnchor.MiddleCenter;
-
-            // Raf Kat Kartları Konteyneri (Maskeli Kaydırılabilir Liste)
-            GameObject scrollObj = new GameObject("Rows_ScrollArea");
-            scrollObj.transform.SetParent(panel.transform, false);
-            RectTransform sRect = scrollObj.AddComponent<RectTransform>();
-            sRect.anchorMin = new Vector2(0, 0);
-            sRect.anchorMax = new Vector2(1, 1);
-            sRect.offsetMin = new Vector2(20, 95);  // Alt Butonlar Barının Üstü
-            sRect.offsetMax = new Vector2(-20, -115); // Üst Özet Bilgi Barının Altı
-
-            Image sBgImg = scrollObj.AddComponent<Image>();
-            sBgImg.color = new Color(0.08f, 0.12f, 0.18f, 0.60f);
-
-            scrollObj.AddComponent<RectMask2D>();
-
-            ScrollRect scrollRect = scrollObj.AddComponent<ScrollRect>();
-            scrollRect.horizontal = false;
-            scrollRect.vertical = true;
-            scrollRect.movementType = ScrollRect.MovementType.Clamped;
-
-            GameObject contentObj = new GameObject("Rows_Content");
-            contentObj.transform.SetParent(scrollObj.transform, false);
-            RectTransform cRect = contentObj.AddComponent<RectTransform>();
-            cRect.anchorMin = new Vector2(0, 1);
-            cRect.anchorMax = new Vector2(1, 1);
-            cRect.pivot = new Vector2(0.5f, 1);
-            cRect.sizeDelta = new Vector2(0, 0);
-
-            VerticalLayoutGroup vlg = contentObj.AddComponent<VerticalLayoutGroup>();
-            vlg.spacing = 8;
-            vlg.padding = new RectOffset(6, 6, 6, 6);
-            vlg.childControlHeight = true;
-            vlg.childControlWidth = true;
-
-            ContentSizeFitter csf = contentObj.AddComponent<ContentSizeFitter>();
-            csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-            scrollRect.content = cRect;
-
-            if (furniture.rows != null)
-            {
-                for (int i = 0; i < furniture.rows.Length; i++)
+                // Kasa veya Alışveriş Sepeti Stantı ise Genel Mobilya Bilgi Modalını Göster!
+                if (furniture.FurnitureType == FurnitureType.Cashier || furniture.FurnitureType == FurnitureType.ShoppingCart)
                 {
-                    var rData = furniture.rows[i];
-                    if (rData == null) continue;
-
-                    BuildRowCard(contentObj, rData);
+                    ShowGenericFurnitureModal(backdrop, furniture, def);
+                    return;
                 }
-            }
 
-            // Alt Butonlar Barı (Taşı, Sat, Kapat)
-            BuildFooterButtonsBar(panel, furniture, def);
+                // Eğer bir Dekorasyon ögesi ise Pasif Gelir Modalını Göster!
+                if (def != null && def.category == FurnitureCategory.Decoration)
+                {
+                    ShowDecorationModal(backdrop, furniture, def);
+                    return;
+                }
+
+                // Normal Mobilya & Raf Modalı (740x690)
+                GameObject panel = new GameObject("Modal_Panel");
+                panel.transform.SetParent(backdrop.transform, false);
+                RectTransform pRect = panel.AddComponent<RectTransform>();
+                pRect.anchorMin = new Vector2(0.5f, 0.5f);
+                pRect.anchorMax = new Vector2(0.5f, 0.5f);
+                pRect.pivot = new Vector2(0.5f, 0.5f);
+                pRect.sizeDelta = new Vector2(740, 690);
+
+                Image pImg = panel.AddComponent<Image>();
+                pImg.color = new Color(0.10f, 0.14f, 0.20f, 0.95f);
+
+                // Üst Başlık Şeridi
+                GameObject header = new GameObject("Header");
+                header.transform.SetParent(panel.transform, false);
+                RectTransform hRect = header.AddComponent<RectTransform>();
+                hRect.anchorMin = new Vector2(0, 1);
+                hRect.anchorMax = new Vector2(1, 1);
+                hRect.pivot = new Vector2(0.5f, 1);
+                hRect.anchoredPosition = Vector2.zero;
+                hRect.sizeDelta = new Vector2(0, 65);
+
+                Image hImg = header.AddComponent<Image>();
+                hImg.color = (furniture.FurnitureType == FurnitureType.StorageShelf) ? new Color(0.85f, 0.40f, 0.10f, 1f) : new Color(0.12f, 0.65f, 0.85f, 1f);
+
+                string titleName = def != null ? def.name : furniture.FurnitureType.ToString();
+                string iconEmoji = def != null ? def.iconEmoji : "🗄️";
+
+                Text hText = CreateText(header, $"{iconEmoji} {titleName} - Stok & Raf Bilgisi", 24, FontStyle.Bold, Color.white);
+                hText.alignment = TextAnchor.MiddleCenter;
+
+                // Özet Bilgi Çubuğu
+                int totalStock = 0;
+                int totalCapacity = 0;
+                if (furniture.rows != null)
+                {
+                    foreach (var r in furniture.rows)
+                    {
+                        if (r == null) continue;
+                        totalStock += r.currentStock;
+                        totalCapacity += r.maxCapacity;
+                    }
+                }
+
+                GameObject subHeader = new GameObject("SubHeader");
+                subHeader.transform.SetParent(panel.transform, false);
+                RectTransform shRect = subHeader.AddComponent<RectTransform>();
+                shRect.anchorMin = new Vector2(0, 1);
+                shRect.anchorMax = new Vector2(1, 1);
+                shRect.pivot = new Vector2(0.5f, 1);
+                shRect.anchoredPosition = new Vector2(0, -70);
+                shRect.sizeDelta = new Vector2(-20, 35);
+
+                int numRows = furniture.rows != null ? furniture.rows.Length : 4;
+                string zoneStr = (furniture.FurnitureType == FurnitureType.StorageShelf) ? $"📦 Depo ({numRows} Sıra x 50)" : $"📍 Mağaza ({numRows} Sıra x 50)";
+                float fillRatio = totalCapacity > 0 ? ((float)totalStock / totalCapacity * 100f) : 0f;
+                Text shText = CreateText(subHeader, $"{zoneStr} | Toplam Stok: {totalStock} / {totalCapacity} Adet (%{fillRatio:F0} Dolu)", 16, FontStyle.Bold, new Color(0.85f, 0.90f, 0.95f));
+                shText.alignment = TextAnchor.MiddleCenter;
+
+                // Raf Kat Kartları Konteyneri (Maskeli Kaydırılabilir Liste)
+                GameObject scrollObj = new GameObject("Rows_ScrollArea");
+                scrollObj.transform.SetParent(panel.transform, false);
+                RectTransform sRect = scrollObj.AddComponent<RectTransform>();
+                sRect.anchorMin = new Vector2(0, 0);
+                sRect.anchorMax = new Vector2(1, 1);
+                sRect.offsetMin = new Vector2(20, 95);  // Alt Butonlar Barının Üstü
+                sRect.offsetMax = new Vector2(-20, -115); // Üst Özet Bilgi Barının Altı
+
+                Image sBgImg = scrollObj.AddComponent<Image>();
+                sBgImg.color = new Color(0.08f, 0.12f, 0.18f, 0.60f);
+
+                scrollObj.AddComponent<RectMask2D>();
+
+                ScrollRect scrollRect = scrollObj.AddComponent<ScrollRect>();
+                scrollRect.horizontal = false;
+                scrollRect.vertical = true;
+                scrollRect.movementType = ScrollRect.MovementType.Clamped;
+
+                GameObject contentObj = new GameObject("Rows_Content");
+                contentObj.transform.SetParent(scrollObj.transform, false);
+                RectTransform cRect = contentObj.AddComponent<RectTransform>();
+                cRect.anchorMin = new Vector2(0, 1);
+                cRect.anchorMax = new Vector2(1, 1);
+                cRect.pivot = new Vector2(0.5f, 1);
+                cRect.sizeDelta = new Vector2(0, 0);
+
+                VerticalLayoutGroup vlg = contentObj.AddComponent<VerticalLayoutGroup>();
+                vlg.spacing = 8;
+                vlg.padding = new RectOffset(6, 6, 6, 6);
+                vlg.childControlHeight = true;
+                vlg.childControlWidth = true;
+
+                ContentSizeFitter csf = contentObj.AddComponent<ContentSizeFitter>();
+                csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+                scrollRect.content = cRect;
+
+                if (furniture.rows != null)
+                {
+                    for (int i = 0; i < furniture.rows.Length; i++)
+                    {
+                        var rData = furniture.rows[i];
+                        if (rData == null) continue;
+
+                        BuildRowCard(contentObj, rData);
+                    }
+                }
+
+                // Alt Butonlar Barı (Taşı, Sat, Kapat)
+                BuildFooterButtonsBar(panel, furniture, def);
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[FurnitureInfoModalUI] Modal oluşturulurken hata: {ex}");
+                CloseModal();
+            }
         }
 
         private void ShowDecorationModal(GameObject backdrop, PlacedFurnitureController furniture, FurnitureItemDef def)
@@ -416,10 +422,25 @@ namespace Farm2Shelf.UI
             ibRect.offsetMax = new Vector2(-8, -8);
 
             bool isUnassigned = rData.IsUnassigned;
-            string displayName = isUnassigned ? (isStorageShelf ? "Boş Koli Yeri (Atanmamış)" : "Boş (Ürün Atanmamış)") : rData.productName;
-            string priceStr = (!isUnassigned && rData.unitPrice > 0) ? $" ({rData.unitPrice:F2}C)" : "";
+            bool isEnglish = LocalizationManager.Instance != null && LocalizationManager.Instance.CurrentLanguage == GameLanguage.English;
 
-            Text pText = CreateText(infoBox, $"{displayName}{priceStr}", 17, FontStyle.Bold, isUnassigned ? new Color(0.65f, 0.65f, 0.65f) : Color.white);
+            string displayName;
+            if (isStorageShelf)
+            {
+                displayName = (rData.currentStock <= 0 || rData.IsEmpty) ?
+                    (isEnglish ? "Empty Pallet Spot (Awaiting Delivery)" : "Boş Palet Yeri (Koli Bekleniyor)") :
+                    rData.productName;
+            }
+            else
+            {
+                displayName = isUnassigned ?
+                    (isEnglish ? "Empty (No Product Assigned)" : "Boş (Ürün Atanmamış)") :
+                    rData.productName;
+            }
+
+            string priceStr = (!isStorageShelf && !isUnassigned && rData.unitPrice > 0) ? $" ({rData.unitPrice:F2}C)" : "";
+
+            Text pText = CreateText(infoBox, $"{displayName}{priceStr}", 17, FontStyle.Bold, (isStorageShelf && rData.currentStock <= 0) || isUnassigned ? new Color(0.65f, 0.65f, 0.65f) : Color.white);
             RectTransform ptRect = pText.GetComponent<RectTransform>();
             ptRect.anchorMin = new Vector2(0, 0.5f);
             ptRect.anchorMax = new Vector2(1, 1);
@@ -427,13 +448,21 @@ namespace Farm2Shelf.UI
             ptRect.offsetMax = Vector2.zero;
             pText.alignment = TextAnchor.MiddleLeft;
 
-            // Stok Sayı Metni (Stok 0 ise Kırmızı Uyarılı Göster)
+            // Stok Sayı Metni
             Color stockColor;
-            if (isUnassigned) stockColor = new Color(0.55f, 0.55f, 0.55f);
-            else if (rData.currentStock == 0) stockColor = new Color(0.95f, 0.40f, 0.30f);
-            else stockColor = new Color(0.40f, 0.90f, 0.50f);
+            if (isStorageShelf)
+            {
+                stockColor = (rData.currentStock == 0) ? new Color(0.65f, 0.65f, 0.65f) : new Color(0.40f, 0.90f, 0.50f);
+            }
+            else
+            {
+                if (isUnassigned) stockColor = new Color(0.55f, 0.55f, 0.55f);
+                else if (rData.currentStock == 0) stockColor = new Color(0.95f, 0.40f, 0.30f);
+                else stockColor = new Color(0.40f, 0.90f, 0.50f);
+            }
 
-            Text sText = CreateText(infoBox, $"{rData.currentStock} / {rData.maxCapacity} Adet", 16, FontStyle.Bold, stockColor);
+            string unitLabel = isStorageShelf ? (isEnglish ? "Box" : "Koli") : (isEnglish ? "Unit" : "Adet");
+            Text sText = CreateText(infoBox, $"{rData.currentStock} / {rData.maxCapacity} {unitLabel}", 16, FontStyle.Bold, stockColor);
             RectTransform stRect = sText.GetComponent<RectTransform>();
             stRect.anchorMin = new Vector2(0, 0.05f);
             stRect.anchorMax = new Vector2(1, 0.45f);
@@ -441,10 +470,11 @@ namespace Farm2Shelf.UI
             stRect.offsetMax = Vector2.zero;
             sText.alignment = TextAnchor.MiddleLeft;
 
-            // DEPO RAFI HARIÇ DİĞER MAĞAZA RAFLARINDA "📦 Ürün Seç / ⚙️ Değiştir" BUTONU GÖSTERİLİR:
+            // AKSİYON BUTONLARI (Yalnızca Mağaza Raflarında Gösterilir):
             if (!isStorageShelf)
             {
-                GameObject selectBtnObj = CreateButton(cardObj, isUnassigned ? "📦 Ürün Seç" : "⚙️ Değiştir", new Color(0.18f, 0.65f, 0.35f), () => {
+                string selectText = isUnassigned ? (isEnglish ? "📦 Select Item" : "📦 Ürün Seç") : (isEnglish ? "⚙️ Change" : "⚙️ Değiştir");
+                GameObject selectBtnObj = CreateButton(cardObj, selectText, new Color(0.18f, 0.65f, 0.35f), () => {
                     ShowProductSelectionSubModal(currentFurniture, rData);
                 });
                 RectTransform sbRect = selectBtnObj.GetComponent<RectTransform>();
@@ -452,6 +482,81 @@ namespace Farm2Shelf.UI
                 sbRect.anchorMax = new Vector2(0.98f, 0.85f);
                 sbRect.offsetMin = Vector2.zero;
                 sbRect.offsetMax = Vector2.zero;
+            }
+        }
+
+        private void DispatchStorageRowToStoreShelf(PlacedFurnitureController storageShelf, ShelfRowData sRow)
+        {
+            if (storageShelf == null || sRow == null || sRow.currentStock <= 0) return;
+
+            PlacedFurnitureController[] allFurniture = Object.FindObjectsByType<PlacedFurnitureController>(FindObjectsSortMode.None);
+            PlacedFurnitureController targetStoreShelf = null;
+            int targetRowIdx = -1;
+
+            // 1. Önce bu ürünün zaten atandığı dükkan rafını ara
+            foreach (var f in allFurniture)
+            {
+                if (f == null || f.rows == null || f.FurnitureType == FurnitureType.StorageShelf) continue;
+                for (int i = 0; i < f.rows.Length; i++)
+                {
+                    var r = f.rows[i];
+                    if (r != null && r.productName == sRow.productName && r.currentStock < r.maxCapacity)
+                    {
+                        targetStoreShelf = f;
+                        targetRowIdx = i;
+                        break;
+                    }
+                }
+                if (targetStoreShelf != null) break;
+            }
+
+            // 2. Eğer aynı ürünlü raf yoksa, boş/atanmamış dükkan rafı ara
+            if (targetStoreShelf == null)
+            {
+                foreach (var f in allFurniture)
+                {
+                    if (f == null || f.rows == null || f.FurnitureType == FurnitureType.StorageShelf) continue;
+                    for (int i = 0; i < f.rows.Length; i++)
+                    {
+                        var r = f.rows[i];
+                        if (r != null && (r.IsUnassigned || r.IsEmpty))
+                        {
+                            targetStoreShelf = f;
+                            targetRowIdx = i;
+                            break;
+                        }
+                    }
+                    if (targetStoreShelf != null) break;
+                }
+            }
+
+            if (targetStoreShelf != null && targetRowIdx >= 0)
+            {
+                var targetRow = targetStoreShelf.rows[targetRowIdx];
+                int space = targetRow.maxCapacity - targetRow.currentStock;
+                int transferAmount = Mathf.Min(space, sRow.currentStock);
+
+                targetRow.productName = sRow.productName;
+                targetRow.productId = sRow.productId;
+                targetRow.unitPrice = sRow.unitPrice;
+                targetRow.currentStock += transferAmount;
+
+                sRow.currentStock -= transferAmount;
+                if (sRow.currentStock <= 0)
+                {
+                    sRow.currentStock = 0;
+                    sRow.productName = "";
+                    sRow.productId = "";
+                }
+
+                storageShelf.UpdateAll3DProductMeshes();
+                targetStoreShelf.UpdateAll3DProductMeshes();
+
+                ShowModal(storageShelf); // Modali yenile
+            }
+            else
+            {
+                ModalManager.ShowModal("Uygun Mağaza Rafı Yok! ⚠️", "Dükkanda bu ürünü koyabileceğin boş veya uygun bir reyon rafı bulunamadı!", "Tamam");
             }
         }
 

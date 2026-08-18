@@ -103,7 +103,7 @@ namespace Farm2Shelf.UI
             mainRect.anchorMin = new Vector2(0f, 0f);
             mainRect.anchorMax = new Vector2(0f, 0f);
             mainRect.pivot = new Vector2(0f, 0f);
-            mainRect.anchoredPosition = new Vector2(180f, 25f); // Sol kenardan 180px güvenli mesafe
+            mainRect.anchoredPosition = new Vector2(30f, 30f); // Ekranın SOL ALT Köşesine Sabitlendi
             mainRect.sizeDelta = new Vector2(360f, 500f);        // Şık Kart Genişliği & Yüksekliği
 
             // Kart Arka Planı (Siyah Cam Doku & Şık Mavi Çerçeve)

@@ -128,6 +128,18 @@ namespace Farm2Shelf.Core
 
             camSetup.FocusOn(new Vector3(0f, 0f, 1f));
 
+            if (StoreQualityManager.Instance == null)
+            {
+                GameObject sqObj = new GameObject("StoreQualityManager");
+                sqObj.AddComponent<StoreQualityManager>();
+            }
+
+            if (Farm2Shelf.Environment.WeatherManager.Instance == null)
+            {
+                GameObject wmObj = new GameObject("WeatherManager");
+                wmObj.AddComponent<Farm2Shelf.Environment.WeatherManager>();
+            }
+
             // 4. Sol Üst HUD UI Arayüzü Başlatma
             GameObject uiManagerObj = GameObject.Find("UI_Manager");
             if (uiManagerObj == null)

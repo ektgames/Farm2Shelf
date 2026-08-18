@@ -96,7 +96,7 @@ namespace Farm2Shelf.Core
             FurnitureItemDef def = FurnitureDatabase.GetDef(type);
             if (infoStatusText != null && def != null)
             {
-                infoStatusText.text = $"🛠️ {def.name} Yerleştiriliyor\nEkrana dokunarak taşıyın | Paneldeki [✅ Kur] butonuna basarak kurun";
+                infoStatusText.text = $"🛠️ {def.name} Yerleştiriliyor\nEkrana dokunarak veya tıklayarak taşıyın | Paneldeki [✅ Kur] butonuna basarak kurun";
             }
         }
 
@@ -131,6 +131,8 @@ namespace Farm2Shelf.Core
             }
         }
 
+        private float lastKeyMoveTime = 0f;
+
         private void Update()
         {
             if (!isPlacing)
@@ -143,16 +145,18 @@ namespace Farm2Shelf.Core
             if (ghostObj == null) return;
 
             Camera mainCam = Camera.main;
-            if (mainCam == null) return;
-
-            // Ekrana dokunulduğunda veya basılı tutulduğunda önizleme nesnesini o konuma taşı (otomatik KURMA yapmaz!)
-            if (WasLeftClickHeld() || WasLeftClicked())
+            if (mainCam != null)
             {
                 Vector2 pointerPos = GetPointerPosition();
-                if (!IsPointerOverUI())
+
+                // PC ve Mobil'de imleç UI Butonlarının (ör. ✅ Kur) üzerinde değilse,
+                // önizlemeyi fare imlecinin durduğu, sürüklendiği veya tıklandığı 3D zemin noktasına pürüzsüzce taşı!
+                if (pointerPos != Vector2.zero && !IsPointerOverUIButton(pointerPos))
                 {
                     Ray ray = mainCam.ScreenPointToRay(pointerPos);
-                    if (groundPlane.Raycast(ray, out float enter))
+                    Plane floorPlane = new Plane(Vector3.up, new Vector3(0f, 0.01f, 0f));
+
+                    if (floorPlane.Raycast(ray, out float enter))
                     {
                         Vector3 hitPoint = ray.GetPoint(enter);
                         hitPoint.x = Mathf.Round(hitPoint.x * 4f) / 4f;
@@ -161,6 +165,23 @@ namespace Farm2Shelf.Core
 
                         ghostObj.transform.position = hitPoint;
                     }
+                }
+
+                // 2. KLAVYE WASD VE YÖN TUŞLARI İLE ADIM ADIM İLERLETME DESTEĞİ:
+                Vector3 keyMove = Vector3.zero;
+                if (IsKeyHeld(KeyCode.W) || IsKeyHeld(KeyCode.UpArrow)) keyMove.z += 0.25f;
+                if (IsKeyHeld(KeyCode.S) || IsKeyHeld(KeyCode.DownArrow)) keyMove.z -= 0.25f;
+                if (IsKeyHeld(KeyCode.A) || IsKeyHeld(KeyCode.LeftArrow)) keyMove.x -= 0.25f;
+                if (IsKeyHeld(KeyCode.D) || IsKeyHeld(KeyCode.RightArrow)) keyMove.x += 0.25f;
+
+                if (keyMove != Vector3.zero && Time.time - lastKeyMoveTime > 0.10f)
+                {
+                    lastKeyMoveTime = Time.time;
+                    Vector3 newPos = ghostObj.transform.position + keyMove;
+                    newPos.x = Mathf.Round(newPos.x * 4f) / 4f;
+                    newPos.z = Mathf.Round(newPos.z * 4f) / 4f;
+                    newPos.y = 0.01f;
+                    ghostObj.transform.position = newPos;
                 }
             }
 
@@ -180,7 +201,7 @@ namespace Farm2Shelf.Core
             {
                 if (isValid)
                 {
-                    infoStatusText.text = $"🛠️ {def.name} Taşınıyor (Konum UYGUN ✅)\nEkrana dokunarak taşıyın | Paneldeki [✅ Kur] butonuna basın";
+                    infoStatusText.text = $"🛠️ {def.name} Taşınıyor (Konum UYGUN ✅)\nEkrana dokunarak veya tıklayarak taşıyın | Paneldeki [✅ Kur] butonuna basın";
                     infoStatusText.color = Color.white;
                 }
                 else
@@ -211,16 +232,52 @@ namespace Farm2Shelf.Core
         // --- HİBRİT INPUT SYSTEM & LEGACY INPUT OKUYUCULARI ---
         private Vector2 GetPointerPosition()
         {
+            try
+            {
+                Vector3 mPos = Input.mousePosition;
+                if (mPos.sqrMagnitude > 0.01f) return new Vector2(mPos.x, mPos.y);
+            }
+            catch { }
+
 #if ENABLE_INPUT_SYSTEM
-            if (UnityEngine.InputSystem.Pointer.current != null)
-                return UnityEngine.InputSystem.Pointer.current.position.ReadValue();
             if (UnityEngine.InputSystem.Mouse.current != null)
-                return UnityEngine.InputSystem.Mouse.current.position.ReadValue();
-            return Vector2.zero;
-#else
-            try { return Input.mousePosition; }
-            catch { return Vector2.zero; }
+            {
+                Vector2 mPos = UnityEngine.InputSystem.Mouse.current.position.ReadValue();
+                if (mPos.sqrMagnitude > 0.01f) return mPos;
+            }
+            if (UnityEngine.InputSystem.Pointer.current != null)
+            {
+                Vector2 pPos = UnityEngine.InputSystem.Pointer.current.position.ReadValue();
+                if (pPos.sqrMagnitude > 0.01f) return pPos;
+            }
+            if (UnityEngine.InputSystem.Touchscreen.current != null && UnityEngine.InputSystem.Touchscreen.current.primaryTouch.press.isPressed)
+            {
+                return UnityEngine.InputSystem.Touchscreen.current.primaryTouch.position.ReadValue();
+            }
 #endif
+
+            return Vector2.zero;
+        }
+
+        private bool IsKeyHeld(KeyCode code)
+        {
+            try { if (Input.GetKey(code)) return true; } catch { }
+
+#if ENABLE_INPUT_SYSTEM
+            if (UnityEngine.InputSystem.Keyboard.current != null)
+            {
+                if (code == KeyCode.W && UnityEngine.InputSystem.Keyboard.current.wKey.isPressed) return true;
+                if (code == KeyCode.S && UnityEngine.InputSystem.Keyboard.current.sKey.isPressed) return true;
+                if (code == KeyCode.A && UnityEngine.InputSystem.Keyboard.current.aKey.isPressed) return true;
+                if (code == KeyCode.D && UnityEngine.InputSystem.Keyboard.current.dKey.isPressed) return true;
+                if (code == KeyCode.UpArrow && UnityEngine.InputSystem.Keyboard.current.upArrowKey.isPressed) return true;
+                if (code == KeyCode.DownArrow && UnityEngine.InputSystem.Keyboard.current.downArrowKey.isPressed) return true;
+                if (code == KeyCode.LeftArrow && UnityEngine.InputSystem.Keyboard.current.leftArrowKey.isPressed) return true;
+                if (code == KeyCode.RightArrow && UnityEngine.InputSystem.Keyboard.current.rightArrowKey.isPressed) return true;
+            }
+#endif
+
+            return false;
         }
 
         private bool WasLeftClickHeld()
@@ -237,6 +294,11 @@ namespace Farm2Shelf.Core
             try { return Input.GetMouseButton(0); }
             catch { return false; }
 #endif
+        }
+
+        private bool WasCleanTap()
+        {
+            return Farm2Shelf.Utils.TouchInputHelper.IsCleanTapThisFrame(out _);
         }
 
         private bool WasConfirmKeyPressed()
@@ -452,50 +514,92 @@ namespace Farm2Shelf.Core
             FurnitureItemDef def = FurnitureDatabase.GetDef(type);
             FurnitureZone zone = (def != null) ? def.zone : FurnitureZone.StoreOnly;
 
+            float minXEdge = pos.x - halfW;
+            float maxXEdge = pos.x + halfW;
+            float minZEdge = pos.z - halfD;
+            float maxZEdge = pos.z + halfD;
+
             if (zone == FurnitureZone.StoreOnly)
             {
-                float minX = -12.5f + halfW;
-                float maxX = 2.5f - halfW;
+                float minX = -12.6f + halfW;
+                float maxX = 2.6f - halfW;
                 float minZ = -2.5f + halfD;
-                float maxZ = (backWallZ - 0.6f) - halfD;
+                float maxZ = (backWallZ - 0.5f) - halfD;
 
                 if (pos.x < minX || pos.x > maxX || pos.z < minZ || pos.z > maxZ)
                 {
                     return true;
                 }
 
-                if (pos.z <= -1.8f && pos.x >= -6.8f && pos.x <= -3.2f)
+                // DUVARA YAKINLIK VE SIKIŞMA KONTROLÜ (ZORUNLU GEÇİŞ KORİDORU VEYA SIFIR YASLANMA):
+                // Karakterlerin mobilya ile duvar arasına sıkışmaması için:
+                // - Duvar ile mobilya arasında ya tam sıfır kalmalı (< 0.18m)
+                // - Ya da en az 0.95m yürüme koridoru boşluğu bulunmalıdır!
+                if (!PlacedFurnitureController.IsWalkableFloorDecoration(type))
+                {
+                    // Sol Duvar Sıkışma Kontrolü (x = -12.8f)
+                    float gapLeft = minXEdge - (-12.8f);
+                    if (gapLeft > 0.18f && gapLeft < 0.95f) return true;
+
+                    // Sağ Bölme Duvarı Sıkışma Kontrolü (x = 2.8f)
+                    float gapRight = 2.8f - maxXEdge;
+                    if (gapRight > 0.18f && gapRight < 0.95f) return true;
+
+                    // Arka Duvar Sıkışma Kontrolü (z = backWallZ - 0.2f)
+                    float gapBack = (backWallZ - 0.2f) - maxZEdge;
+                    if (gapBack > 0.18f && gapBack < 0.95f) return true;
+                }
+
+                // Ana Giriş Kapısı Koridoru
+                if (pos.z <= -1.6f && pos.x >= -6.8f && pos.x <= -3.2f)
                 {
                     return true;
                 }
             }
             else if (zone == FurnitureZone.StorageOnly)
             {
-                float minX = 3.5f + halfW;
-                float maxX = 10.5f - halfW;
+                float minX = 3.4f + halfW;
+                float maxX = 10.6f - halfW;
                 float minZ = -2.5f + halfD;
-                float maxZ = (storageBackZ - 0.6f) - halfD;
+                float maxZ = (storageBackZ - 0.5f) - halfD;
 
                 if (pos.x < minX || pos.x > maxX || pos.z < minZ || pos.z > maxZ)
                 {
                     return true;
                 }
 
-                if (pos.x <= 4.2f && pos.z >= 0.2f && pos.z <= 3.8f)
+                if (!PlacedFurnitureController.IsWalkableFloorDecoration(type))
+                {
+                    // Depo Sol Duvar Sıkışma Kontrolü (x = 3.2f)
+                    float gapStorageLeft = minXEdge - 3.2f;
+                    if (gapStorageLeft > 0.18f && gapStorageLeft < 0.95f) return true;
+
+                    // Depo Sağ Duvar Sıkışma Kontrolü (x = 10.8f)
+                    float gapStorageRight = 10.8f - maxXEdge;
+                    if (gapStorageRight > 0.18f && gapStorageRight < 0.95f) return true;
+
+                    // Depo Arka Duvar Sıkışma Kontrolü
+                    float gapStorageBack = (storageBackZ - 0.2f) - maxZEdge;
+                    if (gapStorageBack > 0.18f && gapStorageBack < 0.95f) return true;
+                }
+
+                if (pos.x <= 4.4f && pos.z >= -0.2f && pos.z <= 4.0f)
                 {
                     return true;
                 }
             }
 
-            // 2. MEVCUT YERLEŞTİRİLMİŞ TÜM MOBİLYALAR / DEKORASYONLAR İLE ÇAKIŞMA KONTROLÜ
+            // 2. MEVCUT YERLEŞTİRİLMİŞ TÜM MOBİLYALAR / DEKORASYONLAR İLE ÇAKIŞMA VE DAR SIKIŞMA KORİDORU KONTROLÜ
+            bool isCurrentWalkable = PlacedFurnitureController.IsWalkableFloorDecoration(type);
             var placedFurniture = PlacedFurnitureController.AllPlacedFurniture;
             int count = placedFurniture.Count;
+
             for (int i = 0; i < count; i++)
             {
                 var f = placedFurniture[i];
                 if (f == null) continue;
 
-                if (isReinstalling && savedReplacementRows != null && Vector3.Distance(f.transform.position, originalReplacementPos) < 0.2f)
+                if (isReinstalling && Vector3.Distance(f.transform.position, originalReplacementPos) < 0.2f)
                 {
                     continue;
                 }
@@ -505,6 +609,11 @@ namespace Farm2Shelf.Core
                 bool fRotated = (Mathf.Abs(Mathf.Sin(fAngleRad)) > 0.5f);
                 float fW = fRotated ? fFootprint.y : fFootprint.x;
                 float fD = fRotated ? fFootprint.x : fFootprint.y;
+
+                float fMinX = f.transform.position.x - fW / 2f;
+                float fMaxX = f.transform.position.x + fW / 2f;
+                float fMinZ = f.transform.position.z - fD / 2f;
+                float fMaxZ = f.transform.position.z + fD / 2f;
 
                 Bounds existingBounds = new Bounds(
                     new Vector3(f.transform.position.x, 0.9f, f.transform.position.z),
@@ -517,11 +626,35 @@ namespace Farm2Shelf.Core
                     existingBounds = bCol.bounds;
                     existingBounds.center = new Vector3(existingBounds.center.x, 0.9f, existingBounds.center.z);
                     existingBounds.size = new Vector3(existingBounds.size.x - 0.04f, 1.8f, existingBounds.size.z - 0.04f);
+                    fMinX = existingBounds.min.x;
+                    fMaxX = existingBounds.max.x;
+                    fMinZ = existingBounds.min.z;
+                    fMaxZ = existingBounds.max.z;
                 }
 
+                // A. Doğrudan Gövde Çakışması (Overlap) Kontrolü
                 if (ghostBounds.Intersects(existingBounds))
                 {
                     return true;
+                }
+
+                // B. İki Katı Mobilya Arasındaki Dar Sıkışma Koridoru Kontrolü (0.18m ile 0.88m Arasındaki Dar Boşluklar YASAK!):
+                if (!isCurrentWalkable && !PlacedFurnitureController.IsWalkableFloorDecoration(f.FurnitureType))
+                {
+                    float gapX = Mathf.Max(0f, Mathf.Max(minXEdge - fMaxX, fMinX - maxXEdge));
+                    float gapZ = Mathf.Max(0f, Mathf.Max(minZEdge - fMaxZ, fMinZ - maxZEdge));
+
+                    bool isXAligned = (minZEdge < fMaxZ && maxZEdge > fMinZ);
+                    bool isZAligned = (minXEdge < fMaxX && maxXEdge > fMinX);
+
+                    if (isXAligned && gapX > 0.18f && gapX < 0.88f)
+                    {
+                        return true;
+                    }
+                    if (isZAligned && gapZ > 0.18f && gapZ < 0.88f)
+                    {
+                        return true;
+                    }
                 }
             }
 
@@ -591,7 +724,7 @@ namespace Farm2Shelf.Core
                 if (f == null) continue;
                 if (PlacedFurnitureController.IsWalkableFloorDecoration(f.FurnitureType)) continue;
 
-                if (isReinstalling && savedReplacementRows != null && Vector3.Distance(f.transform.position, originalReplacementPos) < 0.2f)
+                if (isReinstalling && Vector3.Distance(f.transform.position, originalReplacementPos) < 0.2f)
                 {
                     continue;
                 }
@@ -667,24 +800,29 @@ namespace Farm2Shelf.Core
             }
         }
 
-        private bool IsPointerOverUI()
+        private bool IsPointerOverUIButton(Vector2 pointerPos)
         {
             if (UnityEngine.EventSystems.EventSystem.current == null) return false;
 
             UnityEngine.EventSystems.PointerEventData eventData = new UnityEngine.EventSystems.PointerEventData(UnityEngine.EventSystems.EventSystem.current);
-            eventData.position = GetPointerPosition();
+            eventData.position = pointerPos;
             List<UnityEngine.EventSystems.RaycastResult> results = new List<UnityEngine.EventSystems.RaycastResult>();
             UnityEngine.EventSystems.EventSystem.current.RaycastAll(eventData, results);
 
             foreach (var r in results)
             {
-                if (r.gameObject != null && r.gameObject.GetComponentInParent<Button>() != null)
+                if (r.gameObject != null && (r.gameObject.GetComponentInParent<Button>() != null || r.gameObject.GetComponent<Button>() != null))
                 {
                     return true;
                 }
             }
 
             return false;
+        }
+
+        private bool IsPointerOverUI()
+        {
+            return IsPointerOverUIButton(GetPointerPosition());
         }
 
         public void ConfirmCurrentPlacement()

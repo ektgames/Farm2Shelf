@@ -48,6 +48,7 @@ namespace Farm2Shelf.Environment
             col.center = new Vector3(0f, 0.9f, 0f);
             col.radius = 0.35f;
             col.height = 1.8f;
+            col.isTrigger = true;
 
             Rigidbody rb = root.AddComponent<Rigidbody>();
             rb.isKinematic = true;

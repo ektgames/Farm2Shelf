@@ -393,6 +393,22 @@ namespace Farm2Shelf.Environment
             activeCustomers.Add(cData);
         }
 
+        private bool IsShelfStocked(PlacedFurnitureController f)
+        {
+            if (f == null || f.rows == null) return false;
+            bool isStoreShelf = (f.FurnitureType == FurnitureType.Shelf || f.FurnitureType == FurnitureType.Fridge || f.FurnitureType == FurnitureType.Freezer || f.FurnitureType == FurnitureType.BakeryCounter || f.FurnitureType == FurnitureType.ProduceShelf || f.FurnitureType == FurnitureType.CosmeticShelf || f.FurnitureType == FurnitureType.ElectronicsShelf || f.FurnitureType == FurnitureType.ButcherCounter);
+            if (!isStoreShelf) return false;
+
+            foreach (var r in f.rows)
+            {
+                if (r != null && !r.IsUnassigned && !string.IsNullOrEmpty(r.productName) && r.currentStock > 0)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         private void AddRandomShelfWaypoints(List<Vector3> route, PlacedFurnitureController[] shelves)
         {
             List<PlacedFurnitureController> validShelves = new List<PlacedFurnitureController>();
@@ -400,7 +416,7 @@ namespace Farm2Shelf.Environment
             {
                 foreach (var s in shelves)
                 {
-                    if (s != null && (s.FurnitureType == FurnitureType.Shelf || s.FurnitureType == FurnitureType.Fridge || s.FurnitureType == FurnitureType.Freezer || s.FurnitureType == FurnitureType.BakeryCounter || s.FurnitureType == FurnitureType.ProduceShelf || s.FurnitureType == FurnitureType.CosmeticShelf || s.FurnitureType == FurnitureType.ElectronicsShelf || s.FurnitureType == FurnitureType.ButcherCounter))
+                    if (s != null && IsShelfStocked(s))
                     {
                         validShelves.Add(s);
                     }
@@ -418,27 +434,47 @@ namespace Farm2Shelf.Environment
                     validShelves[randIdx] = temp;
                 }
 
-                // Dinamik Alışveriş Çeşitliliği Profil Dağılımı:
-                // %20 Tek Ürün Alıcısı (1 Raf)
-                // %50 Orta Boy Çeşitli Alışveriş (2-3 Raf)
-                // %30 Geniş Mağaza Alışverişi (4-5 Raf)
-                float randVal = Random.value;
+                // Oyundaki Yoğunluk Saatlerine Göre Mantıklı Ürün Alışveriş Adet Dağılımı:
+                // - Sakin Saatler (08:00 - 10:59 & 21:00 - 22:00): 1 - 4 Parça Ürün
+                // - Normal Saatler (11:00 - 15:59): 3 - 6 Parça Ürün
+                // - Zirve / Yoğun Akşam Saatleri (16:00 - 20:59): 5 - 9 Parça Ürün (Geniş Dolu Sepetler!)
+                int currentHour = (TimeManager.Instance != null) ? TimeManager.Instance.Hour : 14;
                 int targetCount = 1;
-                if (randVal < 0.20f) targetCount = 1;
-                else if (randVal < 0.70f) targetCount = Random.Range(2, 4);
-                else targetCount = Random.Range(4, 6);
+                float roll = Random.value;
 
-                targetCount = Mathf.Min(targetCount, validShelves.Count);
+                if (currentHour >= 16 && currentHour <= 20)
+                {
+                    // Yoğun İş Çıkışı / Akşam (5, 6, 7, 8, 9 Ürün)
+                    if (roll < 0.15f) targetCount = 5;
+                    else if (roll < 0.35f) targetCount = 6;
+                    else if (roll < 0.60f) targetCount = 7;
+                    else if (roll < 0.80f) targetCount = 8;
+                    else targetCount = 9;
+                }
+                else if (currentHour >= 11 && currentHour < 16)
+                {
+                    // Normal Gündüz / Öğle (3, 4, 5, 6 Ürün)
+                    if (roll < 0.25f) targetCount = 3;
+                    else if (roll < 0.60f) targetCount = 4;
+                    else if (roll < 0.85f) targetCount = 5;
+                    else targetCount = 6;
+                }
+                else
+                {
+                    // Sakin Sabah / Gece (1, 2, 3, 4 Ürün)
+                    if (roll < 0.30f) targetCount = 1;
+                    else if (roll < 0.65f) targetCount = 2;
+                    else if (roll < 0.90f) targetCount = 3;
+                    else targetCount = 4;
+                }
+
+                targetCount = Mathf.Clamp(targetCount, 1, validShelves.Count);
 
                 for (int i = 0; i < targetCount; i++)
                 {
-                    Vector3 shelfFrontPos = validShelves[i].GetFrontInteractionPosition(1.2f);
+                    Vector3 shelfFrontPos = validShelves[i].GetFrontInteractionPosition(0.75f);
                     route.Add(shelfFrontPos);
                 }
-            }
-            else
-            {
-                route.Add(new Vector3(-12.0f, 0.05f, 6.0f));
             }
         }
 
@@ -775,11 +811,11 @@ namespace Farm2Shelf.Environment
             List<Vector3> route = new List<Vector3>();
 
             Vector3 driverDoorPos = slotPos + (slotIndex < 5 ? Vector3.right * 1.2f : Vector3.left * 1.2f);
-            route.Add(driverDoorPos);                         // 0. Sürücü Kapısı İniş Noktası
-            route.Add(new Vector3(-20.0f, 0.05f, slotPos.z)); // 1. Otopark İç Kaldırımı
-            route.Add(new Vector3(-20.0f, 0.05f, -4.5f));      // 2. Ana Giriş Önü Kaldırımı
-            route.Add(new Vector3(-5.0f, 0.05f, -4.5f));       // 3. Cam Kapı Dış Giriş
-            route.Add(new Vector3(-5.0f, 0.05f, -1.0f));       // 4. Ana Fuaye İç Giriş
+            route.Add(driverDoorPos);                             // 0. Sürücü Kapısı İniş Noktası
+            route.Add(new Vector3(-25.5f, 0.05f, slotPos.z));     // 1. Otopark İç Yolu (Duvara takılmayı %100 önler)
+            route.Add(new Vector3(-25.5f, 0.05f, -4.5f));          // 2. Turnikelerin Yanı (Giriş Turnikesinden Kaldırıma Geçiş)
+            route.Add(new Vector3(-5.0f, 0.05f, -4.5f));           // 3. Cam Kapı Dış Giriş Kaldırımı
+            route.Add(new Vector3(-5.0f, 0.05f, -1.0f));           // 4. Ana Fuaye İç Giriş
 
             PlacedFurnitureController cartStand = GetActiveShoppingCartStand();
             hasCartStand = (cartStand != null);
@@ -793,8 +829,8 @@ namespace Farm2Shelf.Environment
                 // Alışveriş sepeti stantı yoksa müşteri alışveriş yapamaz! Kapıda bekleyip arabasına döner.
                 route.Add(new Vector3(-5.0f, 0.05f, -1.0f));
                 route.Add(new Vector3(-5.0f, 0.05f, -4.5f));
-                route.Add(new Vector3(-20.0f, 0.05f, -4.5f));
-                route.Add(new Vector3(-20.0f, 0.05f, slotPos.z));
+                route.Add(new Vector3(-25.5f, 0.05f, -4.5f));
+                route.Add(new Vector3(-25.5f, 0.05f, slotPos.z));
                 route.Add(driverDoorPos);
                 willVisitServiceDesk = false;
                 return route;
@@ -818,16 +854,7 @@ namespace Farm2Shelf.Environment
                 route.Add(serviceDesk.GetFrontInteractionPosition(1.0f));
             }
 
-            Vector3 targetShelfPos = new Vector3(-12.0f, 0.05f, 6.0f);
-            foreach (var s in shelves)
-            {
-                if (s != null && (s.FurnitureType == FurnitureType.Shelf || s.FurnitureType == FurnitureType.Fridge || s.FurnitureType == FurnitureType.Freezer || s.FurnitureType == FurnitureType.BakeryCounter || s.FurnitureType == FurnitureType.ProduceShelf || s.FurnitureType == FurnitureType.CosmeticShelf || s.FurnitureType == FurnitureType.ElectronicsShelf || s.FurnitureType == FurnitureType.ButcherCounter))
-                {
-                    targetShelfPos = s.GetFrontInteractionPosition(1.2f);
-                    break;
-                }
-            }
-            route.Add(targetShelfPos);
+            AddRandomShelfWaypoints(route, shelves);
 
             Vector3 checkoutPos = new Vector3(-15.0f, 0.05f, 2.5f);
             foreach (var s in shelves)
@@ -840,11 +867,11 @@ namespace Farm2Shelf.Environment
             }
             route.Add(checkoutPos);
 
-            route.Add(new Vector3(-5.0f, 0.05f, -1.0f));       // Ana Fuaye Çıkış
-            route.Add(new Vector3(-5.0f, 0.05f, -4.5f));       // Cam Kapı Dış Çıkış
-            route.Add(new Vector3(-20.0f, 0.05f, -4.5f));      // Ana Giriş Kaldırımı
-            route.Add(new Vector3(-20.0f, 0.05f, slotPos.z)); // Park Yeri Kaldırımı
-            route.Add(driverDoorPos);                         // Sürücü Kapısı (Arabaya Biniş)
+            route.Add(new Vector3(-5.0f, 0.05f, -1.0f));           // Ana Fuaye Çıkış
+            route.Add(new Vector3(-5.0f, 0.05f, -4.5f));           // Cam Kapı Dış Çıkış
+            route.Add(new Vector3(-25.5f, 0.05f, -4.5f));          // Turnikelerin Yanı (Kaldırımdan Otoparka Geçiş)
+            route.Add(new Vector3(-25.5f, 0.05f, slotPos.z));     // Otopark İç Yolu
+            route.Add(driverDoorPos);                             // Sürücü Kapısı (Arabaya Biniş)
 
             return route;
         }
@@ -1060,23 +1087,11 @@ namespace Farm2Shelf.Environment
         {
             if (cashier == null) return Vector3.zero;
 
-            // Kasa Mobilyasının Yerel Koordinat Sistemine (Local Space) Göre L-Kuyruk Slotları (Neon Ok Göstergesiyle %100 Uyumlu):
-            // - Local (0, 0.05, -0.75): Slot 0 (Kasa Ödeme Tezgahı Önü)
-            // - Local (0.95, 0.05, -0.75): Slot 1 (Kuyruk L-Dönüş Köşesi)
-            // - Local (0.95, 0.05, -0.75 - (slotIndex - 1) * 0.85): Slot 2, 3, 4... (Ön Koridor Kuyruk Sırası)
-            if (slotIndex <= 0)
-            {
-                return cashier.transform.TransformPoint(new Vector3(0f, 0.05f, -0.75f));
-            }
-            else if (slotIndex == 1)
-            {
-                return cashier.transform.TransformPoint(new Vector3(0.95f, 0.05f, -0.75f));
-            }
-            else
-            {
-                float backOffset = (slotIndex - 1) * 0.85f;
-                return cashier.transform.TransformPoint(new Vector3(0.95f, 0.05f, -0.75f - backOffset));
-            }
+            // Kasa Mobilyasının Önündeki Turkuaz Ok Çizgisi Üzerinde Hizalama (Straight Queue on Arrow Line):
+            // Slot 0 (Kasa Tezgahı Ödeme Noktası): Local (-0.35, 0.05, -0.75)
+            // Slot 1, 2, 3, 4... (Sıradaki Müşteriler - Ok Çizgisi Üzerinde Sola Doğru): Local (-0.35 - slotIndex * 0.90, 0.05, -0.75)
+            float offsetLeft = slotIndex * 0.90f;
+            return cashier.transform.TransformPoint(new Vector3(-0.35f - offsetLeft, 0.05f, -0.75f));
         }
 
         private void EnqueueCustomerAtCashier(ActiveCustomerData cData, PlacedFurnitureController cashier)
@@ -1203,7 +1218,7 @@ namespace Farm2Shelf.Environment
                 cData.stateWaitTimer -= deltaTime;
                 ResetLimbsToRest(cData);
 
-                // L-Kuyrukta veya kasada beklerken yüzünü L-kuyruk ok yönüne döner
+                // Kasada beklerken yüzünü ok yönünde ödeme noktasına döner
                 if (cData.isInCashierQueue && cData.assignedCashier != null)
                 {
                     Vector3 faceDir;
@@ -1212,15 +1227,10 @@ namespace Farm2Shelf.Environment
                         // Slot 0: Kasa Tezgahına Bak (Masa İleri Yönü)
                         faceDir = cData.assignedCashier.transform.forward;
                     }
-                    else if (cData.queueSlotIndex == 1)
-                    {
-                        // Slot 1 (L Köşe): Sola, Slot 0'a / Ödeme Yapan Müşteriye Bak
-                        faceDir = -cData.assignedCashier.transform.right;
-                    }
                     else
                     {
-                        // Slot 2, 3...: Önündeki Sıraya / Ok Yönünde İleriye Bak
-                        faceDir = cData.assignedCashier.transform.forward;
+                        // Slot 1, 2, 3...: Ok çizgisi üzerinde ödeme yapan müşteriye / ileriye bak
+                        faceDir = cData.assignedCashier.transform.right;
                     }
 
                     faceDir.y = 0f;
@@ -1252,18 +1262,28 @@ namespace Farm2Shelf.Environment
                 // Ödeme tamamlandığında sepeti bırak, kuyruktan ayrıl ve çıkışa yürü!
                 if (cData.isCheckingOut && cData.stateWaitTimer <= 0f)
                 {
+                    PlacedFurnitureController activeCashier = cData.assignedCashier;
                     ClearCarriedCartOnCustomer(cData);
                     DequeueCustomerFromCashier(cData);
 
                     cData.isCheckingOut = false;
-                    cData.waypoints = new List<Vector3>
+
+                    List<Vector3> exitWaypoints = new List<Vector3>();
+                    exitWaypoints.Add(cData.customerObj.transform.position);
+
+                    if (activeCashier != null)
                     {
-                        cData.customerObj.transform.position,
-                        new Vector3(-5.0f, 0.05f, -1.0f), // Fuaye
-                        new Vector3(-5.0f, 0.05f, -4.5f), // Dış Kaldırım
-                        new Vector3(-15.0f, 0.05f, -4.5f),
-                        new Vector3(-75.0f, 0.05f, -4.5f) // Despawn
-                    };
+                        // 1. Kasadan açık koridora doğru temiz adım atma noktası (Kasaya takılmayı %100 önler)
+                        Vector3 stepOutPos = activeCashier.transform.TransformPoint(new Vector3(0f, 0.05f, -1.85f));
+                        exitWaypoints.Add(stepOutPos);
+                    }
+
+                    exitWaypoints.Add(new Vector3(-5.0f, 0.05f, -1.0f)); // Dükkan Ana Cam Kapı Fuayesi
+                    exitWaypoints.Add(new Vector3(-5.0f, 0.05f, -4.5f)); // Dış Kaldırım
+                    exitWaypoints.Add(new Vector3(-15.0f, 0.05f, -4.5f));
+                    exitWaypoints.Add(new Vector3(-75.0f, 0.05f, -4.5f)); // Despawn
+
+                    cData.waypoints = exitWaypoints;
                     cData.currentWaypointIndex = 1;
                     cData.stateWaitTimer = 0f;
                 }
@@ -1375,24 +1395,49 @@ namespace Farm2Shelf.Environment
                         {
                             if (cData.queueSlotIndex == 0)
                             {
-                                // SADECE KUYRUK BAŞINDAKİ (SLOT 0) MÜŞTERİ TEZGAH BAŞINDA ÖDEME YAPAR!
-                                if (!cData.isCheckingOut)
+                                // SADECE VE SADECE KASADA KASİYER VARSA ÖDEME YAPILIR!
+                                bool isCashierWorking = (cData.assignedCashier != null && StaffTaskController.IsCashierWorkingAt(cData.assignedCashier));
+                                if (isCashierWorking)
                                 {
-                                    cData.isCheckingOut = true;
-                                    cData.stateWaitTimer = 1.2f;
+                                    if (!cData.isCheckingOut)
+                                    {
+                                        cData.isCheckingOut = true;
+                                        cData.stateWaitTimer = 0.3f;
+                                        ClearCarriedCartOnCustomer(cData);
 
-                                    int paymentAmount = Mathf.Max(35, cData.totalCartValue);
-                                    if (cData.visitedCustomerServiceDesk) paymentAmount += Random.Range(50, 100);
+                                        int paymentAmount = Mathf.Max(35, cData.totalCartValue);
+                                        if (cData.visitedCustomerServiceDesk) paymentAmount += Random.Range(50, 100);
 
-                                    if (EconomyManager.Instance != null) EconomyManager.Instance.AddCredits(paymentAmount);
-                                    if (FinanceManager.Instance != null) FinanceManager.Instance.RecordIncome("Satış", $"Müşteri Alışverişi ({cData.totalItemsBought} Parça Ürün)", paymentAmount);
+                                        if (EconomyManager.Instance != null) EconomyManager.Instance.AddCredits(paymentAmount);
+                                        if (FinanceManager.Instance != null) FinanceManager.Instance.RecordIncome("Satış", $"Müşteri Alışverişi ({cData.totalItemsBought} Parça Ürün)", paymentAmount);
 
-                                    ShowPaymentPopup(cData.customerObj.transform.position, $"+{paymentAmount}C Ödeme Yapıldı 💳");
+                                        ShowPaymentPopup(cData.customerObj.transform.position, $"+{paymentAmount}C Ödeme Yapıldı 💳");
+
+                                        // KASADA KALİTE PUANI HESAPLAMA (DÜKKAN TEMİZ İSE +15 YILDIZ, KİRLİ İSE -10 YILDIZ!):
+                                        if (StoreQualityManager.Instance != null)
+                                        {
+                                            bool isClean = (StoreCleanlinessManager.Instance == null || StoreCleanlinessManager.Instance.GetNearestTrashItem(cData.customerObj.transform.position, out float trashDist) == null);
+                                            if (isClean)
+                                            {
+                                                StoreQualityManager.Instance.AddQualityScore(15, cData.customerObj.transform.position, "Temiz Dükkan!");
+                                            }
+                                            else
+                                            {
+                                                StoreQualityManager.Instance.SubtractQualityScore(10, cData.customerObj.transform.position, "Kirli Dükkan!");
+                                            }
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    // Kasiyer henüz kasaya gelmediyse müşteri sırada bekler
+                                    cData.stateWaitTimer = 0.5f;
+                                    return;
                                 }
                             }
                             else
                             {
-                                // KUYRUKTAKİ DİĞER MÜŞTERİLER (SLOT 1, 2, 3...) SIRADA HİZALANIP BEKLER!
+                                // KUYRUKTAKİ DİĞER MÜŞTERİLER (SLOT 1, 2, 3...) SIRADA KUSURSUZCA HİZALANIP BEKLER!
                                 cData.stateWaitTimer = 0.2f;
                             }
                             return;
@@ -1450,37 +1495,56 @@ namespace Farm2Shelf.Environment
             AnimateHumanLimbs(cData, Mathf.Sin(cData.walkCycleTimer) * 26.0f);
         }
 
+        private static bool IsSolidObstacle(Collider col, GameObject selfObj)
+        {
+            if (col == null || col.isTrigger) return false;
+            if (selfObj != null && (col.gameObject == selfObj || col.transform.IsChildOf(selfObj.transform))) return false;
+
+            string n = col.name.ToLower();
+
+            // SADECE VE SADECE DUVARLAR (WALLS / BUILDINGS / DIVIDERS) KATI ENGELDİR!
+            // Müşteriler dükkan ve bina dış/iç duvarlarından kesinlikle geçemezler!
+            if (n.Contains("wall") || n.Contains("duvar") || n.Contains("building") ||
+                n.Contains("fence") || n.Contains("facade") || n.Contains("partition") ||
+                n.Contains("divider") || n.Contains("boundary") || n.Contains("border") ||
+                n.Contains("outerwall") || n.Contains("storewall") || n.Contains("storagewall") ||
+                n.Contains("roomwall"))
+            {
+                return true;
+            }
+
+            // Dükkan içindeki raflar, mobilyalar, stantlar, kasalar, koliler, paletler, müşteriler ve personeller içinden rahatça geçilebilir.
+            return false;
+        }
+
         private Vector3 CalculateCustomerAvoidanceDirection(GameObject customerObj, Vector3 currentPos, Vector3 desiredDir, float stepDist)
         {
             if (desiredDir == Vector3.zero || customerObj == null) return desiredDir;
 
-            float checkRadius = 0.40f;
-            float checkDistance = Mathf.Max(0.80f, stepDist + 0.35f);
+            float checkRadius = 0.22f;
+            float checkDistance = Mathf.Max(0.55f, stepDist + 0.20f);
             Vector3 rayStart = currentPos + Vector3.up * 0.5f;
 
             RaycastHit[] hits = Physics.SphereCastAll(rayStart, checkRadius, desiredDir, checkDistance);
             bool hitObstacle = false;
-            float minHitDistance = checkDistance;
+            Vector3 hitNormal = Vector3.zero;
 
             if (hits != null && hits.Length > 0)
             {
                 foreach (var hit in hits)
                 {
-                    if (hit.collider == null || hit.collider.isTrigger) continue;
-                    if (hit.collider.gameObject == customerObj || hit.collider.transform.IsChildOf(customerObj.transform)) continue;
-
-                    PlacedFurnitureController furniture = hit.collider.GetComponentInParent<PlacedFurnitureController>();
-                    if (furniture != null && PlacedFurnitureController.IsWalkableFloorDecoration(furniture.FurnitureType)) continue;
-
-                    hitObstacle = true;
-                    if (hit.distance < minHitDistance) minHitDistance = hit.distance;
-                    break;
+                    if (IsSolidObstacle(hit.collider, customerObj))
+                    {
+                        hitObstacle = true;
+                        hitNormal = hit.normal;
+                        break;
+                    }
                 }
             }
 
             if (!hitObstacle) return desiredDir;
 
-            float[] checkAngles = new float[] { 35f, -35f, 70f, -70f, 105f, -105f, 135f, -135f };
+            float[] checkAngles = new float[] { 25f, -25f, 50f, -50f, 75f, -75f, 100f, -100f };
             foreach (float angle in checkAngles)
             {
                 Vector3 testDir = Quaternion.Euler(0f, angle, 0f) * desiredDir;
@@ -1491,14 +1555,11 @@ namespace Farm2Shelf.Environment
                 {
                     foreach (var th in testHits)
                     {
-                        if (th.collider == null || th.collider.isTrigger) continue;
-                        if (th.collider.gameObject == customerObj || th.collider.transform.IsChildOf(customerObj.transform)) continue;
-
-                        PlacedFurnitureController f = th.collider.GetComponentInParent<PlacedFurnitureController>();
-                        if (f != null && PlacedFurnitureController.IsWalkableFloorDecoration(f.FurnitureType)) continue;
-
-                        testHitObstacle = true;
-                        break;
+                        if (IsSolidObstacle(th.collider, customerObj))
+                        {
+                            testHitObstacle = true;
+                            break;
+                        }
                     }
                 }
 
@@ -1508,12 +1569,16 @@ namespace Farm2Shelf.Environment
                 }
             }
 
-            if (minHitDistance < checkRadius + 0.05f)
+            if (hitNormal != Vector3.zero)
             {
-                return Vector3.zero;
+                Vector3 slideDir = Vector3.ProjectOnPlane(desiredDir, hitNormal).normalized;
+                if (slideDir.sqrMagnitude > 0.01f)
+                {
+                    return slideDir;
+                }
             }
 
-            return desiredDir * 0.05f;
+            return desiredDir;
         }
 
         private PlacedFurnitureController FindNearestShelfToPosition(Vector3 pos)

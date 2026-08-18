@@ -24,10 +24,17 @@ namespace Farm2Shelf.Environment
 
         private void Update()
         {
-            if (Farm2Shelf.Utils.TouchInputHelper.IsCleanTapThisFrame(out Vector2 pointerPos) && !ModalManager.IsModalOpen && !EKTPhoneManager.IsTabletOpen)
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen) return;
+
+            if (WasPointerPressedThisFrame() || Farm2Shelf.Utils.TouchInputHelper.IsCleanTapThisFrame(out _))
             {
+                if (IsPointerOverUIButton()) return;
+
                 Camera mainCam = Camera.main;
                 if (mainCam == null) return;
+
+                Vector2 pointerPos = GetPointerPosition();
+                if (pointerPos == Vector2.zero) return;
 
                 Ray ray = mainCam.ScreenPointToRay(pointerPos);
 
@@ -41,9 +48,9 @@ namespace Farm2Shelf.Environment
                         BarnController barn = h.collider.GetComponentInParent<BarnController>();
                         if (barn == null) barn = h.collider.GetComponent<BarnController>();
 
-                        if (barn == this)
+                        if (barn != null)
                         {
-                            OnBarnClicked();
+                            barn.OnBarnClicked();
                             break;
                         }
                     }
@@ -68,6 +75,8 @@ namespace Farm2Shelf.Environment
 
         private bool WasPointerPressedThisFrame()
         {
+            try { if (Input.GetMouseButtonDown(0)) return true; } catch { }
+
 #if ENABLE_INPUT_SYSTEM
             if (UnityEngine.InputSystem.Mouse.current != null && UnityEngine.InputSystem.Mouse.current.leftButton.wasPressedThisFrame)
                 return true;
@@ -75,24 +84,9 @@ namespace Farm2Shelf.Environment
                 return true;
             if (UnityEngine.InputSystem.Pointer.current != null && UnityEngine.InputSystem.Pointer.current.press.wasPressedThisFrame)
                 return true;
-            return false;
-#else
-            try
-            {
-                if (UnityEngine.InputSystem.Pointer.current != null && UnityEngine.InputSystem.Pointer.current.press.wasPressedThisFrame)
-                    return true;
-            }
-            catch {}
-
-            try
-            {
-                if (Input.GetMouseButtonDown(0) || (Input.touchCount > 0 && Input.GetTouch(0).phase == TouchPhase.Began))
-                    return true;
-            }
-            catch {}
-
-            return false;
 #endif
+
+            return false;
         }
 
         private bool IsPointerOverUIButton()
@@ -120,22 +114,31 @@ namespace Farm2Shelf.Environment
 
         private Vector2 GetPointerPosition()
         {
-#if ENABLE_INPUT_SYSTEM
-            if (UnityEngine.InputSystem.Touchscreen.current != null && UnityEngine.InputSystem.Touchscreen.current.primaryTouch.press.isPressed)
-                return UnityEngine.InputSystem.Touchscreen.current.primaryTouch.position.ReadValue();
-            if (UnityEngine.InputSystem.Pointer.current != null)
-                return UnityEngine.InputSystem.Pointer.current.position.ReadValue();
-            if (UnityEngine.InputSystem.Mouse.current != null)
-                return UnityEngine.InputSystem.Mouse.current.position.ReadValue();
-            return Vector2.zero;
-#else
             try
             {
-                if (Input.touchCount > 0) return Input.GetTouch(0).position;
-                return Input.mousePosition;
+                Vector3 mPos = Input.mousePosition;
+                if (mPos.sqrMagnitude > 0.01f) return new Vector2(mPos.x, mPos.y);
             }
-            catch { return Vector2.zero; }
+            catch { }
+
+#if ENABLE_INPUT_SYSTEM
+            if (UnityEngine.InputSystem.Mouse.current != null)
+            {
+                Vector2 mPos = UnityEngine.InputSystem.Mouse.current.position.ReadValue();
+                if (mPos.sqrMagnitude > 0.01f) return mPos;
+            }
+            if (UnityEngine.InputSystem.Pointer.current != null)
+            {
+                Vector2 pPos = UnityEngine.InputSystem.Pointer.current.position.ReadValue();
+                if (pPos.sqrMagnitude > 0.01f) return pPos;
+            }
+            if (UnityEngine.InputSystem.Touchscreen.current != null && UnityEngine.InputSystem.Touchscreen.current.primaryTouch.press.isPressed)
+            {
+                return UnityEngine.InputSystem.Touchscreen.current.primaryTouch.position.ReadValue();
+            }
 #endif
+
+            return Vector2.zero;
         }
     }
 }

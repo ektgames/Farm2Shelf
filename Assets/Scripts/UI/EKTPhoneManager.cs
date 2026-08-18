@@ -38,6 +38,7 @@ namespace Farm2Shelf.UI
         private Text shoppingCategoryHeaderTitle;
         private Text shoppingCategoryHeaderSub;
         private int activeShoppingCategory = 0;
+        private int activeRenovationSubTab = 0;
 
         private Transform furnitureListContent;
         private Transform furnitureViewportObj;
@@ -317,6 +318,15 @@ namespace Farm2Shelf.UI
         {
             if (isAnimating || tabletPopupRoot == null) return;
             StartCoroutine(AnimateTabletClose());
+        }
+
+        public void ClosePhoneTabletInstant()
+        {
+            StopAllCoroutines();
+            isAnimating = false;
+            if (tabletPopupRoot != null) tabletPopupRoot.SetActive(false);
+            if (overlayImage != null) overlayImage.color = new Color(0f, 0f, 0f, 0f);
+            ModalManager.SetModalOpen(false);
         }
 
         private IEnumerator AnimateTabletOpen()
@@ -1480,7 +1490,8 @@ namespace Farm2Shelf.UI
                 LocalizationManager.L("Cat_Furniture", "🛋️ Mobilyalar", "🛋️ Furniture"),
                 LocalizationManager.L("Cat_Decoration", "🎨 Dekorasyonlar", "🎨 Decorations"),
                 LocalizationManager.L("Cat_Wholesale", "📦 Toptancı", "📦 Wholesaler"),
-                LocalizationManager.L("Cat_Seeds", "🌱 Tohumlar", "🌱 Seeds")
+                LocalizationManager.L("Cat_Seeds", "🌱 Tohumlar", "🌱 Seeds"),
+                LocalizationManager.L("Cat_Renovation", "🔨 Tadilat", "🔨 Renovation")
             };
         }
 
@@ -1499,7 +1510,11 @@ namespace Farm2Shelf.UI
                 if (furnitureViewportObj != null) furnitureViewportObj.gameObject.SetActive(true);
                 if (shoppingCartSummaryPanelObj != null) shoppingCartSummaryPanelObj.SetActive(activeShoppingCategory == 2);
 
-                if (activeShoppingCategory == 3)
+                if (activeShoppingCategory == 4)
+                {
+                    RenderRenovationList();
+                }
+                else if (activeShoppingCategory == 3)
                 {
                     RenderSeedProductList();
                 }
@@ -1574,10 +1589,7 @@ namespace Farm2Shelf.UI
                 ibRect.sizeDelta = new Vector2(50f, 50f);
 
                 Image ibBg = iconBox.AddComponent<Image>();
-                ibBg.sprite = UIStyleUtility.CreateOutlinePillSprite(50, 50, 25, 2, new Color(0.95f, 0.55f, 0.20f), new Color(0.20f, 0.22f, 0.28f));
-
-                Text iconEmojiText = CreateTextInPanel(iconBox.transform, Vector2.zero, Vector2.one, def.iconEmoji, 24, Color.white);
-                iconEmojiText.alignment = TextAnchor.MiddleCenter;
+                ibBg.sprite = UIStyleUtility.CreateWholesaleIconSprite(def.id, def.iconEmoji, new Color(0.95f, 0.55f, 0.20f));
 
                 // Orta Bilgi Alanı (Başlık, Toptan Alış vs Tavsiye Satış %20 Kâr, Seviye Kilit Rozeti)
                 GameObject infoPanel = new GameObject("InfoPanel");
@@ -1724,10 +1736,7 @@ namespace Farm2Shelf.UI
                 ibRect.sizeDelta = new Vector2(46f, 46f);
 
                 Image ibBg = iconBox.AddComponent<Image>();
-                ibBg.sprite = UIStyleUtility.CreateOutlinePillSprite(46, 46, 23, 2, outlineCol, new Color(0.20f, 0.22f, 0.28f));
-
-                Text iconEmojiText = CreateTextInPanel(iconBox.transform, Vector2.zero, Vector2.one, def.iconEmoji, 22, Color.white);
-                iconEmojiText.alignment = TextAnchor.MiddleCenter;
+                ibBg.sprite = UIStyleUtility.CreateSeedIconSprite(def.id, def.iconEmoji, outlineCol);
 
                 // 2. Orta Bilgi Alanı
                 GameObject infoPanel = new GameObject("InfoPanel");
@@ -1812,6 +1821,221 @@ namespace Farm2Shelf.UI
                 }
             }
             UpdateCartSummary();
+        }
+
+        private void RenderRenovationList()
+        {
+            if (furnitureListContent == null) return;
+            foreach (Transform child in furnitureListContent) Destroy(child.gameObject);
+
+            int currentLevel = (Farm2Shelf.Environment.EnvironmentBuilder.Instance != null)
+                ? Farm2Shelf.Environment.EnvironmentBuilder.Instance.CurrentUpgradeLevel
+                : 1;
+
+            // 1. ZEMİN VE DUVARLAR SUB-TAB BAR (SOL ÜST KISIMDA KUTULAR)
+            GameObject subTabBarObj = new GameObject("RenovationSubTabBar");
+            subTabBarObj.transform.SetParent(furnitureListContent, false);
+
+            LayoutElement subTabLe = subTabBarObj.AddComponent<LayoutElement>();
+            subTabLe.minHeight = 48f;
+            subTabLe.preferredHeight = 48f;
+
+            HorizontalLayoutGroup subTabHlg = subTabBarObj.AddComponent<HorizontalLayoutGroup>();
+            subTabHlg.spacing = 14;
+            subTabHlg.childAlignment = TextAnchor.MiddleLeft;
+            subTabHlg.childControlWidth = false;
+            subTabHlg.childControlHeight = false;
+
+            // DUVARLAR SEKMESİ (Sub-Tab 0)
+            GameObject wallTabBtn = new GameObject("SubTab_Walls");
+            wallTabBtn.transform.SetParent(subTabBarObj.transform, false);
+            RectTransform wallTabRt = wallTabBtn.AddComponent<RectTransform>();
+            wallTabRt.sizeDelta = new Vector2(160f, 40f);
+
+            Image wallTabBg = wallTabBtn.AddComponent<Image>();
+            bool isWallActive = (activeRenovationSubTab == 0);
+            wallTabBg.sprite = isWallActive
+                ? UIStyleUtility.CreateOutlinePillSprite(160, 40, 14, 2, new Color(0.95f, 0.75f, 0.20f), new Color(0.25f, 0.18f, 0.08f, 0.95f))
+                : UIStyleUtility.CreateRoundedPillSprite(160, 40, 14, new Color(0.14f, 0.18f, 0.24f, 0.85f));
+
+            Button wBtn = wallTabBtn.AddComponent<Button>();
+            wBtn.targetGraphic = wallTabBg;
+            wBtn.onClick.AddListener(() => {
+                activeRenovationSubTab = 0;
+                RenderShoppingCategoryContent();
+            });
+
+            Text wTxt = CreateTextInPanel(wallTabBtn.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Sub_Walls", "🎨 Duvarlar", "🎨 Walls"), 14, isWallActive ? Color.white : new Color(0.75f, 0.80f, 0.85f));
+            wTxt.alignment = TextAnchor.MiddleCenter;
+
+            // ZEMİN SEKMESİ (Sub-Tab 1)
+            GameObject floorTabBtn = new GameObject("SubTab_Floors");
+            floorTabBtn.transform.SetParent(subTabBarObj.transform, false);
+            RectTransform floorTabRt = floorTabBtn.AddComponent<RectTransform>();
+            floorTabRt.sizeDelta = new Vector2(160f, 40f);
+
+            Image floorTabBg = floorTabBtn.AddComponent<Image>();
+            bool isFloorActive = (activeRenovationSubTab == 1);
+            floorTabBg.sprite = isFloorActive
+                ? UIStyleUtility.CreateOutlinePillSprite(160, 40, 14, 2, new Color(0.95f, 0.75f, 0.20f), new Color(0.25f, 0.18f, 0.08f, 0.95f))
+                : UIStyleUtility.CreateRoundedPillSprite(160, 40, 14, new Color(0.14f, 0.18f, 0.24f, 0.85f));
+
+            Button fBtn = floorTabBtn.AddComponent<Button>();
+            fBtn.targetGraphic = floorTabBg;
+            fBtn.onClick.AddListener(() => {
+                activeRenovationSubTab = 1;
+                RenderShoppingCategoryContent();
+            });
+
+            Text fTxt = CreateTextInPanel(floorTabBtn.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Sub_Floors", "🧱 Zemin", "🧱 Floors"), 14, isFloorActive ? Color.white : new Color(0.75f, 0.80f, 0.85f));
+            fTxt.alignment = TextAnchor.MiddleCenter;
+
+            // 2. ÜRÜN LİSTESİ HESAPLAMA
+            List<RenovationItemDef> items = (activeRenovationSubTab == 0)
+                ? RenovationDatabase.GetWallPaints()
+                : RenovationDatabase.GetFloorStyles();
+
+            string query = string.IsNullOrEmpty(currentShoppingSearchQuery) ? "" : currentShoppingSearchQuery.Trim().ToLower(System.Globalization.CultureInfo.GetCultureInfo("tr-TR"));
+            if (!string.IsNullOrEmpty(query))
+            {
+                items = items.FindAll(i => i.Name.ToLower(System.Globalization.CultureInfo.GetCultureInfo("tr-TR")).Contains(query));
+            }
+
+            foreach (var item in items)
+            {
+                RenovationItemDef def = item;
+                bool isUnlocked = (currentLevel >= def.requiredLevel);
+
+                GameObject cardObj = new GameObject("RenovationCard_" + def.id);
+                cardObj.transform.SetParent(furnitureListContent, false);
+
+                LayoutElement cardLe = cardObj.AddComponent<LayoutElement>();
+                cardLe.minHeight = 85f;
+                cardLe.preferredHeight = 85f;
+
+                Image cardBg = cardObj.AddComponent<Image>();
+                cardBg.sprite = UIStyleUtility.CreateRoundedPillSprite(720, 85, 16, new Color(0.12f, 0.15f, 0.20f, 0.90f));
+
+                HorizontalLayoutGroup cardHlg = cardObj.AddComponent<HorizontalLayoutGroup>();
+                cardHlg.padding = new RectOffset(10, 10, 8, 8);
+                cardHlg.spacing = 10;
+                cardHlg.childAlignment = TextAnchor.MiddleLeft;
+                cardHlg.childControlWidth = false;
+                cardHlg.childControlHeight = false;
+
+                // RENK KUTUSU (50x50)
+                GameObject previewObj = new GameObject("PreviewBox");
+                previewObj.transform.SetParent(cardObj.transform, false);
+                RectTransform prevRt = previewObj.AddComponent<RectTransform>();
+                prevRt.sizeDelta = new Vector2(50f, 50f);
+
+                Image prevBg = previewObj.AddComponent<Image>();
+                prevBg.color = def.itemColor;
+                prevBg.sprite = UIStyleUtility.CreateOutlinePillSprite(50, 50, 10, 2, Color.white, def.itemColor);
+
+                Text iconEmojiTxt = CreateTextInPanel(previewObj.transform, Vector2.zero, Vector2.one, def.iconEmoji, 20, Color.white);
+                iconEmojiTxt.alignment = TextAnchor.MiddleCenter;
+
+                // İSİM VE SEVİYE BİLGİSİ (170x50)
+                GameObject infoObj = new GameObject("InfoPanel");
+                infoObj.transform.SetParent(cardObj.transform, false);
+                RectTransform infoRt = infoObj.AddComponent<RectTransform>();
+                infoRt.sizeDelta = new Vector2(170f, 50f);
+
+                VerticalLayoutGroup infoVlg = infoObj.AddComponent<VerticalLayoutGroup>();
+                infoVlg.spacing = 2;
+                infoVlg.childAlignment = TextAnchor.MiddleLeft;
+                infoVlg.childControlWidth = true;
+
+                Text nameText = CreateTextInPanel(infoObj.transform, Vector2.zero, Vector2.one, def.Name, 14, Color.white);
+                nameText.fontStyle = FontStyle.Bold;
+
+                string lvlFmt = LocalizationManager.L("Renov_ReqLvl", "Seviye {0} Gerektirir", "Requires Level {0}");
+                Text lvlText = CreateTextInPanel(infoObj.transform, Vector2.zero, Vector2.one, string.Format(lvlFmt, def.requiredLevel), 11, isUnlocked ? new Color(0.40f, 0.90f, 0.50f) : new Color(0.95f, 0.40f, 0.40f));
+
+                // SAĞ KISIM: FİYAT VE "KULLAN" BUTONU (180x50)
+                GameObject ctrlObj = new GameObject("ControlPanel");
+                ctrlObj.transform.SetParent(cardObj.transform, false);
+                RectTransform ctrlRt = ctrlObj.AddComponent<RectTransform>();
+                ctrlRt.sizeDelta = new Vector2(180f, 50f);
+
+                HorizontalLayoutGroup ctrlHlg = ctrlObj.AddComponent<HorizontalLayoutGroup>();
+                ctrlHlg.spacing = 8;
+                ctrlHlg.childAlignment = TextAnchor.MiddleRight;
+                ctrlHlg.childControlWidth = false;
+                ctrlHlg.childControlHeight = false;
+
+                Text priceText = CreateTextInPanel(ctrlObj.transform, Vector2.zero, Vector2.one, $"<b>{def.price:N0}C</b>", 14, new Color(0.30f, 0.90f, 1.0f));
+                priceText.alignment = TextAnchor.MiddleRight;
+                RectTransform prRt = priceText.GetComponent<RectTransform>();
+                prRt.sizeDelta = new Vector2(55f, 35f);
+
+                if (isUnlocked)
+                {
+                    string useTxt = LocalizationManager.L("Btn_ApplyRenovation", "KULLAN", "APPLY");
+                    GameObject applyBtnObj = CreateButtonInPanel(ctrlObj.transform, Vector2.zero, new Vector2(110f, 38f), useTxt, new Color(0.18f, 0.75f, 0.35f), () => {
+                        ApplyRenovationItem(def);
+                    });
+                }
+                else
+                {
+                    string lockTxt = string.Format(LocalizationManager.L("Btn_LockedFmt", "🔒 Lv.{0}", "🔒 Lv.{0}"), def.requiredLevel);
+                    GameObject lockBtnObj = CreateButtonInPanel(ctrlObj.transform, Vector2.zero, new Vector2(110f, 38f), lockTxt, new Color(0.35f, 0.35f, 0.40f), null);
+                }
+            }
+        }
+
+        private void ApplyRenovationItem(RenovationItemDef item)
+        {
+            if (item == null) return;
+
+            int playerMoney = (EconomyManager.Instance != null) ? EconomyManager.Instance.Credits : 0;
+            if (playerMoney < item.price)
+            {
+                ModalManager.ShowModal(
+                    LocalizationManager.L("Renov_NoMoney_Title", "⚠️ Yetersiz Bakiye", "⚠️ Insufficient Balance"),
+                    LocalizationManager.L("Renov_NoMoney_Body", $"Bu tadilat için {item.price:N0}C gereklidir. Mevcut paranız yetersiz.", $"You need {item.price:N0}C for this renovation. Your balance is insufficient."),
+                    LocalizationManager.L("Btn_OK", "Tamam", "OK")
+                );
+                return;
+            }
+
+            // 1. KASADAN PARAYI ANINDA DÜŞ!
+            if (EconomyManager.Instance != null)
+            {
+                EconomyManager.Instance.SpendCredits(item.price);
+            }
+            if (FinanceManager.Instance != null)
+            {
+                FinanceManager.Instance.RecordExpense("Tadilat", $"{item.Name} Uygulaması", item.price);
+            }
+
+            // 2. DÜKKAN DUVAR/ZEMİNİNE ANINDA UYGULA!
+            if (Farm2Shelf.Environment.EnvironmentBuilder.Instance != null)
+            {
+                if (item.type == RenovationType.WallPaint)
+                {
+                    Farm2Shelf.Environment.EnvironmentBuilder.Instance.ApplyWallColor(item.itemColor);
+                }
+                else if (item.type == RenovationType.FloorStyle)
+                {
+                    Farm2Shelf.Environment.EnvironmentBuilder.Instance.ApplyFloorStyle(item.itemColor);
+                }
+            }
+
+            // 3. ALIŞVERİŞ ARAYÜZÜNÜ KESİN VE ANINDA KAPAT!
+            ClosePhoneTabletInstant();
+
+            // 4. BİLDİRİM GÖSTER!
+            string successTitle = (item.type == RenovationType.WallPaint)
+                ? LocalizationManager.L("Renov_Wall_Success_Title", "🎨 Duvarlar Boyandı!", "🎨 Walls Painted!")
+                : LocalizationManager.L("Renov_Floor_Success_Title", "🧱 Zemin Yenilendi!", "🧱 Floor Renovated!");
+
+            string successBody = (item.type == RenovationType.WallPaint)
+                ? LocalizationManager.L("Renov_Wall_Success_Body", $"Mağaza duvarları '{item.Name}' ile başarıyla boyandı. Kasadan {item.price:N0}C düştü.", $"Store walls successfully painted with '{item.Name}'. {item.price:N0}C deducted.")
+                : LocalizationManager.L("Renov_Floor_Success_Body", $"Mağaza zemini '{item.Name}' ile başarıyla yenilendi. Kasadan {item.price:N0}C düştü.", $"Store floor successfully renovated with '{item.Name}'. {item.price:N0}C deducted.");
+
+            ModalManager.ShowModal(successTitle, successBody, LocalizationManager.L("Btn_OK", "Tamam", "OK"));
         }
 
         private void RenderFurnitureList()

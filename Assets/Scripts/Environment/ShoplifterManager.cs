@@ -48,6 +48,8 @@ namespace Farm2Shelf.Environment
 
         private readonly List<ShoplifterData> activeShoplifters = new List<ShoplifterData>();
         private float nextSpawnTimer = 0f;
+        private int currentDayTracked = -1;
+        private int dailySpawnCount = 0;
 
         private void Awake()
         {
@@ -72,24 +74,52 @@ namespace Farm2Shelf.Environment
 
         private void Start()
         {
-            ScheduleNextSpawn();
+            // Dükkan açılır açılmaz hırsız gelmesin!
+            nextSpawnTimer = Time.time + Random.Range(120f, 240f);
         }
 
         private void ScheduleNextSpawn()
         {
-            // Gün içinde nadiren (70 ile 160 saniye arasında) bir hırsız gelir
-            nextSpawnTimer = Time.time + Random.Range(70f, 160f);
+            nextSpawnTimer = Time.time + Random.Range(180f, 300f);
         }
 
         private void Update()
         {
             if (StoreStatusManager.Instance == null || !StoreStatusManager.Instance.IsOpen) return;
 
+            // Gün Takibi ve Günlük 2 Hırsız Limiti Sıfırlama:
+            if (TimeManager.Instance != null)
+            {
+                int gameDay = TimeManager.Instance.Day;
+                if (gameDay != currentDayTracked)
+                {
+                    currentDayTracked = gameDay;
+                    dailySpawnCount = 0;
+                }
+            }
+
+            // GÜNDE EN FAZLA KESİNLİKLE 2 KERE HIRSIZ GELEBİLİR!
+            if (dailySpawnCount >= 2) return;
+
             // Zamanı gelince ve aktif hırsız yoksa yenisini başlat
             if (Time.time >= nextSpawnTimer && activeShoplifters.Count == 0)
             {
-                TrySpawnShoplifter();
                 ScheduleNextSpawn();
+
+                int currentHour = (TimeManager.Instance != null) ? TimeManager.Instance.Hour : 17;
+
+                // 1. Hırsızlık Gelişi: İkindi / Akşam Üstü (15:00 - 18:00)
+                // 2. Hırsızlık Gelişi: Geç Gece Saatleri (18:00 - 22:00)
+                if (dailySpawnCount == 0 && currentHour >= 15)
+                {
+                    TrySpawnShoplifter();
+                    dailySpawnCount++;
+                }
+                else if (dailySpawnCount == 1 && currentHour >= 18)
+                {
+                    TrySpawnShoplifter();
+                    dailySpawnCount++;
+                }
             }
 
             float dt = Time.deltaTime;

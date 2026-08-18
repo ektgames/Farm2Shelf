@@ -28,14 +28,21 @@ namespace Farm2Shelf.Environment
 
         private void Update()
         {
-            if (Farm2Shelf.Utils.TouchInputHelper.IsCleanTapThisFrame(out Vector2 pointerPos) && !EKTPhoneManager.IsTabletOpen && !ModalManager.IsModalOpen)
+            if (EKTPhoneManager.IsTabletOpen || ModalManager.IsModalOpen) return;
+
+            if (WasPointerPressedThisFrame() || Farm2Shelf.Utils.TouchInputHelper.IsCleanTapThisFrame(out _))
             {
+                if (IsPointerOverUIButton()) return;
+
                 Camera mainCam = Camera.main;
                 if (mainCam == null) return;
 
-                Ray ray = mainCam.ScreenPointToRay(pointerPos);
+                Vector2 pointerPos = GetPointerPosition();
+                if (pointerPos == Vector2.zero) return;
 
+                Ray ray = mainCam.ScreenPointToRay(pointerPos);
                 RaycastHit[] hits = Physics.RaycastAll(ray, 100f);
+
                 if (hits != null && hits.Length > 0)
                 {
                     System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
@@ -57,6 +64,11 @@ namespace Farm2Shelf.Environment
 
         private void OnStaffClicked()
         {
+            if (staffMember == null && taskData != null && taskData.staffMember != null)
+            {
+                staffMember = taskData.staffMember;
+            }
+
             if (staffMember == null) return;
 
             string liveStatusText = "Mağaza Görevinde";

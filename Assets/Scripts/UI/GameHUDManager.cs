@@ -24,7 +24,9 @@ namespace Farm2Shelf.UI
         private Text storeButtonText;
         private Text clockText;
         private Text calendarText;
+        private Text weatherText;
         private Text creditsText;
+        private Text qualityText;
         private Text pauseButtonText;
 
         private void Awake()
@@ -144,7 +146,7 @@ namespace Farm2Shelf.UI
             panelRect.anchorMax = new Vector2(0f, 1f);
             panelRect.pivot = new Vector2(0f, 1f);
             panelRect.anchoredPosition = new Vector2(75f, -40f); // Telefon kavis/çentik payı!
-            panelRect.sizeDelta = new Vector3(920f, 65f);
+            panelRect.sizeDelta = new Vector3(1250f, 65f);
 
             // Şeffaf Arka Plan (Koyu Kutu Yok!)
             Image panelBg = topPanel.AddComponent<Image>();
@@ -153,7 +155,7 @@ namespace Farm2Shelf.UI
 
             HorizontalLayoutGroup layout = topPanel.AddComponent<HorizontalLayoutGroup>();
             layout.padding = new RectOffset(0, 0, 0, 0);
-            layout.spacing = 8;
+            layout.spacing = 10;
             layout.childAlignment = TextAnchor.MiddleLeft;
             layout.childControlWidth = false;
             layout.childControlHeight = true;
@@ -167,10 +169,16 @@ namespace Farm2Shelf.UI
             // --- 5. TIKLANABİLİR STARDEW VALLEY TAKVİM ROZETİ ---
             CreateCalendarWidget(topPanel.transform);
 
+            // --- 5.5 DİNAMİK HAVA DURUMU ROZETİ ---
+            CreateWeatherWidget(topPanel.transform);
+
             // --- 6. CREDIT PARA ŞEFFAF ROZET ---
             CreateCreditsWidget(topPanel.transform);
 
-            // --- 7. SAĞ ÜST PAUSE DURAKLATMA BUTONU ---
+            // --- 7. MAĞAZA KALİTE SEVİYESİ YILDIZLI ROZET ---
+            CreateQualityWidget(topPanel.transform);
+
+            // --- 8. SAĞ ÜST PAUSE DURAKLATMA BUTONU ---
             CreatePauseButtonWidget(canvasObj.transform);
 
             // --- 8. SAĞ ALT EKT PHONE TABLET BUTONU ---
@@ -342,6 +350,38 @@ namespace Farm2Shelf.UI
             calendarText.raycastTarget = false;
         }
 
+        private void CreateWeatherWidget(Transform parent)
+        {
+            GameObject widget = new GameObject("Widget_Weather");
+            widget.transform.SetParent(parent, false);
+
+            RectTransform rect = widget.AddComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(150f, 52f);
+
+            Image bg = widget.AddComponent<Image>();
+            bg.sprite = UIStyleUtility.CreateRoundedPillSprite(150, 52, 25, new Color(0.12f, 0.18f, 0.25f, 0.70f));
+            bg.raycastTarget = false;
+
+            GameObject textObj = new GameObject("WeatherText");
+            textObj.transform.SetParent(widget.transform, false);
+
+            RectTransform tRect = textObj.AddComponent<RectTransform>();
+            tRect.anchorMin = Vector2.zero;
+            tRect.anchorMax = Vector2.one;
+
+            weatherText = textObj.AddComponent<Text>();
+            weatherText.font = storeButtonText.font;
+            weatherText.text = "☀️ GÜNEŞLİ";
+            weatherText.fontSize = 18;
+            weatherText.resizeTextForBestFit = true;
+            weatherText.resizeTextMinSize = 11;
+            weatherText.resizeTextMaxSize = 20;
+            weatherText.fontStyle = FontStyle.Bold;
+            weatherText.alignment = TextAnchor.MiddleCenter;
+            weatherText.color = new Color(1.0f, 0.90f, 0.35f);
+            weatherText.raycastTarget = false;
+        }
+
         private void CreateCreditsWidget(Transform parent)
         {
             GameObject widget = new GameObject("Widget_Credits");
@@ -372,6 +412,40 @@ namespace Farm2Shelf.UI
             creditsText.alignment = TextAnchor.MiddleCenter;
             creditsText.color = new Color(0.30f, 0.88f, 1.0f);
             creditsText.raycastTarget = false;
+        }
+
+        private void CreateQualityWidget(Transform parent)
+        {
+            GameObject widget = new GameObject("Widget_Quality");
+            widget.transform.SetParent(parent, false);
+
+            RectTransform rect = widget.AddComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(235f, 52f);
+
+            Image bg = widget.AddComponent<Image>();
+            bg.sprite = UIStyleUtility.CreateRoundedPillSprite(235, 52, 25, new Color(0.18f, 0.15f, 0.08f, 0.75f));
+            bg.raycastTarget = false;
+
+            GameObject textObj = new GameObject("QualityText");
+            textObj.transform.SetParent(widget.transform, false);
+
+            RectTransform tRect = textObj.AddComponent<RectTransform>();
+            tRect.anchorMin = Vector2.zero;
+            tRect.anchorMax = Vector2.one;
+            tRect.offsetMin = new Vector2(12f, 0f);
+            tRect.offsetMax = new Vector2(-12f, 0f);
+
+            qualityText = textObj.AddComponent<Text>();
+            qualityText.font = storeButtonText.font;
+            qualityText.text = "⭐ KALİTE: Lv.0 (0P)";
+            qualityText.fontSize = 19;
+            qualityText.resizeTextForBestFit = true;
+            qualityText.resizeTextMinSize = 11;
+            qualityText.resizeTextMaxSize = 20;
+            qualityText.fontStyle = FontStyle.Bold;
+            qualityText.alignment = TextAnchor.MiddleCenter;
+            qualityText.color = new Color(1.0f, 0.88f, 0.20f);
+            qualityText.raycastTarget = false;
         }
 
         private void OnStoreButtonClicked()
@@ -412,6 +486,16 @@ namespace Farm2Shelf.UI
             if (EconomyManager.Instance != null)
             {
                 EconomyManager.Instance.OnCreditsChanged += HandleCreditsChanged;
+            }
+
+            if (WeatherManager.Instance != null)
+            {
+                WeatherManager.Instance.OnWeatherChanged += HandleWeatherChanged;
+            }
+
+            if (StoreQualityManager.Instance != null)
+            {
+                StoreQualityManager.Instance.OnQualityChanged += HandleQualityChanged;
             }
 
             if (StoreStatusManager.Instance != null)
@@ -463,6 +547,36 @@ namespace Farm2Shelf.UI
             }
         }
 
+        private void HandleWeatherChanged(WeatherType weather)
+        {
+            if (weatherText != null)
+            {
+                switch (weather)
+                {
+                    case WeatherType.Sunny:
+                        weatherText.text = LocalizationManager.L("Weather_Sunny", "☀️ GÜNEŞLİ", "☀️ SUNNY");
+                        weatherText.color = new Color(1.0f, 0.90f, 0.35f);
+                        break;
+                    case WeatherType.Rainy:
+                        weatherText.text = LocalizationManager.L("Weather_Rainy", "🌧️ YAĞMURLU", "🌧️ RAINY");
+                        weatherText.color = new Color(0.45f, 0.85f, 1.0f);
+                        break;
+                    case WeatherType.Snowy:
+                        weatherText.text = LocalizationManager.L("Weather_Snowy", "❄️ KARLI", "❄️ SNOWY");
+                        weatherText.color = new Color(0.92f, 0.96f, 1.0f);
+                        break;
+                }
+            }
+        }
+
+        private void HandleQualityChanged(int score, int level)
+        {
+            if (qualityText != null)
+            {
+                qualityText.text = $"⭐ KALİTE: Lv.{level} ({score}P)";
+            }
+        }
+
         private void HandleStoreStatusChanged(bool isOpen)
         {
             if (storeButtonBg != null && storeButtonText != null)
@@ -499,6 +613,16 @@ namespace Farm2Shelf.UI
                 HandleCreditsChanged(EconomyManager.Instance.Credits);
             }
 
+            if (WeatherManager.Instance != null)
+            {
+                HandleWeatherChanged(WeatherManager.Instance.CurrentWeather);
+            }
+
+            if (StoreQualityManager.Instance != null)
+            {
+                HandleQualityChanged(StoreQualityManager.Instance.QualityScore, StoreQualityManager.Instance.QualityLevel);
+            }
+
             if (StoreStatusManager.Instance != null)
             {
                 HandleStoreStatusChanged(StoreStatusManager.Instance.IsOpen);
@@ -525,6 +649,16 @@ namespace Farm2Shelf.UI
             if (EconomyManager.Instance != null)
             {
                 EconomyManager.Instance.OnCreditsChanged -= HandleCreditsChanged;
+            }
+
+            if (WeatherManager.Instance != null)
+            {
+                WeatherManager.Instance.OnWeatherChanged -= HandleWeatherChanged;
+            }
+
+            if (StoreQualityManager.Instance != null)
+            {
+                StoreQualityManager.Instance.OnQualityChanged -= HandleQualityChanged;
             }
 
             if (StoreStatusManager.Instance != null)

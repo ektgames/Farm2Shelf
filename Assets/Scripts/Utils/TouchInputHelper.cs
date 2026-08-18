@@ -60,7 +60,6 @@ namespace Farm2Shelf.Utils
                 isPressed = true;
                 pressTime = Time.time;
                 pressPosition = currentPointerPos;
-                pressWasOverUI = IsPointerOverUI(pressPosition);
                 wasMultiTouch = (touchCount > 1);
             }
 
@@ -70,20 +69,21 @@ namespace Farm2Shelf.Utils
                 if (isPressed)
                 {
                     isPressed = false;
-                    float duration = Time.time - pressTime;
                     float dragDist = Vector2.Distance(currentPointerPos, pressPosition);
-                    bool releaseIsOverUI = IsPointerOverUI(currentPointerPos);
 
+                    // ÇİFT PARMAK HAREKETİ YOKSA (Çift Parmak Döndürme / Pinch-Zoom Yapılmadıysa) VE MODAL AÇIK DEĞİLSE:
+                    // Hem PC hem Mobil için her şeye anında ve sorunsuzca tıklanır! (Büyük kamera kaydırmalarında kazara tıklamayı önlemek için 60px sınırı var)
                     if (!wasMultiTouch &&
-                        !pressWasOverUI &&
-                        !releaseIsOverUI &&
-                        duration <= MaxTapDuration &&
-                        dragDist <= MaxTapDragDistance)
+                        touchCount <= 1 &&
+                        !Farm2Shelf.UI.ModalManager.IsModalOpen &&
+                        !Farm2Shelf.UI.EKTPhoneManager.IsTabletOpen &&
+                        dragDist <= 60f)
                     {
                         cleanTapTriggeredThisFrame = true;
                         lastTapPosition = currentPointerPos;
                     }
                 }
+                wasMultiTouch = false;
             }
         }
 
@@ -158,6 +158,9 @@ namespace Farm2Shelf.Utils
         {
             if (EventSystem.current == null) return false;
 
+            if (Farm2Shelf.UI.ModalManager.IsModalOpen || Farm2Shelf.UI.EKTPhoneManager.IsTabletOpen)
+                return true;
+
             PointerEventData eventData = new PointerEventData(EventSystem.current)
             {
                 position = screenPosition
@@ -172,14 +175,29 @@ namespace Farm2Shelf.Utils
                 var result = cachedRaycastResults[i];
                 if (result.gameObject != null)
                 {
-                    if (result.gameObject.layer == LayerMask.NameToLayer("UI") ||
-                        result.gameObject.GetComponentInParent<UnityEngine.UI.Selectable>() != null ||
-                        (result.gameObject.GetComponentInParent<Canvas>() != null && result.gameObject.GetComponentInParent<Canvas>().renderMode != RenderMode.WorldSpace))
+                    GameObject go = result.gameObject;
+
+                    // 1. Gerçek Tıklanabilir UI Buton ve Girdi Elemanları
+                    if (go.GetComponentInParent<UnityEngine.UI.Selectable>() != null ||
+                        go.GetComponentInParent<UnityEngine.UI.Button>() != null ||
+                        go.GetComponentInParent<UnityEngine.UI.Toggle>() != null ||
+                        go.GetComponentInParent<UnityEngine.UI.Slider>() != null ||
+                        go.GetComponentInParent<UnityEngine.UI.InputField>() != null ||
+                        go.GetComponentInParent<TMPro.TMP_InputField>() != null ||
+                        go.GetComponentInParent<TMPro.TMP_Dropdown>() != null)
+                    {
+                        return true;
+                    }
+
+                    // 2. Açık Modal / Pencere / Dialog Katmanları
+                    string n = go.name.ToLower();
+                    if (n.Contains("modal") || n.Contains("popup") || n.Contains("dialog") || n.Contains("window"))
                     {
                         return true;
                     }
                 }
             }
+
             return false;
         }
     }

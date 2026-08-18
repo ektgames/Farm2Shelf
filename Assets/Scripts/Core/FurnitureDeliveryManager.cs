@@ -82,7 +82,7 @@ namespace Farm2Shelf.Core
                         currentHoveredBox.ShowHover(true);
                     }
 
-                    if (Farm2Shelf.Utils.TouchInputHelper.IsCleanTapThisFrame(out _))
+                    if (WasPointerPressed() || Farm2Shelf.Utils.TouchInputHelper.IsCleanTapThisFrame(out _))
                     {
                         box.TriggerPlacement();
                     }
@@ -104,22 +104,37 @@ namespace Farm2Shelf.Core
 
         private Vector2 GetPointerPosition()
         {
+            try
+            {
+                Vector3 mPos = Input.mousePosition;
+                if (mPos.sqrMagnitude > 0.01f) return new Vector2(mPos.x, mPos.y);
+            }
+            catch { }
+
 #if ENABLE_INPUT_SYSTEM
-            if (UnityEngine.InputSystem.Touchscreen.current != null && UnityEngine.InputSystem.Touchscreen.current.primaryTouch.press.isPressed)
-                return UnityEngine.InputSystem.Touchscreen.current.primaryTouch.position.ReadValue();
             if (UnityEngine.InputSystem.Mouse.current != null)
-                return UnityEngine.InputSystem.Mouse.current.position.ReadValue();
+            {
+                Vector2 mPos = UnityEngine.InputSystem.Mouse.current.position.ReadValue();
+                if (mPos.sqrMagnitude > 0.01f) return mPos;
+            }
             if (UnityEngine.InputSystem.Pointer.current != null)
-                return UnityEngine.InputSystem.Pointer.current.position.ReadValue();
-            return Vector2.zero;
-#else
-            try { return Input.mousePosition; }
-            catch { return Vector2.zero; }
+            {
+                Vector2 pPos = UnityEngine.InputSystem.Pointer.current.position.ReadValue();
+                if (pPos.sqrMagnitude > 0.01f) return pPos;
+            }
+            if (UnityEngine.InputSystem.Touchscreen.current != null && UnityEngine.InputSystem.Touchscreen.current.primaryTouch.press.isPressed)
+            {
+                return UnityEngine.InputSystem.Touchscreen.current.primaryTouch.position.ReadValue();
+            }
 #endif
+
+            return Vector2.zero;
         }
 
         private bool WasPointerPressed()
         {
+            try { if (Input.GetMouseButtonDown(0)) return true; } catch { }
+
 #if ENABLE_INPUT_SYSTEM
             if (UnityEngine.InputSystem.Mouse.current != null && UnityEngine.InputSystem.Mouse.current.leftButton.wasPressedThisFrame)
                 return true;
@@ -127,31 +142,14 @@ namespace Farm2Shelf.Core
                 return true;
             if (UnityEngine.InputSystem.Pointer.current != null && UnityEngine.InputSystem.Pointer.current.press.wasPressedThisFrame)
                 return true;
-            return false;
-#else
-            try { return Input.GetMouseButtonDown(0); }
-            catch { return false; }
 #endif
+
+            return false;
         }
 
         private bool IsPointerOverUI()
         {
-            if (UnityEngine.EventSystems.EventSystem.current == null) return false;
-
-            UnityEngine.EventSystems.PointerEventData eventData = new UnityEngine.EventSystems.PointerEventData(UnityEngine.EventSystems.EventSystem.current);
-            eventData.position = GetPointerPosition();
-            List<UnityEngine.EventSystems.RaycastResult> results = new List<UnityEngine.EventSystems.RaycastResult>();
-            UnityEngine.EventSystems.EventSystem.current.RaycastAll(eventData, results);
-
-            foreach (var r in results)
-            {
-                if (r.gameObject != null && r.gameObject.GetComponentInParent<Button>() != null)
-                {
-                    return true; // Sadece ekrandaki aktif bir UI Butonuna (ör. EKT Phone, Dükkan Aç/Kapat) tıklanıyorsa
-                }
-            }
-
-            return false;
+            return ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen;
         }
 
         private void InitMaterials()

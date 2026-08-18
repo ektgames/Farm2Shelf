@@ -26,30 +26,34 @@ namespace Farm2Shelf.Core
         [Header("Track Names (Türkçe Başlıklar)")]
         private readonly string[] trackTitles = new string[]
         {
-            "Çiftlikte Sabah Güneşi 🌾",
-            "Yeşil Tarlalar & Neşe 🌱",
-            "Tatlı Pazar Alışverişi 🛒",
-            "Ahırda Hasat Zamanı 🚜",
-            "Şehir Parkı Gezintisi 🌳",
-            "Reyonlar Arasında 📦",
-            "Akşam Üstü Esintisi 🌅",
-            "Kahve Arası & Mola ☕",
-            "Yıldızlı Çiftlik Gecesi 🌙",
-            "Süpermarket Coşkusu 🏬"
+            "İlham Veren Akustik Folk 🌾",
+            "Tarım & Çiftlik Melodisi 🚜",
+            "Nehir Boyu Huzur 🌊",
+            "Sakin & Şükran Günü ☀️",
+            "Neşeli Kırsal Yaşam 🌻",
+            "Bereketli Tarla Esintisi 🌱",
+            "Pazar Yeri Coşkusu 🛒",
+            "Organik Tarım Ruhu 🥦",
+            "Çiftlikte Hasat Şenliği 🌽",
+            "Bahçeni Büyüt 🌸",
+            "Kırsal Country Ritimleri 🪕",
+            "Gece Pazarı Melodileri 🌙"
         };
 
         private readonly string[] trackTitlesEn = new string[]
         {
-            "Morning Sun on the Farm 🌾",
-            "Green Fields & Joy 🌱",
-            "Sweet Market Shopping 🛒",
-            "Harvest Time in the Barn 🚜",
-            "City Park Stroll 🌳",
-            "Between Store Shelves 📦",
-            "Late Afternoon Breeze 🌅",
-            "Coffee Break & Rest ☕",
-            "Starry Farm Night 🌙",
-            "Supermarket Excitement 🏬"
+            "Inspiring Acoustic Folk 🌾",
+            "Agriculture & Farm Song 🚜",
+            "Peaceful River Stroll 🌊",
+            "Calm & Gratitude ☀️",
+            "Joyful Rural Life 🌻",
+            "Bountiful Field Breeze 🌱",
+            "Marketplace Energy 🛒",
+            "Organic Farming Spirit 🥦",
+            "Farm Harvest Festival 🌽",
+            "Grow Your Garden 🌸",
+            "Rural Country Beats 🪕",
+            "Night Market Melodies 🌙"
         };
 
         [Header("Audio State")]
@@ -102,7 +106,7 @@ namespace Farm2Shelf.Core
 
             UpdateSourceVolumes();
 
-            // 3. Audio Asset'lerini Yükle veya 10 Farklı Beste Üret
+            // 3. Masaüstünden Yüklenen 12 Gerçek MP3 Müzik Parçasını Yükle
             LoadAudioAssets();
 
             // 4. Ana Menüden İtibaren Müziği Başlat
@@ -117,15 +121,15 @@ namespace Farm2Shelf.Core
             bgmTracks.Clear();
             sfxClips.Clear();
 
-            // Internetten indirilen 10 Gerçek Telifsiz MP3 Müzik Parçasını Yükle
-            for (int i = 1; i <= 10; i++)
+            // Masaüstünden entegre edilen 12 Gerçek MP3 Müzik Parçasını Yükle
+            for (int i = 1; i <= 12; i++)
             {
                 string path = $"Audio/BGM/track_{i:D2}";
                 AudioClip clip = Resources.Load<AudioClip>(path);
                 if (clip != null)
                 {
                     bgmTracks.Add(clip);
-                    Debug.Log($"[AudioManager] Gerçek İnternet MP3 Müziği Yüklendi: {path}");
+                    Debug.Log($"[AudioManager] Masaüstü MP3 Müziği Yüklendi: {path}");
                 }
                 else
                 {

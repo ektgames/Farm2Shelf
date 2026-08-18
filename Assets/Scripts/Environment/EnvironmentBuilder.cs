@@ -3476,5 +3476,59 @@ namespace Farm2Shelf.Environment
             shutterR.transform.localScale = new Vector3(0.28f, winSize.y + 0.1f, 0.08f);
             shutterR.GetComponent<Renderer>().sharedMaterial = fenceWoodMat;
         }
+
+        public void ApplyWallColor(Color c)
+        {
+            if (darkWallMat != null)
+            {
+                darkWallMat.color = c;
+                if (darkWallMat.HasProperty("_BaseColor")) darkWallMat.SetColor("_BaseColor", c);
+            }
+            GameObject bObj = GameObject.Find("Building_Complex");
+            if (bObj != null)
+            {
+                Renderer[] renderers = bObj.GetComponentsInChildren<Renderer>(true);
+                foreach (var r in renderers)
+                {
+                    if (r == null || r.gameObject == null) continue;
+                    string n = r.gameObject.name;
+                    if (n.Contains("Wall") || n.Contains("Partition"))
+                    {
+                        if (r.material != null)
+                        {
+                            r.material.color = c;
+                            if (r.material.HasProperty("_BaseColor")) r.material.SetColor("_BaseColor", c);
+                        }
+                    }
+                }
+            }
+        }
+
+        public void ApplyFloorStyle(Color c)
+        {
+            if (storeFloorMat != null)
+            {
+                storeFloorMat.color = c;
+                if (storeFloorMat.HasProperty("_BaseColor")) storeFloorMat.SetColor("_BaseColor", c);
+            }
+            GameObject bObj = GameObject.Find("Building_Complex");
+            if (bObj != null)
+            {
+                Renderer[] renderers = bObj.GetComponentsInChildren<Renderer>(true);
+                foreach (var r in renderers)
+                {
+                    if (r == null || r.gameObject == null) continue;
+                    string n = r.gameObject.name;
+                    if (n.Contains("Floor") || n.Contains("Store_Floor"))
+                    {
+                        if (r.material != null)
+                        {
+                            r.material.color = c;
+                            if (r.material.HasProperty("_BaseColor")) r.material.SetColor("_BaseColor", c);
+                        }
+                    }
+                }
+            }
+        }
     }
 }

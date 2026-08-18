@@ -241,7 +241,7 @@ namespace Farm2Shelf.UI
 
             titleText = headerObj.AddComponent<Text>();
             titleText.font = globalFont;
-            titleText.text = "📅 STARDEW TAKVİMİ";
+            titleText.text = "📅 TAKVİM";
             titleText.fontSize = 28;
             titleText.resizeTextForBestFit = true;
             titleText.resizeTextMinSize = 18;
@@ -428,8 +428,8 @@ namespace Farm2Shelf.UI
             
             string stardewTitleFormat = LocalizationManager.L(
                 "Calendar_TitleFormat",
-                "📅 STARDEW TAKVİMİ — YIL {0}, {1} (30 GÜN)",
-                "📅 STARDEW CALENDAR — YEAR {0}, {1} (30 DAYS)"
+                "📅 TAKVİM — YIL {0}, {1} (30 GÜN)",
+                "📅 CALENDAR — YEAR {0}, {1} (30 DAYS)"
             );
             titleText.text = string.Format(stardewTitleFormat, activeYear, GetSeasonRawName(selectedSeason));
             titleText.color = themeColor;
@@ -474,7 +474,7 @@ namespace Farm2Shelf.UI
                 dayTextObj.transform.SetParent(cardObj.transform, false);
 
                 RectTransform dRect = dayTextObj.AddComponent<RectTransform>();
-                dRect.anchorMin = new Vector2(0f, 0.35f);
+                dRect.anchorMin = new Vector2(0f, 0.40f);
                 dRect.anchorMax = new Vector2(1f, 1f);
                 dRect.offsetMin = Vector2.zero;
                 dRect.offsetMax = Vector2.zero;
@@ -483,52 +483,56 @@ namespace Farm2Shelf.UI
                 dText.font = globalFont;
                 string dayPrefix = LocalizationManager.L("Day_UpperWord", "GÜN", "DAY");
                 dText.text = isToday ? $"✨ {dayPrefix} {currentDayNum} ✨" : $"{dayPrefix} {currentDayNum}";
-                dText.fontSize = (isToday || isSelectedDay) ? 15 : 14;
+                dText.fontSize = (isToday || isSelectedDay) ? 14 : 13;
                 dText.fontStyle = FontStyle.Bold;
                 dText.alignment = TextAnchor.MiddleCenter;
                 dText.color = isToday ? new Color(1.0f, 0.92f, 0.30f) : (isSelectedDay ? themeColor : new Color(0.90f, 0.92f, 0.95f));
                 dText.raycastTarget = false;
 
-                // Rozet Metni (Mevsim Başı, Maaş Günü, vb.)
-                string badgeStr = "";
-                Color badgeColor = Color.gray;
+                // O Günün Hava Durumu Tahmini (Güneşli, Yağmurlu, Karlı)
+                Farm2Shelf.Environment.WeatherType dayWeather = Farm2Shelf.Environment.WeatherManager.GetWeatherForecastForDay(selectedSeason, currentDayNum, activeYear);
+                string weatherLabel = "";
+                Color weatherCol = Color.white;
+
+                switch (dayWeather)
+                {
+                    case Farm2Shelf.Environment.WeatherType.Sunny:
+                        weatherLabel = LocalizationManager.L("Weather_Label_Sunny", "☀️ Güneşli", "☀️ Sunny");
+                        weatherCol = new Color(1.0f, 0.88f, 0.30f);
+                        break;
+                    case Farm2Shelf.Environment.WeatherType.Rainy:
+                        weatherLabel = LocalizationManager.L("Weather_Label_Rainy", "🌧️ Yağmurlu", "🌧️ Rainy");
+                        weatherCol = new Color(0.45f, 0.85f, 1.0f);
+                        break;
+                    case Farm2Shelf.Environment.WeatherType.Snowy:
+                        weatherLabel = LocalizationManager.L("Weather_Label_Snowy", "❄️ Karlı", "❄️ Snowy");
+                        weatherCol = new Color(0.92f, 0.96f, 1.0f);
+                        break;
+                }
 
                 if (isToday)
                 {
-                    badgeStr = LocalizationManager.L("Badge_Today", "📍 BUGÜN", "📍 TODAY");
-                    badgeColor = new Color(0.40f, 0.95f, 0.50f);
-                }
-                else if (currentDayNum == 1)
-                {
-                    badgeStr = LocalizationManager.L("Badge_Start", "🌱 Başlangıç", "🌱 Start");
-                    badgeColor = new Color(0.35f, 0.85f, 0.95f);
-                }
-                else if (currentDayNum == 30)
-                {
-                    badgeStr = LocalizationManager.L("Badge_SeasonEnd", "🎉 Sezon Sonu", "🎉 Season End");
-                    badgeColor = new Color(0.95f, 0.45f, 0.75f);
+                    weatherLabel = LocalizationManager.L("Badge_TodayWeather", $"📍 {weatherLabel}", $"📍 {weatherLabel}");
+                    weatherCol = new Color(0.40f, 0.95f, 0.50f);
                 }
 
-                if (!string.IsNullOrEmpty(badgeStr))
-                {
-                    GameObject badgeObj = new GameObject("BadgeText");
-                    badgeObj.transform.SetParent(cardObj.transform, false);
+                GameObject weatherObj = new GameObject("WeatherBadgeText");
+                weatherObj.transform.SetParent(cardObj.transform, false);
 
-                    RectTransform bRect = badgeObj.AddComponent<RectTransform>();
-                    bRect.anchorMin = new Vector2(0f, 0f);
-                    bRect.anchorMax = new Vector2(1f, 0.40f);
-                    bRect.offsetMin = Vector2.zero;
-                    bRect.offsetMax = Vector2.zero;
+                RectTransform wRect = weatherObj.AddComponent<RectTransform>();
+                wRect.anchorMin = new Vector2(0f, 0f);
+                wRect.anchorMax = new Vector2(1f, 0.42f);
+                wRect.offsetMin = Vector2.zero;
+                wRect.offsetMax = Vector2.zero;
 
-                    Text bText = badgeObj.AddComponent<Text>();
-                    bText.font = globalFont;
-                    bText.text = badgeStr;
-                    bText.fontSize = 11;
-                    bText.fontStyle = FontStyle.Bold;
-                    bText.alignment = TextAnchor.MiddleCenter;
-                    bText.color = badgeColor;
-                    bText.raycastTarget = false;
-                }
+                Text wText = weatherObj.AddComponent<Text>();
+                wText.font = globalFont;
+                wText.text = weatherLabel;
+                wText.fontSize = 11;
+                wText.fontStyle = FontStyle.Bold;
+                wText.alignment = TextAnchor.MiddleCenter;
+                wText.color = weatherCol;
+                wText.raycastTarget = false;
             }
         }
 
