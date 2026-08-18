@@ -26,12 +26,8 @@ namespace Farm2Shelf.UI
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void AutoInitialize()
         {
-            if (Instance == null)
-            {
-                GameObject go = new GameObject("[iOS_UGUI_Diagnostic_Overlay]");
-                DontDestroyOnLoad(go);
-                Instance = go.AddComponent<iOSIntroDiagnosticOverlay>();
-            }
+            // Teşhis paneli devredışı bırakıldı (Oyun sorunsuz açılıyor)
+            return;
         }
 
         private void Awake()

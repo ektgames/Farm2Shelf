@@ -27,12 +27,11 @@ namespace Farm2Shelf.Environment
 
         private void Update()
         {
-            if (WasPointerPressedThisFrame() && !IsPointerOverUIButton() && !EKTPhoneManager.IsTabletOpen && !ModalManager.IsModalOpen)
+            if (Farm2Shelf.Utils.TouchInputHelper.IsCleanTapThisFrame(out Vector2 pointerPos) && !EKTPhoneManager.IsTabletOpen && !ModalManager.IsModalOpen)
             {
                 Camera mainCam = Camera.main;
                 if (mainCam == null) return;
 
-                Vector2 pointerPos = GetPointerPosition();
                 Ray ray = mainCam.ScreenPointToRay(pointerPos);
 
                 RaycastHit[] hits = Physics.RaycastAll(ray, 100f);

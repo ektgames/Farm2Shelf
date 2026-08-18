@@ -82,7 +82,7 @@ namespace Farm2Shelf.Core
                         currentHoveredBox.ShowHover(true);
                     }
 
-                    if (WasPointerPressed())
+                    if (Farm2Shelf.Utils.TouchInputHelper.IsCleanTapThisFrame(out _))
                     {
                         box.TriggerPlacement();
                     }

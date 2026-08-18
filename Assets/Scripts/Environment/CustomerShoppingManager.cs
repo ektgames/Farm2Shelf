@@ -1441,10 +1441,79 @@ namespace Farm2Shelf.Environment
 
             float moveSpeed = cData.visitedCustomerServiceDesk ? (WALK_SPEED * 1.25f) : WALK_SPEED;
             Vector3 moveDir = toTarget.normalized;
-            if (moveDir != Vector3.zero) cData.customerObj.transform.rotation = Quaternion.RotateTowards(cData.customerObj.transform.rotation, Quaternion.LookRotation(moveDir), 360f * deltaTime);
-            cData.customerObj.transform.position = Vector3.MoveTowards(currentPos, targetWaypoint, moveSpeed * deltaTime);
+            float stepDist = moveSpeed * deltaTime;
+            Vector3 avoidanceDir = CalculateCustomerAvoidanceDirection(cData.customerObj, currentPos, moveDir, stepDist);
+
+            if (avoidanceDir != Vector3.zero) cData.customerObj.transform.rotation = Quaternion.RotateTowards(cData.customerObj.transform.rotation, Quaternion.LookRotation(avoidanceDir), 360f * deltaTime);
+            cData.customerObj.transform.position = Vector3.MoveTowards(currentPos, currentPos + avoidanceDir, stepDist);
             cData.walkCycleTimer += deltaTime * (cData.visitedCustomerServiceDesk ? 10.6f : 8.5f);
             AnimateHumanLimbs(cData, Mathf.Sin(cData.walkCycleTimer) * 26.0f);
+        }
+
+        private Vector3 CalculateCustomerAvoidanceDirection(GameObject customerObj, Vector3 currentPos, Vector3 desiredDir, float stepDist)
+        {
+            if (desiredDir == Vector3.zero || customerObj == null) return desiredDir;
+
+            float checkRadius = 0.40f;
+            float checkDistance = Mathf.Max(0.80f, stepDist + 0.35f);
+            Vector3 rayStart = currentPos + Vector3.up * 0.5f;
+
+            RaycastHit[] hits = Physics.SphereCastAll(rayStart, checkRadius, desiredDir, checkDistance);
+            bool hitObstacle = false;
+            float minHitDistance = checkDistance;
+
+            if (hits != null && hits.Length > 0)
+            {
+                foreach (var hit in hits)
+                {
+                    if (hit.collider == null || hit.collider.isTrigger) continue;
+                    if (hit.collider.gameObject == customerObj || hit.collider.transform.IsChildOf(customerObj.transform)) continue;
+
+                    PlacedFurnitureController furniture = hit.collider.GetComponentInParent<PlacedFurnitureController>();
+                    if (furniture != null && PlacedFurnitureController.IsWalkableFloorDecoration(furniture.FurnitureType)) continue;
+
+                    hitObstacle = true;
+                    if (hit.distance < minHitDistance) minHitDistance = hit.distance;
+                    break;
+                }
+            }
+
+            if (!hitObstacle) return desiredDir;
+
+            float[] checkAngles = new float[] { 35f, -35f, 70f, -70f, 105f, -105f, 135f, -135f };
+            foreach (float angle in checkAngles)
+            {
+                Vector3 testDir = Quaternion.Euler(0f, angle, 0f) * desiredDir;
+                RaycastHit[] testHits = Physics.SphereCastAll(rayStart, checkRadius, testDir, checkDistance * 0.85f);
+                bool testHitObstacle = false;
+
+                if (testHits != null && testHits.Length > 0)
+                {
+                    foreach (var th in testHits)
+                    {
+                        if (th.collider == null || th.collider.isTrigger) continue;
+                        if (th.collider.gameObject == customerObj || th.collider.transform.IsChildOf(customerObj.transform)) continue;
+
+                        PlacedFurnitureController f = th.collider.GetComponentInParent<PlacedFurnitureController>();
+                        if (f != null && PlacedFurnitureController.IsWalkableFloorDecoration(f.FurnitureType)) continue;
+
+                        testHitObstacle = true;
+                        break;
+                    }
+                }
+
+                if (!testHitObstacle)
+                {
+                    return testDir.normalized;
+                }
+            }
+
+            if (minHitDistance < checkRadius + 0.05f)
+            {
+                return Vector3.zero;
+            }
+
+            return desiredDir * 0.05f;
         }
 
         private PlacedFurnitureController FindNearestShelfToPosition(Vector3 pos)

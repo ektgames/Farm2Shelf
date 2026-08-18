@@ -70,12 +70,33 @@ namespace Farm2Shelf.Core
             ghostObj = FurnitureModelBuilder.CreateFurnitureModel(type, isGhost: true);
             ghostObj.name = "Ghost_" + type.ToString();
 
+            if (boxController != null)
+            {
+                ghostObj.transform.position = boxController.transform.position;
+            }
+            else
+            {
+                Camera mainCam = Camera.main;
+                if (mainCam != null)
+                {
+                    Ray ray = mainCam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+                    if (groundPlane.Raycast(ray, out float enter))
+                    {
+                        Vector3 hitPoint = ray.GetPoint(enter);
+                        hitPoint.x = Mathf.Round(hitPoint.x * 4f) / 4f;
+                        hitPoint.z = Mathf.Round(hitPoint.z * 4f) / 4f;
+                        hitPoint.y = 0.01f;
+                        ghostObj.transform.position = hitPoint;
+                    }
+                }
+            }
+
             if (placementHUDCanvas != null) placementHUDCanvas.SetActive(true);
 
             FurnitureItemDef def = FurnitureDatabase.GetDef(type);
             if (infoStatusText != null && def != null)
             {
-                infoStatusText.text = $"🛠️ {def.name} Yerleştiriliyor\n{def.GetZoneText()} | [R/T] Mobilya Döndür | [WASD/QE] Kamera | [Sol Tık] Kur | [Sağ Tık/ESC] İptal";
+                infoStatusText.text = $"🛠️ {def.name} Yerleştiriliyor\nEkrana dokunarak taşıyın | Paneldeki [✅ Kur] butonuna basarak kurun";
             }
         }
 
@@ -98,13 +119,15 @@ namespace Farm2Shelf.Core
 
             ghostObj = FurnitureModelBuilder.CreateFurnitureModel(type, isGhost: true);
             ghostObj.name = "Ghost_" + type.ToString();
+            ghostObj.transform.position = origPos;
+            ghostObj.transform.rotation = origRot;
 
             if (placementHUDCanvas != null) placementHUDCanvas.SetActive(true);
 
             FurnitureItemDef def = FurnitureDatabase.GetDef(type);
             if (infoStatusText != null && def != null)
             {
-                infoStatusText.text = $"🛠️ {def.name} Taşınıyor\n{def.GetZoneText()} | [R/T] Mobilya Döndür | [WASD/QE] Kamera | [Sol Tık] Kur | [Sağ Tık/ESC] Eski Yere İade";
+                infoStatusText.text = $"🛠️ {def.name} Taşınıyor\nEkrana dokunarak taşıyın | Paneldeki [✅ Kur] butonuna basarak kurun";
             }
         }
 
@@ -122,66 +145,66 @@ namespace Farm2Shelf.Core
             Camera mainCam = Camera.main;
             if (mainCam == null) return;
 
-            Vector2 pointerPos = GetPointerPosition();
-            Ray ray = mainCam.ScreenPointToRay(pointerPos);
-
-            if (groundPlane.Raycast(ray, out float enter))
+            // Ekrana dokunulduğunda veya basılı tutulduğunda önizleme nesnesini o konuma taşı (otomatik KURMA yapmaz!)
+            if (WasLeftClickHeld() || WasLeftClicked())
             {
-                Vector3 hitPoint = ray.GetPoint(enter);
-                hitPoint.x = Mathf.Round(hitPoint.x * 4f) / 4f;
-                hitPoint.z = Mathf.Round(hitPoint.z * 4f) / 4f;
-                hitPoint.y = 0.01f;
-
-                ghostObj.transform.position = hitPoint;
-                ghostObj.transform.rotation = Quaternion.Euler(0f, currentYRotation, 0f);
-
-                FurnitureItemDef def = FurnitureDatabase.GetDef(currentType);
-                bool isZoneValid = IsValidPlacementZone(hitPoint, def != null ? def.zone : FurnitureZone.StoreOnly);
-                bool isOverlapping = IsOverlappingAnyObject(hitPoint, currentYRotation, currentType);
-
-                bool isValid = isZoneValid && !isOverlapping;
-
-                Material targetGhostMat = isValid ? FurnitureModelBuilder.ValidGhostMaterial : FurnitureModelBuilder.InvalidGhostMaterial;
-                FurnitureModelBuilder.ApplyGhostMaterial(ghostObj, targetGhostMat);
-
-                if (infoStatusText != null && def != null)
+                Vector2 pointerPos = GetPointerPosition();
+                if (!IsPointerOverUI())
                 {
-                    if (isValid)
+                    Ray ray = mainCam.ScreenPointToRay(pointerPos);
+                    if (groundPlane.Raycast(ray, out float enter))
                     {
-                        infoStatusText.text = $"🛠️ {def.name} Yerleştiriliyor (Konum Uygun ✅)\n{def.GetZoneText()} | [R/T] Döndür | [Sol Tık] Kur | [Sağ Tık/ESC] İptal";
-                        infoStatusText.color = Color.white;
-                    }
-                    else
-                    {
-                        infoStatusText.text = $"⚠️ GEÇERSİZ KONUM! (Duvar, Geçiş veya Başka Bir Nesne ile İç İçer Çakışıyor!)\n{def.GetZoneText()} | [R/T] Döndür | Temiz ve Boş Bir Alana Taşıyın";
-                        infoStatusText.color = new Color(1.0f, 0.45f, 0.45f);
+                        Vector3 hitPoint = ray.GetPoint(enter);
+                        hitPoint.x = Mathf.Round(hitPoint.x * 4f) / 4f;
+                        hitPoint.z = Mathf.Round(hitPoint.z * 4f) / 4f;
+                        hitPoint.y = 0.01f;
+
+                        ghostObj.transform.position = hitPoint;
                     }
                 }
+            }
 
-                if (WasRotatePressed())
-                {
-                    RotatePlacement(90f);
-                }
-                else if (WasRotateCCWPressed())
-                {
-                    RotatePlacement(-90f);
-                }
+            ghostObj.transform.rotation = Quaternion.Euler(0f, currentYRotation, 0f);
 
-                if (Time.time - placementStartTime > 0.15f && WasLeftClicked() && !IsPointerOverUI())
+            FurnitureItemDef def = FurnitureDatabase.GetDef(currentType);
+            Vector3 currentGhostPos = ghostObj.transform.position;
+            bool isZoneValid = IsValidPlacementZone(currentGhostPos, def != null ? def.zone : FurnitureZone.StoreOnly);
+            bool isOverlapping = IsOverlappingAnyObject(currentGhostPos, currentYRotation, currentType);
+
+            bool isValid = isZoneValid && !isOverlapping;
+
+            Material targetGhostMat = isValid ? FurnitureModelBuilder.ValidGhostMaterial : FurnitureModelBuilder.InvalidGhostMaterial;
+            FurnitureModelBuilder.ApplyGhostMaterial(ghostObj, targetGhostMat);
+
+            if (infoStatusText != null && def != null)
+            {
+                if (isValid)
                 {
-                    if (isValid)
-                    {
-                        ConfirmPlacement(hitPoint, Quaternion.Euler(0f, currentYRotation, 0f));
-                    }
-                    else
-                    {
-                        Debug.LogWarning($"[Placement] Geçersiz konum! {def.name} duvarlar, kapılar veya başka mobilyalarla çakışıyor!");
-                    }
+                    infoStatusText.text = $"🛠️ {def.name} Taşınıyor (Konum UYGUN ✅)\nEkrana dokunarak taşıyın | Paneldeki [✅ Kur] butonuna basın";
+                    infoStatusText.color = Color.white;
                 }
-                else if (WasRightClicked() || WasCancelPressed())
+                else
                 {
-                    CancelPlacement();
+                    infoStatusText.text = $"⚠️ GEÇERSİZ KONUM! (Çakışma var!)\nBoş bir alana taşıyın | [🔄 Döndür] ile yön değiştirin";
+                    infoStatusText.color = new Color(1.0f, 0.45f, 0.45f);
                 }
+            }
+
+            if (WasRotatePressed())
+            {
+                RotatePlacement(90f);
+            }
+            else if (WasRotateCCWPressed())
+            {
+                RotatePlacement(-90f);
+            }
+            else if (WasConfirmKeyPressed())
+            {
+                ConfirmCurrentPlacement();
+            }
+            else if (WasRightClicked() || WasCancelPressed())
+            {
+                CancelPlacement();
             }
         }
 
@@ -197,6 +220,37 @@ namespace Farm2Shelf.Core
 #else
             try { return Input.mousePosition; }
             catch { return Vector2.zero; }
+#endif
+        }
+
+        private bool WasLeftClickHeld()
+        {
+#if ENABLE_INPUT_SYSTEM
+            if (UnityEngine.InputSystem.Touchscreen.current != null && UnityEngine.InputSystem.Touchscreen.current.primaryTouch.press.isPressed)
+                return true;
+            if (UnityEngine.InputSystem.Mouse.current != null && UnityEngine.InputSystem.Mouse.current.leftButton.isPressed)
+                return true;
+            if (UnityEngine.InputSystem.Pointer.current != null && UnityEngine.InputSystem.Pointer.current.press.isPressed)
+                return true;
+            return false;
+#else
+            try { return Input.GetMouseButton(0); }
+            catch { return false; }
+#endif
+        }
+
+        private bool WasConfirmKeyPressed()
+        {
+#if ENABLE_INPUT_SYSTEM
+            if (UnityEngine.InputSystem.Keyboard.current != null &&
+               (UnityEngine.InputSystem.Keyboard.current.enterKey.wasPressedThisFrame ||
+                UnityEngine.InputSystem.Keyboard.current.numpadEnterKey.wasPressedThisFrame ||
+                UnityEngine.InputSystem.Keyboard.current.spaceKey.wasPressedThisFrame))
+                return true;
+            return false;
+#else
+            try { return Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.Space); }
+            catch { return false; }
 #endif
         }
 
@@ -434,9 +488,11 @@ namespace Farm2Shelf.Core
             }
 
             // 2. MEVCUT YERLEŞTİRİLMİŞ TÜM MOBİLYALAR / DEKORASYONLAR İLE ÇAKIŞMA KONTROLÜ
-            PlacedFurnitureController[] placedFurniture = Object.FindObjectsByType<PlacedFurnitureController>(FindObjectsSortMode.None);
-            foreach (var f in placedFurniture)
+            var placedFurniture = PlacedFurnitureController.AllPlacedFurniture;
+            int count = placedFurniture.Count;
+            for (int i = 0; i < count; i++)
             {
+                var f = placedFurniture[i];
                 if (f == null) continue;
 
                 if (isReinstalling && savedReplacementRows != null && Vector3.Distance(f.transform.position, originalReplacementPos) < 0.2f)
@@ -466,6 +522,104 @@ namespace Farm2Shelf.Core
                 if (ghostBounds.Intersects(existingBounds))
                 {
                     return true;
+                }
+            }
+
+            // 3. KAPI VEYA OK YÖNÜ KORİDOR GEÇİŞİ TIKALI MI?
+            if (IsFrontOrDoorwayBlocked(pos, rotationY, type))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        public bool IsFrontOrDoorwayBlocked(Vector3 pos, float rotationY, FurnitureType type)
+        {
+            if (PlacedFurnitureController.IsWalkableFloorDecoration(type)) return false;
+
+            Vector3 frontDir = Quaternion.Euler(0f, rotationY, 0f) * Vector3.forward;
+            float checkDist = 1.0f; // 1 kare (~1 metre) ok yönü zorunlu geçiş koridoru boşluğu
+            Vector3 frontCheckPos = pos + frontDir * checkDist;
+
+            // A. Duvar Sınırı Kontrolü: Ön ok yönü duvara çok yakın bakamaz (En az 1 kare mesafe olmalı)
+            EnvironmentBuilder env = EnvironmentBuilder.Instance;
+            int level = (env != null) ? env.CurrentUpgradeLevel : 1;
+            float frontWallZ = -3.0f;
+            float storeDepth = (level == 1) ? 18.0f : ((level == 2) ? 27.0f : 36.0f);
+            float storageDepth = (level == 1) ? 9.5f : ((level == 2) ? 14.5f : 19.5f);
+            float backWallZ = frontWallZ + storeDepth;
+            float storageBackZ = frontWallZ + storageDepth;
+
+            FurnitureItemDef def = FurnitureDatabase.GetDef(type);
+            FurnitureZone zone = (def != null) ? def.zone : FurnitureZone.StoreOnly;
+
+            if (zone == FurnitureZone.StoreOnly)
+            {
+                if (frontCheckPos.x < -12.3f || frontCheckPos.x > 2.3f || frontCheckPos.z < -2.3f || frontCheckPos.z > (backWallZ - 0.8f))
+                {
+                    return true;
+                }
+            }
+            else if (zone == FurnitureZone.StorageOnly)
+            {
+                if (frontCheckPos.x < 3.7f || frontCheckPos.x > 10.3f || frontCheckPos.z < -2.3f || frontCheckPos.z > (storageBackZ - 0.8f))
+                {
+                    return true;
+                }
+            }
+
+            // B. Kapı Önleri Geçiş Koridorları (Dükkan Ana Kapısı ve Depo Geçiş Kapısı)
+            // Ana Kapı Geçiş Yolu (-6.8f ile -3.2f arası, z <= -0.8f)
+            if (pos.x >= -6.8f && pos.x <= -3.2f && pos.z <= -0.8f)
+            {
+                return true;
+            }
+
+            // Depo Kapı Geçiş Yolu (x: 2.0f - 4.4f, z: -0.2f - 4.2f)
+            if (pos.x >= 2.0f && pos.x <= 4.4f && pos.z >= -0.2f && pos.z <= 4.2f)
+            {
+                return true;
+            }
+
+            // C. Diğer Mobilyaların Ön Ok Yönüne / Gövdesine Çakışma Kontrolü
+            var allFurniture = PlacedFurnitureController.AllPlacedFurniture;
+            int fCount = allFurniture.Count;
+            for (int i = 0; i < fCount; i++)
+            {
+                var f = allFurniture[i];
+                if (f == null) continue;
+                if (PlacedFurnitureController.IsWalkableFloorDecoration(f.FurnitureType)) continue;
+
+                if (isReinstalling && savedReplacementRows != null && Vector3.Distance(f.transform.position, originalReplacementPos) < 0.2f)
+                {
+                    continue;
+                }
+
+                // Sırt Sırta Koyma İstisnası:
+                // Eğer iki raf sırt sırta bakıyorsa (yani bu rafın ön ok yönü diğer rafın arkasına denk gelmiyorsa), sırt sırta koymaya izin verilir.
+                Vector2 fFootprint = GetFurnitureFootprintSize(f.FurnitureType);
+                float fAngleRad = f.transform.eulerAngles.y * Mathf.Deg2Rad;
+                bool fRotated = (Mathf.Abs(Mathf.Sin(fAngleRad)) > 0.5f);
+                float fW = fRotated ? fFootprint.y : fFootprint.x;
+                float fD = fRotated ? fFootprint.x : fFootprint.y;
+
+                Bounds fBodyBounds = new Bounds(
+                    new Vector3(f.transform.position.x, 0.9f, f.transform.position.z),
+                    new Vector3(fW - 0.10f, 1.8f, fD - 0.10f)
+                );
+
+                if (fBodyBounds.Contains(new Vector3(frontCheckPos.x, 0.9f, frontCheckPos.z)))
+                {
+                    // Ok yönü doğrudan diğer rafın gövdesine basıyor ve geçiş koridorunu tıkıyorsa engelle!
+                    Vector3 otherFrontDir = f.transform.forward;
+                    float dotDir = Vector3.Dot(frontDir, otherFrontDir);
+
+                    // Eğer zıt yöne (sırt sırta) bakmıyorlarsa engelle!
+                    if (dotDir > -0.7f)
+                    {
+                        return true;
+                    }
                 }
             }
 
@@ -577,39 +731,39 @@ namespace Farm2Shelf.Core
             pRect.anchorMax = new Vector2(0.5f, 0f);
             pRect.pivot = new Vector2(0.5f, 0f);
             pRect.anchoredPosition = new Vector2(0f, 40f);
-            pRect.sizeDelta = new Vector2(880f, 90f);
+            pRect.sizeDelta = new Vector2(940f, 95f);
 
             Image bg = panel.AddComponent<Image>();
-            bg.sprite = UIStyleUtility.CreateOutlinePillSprite(880, 90, 16, 2, new Color(0.95f, 0.40f, 0.55f), new Color(0.12f, 0.15f, 0.20f, 0.95f));
+            bg.sprite = UIStyleUtility.CreateOutlinePillSprite(940, 95, 16, 2, new Color(0.95f, 0.40f, 0.55f), new Color(0.12f, 0.15f, 0.20f, 0.95f));
             bg.raycastTarget = false;
 
             GameObject textObj = new GameObject("HUD_InfoText");
             textObj.transform.SetParent(panel.transform, false);
 
             RectTransform tRect = textObj.AddComponent<RectTransform>();
-            tRect.anchoredPosition = new Vector2(-190f, 0f);
-            tRect.sizeDelta = new Vector2(460f, 75f);
+            tRect.anchoredPosition = new Vector2(-220f, 0f);
+            tRect.sizeDelta = new Vector2(440f, 75f);
 
             infoStatusText = textObj.AddComponent<Text>();
             infoStatusText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             infoStatusText.raycastTarget = false;
             infoStatusText.text = "🛠️ Mobilya Yerleştiriliyor...";
-            infoStatusText.fontSize = 18;
+            infoStatusText.fontSize = 17;
             infoStatusText.alignment = TextAnchor.MiddleCenter;
             infoStatusText.color = Color.white;
 
-            // 1. KUR / YERLEŞTİR BUTONU (Mobil ve PC için Ekran Üzeri Yeşil Onay Butonu)
-            CreateHUDButton(panel.transform, new Vector2(120f, 0f), new Vector2(110f, 55f), "✅ Kur", new Color(0.20f, 0.78f, 0.35f), () => {
+            // 1. KUR BUTONU (Yeşil - Dokunulan Yere Kurmayı Onaylar)
+            CreateHUDButton(panel.transform, new Vector2(100f, 0f), new Vector2(130f, 60f), "✅ Kur", new Color(0.18f, 0.78f, 0.38f), () => {
                 ConfirmCurrentPlacement();
             });
 
-            // 2. DÖNDÜR BUTONU (Mobil ve PC için Mavi Döndürme Butonu)
-            CreateHUDButton(panel.transform, new Vector2(245f, 0f), new Vector2(110f, 55f), "🔄 Döndür", new Color(0.20f, 0.55f, 0.85f), () => {
+            // 2. DÖNDÜR BUTONU (Mavi - 90 Derece Döndürür)
+            CreateHUDButton(panel.transform, new Vector2(245f, 0f), new Vector2(130f, 60f), "🔄 Döndür", new Color(0.20f, 0.55f, 0.88f), () => {
                 RotatePlacement();
             });
 
-            // 3. İPTAL BUTONU (Kırmızı İptal Butonu)
-            CreateHUDButton(panel.transform, new Vector2(370f, 0f), new Vector2(110f, 55f), "❌ İptal", new Color(0.85f, 0.25f, 0.25f), () => {
+            // 3. İPTAL BUTONU (Kırmızı - Eski Konumuna Veya Envantere İade Eder)
+            CreateHUDButton(panel.transform, new Vector2(390f, 0f), new Vector2(130f, 60f), "❌ İptal", new Color(0.88f, 0.25f, 0.25f), () => {
                 CancelPlacement();
             });
 

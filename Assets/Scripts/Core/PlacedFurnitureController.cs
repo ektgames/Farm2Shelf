@@ -1,7 +1,9 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using Farm2Shelf.UI;
+using Farm2Shelf.Utils;
 
 namespace Farm2Shelf.Core
 {
@@ -74,8 +76,12 @@ namespace Farm2Shelf.Core
 
         private GameObject seasonWarningCanvasObj;
 
+        public static readonly List<PlacedFurnitureController> AllPlacedFurniture = new List<PlacedFurnitureController>();
+
         private void OnEnable()
         {
+            if (!AllPlacedFurniture.Contains(this)) AllPlacedFurniture.Add(this);
+
             if (TimeManager.Instance != null)
             {
                 TimeManager.Instance.OnDateUpdated += HandleDateUpdatedForSeasonBadge;
@@ -84,10 +90,29 @@ namespace Farm2Shelf.Core
 
         private void OnDisable()
         {
+            AllPlacedFurniture.Remove(this);
+
+            if (longPressCoroutine != null)
+            {
+                StopCoroutine(longPressCoroutine);
+                longPressCoroutine = null;
+            }
+
+            if (passiveIncomeCoroutine != null)
+            {
+                StopCoroutine(passiveIncomeCoroutine);
+                passiveIncomeCoroutine = null;
+            }
+
             if (TimeManager.Instance != null)
             {
                 TimeManager.Instance.OnDateUpdated -= HandleDateUpdatedForSeasonBadge;
             }
+        }
+
+        private void OnDestroy()
+        {
+            AllPlacedFurniture.Remove(this);
         }
 
         private void HandleDateUpdatedForSeasonBadge(TimeManager.Season season, int day, int year)
@@ -188,7 +213,7 @@ namespace Farm2Shelf.Core
                 seasonWarningCanvasObj.transform.rotation = Camera.main.transform.rotation;
             }
 
-            if (WasPointerPressedThisFrame() && !IsPointerOverUIButton())
+            if (TouchInputHelper.IsCleanTapThisFrame(out Vector2 pointerPos))
             {
                 if (Time.time - lastGlobalClickTime < 0.15f) return;
 
@@ -199,7 +224,6 @@ namespace Farm2Shelf.Core
                 Camera mainCam = Camera.main;
                 if (mainCam == null) return;
 
-                Vector2 pointerPos = GetPointerPosition();
                 Ray ray = mainCam.ScreenPointToRay(pointerPos);
 
                 RaycastHit[] hits = Physics.RaycastAll(ray, 100f);
@@ -334,6 +358,19 @@ namespace Farm2Shelf.Core
                     {
                         if (c != null) c.isTrigger = true;
                     }
+                }
+                else
+                {
+                    boxCol.isTrigger = false;
+
+                    UnityEngine.AI.NavMeshObstacle navObstacle = GetComponent<UnityEngine.AI.NavMeshObstacle>();
+                    if (navObstacle == null) navObstacle = gameObject.AddComponent<UnityEngine.AI.NavMeshObstacle>();
+                    navObstacle.shape = UnityEngine.AI.NavMeshObstacleShape.Box;
+                    navObstacle.center = boxCol.center;
+                    navObstacle.size = boxCol.size;
+                    navObstacle.carving = true;
+                    navObstacle.carveOnlyStationary = false;
+                    navObstacle.carvingTimeToStationary = 0.1f;
                 }
             }
 

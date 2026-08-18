@@ -28,12 +28,12 @@ namespace Farm2Shelf.CameraSystem
         [SerializeField] private float orthographicSize = 14f;
         [SerializeField] private float minZoom = 4f;
         [SerializeField] private float maxZoom = 35f;
-        [SerializeField] private float scrollZoomSpeed = 3.5f;
+        [SerializeField] private float scrollZoomSpeed = 7.0f;
         [SerializeField] private bool useOrthographic = true;
 
         [Header("Dokunmatik & Klavye Ayarları")]
         [SerializeField] private float panSensitivity = 0.035f;
-        [SerializeField] private float pinchSensitivity = 0.015f;
+        [SerializeField] private float pinchSensitivity = 0.045f;
         [SerializeField] private float rotateSensitivity = 0.2f;
         [SerializeField] private float moveSpeed = 18f;
         [SerializeField] private float rotateSpeed = 100f;
@@ -119,21 +119,34 @@ namespace Farm2Shelf.CameraSystem
                 Vector2 pos1 = touch1.screenPosition;
 
                 float currentPinchDist = Vector2.Distance(pos0, pos1);
+                float currentPinchAngle = Mathf.Atan2(pos1.y - pos0.y, pos1.x - pos0.x) * Mathf.Rad2Deg;
 
                 if (touch0.phase == UnityEngine.InputSystem.TouchPhase.Began || touch1.phase == UnityEngine.InputSystem.TouchPhase.Began)
                 {
                     lastPinchDistance = currentPinchDist;
+                    lastPinchAngle = currentPinchAngle;
                 }
                 else if (touch0.phase == UnityEngine.InputSystem.TouchPhase.Moved || touch1.phase == UnityEngine.InputSystem.TouchPhase.Moved)
                 {
+                    // 1. Zoom (Pinch)
                     float deltaDist = currentPinchDist - lastPinchDistance;
-                    float zoomDelta = -deltaDist * pinchSensitivity * 0.1f;
-                    orthographicSize = Mathf.Clamp(orthographicSize + zoomDelta, minZoom, maxZoom);
-                    distance = Mathf.Clamp(distance + (zoomDelta * 1.5f), 6f, 60f);
+                    if (Mathf.Abs(deltaDist) > 0.5f)
+                    {
+                        float zoomDelta = -deltaDist * pinchSensitivity * 0.35f;
+                        orthographicSize = Mathf.Clamp(orthographicSize + zoomDelta, minZoom, maxZoom);
+                        distance = Mathf.Clamp(distance + (zoomDelta * 1.5f), 6f, 60f);
 
-                    if (cam != null) cam.orthographicSize = orthographicSize;
+                        if (cam != null) cam.orthographicSize = orthographicSize;
+                        lastPinchDistance = currentPinchDist;
+                    }
 
-                    lastPinchDistance = currentPinchDist;
+                    // 2. Rotate (Twist / İki Parmak Kamerayı Döndürme)
+                    float deltaAngle = Mathf.DeltaAngle(lastPinchAngle, currentPinchAngle);
+                    if (Mathf.Abs(deltaAngle) > 0.05f)
+                    {
+                        yawAngle += deltaAngle * rotateSensitivity * 1.2f;
+                        lastPinchAngle = currentPinchAngle;
+                    }
                 }
             }
 #else
@@ -162,21 +175,34 @@ namespace Farm2Shelf.CameraSystem
                     Vector2 pos1 = touch1.position;
 
                     float currentPinchDist = Vector2.Distance(pos0, pos1);
+                    float currentPinchAngle = Mathf.Atan2(pos1.y - pos0.y, pos1.x - pos0.x) * Mathf.Rad2Deg;
 
                     if (touch0.phase == UnityEngine.TouchPhase.Began || touch1.phase == UnityEngine.TouchPhase.Began)
                     {
                         lastPinchDistance = currentPinchDist;
+                        lastPinchAngle = currentPinchAngle;
                     }
                     else if (touch0.phase == UnityEngine.TouchPhase.Moved || touch1.phase == UnityEngine.TouchPhase.Moved)
                     {
+                        // 1. Zoom (Pinch)
                         float deltaDist = currentPinchDist - lastPinchDistance;
-                        float zoomDelta = -deltaDist * pinchSensitivity * 0.1f;
-                        orthographicSize = Mathf.Clamp(orthographicSize + zoomDelta, minZoom, maxZoom);
-                        distance = Mathf.Clamp(distance + (zoomDelta * 1.5f), 6f, 60f);
+                        if (Mathf.Abs(deltaDist) > 0.5f)
+                        {
+                            float zoomDelta = -deltaDist * pinchSensitivity * 0.35f;
+                            orthographicSize = Mathf.Clamp(orthographicSize + zoomDelta, minZoom, maxZoom);
+                            distance = Mathf.Clamp(distance + (zoomDelta * 1.5f), 6f, 60f);
 
-                        if (cam != null) cam.orthographicSize = orthographicSize;
+                            if (cam != null) cam.orthographicSize = orthographicSize;
+                            lastPinchDistance = currentPinchDist;
+                        }
 
-                        lastPinchDistance = currentPinchDist;
+                        // 2. Rotate (Twist / İki Parmak Kamerayı Döndürme)
+                        float deltaAngle = Mathf.DeltaAngle(lastPinchAngle, currentPinchAngle);
+                        if (Mathf.Abs(deltaAngle) > 0.05f)
+                        {
+                            yawAngle += deltaAngle * rotateSensitivity * 1.2f;
+                            lastPinchAngle = currentPinchAngle;
+                        }
                     }
                 }
             }
@@ -208,7 +234,7 @@ namespace Farm2Shelf.CameraSystem
             if (Mathf.Abs(scrollY) > 0.001f)
             {
                 float scrollDir = Mathf.Sign(scrollY);
-                float step = Mathf.Max(Mathf.Abs(scrollY) * 0.05f, 1.5f);
+                float step = Mathf.Max(Mathf.Abs(scrollY) * 0.08f, 3.0f);
                 float zoomDelta = -scrollDir * step;
 
                 orthographicSize = Mathf.Clamp(orthographicSize + zoomDelta, minZoom, maxZoom);

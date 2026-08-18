@@ -921,8 +921,11 @@ namespace Farm2Shelf.Environment
             }
 
             Vector3 moveDir = toTarget.normalized;
-            if (moveDir != Vector3.zero) data.staffObj.transform.rotation = Quaternion.RotateTowards(data.staffObj.transform.rotation, Quaternion.LookRotation(moveDir), 360f * deltaTime);
-            data.staffObj.transform.position = Vector3.MoveTowards(currentPos, targetPos, 2.8f * deltaTime);
+            float stepDist = 2.8f * deltaTime;
+            Vector3 avoidanceDir = CalculateAvoidanceDirection(data.staffObj, currentPos, moveDir, stepDist);
+
+            if (avoidanceDir != Vector3.zero) data.staffObj.transform.rotation = Quaternion.RotateTowards(data.staffObj.transform.rotation, Quaternion.LookRotation(avoidanceDir), 360f * deltaTime);
+            data.staffObj.transform.position = Vector3.MoveTowards(currentPos, currentPos + avoidanceDir, stepDist);
 
             data.walkCycleTimer += deltaTime * 8.5f;
             AnimateLimbs(data, Mathf.Sin(data.walkCycleTimer) * 26.0f);
@@ -1828,6 +1831,73 @@ namespace Farm2Shelf.Environment
 
         #region Helper Movement & Animations
 
+        private Vector3 CalculateAvoidanceDirection(GameObject staffObj, Vector3 currentPos, Vector3 desiredDir, float stepDist)
+        {
+            if (desiredDir == Vector3.zero || staffObj == null) return desiredDir;
+
+            float checkRadius = 0.42f;
+            float checkDistance = Mathf.Max(0.85f, stepDist + 0.40f);
+            Vector3 rayStart = currentPos + Vector3.up * 0.5f;
+
+            RaycastHit[] hits = Physics.SphereCastAll(rayStart, checkRadius, desiredDir, checkDistance);
+            bool hitObstacle = false;
+            float minHitDistance = checkDistance;
+
+            if (hits != null && hits.Length > 0)
+            {
+                foreach (var hit in hits)
+                {
+                    if (hit.collider == null || hit.collider.isTrigger) continue;
+                    if (hit.collider.gameObject == staffObj || hit.collider.transform.IsChildOf(staffObj.transform)) continue;
+
+                    PlacedFurnitureController furniture = hit.collider.GetComponentInParent<PlacedFurnitureController>();
+                    if (furniture != null && PlacedFurnitureController.IsWalkableFloorDecoration(furniture.FurnitureType)) continue;
+
+                    hitObstacle = true;
+                    if (hit.distance < minHitDistance) minHitDistance = hit.distance;
+                    break;
+                }
+            }
+
+            if (!hitObstacle) return desiredDir;
+
+            float[] checkAngles = new float[] { 35f, -35f, 70f, -70f, 105f, -105f, 135f, -135f };
+            foreach (float angle in checkAngles)
+            {
+                Vector3 testDir = Quaternion.Euler(0f, angle, 0f) * desiredDir;
+                RaycastHit[] testHits = Physics.SphereCastAll(rayStart, checkRadius, testDir, checkDistance * 0.85f);
+                bool testHitObstacle = false;
+
+                if (testHits != null && testHits.Length > 0)
+                {
+                    foreach (var th in testHits)
+                    {
+                        if (th.collider == null || th.collider.isTrigger) continue;
+                        if (th.collider.gameObject == staffObj || th.collider.transform.IsChildOf(staffObj.transform)) continue;
+
+                        PlacedFurnitureController f = th.collider.GetComponentInParent<PlacedFurnitureController>();
+                        if (f != null && PlacedFurnitureController.IsWalkableFloorDecoration(f.FurnitureType)) continue;
+
+                        testHitObstacle = true;
+                        break;
+                    }
+                }
+
+                if (!testHitObstacle)
+                {
+                    return testDir.normalized;
+                }
+            }
+
+            // Duvara tam olarak dayandıysa duvarı delmeyi %100 engeller!
+            if (minHitDistance < checkRadius + 0.05f)
+            {
+                return Vector3.zero;
+            }
+
+            return desiredDir * 0.05f;
+        }
+
         private void FollowWaypoints(StaffTaskData data, float deltaTime, System.Action onComplete)
         {
             if (data.waypoints == null || data.currentWaypointIndex >= data.waypoints.Count)
@@ -1854,13 +1924,16 @@ namespace Farm2Shelf.Environment
             }
 
             Vector3 moveDir = toTarget.normalized;
-            if (moveDir != Vector3.zero)
+            float stepDist = WALK_SPEED * deltaTime;
+            Vector3 avoidanceDir = CalculateAvoidanceDirection(data.staffObj, currentPos, moveDir, stepDist);
+
+            if (avoidanceDir != Vector3.zero)
             {
-                Quaternion targetRot = Quaternion.LookRotation(moveDir);
+                Quaternion targetRot = Quaternion.LookRotation(avoidanceDir);
                 data.staffObj.transform.rotation = Quaternion.RotateTowards(data.staffObj.transform.rotation, targetRot, 360f * deltaTime);
             }
 
-            Vector3 nextPos = Vector3.MoveTowards(currentPos, targetWaypoint, WALK_SPEED * deltaTime);
+            Vector3 nextPos = Vector3.MoveTowards(currentPos, currentPos + avoidanceDir, stepDist);
             data.staffObj.transform.position = nextPos;
 
             data.walkCycleTimer += deltaTime * 8.5f;
