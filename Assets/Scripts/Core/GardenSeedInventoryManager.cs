@@ -33,6 +33,27 @@ namespace Farm2Shelf.Core
         // Ahır Geliştirme Seviyesi (1: 500 KG, 2: 1500 KG, 3: 4000 KG)
         public int BarnUpgradeLevel { get; private set; } = 1;
 
+        public Dictionary<string, int> GetOwnedSeedsInventory() => new Dictionary<string, int>(ownedSeeds);
+
+        public void SetBarnUpgradeLevel(int level)
+        {
+            BarnUpgradeLevel = Mathf.Clamp(level, 1, 3);
+            OnInventoryUpdated?.Invoke();
+        }
+
+        public void RestoreOwnedSeeds(Dictionary<string, int> seeds)
+        {
+            ownedSeeds.Clear();
+            if (seeds != null)
+            {
+                foreach (var kvp in seeds)
+                {
+                    ownedSeeds[kvp.Key] = kvp.Value;
+                }
+            }
+            OnInventoryUpdated?.Invoke();
+        }
+
         public event Action OnInventoryUpdated;
 
         public int MaxBarnCapacity
@@ -138,6 +159,12 @@ namespace Farm2Shelf.Core
         public Dictionary<string, int> GetBarnCropInventory()
         {
             return new Dictionary<string, int>(barnCropInventory);
+        }
+
+        public void ClearBarnInventory()
+        {
+            barnCropInventory.Clear();
+            OnInventoryUpdated?.Invoke();
         }
 
         public bool ConsumeBarnCrop(string seedId, int amount)

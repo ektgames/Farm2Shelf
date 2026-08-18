@@ -65,8 +65,9 @@ namespace Farm2Shelf.CameraSystem
 
         private void Update()
         {
-            // Ekranda herhangi bir Modal/Pencere açıkken arka planda kamera hareketini engelle!
+            // Ekranda herhangi bir Modal/Pencere açıkken veya Kutu/Mobilya taşınırken arka planda kamera hareketini engelle!
             if (ModalManager.IsModalOpen) return;
+            if (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing) return;
 
             HandleTouchInputs();
             HandleMouseScrollZoom();

@@ -87,8 +87,31 @@ namespace Farm2Shelf.Core
 
         private List<StockData> stocks = new List<StockData>();
         private Dictionary<string, StockData> stockMap = new Dictionary<string, StockData>();
-
         public event Action OnStockMarketUpdated;
+
+        public List<StockData> GetAllStocks() => stocks;
+
+        public void RestoreStockMarketData(List<StockSaveItem> savedStocks)
+        {
+            if (savedStocks == null) return;
+            foreach (var sItem in savedStocks)
+            {
+                if (sItem == null || string.IsNullOrEmpty(sItem.tickerSymbol)) continue;
+                if (stockMap.TryGetValue(sItem.tickerSymbol, out StockData stock))
+                {
+                    stock.currentPrice = sItem.currentPrice;
+                    stock.previousPrice = sItem.previousPrice;
+                    stock.ownedShares = sItem.ownedShares;
+                    stock.averageBuyPrice = sItem.averageBuyPrice;
+                    stock.totalInvested = sItem.totalInvested;
+                    if (sItem.priceHistory != null && sItem.priceHistory.Count > 0)
+                    {
+                        stock.priceHistory = new List<float>(sItem.priceHistory);
+                    }
+                }
+            }
+            OnStockMarketUpdated?.Invoke();
+        }
 
         private void Awake()
         {
@@ -229,7 +252,6 @@ namespace Farm2Shelf.Core
             return true;
         }
 
-        public List<StockData> GetAllStocks() => stocks;
         public StockData GetStock(string symbol)
         {
             if (stockMap.TryGetValue(symbol, out StockData data)) return data;

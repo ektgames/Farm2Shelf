@@ -191,6 +191,17 @@ namespace Farm2Shelf.Core
 
         public List<StaffMember> GetFarmStaffList() => farmStaffList;
 
+        public void SetFarmStaffList(List<StaffMember> newList)
+        {
+            farmStaffList.Clear();
+            if (newList != null)
+            {
+                farmStaffList.AddRange(newList);
+            }
+            OnStaffListChanged?.Invoke();
+            OnFarmStaffListChanged?.Invoke();
+        }
+
         public StaffMember HireFarmWorker()
         {
             // Benzersiz Rastgele İsim Üret (Erkek veya Kadın, İsim Tekrarı Olmaz)
@@ -342,6 +353,16 @@ namespace Farm2Shelf.Core
         }
 
         public List<StaffMember> GetActiveStaff() => activeStaffList;
+
+        public void SetStaffList(List<StaffMember> newList)
+        {
+            activeStaffList.Clear();
+            if (newList != null)
+            {
+                activeStaffList.AddRange(newList);
+            }
+            OnStaffListChanged?.Invoke();
+        }
 
         private void OnDestroy()
         {

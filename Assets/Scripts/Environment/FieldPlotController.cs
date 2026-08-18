@@ -52,6 +52,20 @@ namespace Farm2Shelf.Environment
             UpdateVisuals();
         }
 
+        public void RestoreCropState(string seedId, int curDay, int totalDays, bool needsWater, bool wateredToday, string stateName)
+        {
+            this.PlantedSeedId = seedId;
+            this.CurrentGrowthDay = curDay;
+            this.TotalGrowthDays = Mathf.Max(1, totalDays);
+            this.NeedsWater = needsWater;
+            this.WateredToday = wateredToday;
+            if (System.Enum.TryParse<PlotState>(stateName, out PlotState parsedState))
+            {
+                this.State = parsedState;
+            }
+            UpdateVisuals();
+        }
+
         private void OnDestroy()
         {
             if (TimeManager.Instance != null)

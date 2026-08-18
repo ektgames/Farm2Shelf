@@ -60,6 +60,17 @@ namespace Farm2Shelf.Core
             OnDateUpdated?.Invoke(currentSeason, currentDay, currentYear);
         }
 
+        public void SetTimeAndSeason(int day, int hour, int minute, Season season, int year)
+        {
+            currentDay = Mathf.Max(1, day);
+            currentHour = Mathf.Clamp(hour, 0, 23);
+            currentMinute = Mathf.Clamp(minute, 0, 59);
+            currentSeason = season;
+            currentYear = Mathf.Max(1, year);
+            OnTimeUpdated?.Invoke(currentHour, currentMinute);
+            OnDateUpdated?.Invoke(currentSeason, currentDay, currentYear);
+        }
+
         public void SetTimePaused(bool paused)
         {
             isTimePaused = paused;

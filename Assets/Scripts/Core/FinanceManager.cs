@@ -45,6 +45,30 @@ namespace Farm2Shelf.Core
 
         private List<TransactionRecord> transactionLog = new List<TransactionRecord>();
 
+        public int TotalRevenue => totalRevenue;
+        public int TotalExpenses => totalExpenses;
+        public int DailyRevenue => dailyRevenue;
+        public int DailyExpenses => dailyExpenses;
+        public int MonthlyRevenue => monthlyRevenue;
+        public int MonthlyExpenses => monthlyExpenses;
+        public List<TransactionRecord> GetTransactionLog() => transactionLog;
+
+        public void RestoreFinanceData(int totRev, int totExp, int dRev, int dExp, int mRev, int mExp, List<TransactionRecord> logs)
+        {
+            this.totalRevenue = totRev;
+            this.totalExpenses = totExp;
+            this.dailyRevenue = dRev;
+            this.dailyExpenses = dExp;
+            this.monthlyRevenue = mRev;
+            this.monthlyExpenses = mExp;
+            this.transactionLog.Clear();
+            if (logs != null)
+            {
+                this.transactionLog.AddRange(logs);
+            }
+            OnFinanceUpdated?.Invoke();
+        }
+
         public event Action OnFinanceUpdated;
 
         private void Awake()
@@ -127,16 +151,8 @@ namespace Farm2Shelf.Core
 
         // --- HESAPLANAN FİNANSAL METRİKLER ---
         public int CurrentBalance => EconomyManager.Instance != null ? EconomyManager.Instance.Credits : 500000;
-        public int TotalRevenue => totalRevenue;
-        public int TotalExpenses => totalExpenses;
         public int NetProfit => totalRevenue - totalExpenses;
-
-        public int DailyRevenue => dailyRevenue;
-        public int DailyExpenses => dailyExpenses;
         public int DailyNetProfit => dailyRevenue - dailyExpenses;
-
-        public int MonthlyRevenue => monthlyRevenue;
-        public int MonthlyExpenses => monthlyExpenses;
         public int MonthlyNetProfit => monthlyRevenue - monthlyExpenses;
 
         public float ProfitMargin

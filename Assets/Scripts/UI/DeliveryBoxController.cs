@@ -13,6 +13,7 @@ namespace Farm2Shelf.UI
     public class DeliveryBoxController : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
     {
         public FurnitureType furnitureType;
+        public FurnitureType FurnitureType => furnitureType;
 
         private GameObject tooltipUI;
         private Canvas tooltipCanvas;

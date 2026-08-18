@@ -34,6 +34,16 @@ namespace Farm2Shelf.Core
         }
 
         /// <summary>
+        /// Kaydedilmiş kalite puanı ve seviyesini doğrudan yükler.
+        /// </summary>
+        public void SetQualityData(int score, int level)
+        {
+            QualityScore = Mathf.Max(0, score);
+            QualityLevel = Mathf.Max(0, level);
+            OnQualityChanged?.Invoke(QualityScore, QualityLevel);
+        }
+
+        /// <summary>
         /// Kalite puanını artırır ve gerekiyorsa seviye atlatır.
         /// </summary>
         public void AddQualityScore(int amount, Vector3 worldPos, string reason = "")
@@ -99,12 +109,6 @@ namespace Farm2Shelf.Core
             return lvl;
         }
 
-        public void SetQualityData(int score, int level)
-        {
-            QualityScore = Mathf.Max(0, score);
-            QualityLevel = Mathf.Max(0, level);
-            OnQualityChanged?.Invoke(QualityScore, QualityLevel);
-        }
 
         private void ShowFloatingQualityPopup(Vector3 worldPos, string text, Color color, string reason)
         {

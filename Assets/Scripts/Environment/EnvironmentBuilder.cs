@@ -3477,8 +3477,12 @@ namespace Farm2Shelf.Environment
             shutterR.GetComponent<Renderer>().sharedMaterial = fenceWoodMat;
         }
 
+        public Color CurrentWallColor { get; private set; } = new Color(0.12f, 0.14f, 0.17f);
+        public Color CurrentFloorColor { get; private set; } = new Color(0.85f, 0.72f, 0.53f);
+
         public void ApplyWallColor(Color c)
         {
+            CurrentWallColor = c;
             if (darkWallMat != null)
             {
                 darkWallMat.color = c;
@@ -3506,6 +3510,7 @@ namespace Farm2Shelf.Environment
 
         public void ApplyFloorStyle(Color c)
         {
+            CurrentFloorColor = c;
             if (storeFloorMat != null)
             {
                 storeFloorMat.color = c;

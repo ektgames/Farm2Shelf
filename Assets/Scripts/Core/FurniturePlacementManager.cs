@@ -759,6 +759,11 @@ namespace Farm2Shelf.Core
             return false;
         }
 
+        public void SpawnRestoredFurniture(FurnitureType type, Vector3 pos, Quaternion rot, ShelfRowData[] existingRows = null)
+        {
+            InstantiatePlacedFurniture(type, pos, rot, existingRows);
+        }
+
         private void InstantiatePlacedFurniture(FurnitureType type, Vector3 pos, Quaternion rot, ShelfRowData[] existingRows = null)
         {
             GameObject realFurniture = FurnitureModelBuilder.CreateFurnitureModel(type, isGhost: false);

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -27,6 +28,39 @@ namespace Farm2Shelf.Core
         private Transform boxContainer;
         private readonly List<DeliveryBoxController> activeBoxes = new List<DeliveryBoxController>();
         private DeliveryBoxController currentHoveredBox = null;
+
+        public List<string> GetActiveBoxTypes()
+        {
+            List<string> types = new List<string>();
+            foreach (var b in activeBoxes)
+            {
+                if (b != null) types.Add(b.FurnitureType.ToString());
+            }
+            return types;
+        }
+
+        public void RestorePendingBoxes(List<string> boxTypes)
+        {
+            for (int i = activeBoxes.Count - 1; i >= 0; i--)
+            {
+                if (activeBoxes[i] != null && activeBoxes[i].gameObject != null)
+                {
+                    Destroy(activeBoxes[i].gameObject);
+                }
+            }
+            activeBoxes.Clear();
+
+            if (boxTypes != null)
+            {
+                foreach (var tStr in boxTypes)
+                {
+                    if (Enum.TryParse<FurnitureType>(tStr, out FurnitureType fType))
+                    {
+                        CreateCargoBoxOnPallet(fType);
+                    }
+                }
+            }
+        }
 
         private Material palletWoodMat;
         private Material cardboardMat;

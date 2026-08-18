@@ -81,10 +81,23 @@ namespace Farm2Shelf.Core
             }
         }
 
+        private int followerCount = 250;
         private List<SocialTweetData> tweetFeed = new List<SocialTweetData>();
         public event Action OnFeedUpdated;
 
-        private int followerCount = 1420;
+        public int FollowerCount => followerCount;
+        public List<SocialTweetData> GetTweetFeed() => tweetFeed;
+
+        public void RestoreSocialMediaData(int followers, List<SocialTweetData> feed)
+        {
+            this.followerCount = Mathf.Max(0, followers);
+            if (feed != null && feed.Count > 0)
+            {
+                this.tweetFeed.Clear();
+                this.tweetFeed.AddRange(feed);
+            }
+            OnFeedUpdated?.Invoke();
+        }
 
         private void Awake()
         {
@@ -219,8 +232,6 @@ namespace Farm2Shelf.Core
             string handle = "@" + name.Replace(" ", "").Replace("ç", "c").Replace("Ç", "C").Replace("ğ", "g").Replace("Ğ", "G").Replace("ı", "i").Replace("İ", "I").Replace("ö", "o").Replace("Ö", "O").Replace("ş", "s").Replace("Ş", "S").Replace("ü", "u").Replace("Ü", "U");
             return handle;
         }
-
-        public int FollowerCount => followerCount;
 
         public List<SocialTweetData> GetFeed(int tabFilter)
         {

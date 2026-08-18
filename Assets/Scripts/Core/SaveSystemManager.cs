@@ -6,8 +6,14 @@ using Farm2Shelf.Environment;
 namespace Farm2Shelf.Core
 {
     /// <summary>
-    /// 3 Slotlu Oyun Kaydetme ve Yükleme Yöneticisi (Save/Load Manager).
-    /// PlayerPrefs üzerinde JSON formatında oyundaki tüm durumu saklar ve yükler.
+    /// 3 Slotlu Eksiksiz Oyun Kaydetme ve Yükleme Yöneticisi (Save/Load Master Manager).
+    /// PlayerPrefs üzerinde JSON formatında oyundaki TÜM DURUMU (%100 Firesiz):
+    /// Bakiye, Mağaza Seviyesi, Dükkan Açık/Kapalı, Saat, Gün, Mevsim, Yıl,
+    /// Borsa Portföyü & Hisse Fiyat Geçmişi, Finans Dökümü & Gelir/Gider Kayıtları,
+    /// Banka Kredileri, Sosyal Medya & Takipçiler, Kalite Puanı & Seviyesi, Duvar/Zemin Renkleri,
+    /// Tohum Envanteri & Ahır Deposu, Mağaza ve Çiftlik Personelleri, Tarladaki Ekinler,
+    /// Palette Bekleyen Teslimat Paketleri ve Sahnede Yerleştirilmiş Tüm Mobilya/Rafları
+    /// eksiksiz kaydeder ve geri yükler.
     /// </summary>
     public class SaveSystemManager : MonoBehaviour
     {
@@ -24,6 +30,20 @@ namespace Farm2Shelf.Core
             }
             Instance = this;
             DontDestroyOnLoad(gameObject);
+        }
+
+        private void OnApplicationQuit()
+        {
+            // Oyundan çıkarken son durumu otomatik olarak Slot 1'e kaydet (Otomatik Kayıt Failsafe)
+            SaveCurrentGame(1);
+        }
+
+        private void OnApplicationPause(bool pauseStatus)
+        {
+            if (pauseStatus)
+            {
+                SaveCurrentGame(1);
+            }
         }
 
         /// <summary>
@@ -61,11 +81,11 @@ namespace Farm2Shelf.Core
         }
 
         /// <summary>
-        /// O anki oyun durumunu (bakiye, mağaza seviyesi, zaman, dükkan durumu, personeller vb.) belirtilen slota kaydeder.
+        /// O anki OYUNUN TÜM DURUMUNU (15 Ana Sistem) eksiksiz olarak belirtilen slota kaydeder.
         /// </summary>
         public bool SaveCurrentGame(int slotIndex)
         {
-            if (slotIndex < 1 || slotIndex > 3) return false;
+            if (slotIndex < 1 || slotIndex > 3) slotIndex = 1;
 
             SaveGameData saveData = new SaveGameData
             {
@@ -74,7 +94,7 @@ namespace Farm2Shelf.Core
                 saveTimestamp = DateTime.Now.ToString("dd.MM.yyyy - HH:mm")
             };
 
-            // 1. Ekonomi ve Bakiye
+            // 1. EKONOMİ VE BAKİYE
             if (EconomyManager.Instance != null)
             {
                 saveData.playerMoney = EconomyManager.Instance.Credits;
@@ -84,37 +104,144 @@ namespace Farm2Shelf.Core
                 saveData.playerMoney = 400000;
             }
 
-            // 2. Mağaza Seviyesi
+            // 2. MAĞAZA SEVİYESİ VE TADİLAT RENKLERİ
             if (EnvironmentBuilder.Instance != null)
             {
                 saveData.storeLevel = EnvironmentBuilder.Instance.CurrentUpgradeLevel;
-            }
-            else
-            {
-                saveData.storeLevel = 1;
+
+                Color wallC = EnvironmentBuilder.Instance.CurrentWallColor;
+                saveData.wallColorR = wallC.r;
+                saveData.wallColorG = wallC.g;
+                saveData.wallColorB = wallC.b;
+                saveData.wallColorA = wallC.a;
+
+                Color floorC = EnvironmentBuilder.Instance.CurrentFloorColor;
+                saveData.floorColorR = floorC.r;
+                saveData.floorColorG = floorC.g;
+                saveData.floorColorB = floorC.b;
+                saveData.floorColorA = floorC.a;
             }
 
-            // 3. Dükkan Açık/Kapalı Durumu
+            // 3. DÜKKAN AÇIK / KAPALI DURUMU
             if (StoreStatusManager.Instance != null)
             {
                 saveData.isStoreOpen = StoreStatusManager.Instance.IsOpen;
             }
 
-            // 4. Oyun Saati ve Günü
+            // 4. OYUN ZAMANI, GÜNÜ, MEVSİMİ VE YILI
             if (TimeManager.Instance != null)
             {
                 saveData.gameDay = TimeManager.Instance.Day;
                 saveData.gameHour = TimeManager.Instance.Hour;
                 saveData.gameMinute = TimeManager.Instance.Minute;
-            }
-            else
-            {
-                saveData.gameDay = 1;
-                saveData.gameHour = 8;
-                saveData.gameMinute = 0;
+                saveData.gameSeason = TimeManager.Instance.CurrentSeason.ToString();
+                saveData.gameYear = TimeManager.Instance.Year;
             }
 
-            // 5. Personel Listesi
+            // 5. MAĞAZA KALİTE SEVİYESİ VE YILDIZ PUANI
+            if (StoreQualityManager.Instance != null)
+            {
+                saveData.storeQualityScore = StoreQualityManager.Instance.QualityScore;
+                saveData.storeQualityLevel = StoreQualityManager.Instance.QualityLevel;
+            }
+
+            // 6. BORSA VE PORTFÖY
+            if (StockMarketManager.Instance != null)
+            {
+                List<StockData> stocks = StockMarketManager.Instance.GetAllStocks();
+                if (stocks != null)
+                {
+                    foreach (var s in stocks)
+                    {
+                        if (s == null) continue;
+                        saveData.stockMarket.Add(new StockSaveItem
+                        {
+                            tickerSymbol = s.tickerSymbol,
+                            currentPrice = s.currentPrice,
+                            previousPrice = s.previousPrice,
+                            ownedShares = s.ownedShares,
+                            averageBuyPrice = s.averageBuyPrice,
+                            totalInvested = s.totalInvested,
+                            priceHistory = new List<float>(s.priceHistory)
+                        });
+                    }
+                }
+            }
+
+            // 7. FİNANS DÖKÜMÜ VE GELİR / GİDER İŞLEM GEÇMİŞİ
+            if (FinanceManager.Instance != null)
+            {
+                saveData.totalRevenue = FinanceManager.Instance.TotalRevenue;
+                saveData.totalExpenses = FinanceManager.Instance.TotalExpenses;
+                saveData.dailyRevenue = FinanceManager.Instance.DailyRevenue;
+                saveData.dailyExpenses = FinanceManager.Instance.DailyExpenses;
+                saveData.monthlyRevenue = FinanceManager.Instance.MonthlyRevenue;
+                saveData.monthlyExpenses = FinanceManager.Instance.MonthlyExpenses;
+
+                List<TransactionRecord> logs = FinanceManager.Instance.GetTransactionLog();
+                if (logs != null)
+                {
+                    saveData.transactionLog.AddRange(logs);
+                }
+            }
+
+            // 8. BANKA KREDİLERİ
+            if (BankLoanManager.Instance != null)
+            {
+                List<ActiveLoanData> loans = BankLoanManager.Instance.GetActiveLoans();
+                if (loans != null)
+                {
+                    saveData.bankLoans.AddRange(loans);
+                }
+            }
+
+            // 9. SOSYAL MEDYA FEED VEYA TAKİPÇİLER
+            if (SocialMediaManager.Instance != null)
+            {
+                saveData.socialFollowerCount = SocialMediaManager.Instance.FollowerCount;
+                List<SocialTweetData> feed = SocialMediaManager.Instance.GetTweetFeed();
+                if (feed != null)
+                {
+                    saveData.socialFeed.AddRange(feed);
+                }
+            }
+
+            // 10. TOHUM ENVANTERİ VE AHIR DEPOSU
+            if (GardenSeedInventoryManager.Instance != null)
+            {
+                saveData.barnUpgradeLevel = GardenSeedInventoryManager.Instance.BarnUpgradeLevel;
+                saveData.barnCropKg = GardenSeedInventoryManager.Instance.GetTotalBarnStoredAmount();
+
+                Dictionary<string, int> ownedSeeds = GardenSeedInventoryManager.Instance.GetOwnedSeedsInventory();
+                if (ownedSeeds != null)
+                {
+                    foreach (var kvp in ownedSeeds)
+                    {
+                        saveData.ownedSeeds.Add(new OwnedSeedSaveData { seedId = kvp.Key, count = kvp.Value });
+                    }
+                }
+
+                Dictionary<string, int> barnCrops = GardenSeedInventoryManager.Instance.GetBarnCropInventory();
+                if (barnCrops != null)
+                {
+                    foreach (var kvp in barnCrops)
+                    {
+                        saveData.barnCrops.Add(new BarnCropSaveData { seedId = kvp.Key, count = kvp.Value });
+                    }
+                }
+            }
+
+            // 11. PALETTE BEKLEYEN TESLİMAT KOLİLERİ
+            if (FurnitureDeliveryManager.Instance != null)
+            {
+                List<string> pendingBoxes = FurnitureDeliveryManager.Instance.GetActiveBoxTypes();
+                if (pendingBoxes != null)
+                {
+                    saveData.pendingDeliveryBoxes.AddRange(pendingBoxes);
+                }
+            }
+
+            // 12. PERSONEL KADROSU (MAĞAZA VE ÇİFTLİK)
             if (StaffManager.Instance != null)
             {
                 List<StaffMember> staffList = StaffManager.Instance.GetActiveStaff();
@@ -136,27 +263,48 @@ namespace Farm2Shelf.Core
                         });
                     }
                 }
-            }
 
-            // 6. Ahır Mahsul Stoğu
-            if (GardenSeedInventoryManager.Instance != null)
-            {
-                saveData.barnCropKg = GardenSeedInventoryManager.Instance.GetTotalBarnStoredAmount();
-                Dictionary<string, int> crops = GardenSeedInventoryManager.Instance.GetBarnCropInventory();
-                if (crops != null)
+                List<StaffMember> farmList = StaffManager.Instance.GetFarmStaffList();
+                if (farmList != null)
                 {
-                    foreach (var kvp in crops)
+                    foreach (var fs in farmList)
                     {
-                        saveData.barnCrops.Add(new BarnCropSaveData
+                        if (fs == null) continue;
+                        saveData.farmStaffList.Add(new StaffSaveData
                         {
-                            seedId = kvp.Key,
-                            count = kvp.Value
+                            id = fs.id,
+                            name = fs.name,
+                            role = fs.role.ToString(),
+                            isFemale = fs.isFemale,
+                            dailySalary = fs.dailySalary,
+                            shiftHours = fs.shiftHours,
+                            isActive = fs.isActive
                         });
                     }
                 }
             }
 
-            // 7. Yerleştirilen Mobilyalar ve Raf Stokları
+            // 13. TARLADAKİ EKİNLER
+            FieldPlotController[] plots = UnityEngine.Object.FindObjectsByType<FieldPlotController>(FindObjectsSortMode.None);
+            if (plots != null)
+            {
+                foreach (var p in plots)
+                {
+                    if (p == null) continue;
+                    saveData.fieldCrops.Add(new CropSaveData
+                    {
+                        plotName = p.gameObject.name,
+                        seedId = p.PlantedSeedId,
+                        currentGrowthDay = p.CurrentGrowthDay,
+                        totalGrowthDays = p.TotalGrowthDays,
+                        needsWater = p.NeedsWater,
+                        wateredToday = p.WateredToday,
+                        state = p.State.ToString()
+                    });
+                }
+            }
+
+            // 14. YERLEŞTİRİLEN MOBİLYALAR VE RAF STOKLARI
             PlacedFurnitureController[] furnitureList = UnityEngine.Object.FindObjectsByType<PlacedFurnitureController>(FindObjectsSortMode.None);
             if (furnitureList != null)
             {
@@ -202,18 +350,18 @@ namespace Farm2Shelf.Core
                 string json = JsonUtility.ToJson(saveData, true);
                 PlayerPrefs.SetString(SAVE_SLOT_PREFIX + slotIndex, json);
                 PlayerPrefs.Save();
-                Debug.Log($"[SaveSystemManager] Slot {slotIndex} başarıyla kaydedildi! Tarih: " + saveData.saveTimestamp);
+                Debug.Log($"[SaveSystemManager] Slot {slotIndex} EKSİKSİZ KAYDEDİLDİ! Tarih: {saveData.saveTimestamp} | Borsa: {saveData.stockMarket.Count} | Finans: {saveData.transactionLog.Count} | Mobilya: {saveData.furnitureList.Count}");
                 return true;
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[SaveSystemManager] Slot {slotIndex} kaydedilemedi: " + ex.Message);
+                Debug.LogError($"[SaveSystemManager] Slot {slotIndex} kaydetme hatası: " + ex.Message);
                 return false;
             }
         }
 
         /// <summary>
-        /// Seçilen slot numarasındaki veriyi okuyarak oyunu bıraktığı durumdan başlatır.
+        /// Seçilen slot verisini okuyarak TÜM SİSTEMLERİ (%100 Firesiz) kalınan durumdan başlatır.
         /// </summary>
         public bool LoadGameFromSlot(int slotIndex)
         {
@@ -233,42 +381,218 @@ namespace Farm2Shelf.Core
                 EconomyManager.Instance.SetCredits(saveData.playerMoney);
             }
 
-            // 3. Mağaza Seviyesi Yükleme
-            if (EnvironmentBuilder.Instance != null && saveData.storeLevel != EnvironmentBuilder.Instance.CurrentUpgradeLevel)
+            // 3. Mağaza Seviyesi ve Renkleri Yükleme
+            if (EnvironmentBuilder.Instance != null)
             {
-                EnvironmentBuilder.Instance.UpgradeStoreToLevel(saveData.storeLevel);
+                if (saveData.storeLevel > 0 && saveData.storeLevel != EnvironmentBuilder.Instance.CurrentUpgradeLevel)
+                {
+                    EnvironmentBuilder.Instance.UpgradeStoreToLevel(saveData.storeLevel);
+                }
+
+                Color wallC = new Color(saveData.wallColorR, saveData.wallColorG, saveData.wallColorB, saveData.wallColorA);
+                EnvironmentBuilder.Instance.ApplyWallColor(wallC);
+
+                Color floorC = new Color(saveData.floorColorR, saveData.floorColorG, saveData.floorColorB, saveData.floorColorA);
+                EnvironmentBuilder.Instance.ApplyFloorStyle(floorC);
             }
 
-            // 4. Dükkan Açık/Kapalı Durumu
+            // 4. Mağaza Kalite Seviyesi ve Puanı Yükleme
+            if (StoreQualityManager.Instance != null)
+            {
+                StoreQualityManager.Instance.SetQualityData(saveData.storeQualityScore, saveData.storeQualityLevel);
+            }
+
+            // 5. Dükkan Açık/Kapalı Durumu
             if (StoreStatusManager.Instance != null)
             {
                 if (saveData.isStoreOpen) StoreStatusManager.Instance.OpenStore();
                 else StoreStatusManager.Instance.CloseStore();
             }
 
-            // 5. Oyun Zamanı ve Günü Yükleme
+            // 6. Oyun Zamanı, Günü, Mevsimi ve Yılı Yükleme
             if (TimeManager.Instance != null)
             {
-                TimeManager.Instance.SetTime(saveData.gameDay, saveData.gameHour, saveData.gameMinute);
-            }
-
-            // 6. Ahır Mahsul Stokları Yükleme
-            if (GardenSeedInventoryManager.Instance != null && saveData.barnCrops != null)
-            {
-                foreach (var crop in saveData.barnCrops)
+                if (Enum.TryParse<TimeManager.Season>(saveData.gameSeason, out TimeManager.Season loadedSeason))
                 {
-                    if (crop == null || string.IsNullOrEmpty(crop.seedId)) continue;
-                    GardenSeedInventoryManager.Instance.AddBarnCrop(crop.seedId, crop.count);
+                    TimeManager.Instance.SetTimeAndSeason(saveData.gameDay, saveData.gameHour, saveData.gameMinute, loadedSeason, saveData.gameYear);
+                }
+                else
+                {
+                    TimeManager.Instance.SetTime(saveData.gameDay, saveData.gameHour, saveData.gameMinute);
                 }
             }
 
-            // 7. Personel Yapısını Güncelleme
-            if (StaffVisualManager.Instance != null)
+            // 7. Borsa Portföyü ve Hisse Geçmişi Yükleme
+            if (StockMarketManager.Instance != null && saveData.stockMarket != null)
             {
-                StaffVisualManager.Instance.SyncStaff3DModels();
+                StockMarketManager.Instance.RestoreStockMarketData(saveData.stockMarket);
             }
 
-            Debug.Log($"[SaveSystemManager] Slot {slotIndex} başarıyla yüklendi! Bakiye: {saveData.playerMoney}C");
+            // 8. Finans Dökümü ve İşlem Geçmişi Yükleme
+            if (FinanceManager.Instance != null)
+            {
+                FinanceManager.Instance.RestoreFinanceData(
+                    saveData.totalRevenue,
+                    saveData.totalExpenses,
+                    saveData.dailyRevenue,
+                    saveData.dailyExpenses,
+                    saveData.monthlyRevenue,
+                    saveData.monthlyExpenses,
+                    saveData.transactionLog
+                );
+            }
+
+            // 9. Banka Kredileri Yükleme
+            if (BankLoanManager.Instance != null && saveData.bankLoans != null)
+            {
+                BankLoanManager.Instance.RestoreActiveLoans(saveData.bankLoans);
+            }
+
+            // 10. Sosyal Medya ve Takipçiler Yükleme
+            if (SocialMediaManager.Instance != null)
+            {
+                SocialMediaManager.Instance.RestoreSocialMediaData(saveData.socialFollowerCount, saveData.socialFeed);
+            }
+
+            // 11. Tohum Envanteri ve Ahır Deposu Yükleme
+            if (GardenSeedInventoryManager.Instance != null)
+            {
+                GardenSeedInventoryManager.Instance.SetBarnUpgradeLevel(saveData.barnUpgradeLevel);
+
+                if (saveData.ownedSeeds != null)
+                {
+                    Dictionary<string, int> seedDict = new Dictionary<string, int>();
+                    foreach (var s in saveData.ownedSeeds)
+                    {
+                        if (s != null && !string.IsNullOrEmpty(s.seedId)) seedDict[s.seedId] = s.count;
+                    }
+                    GardenSeedInventoryManager.Instance.RestoreOwnedSeeds(seedDict);
+                }
+
+                GardenSeedInventoryManager.Instance.ClearBarnInventory();
+                if (saveData.barnCrops != null)
+                {
+                    foreach (var crop in saveData.barnCrops)
+                    {
+                        if (crop == null || string.IsNullOrEmpty(crop.seedId)) continue;
+                        GardenSeedInventoryManager.Instance.AddBarnCrop(crop.seedId, crop.count);
+                    }
+                }
+            }
+
+            // 12. Palette Bekleyen Teslimat Kolilerini Yükleme
+            if (FurnitureDeliveryManager.Instance != null && saveData.pendingDeliveryBoxes != null)
+            {
+                FurnitureDeliveryManager.Instance.RestorePendingBoxes(saveData.pendingDeliveryBoxes);
+            }
+
+            // 13. Personel Kadrolarını Yükleme (Mağaza ve Çiftlik)
+            if (StaffManager.Instance != null)
+            {
+                if (saveData.staffList != null)
+                {
+                    List<StaffMember> restoredStaff = new List<StaffMember>();
+                    foreach (var sData in saveData.staffList)
+                    {
+                        if (sData == null) continue;
+                        if (Enum.TryParse<StaffRole>(sData.role, out StaffRole parsedRole))
+                        {
+                            StaffMember member = new StaffMember(sData.id, sData.name, parsedRole, sData.shiftHours, sData.dailySalary, sData.isActive, sData.isFemale);
+                            restoredStaff.Add(member);
+                        }
+                    }
+                    StaffManager.Instance.SetStaffList(restoredStaff);
+                }
+
+                if (saveData.farmStaffList != null)
+                {
+                    List<StaffMember> restoredFarmStaff = new List<StaffMember>();
+                    foreach (var fsData in saveData.farmStaffList)
+                    {
+                        if (fsData == null) continue;
+                        if (Enum.TryParse<StaffRole>(fsData.role, out StaffRole parsedRole))
+                        {
+                            StaffMember member = new StaffMember(fsData.id, fsData.name, parsedRole, fsData.shiftHours, fsData.dailySalary, fsData.isActive, fsData.isFemale);
+                            restoredFarmStaff.Add(member);
+                        }
+                    }
+                    StaffManager.Instance.SetFarmStaffList(restoredFarmStaff);
+                }
+
+                if (StaffVisualManager.Instance != null)
+                {
+                    StaffVisualManager.Instance.SyncStaff3DModels();
+                }
+            }
+
+            // 14. Tarladaki Ekinleri Yükleme
+            if (saveData.fieldCrops != null && saveData.fieldCrops.Count > 0)
+            {
+                FieldPlotController[] plots = UnityEngine.Object.FindObjectsByType<FieldPlotController>(FindObjectsSortMode.None);
+                if (plots != null)
+                {
+                    foreach (var p in plots)
+                    {
+                        if (p == null) continue;
+                        CropSaveData cData = saveData.fieldCrops.Find(c => c.plotName == p.gameObject.name);
+                        if (cData != null)
+                        {
+                            p.RestoreCropState(cData.seedId, cData.currentGrowthDay, cData.totalGrowthDays, cData.needsWater, cData.wateredToday, cData.state);
+                        }
+                    }
+                }
+            }
+
+            // 15. Yerleştirilen Mobilyaları ve Raf Stoklarını Yükleme
+            if (saveData.furnitureList != null)
+            {
+                PlacedFurnitureController[] existingFurniture = UnityEngine.Object.FindObjectsByType<PlacedFurnitureController>(FindObjectsSortMode.None);
+                if (existingFurniture != null)
+                {
+                    foreach (var f in existingFurniture)
+                    {
+                        if (f != null && f.gameObject != null)
+                        {
+                            UnityEngine.Object.Destroy(f.gameObject);
+                        }
+                    }
+                }
+
+                if (FurniturePlacementManager.Instance != null)
+                {
+                    foreach (var sData in saveData.furnitureList)
+                    {
+                        if (sData == null) continue;
+                        if (Enum.TryParse<FurnitureType>(sData.furnitureType, out FurnitureType fType))
+                        {
+                            Vector3 pos = new Vector3(sData.posX, sData.posY, sData.posZ);
+                            Quaternion rot = Quaternion.Euler(sData.rotX, sData.rotY, sData.rotZ);
+
+                            ShelfRowData[] rows = null;
+                            if (sData.rows != null && sData.rows.Count > 0)
+                            {
+                                rows = new ShelfRowData[sData.rows.Count];
+                                for (int i = 0; i < sData.rows.Count; i++)
+                                {
+                                    var rData = sData.rows[i];
+                                    rows[i] = new ShelfRowData(
+                                        rData.rowId,
+                                        rData.productName,
+                                        rData.currentStock,
+                                        rData.maxCapacity,
+                                        rData.unitPrice,
+                                        rData.productId
+                                    );
+                                }
+                            }
+
+                            FurniturePlacementManager.Instance.SpawnRestoredFurniture(fType, pos, rot, rows);
+                        }
+                    }
+                }
+            }
+
+            Debug.Log($"[SaveSystemManager] Slot {slotIndex} EKSİKSİZ YÜKLENDİ! Bakiye: {saveData.playerMoney}C | Borsa: {saveData.stockMarket?.Count} | Finans: {saveData.transactionLog?.Count} | Mobilya: {saveData.furnitureList?.Count} | Personel: {saveData.staffList?.Count}");
             return true;
         }
 

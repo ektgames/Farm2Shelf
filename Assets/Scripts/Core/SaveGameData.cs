@@ -40,11 +40,13 @@ namespace Farm2Shelf.Core
     [Serializable]
     public class CropSaveData
     {
-        public string plotId;
+        public string plotName;
         public string seedId;
-        public float growthProgress;
-        public bool isWatered;
-        public bool isReadyToHarvest;
+        public int currentGrowthDay;
+        public int totalGrowthDays;
+        public bool needsWater;
+        public bool wateredToday;
+        public string state;
     }
 
     [Serializable]
@@ -54,35 +56,94 @@ namespace Farm2Shelf.Core
         public int count;
     }
 
+    [Serializable]
+    public class StockSaveItem
+    {
+        public string tickerSymbol;
+        public float currentPrice;
+        public float previousPrice;
+        public int ownedShares;
+        public float averageBuyPrice;
+        public float totalInvested;
+        public List<float> priceHistory = new List<float>();
+    }
+
+    [Serializable]
+    public class OwnedSeedSaveData
+    {
+        public string seedId;
+        public int count;
+    }
+
     /// <summary>
-    /// Oyuncunun tüm oyun durumunu (bakiye, seviye, zaman, dükkan durumu, personeller, 
-    /// ahır stokları ve yerleştirilen mobilyalar) JSON formatında saklayan kayıt verisi.
+    /// Oyuncunun TÜM OYUN DURUMUNU (Borsa Hisseleri & Portföy, Finans Kayıtları & İşlem Dökümü,
+    /// Banka Kredileri, Sosyal Medya & Takipçiler, Bakiye, Mağaza Seviyesi, Saat, Gün, Mevsim, Yıl,
+    /// Dükkan Kalite Puanı, Duvar/Zemin Renkleri, Mağaza ve Çiftlik Personelleri, Ahır Deposu & Tohumlar,
+    /// Tarladaki Ekinler, Paletteki Teslimat Paketleri ve Tüm Mobilya/Raflar)
+    /// JSON formatında %100 eksiksiz ve firesiz saklayan kayıt verisi.
     /// </summary>
     [Serializable]
     public class SaveGameData
     {
         public int slotIndex;
-        public string saveTimestamp;       // ör. 15.08.2026 - 19:45
+        public string saveTimestamp;       // ör. 18.08.2026 - 15:30
         public bool isEmptySlot = true;
 
         // Oyun Durumu Özeti
         public string playerName = "Çiftçi Ali";
         public string companyName = "Farm2Shelf Market";
-        public int playerMoney;             // Bakiyeniz (ör. 400,000 TL)
+        public int playerMoney;             // Bakiye (ör. 400,000 TL)
         public int storeLevel;              // Mağaza Seviyesi (1, 2, 3)
         public bool isStoreOpen;            // Dükkan Açık/Kapalı 🟢/🔴
         public int gameDay;                 // Günü (ör. Gün 4)
         public int gameHour;                // Saati (ör. 14)
         public int gameMinute;              // Dakikası (ör. 30)
+        public string gameSeason = "İlkbahar"; // Mevsim
+        public int gameYear = 1;            // Yıl
 
-        // Detaylı İstatistikler
-        public int activeStaffCount;        // Çalışan Personel Sayısı
-        public int barnCropKg;              // Ahırdaki Mahsul Miktarı (KG)
+        // Kalite & Dekorasyon (Tadilat)
+        public int storeQualityScore;       // Yıldız Kalite Puanı
+        public int storeQualityLevel;       // Kalite Seviyesi
+        public float wallColorR = 0.12f, wallColorG = 0.14f, wallColorB = 0.17f, wallColorA = 1.0f; // Duvar Boyası
+        public float floorColorR = 0.85f, floorColorG = 0.72f, floorColorB = 0.53f, floorColorA = 1.0f; // Zemin
 
-        // Detaylı Oyun Verileri
-        public List<StaffSaveData> staffList = new List<StaffSaveData>();
+        // Borsa & Yatırımlar
+        public List<StockSaveItem> stockMarket = new List<StockSaveItem>();
+
+        // Finans Dökümü & İstatistikler
+        public int totalRevenue;
+        public int totalExpenses;
+        public int dailyRevenue;
+        public int dailyExpenses;
+        public int monthlyRevenue;
+        public int monthlyExpenses;
+        public List<TransactionRecord> transactionLog = new List<TransactionRecord>();
+
+        // Banka Kredileri
+        public List<ActiveLoanData> bankLoans = new List<ActiveLoanData>();
+
+        // Sosyal Medya
+        public int socialFollowerCount = 1420;
+        public List<SocialTweetData> socialFeed = new List<SocialTweetData>();
+
+        // Tohum Envanteri & Ahır Deposu
+        public int barnUpgradeLevel = 1;
+        public int barnCropKg;
+        public List<OwnedSeedSaveData> ownedSeeds = new List<OwnedSeedSaveData>();
         public List<BarnCropSaveData> barnCrops = new List<BarnCropSaveData>();
-        public List<ShelfSaveData> furnitureList = new List<ShelfSaveData>();
+
+        // Palette Bekleyen Teslimat Kolileri
+        public List<string> pendingDeliveryBoxes = new List<string>();
+
+        // Personel Kadrosu (Mağaza & Çiftlik)
+        public int activeStaffCount;
+        public List<StaffSaveData> staffList = new List<StaffSaveData>();
+        public List<StaffSaveData> farmStaffList = new List<StaffSaveData>();
+
+        // Tarladaki Ekinler
         public List<CropSaveData> fieldCrops = new List<CropSaveData>();
+
+        // Yerleştirilen Mobilyalar ve Raf Stokları
+        public List<ShelfSaveData> furnitureList = new List<ShelfSaveData>();
     }
 }

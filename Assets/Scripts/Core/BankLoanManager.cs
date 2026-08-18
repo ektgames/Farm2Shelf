@@ -139,8 +139,19 @@ namespace Farm2Shelf.Core
         public static BankLoanManager Instance { get; private set; }
 
         private List<ActiveLoanData> activeLoans = new List<ActiveLoanData>();
-
         public event Action OnBankLoansUpdated;
+
+        public List<ActiveLoanData> GetActiveLoans() => activeLoans;
+
+        public void RestoreActiveLoans(List<ActiveLoanData> loans)
+        {
+            activeLoans.Clear();
+            if (loans != null)
+            {
+                activeLoans.AddRange(loans);
+            }
+            OnBankLoansUpdated?.Invoke();
+        }
 
         private void Awake()
         {
@@ -289,7 +300,6 @@ namespace Farm2Shelf.Core
             OnBankLoansUpdated?.Invoke();
         }
 
-        public List<ActiveLoanData> GetActiveLoans() => activeLoans;
         public int TotalActiveLoanDebt
         {
             get
