@@ -3,6 +3,7 @@ using UnityEngine.AI;
 using System;
 using System.Collections.Generic;
 using Farm2Shelf.Core;
+using Farm2Shelf.Utils;
 
 namespace Farm2Shelf.Environment
 {
@@ -333,8 +334,12 @@ namespace Farm2Shelf.Environment
 
         private Material CreateSolidMaterial(string name, Color color, float metallic = 0.0f, float smoothness = 0.5f)
         {
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null) shader = Shader.Find("Standard");
+            Shader shader = ShaderHelper.GetLitShader();
+            if (shader == null)
+            {
+                Debug.LogError($"[EnvironmentBuilder] HATA: '{name}' materyali için 3D URP shader null döndü! Çökme önlendi.");
+                return null;
+            }
 
             Material mat = new Material(shader);
             mat.name = name;
