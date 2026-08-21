@@ -14,9 +14,60 @@ namespace Farm2Shelf.UI
         private static readonly Dictionary<FurnitureType, Sprite> furnitureIconCache = new Dictionary<FurnitureType, Sprite>();
         private static readonly Dictionary<string, Sprite> wholesaleIconCache = new Dictionary<string, Sprite>();
         private static readonly Dictionary<string, Sprite> seedIconCache = new Dictionary<string, Sprite>();
+        private static readonly Dictionary<string, Sprite> pillSpriteCache = new Dictionary<string, Sprite>();
+        private static readonly Dictionary<string, Sprite> outlineSpriteCache = new Dictionary<string, Sprite>();
+        private static readonly Dictionary<int, Font> fontCache = new Dictionary<int, Font>();
+        private static Font defaultFallbackFont = null;
+
+        /// <summary>
+        /// Bellek sızıntılarını ve iOS çökmesini önleyen statik önbellekli global Font sağlayıcı.
+        /// </summary>
+        public static Font GetGlobalFont(int fontSize = 20)
+        {
+            if (fontCache.TryGetValue(fontSize, out Font cached) && cached != null)
+            {
+                return cached;
+            }
+
+            Font font = null;
+            try
+            {
+                font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            }
+            catch {}
+
+            if (font == null && defaultFallbackFont != null)
+            {
+                font = defaultFallbackFont;
+            }
+
+            if (font == null)
+            {
+                try { font = Font.CreateDynamicFontFromOSFont("Arial", fontSize); } catch {}
+                if (font == null) { try { font = Font.CreateDynamicFontFromOSFont("Helvetica", fontSize); } catch {} }
+                if (font == null) { try { font = Font.CreateDynamicFontFromOSFont("Segoe UI", fontSize); } catch {} }
+                if (font != null && defaultFallbackFont == null)
+                {
+                    defaultFallbackFont = font;
+                }
+            }
+
+            if (font != null)
+            {
+                fontCache[fontSize] = font;
+            }
+
+            return font;
+        }
 
         public static Sprite CreateRoundedPillSprite(int width, int height, int cornerRadius, Color color)
         {
+            string cacheKey = $"{width}_{height}_{cornerRadius}_{color.r:F3}_{color.g:F3}_{color.b:F3}_{color.a:F3}";
+            if (pillSpriteCache.TryGetValue(cacheKey, out Sprite cached) && cached != null)
+            {
+                return cached;
+            }
+
             Texture2D tex = new Texture2D(width, height, TextureFormat.RGBA32, false);
             Color[] pixels = new Color[width * height];
 
@@ -58,11 +109,19 @@ namespace Farm2Shelf.UI
             tex.SetPixels(pixels);
             tex.Apply();
 
-            return Sprite.Create(tex, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(cornerRadius, cornerRadius, cornerRadius, cornerRadius));
+            Sprite sprite = Sprite.Create(tex, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(cornerRadius, cornerRadius, cornerRadius, cornerRadius));
+            pillSpriteCache[cacheKey] = sprite;
+            return sprite;
         }
 
         public static Sprite CreateOutlinePillSprite(int width, int height, int cornerRadius, int borderWidth, Color strokeColor, Color fillColor)
         {
+            string cacheKey = $"{width}_{height}_{cornerRadius}_{borderWidth}_{strokeColor.r:F3}_{strokeColor.g:F3}_{strokeColor.b:F3}_{strokeColor.a:F3}_{fillColor.r:F3}_{fillColor.g:F3}_{fillColor.b:F3}_{fillColor.a:F3}";
+            if (outlineSpriteCache.TryGetValue(cacheKey, out Sprite cached) && cached != null)
+            {
+                return cached;
+            }
+
             Texture2D tex = new Texture2D(width, height, TextureFormat.RGBA32, false);
             Color[] pixels = new Color[width * height];
 
@@ -108,7 +167,9 @@ namespace Farm2Shelf.UI
             tex.SetPixels(pixels);
             tex.Apply();
 
-            return Sprite.Create(tex, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f));
+            Sprite sprite = Sprite.Create(tex, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f));
+            outlineSpriteCache[cacheKey] = sprite;
+            return sprite;
         }
 
         /// <summary>

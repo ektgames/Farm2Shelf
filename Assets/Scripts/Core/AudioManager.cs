@@ -155,9 +155,10 @@ namespace Farm2Shelf.Core
         private void Update()
         {
             // Fon müziği bittiğinde otomatik bir sonraki parçaya geç
-            if (bgmSource != null && bgmTracks.Count > 0 && !isBgmMuted && !isChangingTrack)
+            if (bgmSource != null && bgmTracks.Count > 0 && !isBgmMuted && !isChangingTrack && bgmSource.clip != null)
             {
-                if (!bgmSource.isPlaying || (bgmSource.clip != null && bgmSource.time >= bgmSource.clip.length - 0.15f))
+                // Parça çalıyordu ve sonuna ulaştıysa sonraki parçaya geç
+                if (bgmSource.isPlaying && bgmSource.clip.length > 0f && bgmSource.time >= bgmSource.clip.length - 0.25f)
                 {
                     StartCoroutine(AutoNextTrackRoutine());
                 }
@@ -168,7 +169,7 @@ namespace Farm2Shelf.Core
         {
             isChangingTrack = true;
             NextTrack();
-            yield return new WaitForSeconds(0.5f);
+            yield return new WaitForSeconds(1.0f);
             isChangingTrack = false;
         }
 

@@ -37,8 +37,7 @@ namespace Farm2Shelf.UI
 
             modalInstance.AddComponent<GraphicRaycaster>();
 
-            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (font == null) font = Font.CreateDynamicFontFromOSFont("Arial", 20);
+            Font font = UIStyleUtility.GetGlobalFont(20);
 
             // 1. Karartma Arka Planı
             GameObject backdrop = new GameObject("Backdrop");
@@ -109,9 +108,9 @@ namespace Farm2Shelf.UI
             dTxt.text = LocalizationManager.L(
                 "TutPrompt_Desc",
                 "<b>Farm2Shelf dünyasına hoş geldin! 🌾🛒</b>\n\n" +
-                "Oyunun temel dokunmatik kontrollerini, EKT Tablet uygulamalarını, personel işe alımını, vardiyaları, mobilya kurulumunu, toptancı siparişlerini ve çiftlik tarımını adım adım öğrenmek için <b>10 Adımlı Başlangıç Eğitimine</b> girmek ister misin?",
+                "Oyunun temel dokunmatik kontrollerini, EKT Tablet uygulamalarını, personel işe alımını, vardiyaları, mobilya kurulumunu, toptancı siparişlerini ve reyon dizilimini, çiftlik tarımını adım adım öğrenmek için <b>10 Adımlı Başlangıç Eğitimine</b> girmek ister misin?",
                 "<b>Welcome to Farm2Shelf! 🌾🛒</b>\n\n" +
-                "Would you like to start the <b>10-Step Guided Tutorial</b> to learn mobile camera controls, EKT Tablet apps, hiring staff, shifts, furniture setup, wholesale orders, and crop farming step by step?"
+                "Would you like to start the <b>10-Step Guided Tutorial</b> to learn mobile camera controls, EKT Tablet apps, hiring staff, shifts, furniture setup, wholesale orders & stocking, and crop farming step by step?"
             );
             dTxt.fontSize = 15;
             dTxt.lineSpacing = 1.18f;

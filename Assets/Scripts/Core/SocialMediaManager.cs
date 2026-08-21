@@ -121,7 +121,7 @@ namespace Farm2Shelf.Core
             string storeName = GetStoreName();
             string playerHandle = GetPlayerHandle();
 
-            // Varsayılan İlgi Çekici Başlangıç Twitleri (TR & EN)
+            // Oyun başlangıcında sadece dükkanımızı açtığımızı duyuran tek resmi twit yer alır
             tweetFeed.Add(new SocialTweetData(
                 "TWT_101",
                 playerFullName,
@@ -132,79 +132,11 @@ namespace Farm2Shelf.Core
                 true,
                 $"🚀 Marketimizin kapıları açıldı! Taze çiftlik mahsullerimizle hizmetinizdeyiz. Hepinizi @{storeName} bekliyoruz! 🌾🛒",
                 $"🚀 Our store is officially open! Fresh farm crops served daily. Welcome to @{storeName}! 🌾🛒",
-                "10dk önce",
-                "10m ago",
-                48,
-                12,
+                "Az önce",
+                "Just now",
+                24,
+                6,
                 TweetSentiment.Official
-            ));
-
-            tweetFeed.Add(new SocialTweetData(
-                "TWT_102",
-                "Ahmet Yılmaz",
-                "@AhmetYilmaz",
-                "👨‍💼",
-                new Color(0.25f, 0.35f, 0.65f),
-                true,
-                false,
-                $"Bugün @{storeName} dükkanından domates ve yeşillik aldım. Mahsuller taptaze, fiyatlar da gayet makul! 🍅🥦👍",
-                $"Bought tomatoes and greens at @{storeName} today. Super fresh produce and very fair prices! 🍅🥦👍",
-                "25dk önce",
-                "25m ago",
-                14,
-                3,
-                TweetSentiment.Praise
-            ));
-
-            tweetFeed.Add(new SocialTweetData(
-                "TWT_103",
-                "Selin Koç",
-                "@SelinKoc",
-                "👩‍🎓",
-                new Color(0.85f, 0.45f, 0.65f),
-                false,
-                false,
-                $"@{storeName} kasasında 5 dakikadan az bekledim! Kasiyerler ışık hızında çalışıyor ⚡🛒",
-                $"Waited under 5 minutes at @{storeName} checkout! Fast cashiers ⚡🛒",
-                "1sa önce",
-                "1h ago",
-                29,
-                5,
-                TweetSentiment.Praise
-            ));
-
-            tweetFeed.Add(new SocialTweetData(
-                "TWT_104",
-                "Mehmet Öztürk",
-                "@MehmetOzturk",
-                "🧔",
-                new Color(0.55f, 0.30f, 0.65f),
-                false,
-                false,
-                $"@{storeName} reyonları cıvıl cıvıl, dükkandaki low-poly düzen harika duruyor! Favori marketim oldu. ❤️🌾",
-                $"The shelves at @{storeName} look amazing and so well organized! My new favorite spot. ❤️🌾",
-                "2sa önce",
-                "2h ago",
-                37,
-                8,
-                TweetSentiment.Praise
-            ));
-
-            tweetFeed.Add(new SocialTweetData(
-                "TWT_105",
-                "Emily Smith",
-                "@EmilySmith",
-                "👩‍⚕️",
-                new Color(0.70f, 0.40f, 0.50f),
-                true,
-                false,
-                $"Yoğun saatlerde @{storeName} sırasında biraz bekledik ama mahsullerin tazeliğine değer! 🥦👌",
-                $"Bit of a line at @{storeName} during peak hours, but the freshness is totally worth it! 🥦👌",
-                "3sa önce",
-                "3h ago",
-                19,
-                4,
-                TweetSentiment.Neutral
             ));
         }
 

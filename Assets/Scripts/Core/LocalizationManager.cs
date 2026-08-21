@@ -13,28 +13,43 @@ namespace Farm2Shelf.Core
     /// Farm2Shelf Küresel Dil Ve Yerelleştirme Yöneticisi (LocalizationManager).
     /// Türkçe ve İngilizce dil seçeneklerini yönetir, PlayerPrefs üzerinde saklar
     /// ve dil değiştiğinde OnLanguageChanged olayını tetikleyerek tüm UI'ların anında güncellenmesini sağlar.
-    /// Otomatik oluşturma (Auto-Instantiation) mekanizmasına sahiptir.
     /// </summary>
     public class LocalizationManager : MonoBehaviour
     {
         private static LocalizationManager instance;
         private static bool isQuitting = false;
 
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStaticState()
+        {
+            isQuitting = false;
+            instance = null;
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void AutoInitialize()
+        {
+            isQuitting = false;
+            if (instance == null)
+            {
+                instance = UnityEngine.Object.FindFirstObjectByType<LocalizationManager>();
+                if (instance == null && Application.isPlaying)
+                {
+                    GameObject go = new GameObject("[LocalizationManager]");
+                    instance = go.AddComponent<LocalizationManager>();
+                    DontDestroyOnLoad(go);
+                }
+            }
+        }
+
         public static LocalizationManager Instance
         {
             get
             {
-                if (isQuitting) return instance;
-
+                if (isQuitting) return null;
                 if (instance == null)
                 {
                     instance = UnityEngine.Object.FindFirstObjectByType<LocalizationManager>();
-                    if (instance == null && Application.isPlaying && !isQuitting)
-                    {
-                        GameObject go = new GameObject("[LocalizationManager]");
-                        instance = go.AddComponent<LocalizationManager>();
-                        DontDestroyOnLoad(go);
-                    }
                 }
                 return instance;
             }
@@ -119,11 +134,11 @@ namespace Farm2Shelf.Core
         /// <summary>
         /// Küresel Metin Yerelleştirme Yardımcısı.
         /// Mevcut dil Türkçe ise turkishText, İngilizce ise englishText döner.
+        /// Sahne kapanışlarında nesne üretmez.
         /// </summary>
         public static string L(string key, string turkishText, string englishText)
         {
-            LocalizationManager mgr = instance ?? Instance;
-            if (mgr != null && mgr.CurrentLanguage == GameLanguage.English)
+            if (instance != null && instance.CurrentLanguage == GameLanguage.English)
             {
                 return englishText;
             }

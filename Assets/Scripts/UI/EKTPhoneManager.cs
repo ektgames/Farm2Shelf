@@ -177,10 +177,7 @@ namespace Farm2Shelf.UI
                 StockMarketManager.Instance.OnStockMarketUpdated += RefreshFinanceViews;
             }
 
-            if (EnvironmentBuilder.Instance != null)
-            {
-                EnvironmentBuilder.Instance.OnStoreUpgraded += (lvl) => RefreshStoreManagementViews();
-            }
+            EnvironmentBuilder.OnStoreUpgraded += (lvl) => RefreshStoreManagementViews();
 
             if (LocalizationManager.Instance != null)
             {
@@ -299,8 +296,7 @@ namespace Farm2Shelf.UI
             tRect.anchorMax = Vector2.one;
 
             Text btnText = textObj.AddComponent<Text>();
-            btnText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (btnText.font == null) btnText.font = Font.CreateDynamicFontFromOSFont("Arial", 18);
+            btnText.font = UIStyleUtility.GetGlobalFont(18);
             globalFont = btnText.font;
 
             btnText.text = LocalizationManager.L("Btn_EktPhone", "📱 EKT TABLET", "📱 EKT PHONE");
@@ -5006,8 +5002,8 @@ namespace Farm2Shelf.UI
 
             Text tText = titleObj.AddComponent<Text>();
             tText.font = globalFont;
-            tText.text = LocalizationManager.L("App_SocialHeader", "𝕏  CHIRPER / SOSYAL MEDYA", "𝕏  CHIRPER / SOCIAL MEDIA");
-            tText.fontSize = 22;
+            tText.text = LocalizationManager.L("App_SocialHeader", "CHIRPER / SOSYAL MEDYA", "CHIRPER / SOCIAL MEDIA");
+            tText.fontSize = 24;
             tText.fontStyle = FontStyle.Bold;
             tText.alignment = TextAnchor.MiddleCenter;
             tText.color = new Color(0.12f, 0.70f, 0.95f);
@@ -5018,15 +5014,15 @@ namespace Farm2Shelf.UI
             composeBtnObj.transform.SetParent(headerObj.transform, false);
             RectTransform cRect = composeBtnObj.AddComponent<RectTransform>();
             cRect.anchoredPosition = new Vector2(350f, 0f);
-            cRect.sizeDelta = new Vector2(140f, 36f);
+            cRect.sizeDelta = new Vector2(140f, 38f);
 
             Image cBg = composeBtnObj.AddComponent<Image>();
-            cBg.sprite = UIStyleUtility.CreateRoundedPillSprite(140, 36, 18, new Color(0.12f, 0.65f, 0.95f));
+            cBg.sprite = UIStyleUtility.CreateRoundedPillSprite(140, 38, 19, new Color(0.12f, 0.65f, 0.95f));
             Button cBtn = composeBtnObj.AddComponent<Button>();
             cBtn.targetGraphic = cBg;
             cBtn.onClick.AddListener(ShowComposeTweetModal);
 
-            Text cTxt = CreateTextInPanel(composeBtnObj.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Btn_PostTweet", "✍️ TWEET AT", "✍️ POST TWEET"), 13, Color.white);
+            Text cTxt = CreateTextInPanel(composeBtnObj.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Btn_PostTweet", "TWEET AT", "POST TWEET"), 15, Color.white);
             cTxt.alignment = TextAnchor.MiddleCenter;
             cTxt.fontStyle = FontStyle.Bold;
 
@@ -5058,16 +5054,16 @@ namespace Farm2Shelf.UI
             string sName = SocialMediaManager.Instance != null ? SocialMediaManager.Instance.GetStoreName() : "Fresh Shelf Market";
             int followers = SocialMediaManager.Instance != null ? SocialMediaManager.Instance.FollowerCount : 1420;
 
-            Text pcTxt = CreateTextInPanel(profileCard.transform, Vector2.zero, Vector2.one, "", 13, Color.white);
+            Text pcTxt = CreateTextInPanel(profileCard.transform, Vector2.zero, Vector2.one, "", 14, Color.white);
             string profileFmt = LocalizationManager.L(
                 "Social_ProfileCardFmt",
-                "👨‍🌾 <b>{0}</b> ✔️\n<size=13><color=#80B0FF>{1}</color></size>\n\n🏢 <b>@{2}</b>\n👥 <b>{3:N0}</b> Takipçi  |  ⭐ <b>4.9</b> Puan\n<size=12><color=#A0AAB5>\"Tarladan rafa taptaze ürünler! 🌾✨\"</color></size>\n\n<size=12><color=#00E676>👉 Profile Gitmek İçin Tıkla</color></size>",
-                "👨‍🌾 <b>{0}</b> ✔️\n<size=13><color=#80B0FF>{1}</color></size>\n\n🏢 <b>@{2}</b>\n👥 <b>{3:N0}</b> Followers  |  ⭐ <b>4.9</b> Rating\n<size=12><color=#A0AAB5>\"Fresh farm crops straight to your shelf! 🌾✨\"</color></size>\n\n<size=12><color=#00E676>👉 Click to View Profile</color></size>"
+                "<b>{0}</b>\n<size=13><color=#80B0FF>{1}</color></size>\n\n<color=#00E676><b>@{2}</b></color>\n<b>{3:N0}</b> Takipçi  •  <b>4.9</b> Puan\n<size=12><color=#A0AAB5>\"Tarladan rafa taptaze mahsuller!\"</color></size>\n\n<size=13><color=#00E676><b>Profile Gitmek İçin Dokun</b></color></size>",
+                "<b>{0}</b>\n<size=13><color=#80B0FF>{1}</color></size>\n\n<color=#00E676><b>@{2}</b></color>\n<b>{3:N0}</b> Followers  •  <b>4.9</b> Rating\n<size=12><color=#A0AAB5>\"Fresh farm crops to your shelves!\"</color></size>\n\n<size=13><color=#00E676><b>Tap to View Profile</b></color></size>"
             );
             pcTxt.text = string.Format(profileFmt, pName, pHandle, sName.Replace(" ", ""), followers);
             pcTxt.alignment = TextAnchor.MiddleCenter;
 
-            // Trendler Kartı (Alt Yarım)
+            // Trendler Kartı (Alt Yarım) - Buton içinde kusursuz ortalanmış ve okunaklı
             GameObject trendCard = new GameObject("TrendCard");
             trendCard.transform.SetParent(leftPanel.transform, false);
             RectTransform tcRect = trendCard.AddComponent<RectTransform>();
@@ -5077,25 +5073,29 @@ namespace Farm2Shelf.UI
             Image tcBg = trendCard.AddComponent<Image>();
             tcBg.sprite = UIStyleUtility.CreateOutlinePillSprite(260, 175, 16, 1, new Color(0.25f, 0.35f, 0.45f), new Color(0.10f, 0.14f, 0.20f, 0.95f));
 
-            Text tcTxt = CreateTextInPanel(trendCard.transform, Vector2.zero, Vector2.one, "", 12, Color.white);
+            Text tcTxt = CreateTextInPanel(trendCard.transform, Vector2.zero, Vector2.one, "", 13, Color.white);
+            RectTransform tcTxtRect = tcTxt.GetComponent<RectTransform>();
+            tcTxtRect.offsetMin = new Vector2(16f, 10f);
+            tcTxtRect.offsetMax = new Vector2(-16f, -10f);
+
             string trendFmt = LocalizationManager.L(
                 "Social_TrendFmt",
-                "🔥 <b>GÜNDEMDEKİ BAŞLIKLAR</b>\n\n" +
-                "1️⃣ <b>#FreshShelfMarket</b> <color=#80A0C0>(14.2B)</color>\n" +
-                "2️⃣ <b>#HızlıKasa</b> <color=#80A0C0>(9.8B)</color>\n" +
-                "3️⃣ <b>#TazeHasat</b> <color=#80A0C0>(6.5B)</color>\n" +
-                "4️⃣ <b>#MarketSırası</b> <color=#80A0C0>(4.1B)</color>\n" +
-                "5️⃣ <b>#Farm2Shelf</b> <color=#80A0C0>(2.9B)</color>",
+                "<size=14><color=#40C4FF><b>GÜNDEMDEKİ BAŞLIKLAR</b></color></size>\n\n" +
+                "<b>1.</b> #FreshShelfMarket <color=#80A0C0>(14.2B)</color>\n" +
+                "<b>2.</b> #HizliKasa <color=#80A0C0>(9.8B)</color>\n" +
+                "<b>3.</b> #TazeHasat <color=#80A0C0>(6.5B)</color>\n" +
+                "<b>4.</b> #MarketSirasi <color=#80A0C0>(4.1B)</color>\n" +
+                "<b>5.</b> #Farm2Shelf <color=#80A0C0>(2.9B)</color>",
 
-                "🔥 <b>TRENDING TOPICS</b>\n\n" +
-                "1️⃣ <b>#FreshShelfMarket</b> <color=#80A0C0>(14.2K)</color>\n" +
-                "2️⃣ <b>#FastCheckout</b> <color=#80A0C0>(9.8K)</color>\n" +
-                "3️⃣ <b>#FreshHarvest</b> <color=#80A0C0>(5.2K)</color>\n" +
-                "4️⃣ <b>#StoreQueue</b> <color=#80A0C0>(4.1K)</color>\n" +
-                "5️⃣ <b>#Farm2Shelf</b> <color=#80A0C0>(2.9K)</color>"
+                "<size=14><color=#40C4FF><b>TRENDING TOPICS</b></color></size>\n\n" +
+                "<b>1.</b> #FreshShelfMarket <color=#80A0C0>(14.2K)</color>\n" +
+                "<b>2.</b> #FastCheckout <color=#80A0C0>(9.8K)</color>\n" +
+                "<b>3.</b> #FreshHarvest <color=#80A0C0>(5.2K)</color>\n" +
+                "<b>4.</b> #StoreQueue <color=#80A0C0>(4.1K)</color>\n" +
+                "<b>5.</b> #Farm2Shelf <color=#80A0C0>(2.9K)</color>"
             );
             tcTxt.text = trendFmt;
-            tcTxt.alignment = TextAnchor.MiddleLeft;
+            tcTxt.alignment = TextAnchor.MiddleCenter;
 
             // 3. SAĞ PANEL (SEKMELER & AKIŞ)
             GameObject rightPanel = new GameObject("RightFeedPanel");
@@ -5109,12 +5109,12 @@ namespace Farm2Shelf.UI
             tabsBar.transform.SetParent(rightPanel.transform, false);
             RectTransform tbRect = tabsBar.AddComponent<RectTransform>();
             tbRect.anchoredPosition = new Vector2(0f, 165f);
-            tbRect.sizeDelta = new Vector2(570f, 34f);
+            tbRect.sizeDelta = new Vector2(570f, 36f);
 
             string[] tabNames = new string[] {
-                LocalizationManager.L("SocialTab_ForYou", "🌐 1. Sana Özel", "🌐 1. For You"),
-                LocalizationManager.L("SocialTab_Reviews", "💬 2. Yorumlar", "💬 2. Reviews"),
-                LocalizationManager.L("SocialTab_MyTweets", "👤 3. Twitlerim", "👤 3. My Tweets")
+                LocalizationManager.L("SocialTab_ForYou", "1. Sana Özel", "1. For You"),
+                LocalizationManager.L("SocialTab_Reviews", "2. Yorumlar", "2. Reviews"),
+                LocalizationManager.L("SocialTab_MyTweets", "3. Twitlerim", "3. My Tweets")
             };
 
             for (int t = 0; t < 3; t++)
@@ -5124,11 +5124,11 @@ namespace Farm2Shelf.UI
                 tBtnObj.transform.SetParent(tabsBar.transform, false);
                 RectTransform tabRect = tBtnObj.AddComponent<RectTransform>();
                 tabRect.anchoredPosition = new Vector2(-180f + t * 180f, 0f);
-                tabRect.sizeDelta = new Vector2(175f, 34f);
+                tabRect.sizeDelta = new Vector2(175f, 36f);
 
                 bool isSel = (activeSocialTab == tabIdx);
                 Image tBg = tBtnObj.AddComponent<Image>();
-                tBg.sprite = UIStyleUtility.CreateRoundedPillSprite(175, 34, 17, isSel ? new Color(0.12f, 0.65f, 0.95f) : new Color(0.18f, 0.22f, 0.30f));
+                tBg.sprite = UIStyleUtility.CreateRoundedPillSprite(175, 36, 18, isSel ? new Color(0.12f, 0.65f, 0.95f) : new Color(0.18f, 0.22f, 0.30f));
                 socialTabBtnImgs[t] = tBg;
 
                 Button tBtn = tBtnObj.AddComponent<Button>();
@@ -5138,7 +5138,7 @@ namespace Farm2Shelf.UI
                     RefreshSocialMediaViews();
                 });
 
-                Text tTxt = CreateTextInPanel(tBtnObj.transform, Vector2.zero, Vector2.one, tabNames[t], 14, Color.white);
+                Text tTxt = CreateTextInPanel(tBtnObj.transform, Vector2.zero, Vector2.one, tabNames[t], 15, Color.white);
                 tTxt.alignment = TextAnchor.MiddleCenter;
                 tTxt.fontStyle = FontStyle.Bold;
             }
@@ -5203,7 +5203,7 @@ namespace Farm2Shelf.UI
                 {
                     if (socialTabBtnImgs[t] != null)
                     {
-                        socialTabBtnImgs[t].sprite = UIStyleUtility.CreateRoundedPillSprite(175, 34, 17, (activeSocialTab == t) ? new Color(0.12f, 0.65f, 0.95f) : new Color(0.18f, 0.22f, 0.30f));
+                        socialTabBtnImgs[t].sprite = UIStyleUtility.CreateRoundedPillSprite(175, 36, 18, (activeSocialTab == t) ? new Color(0.12f, 0.65f, 0.95f) : new Color(0.18f, 0.22f, 0.30f));
                     }
                 }
             }
@@ -5221,41 +5221,42 @@ namespace Farm2Shelf.UI
                 cardObj.transform.SetParent(socialMediaFeedContent, false);
 
                 RectTransform cRect = cardObj.AddComponent<RectTransform>();
-                cRect.sizeDelta = new Vector2(550f, 85f);
+                cRect.sizeDelta = new Vector2(550f, 96f);
 
                 LayoutElement le = cardObj.AddComponent<LayoutElement>();
-                le.minHeight = 85f;
-                le.preferredHeight = 85f;
+                le.minHeight = 96f;
+                le.preferredHeight = 96f;
                 le.flexibleWidth = 1f;
 
                 Color borderColor = tweet.isPlayerTweet ? new Color(0.12f, 0.65f, 0.95f) : (tweet.sentiment == TweetSentiment.Complaint ? new Color(0.90f, 0.35f, 0.25f) : new Color(0.25f, 0.75f, 0.40f));
                 Image cBg = cardObj.AddComponent<Image>();
-                cBg.sprite = UIStyleUtility.CreateOutlinePillSprite(550, 85, 12, 1, borderColor, new Color(0.12f, 0.16f, 0.22f, 0.96f));
+                cBg.sprite = UIStyleUtility.CreateOutlinePillSprite(550, 96, 14, 1, borderColor, new Color(0.12f, 0.16f, 0.22f, 0.96f));
 
                 // Metin Kutusu
                 GameObject infoObj = new GameObject("Info");
                 infoObj.transform.SetParent(cardObj.transform, false);
                 RectTransform iRect = infoObj.AddComponent<RectTransform>();
-                iRect.anchoredPosition = new Vector2(-40f, 6f);
-                iRect.sizeDelta = new Vector2(440f, 68f);
+                iRect.anchoredPosition = new Vector2(-55f, 0f);
+                iRect.sizeDelta = new Vector2(410f, 80f);
 
                 Text iTxt = infoObj.AddComponent<Text>();
                 iTxt.font = globalFont;
 
-                string verifiedMark = tweet.isVerified ? "✔️" : "";
+                string verifiedMark = tweet.isVerified ? "<color=#00E676><b>[ONAYLI]</b></color>" : "";
                 string sentimentBadge = tweet.sentiment == TweetSentiment.Official
                     ? "<color=#00E676><b>[DUYURU]</b></color>"
                     : (tweet.sentiment == TweetSentiment.Complaint ? "<color=#FF5252><b>[ŞİKAYET]</b></color>" : "<color=#40C4FF><b>[MÜŞTERİ]</b></color>");
 
                 if (LocalizationManager.Instance != null && LocalizationManager.Instance.IsEnglish)
                 {
+                    verifiedMark = tweet.isVerified ? "<color=#00E676><b>[VERIFIED]</b></color>" : "";
                     sentimentBadge = tweet.sentiment == TweetSentiment.Official
                         ? "<color=#00E676><b>[OFFICIAL]</b></color>"
                         : (tweet.sentiment == TweetSentiment.Complaint ? "<color=#FF5252><b>[COMPLAINT]</b></color>" : "<color=#40C4FF><b>[REVIEW]</b></color>");
                 }
 
-                iTxt.text = $"{tweet.avatarEmoji} <b>{tweet.authorName}</b> {verifiedMark} <color=#80A0C0>({tweet.authorHandle} • {tweet.LocalizedTime})</color>  {sentimentBadge}\n<size=13>{tweet.LocalizedText}</size>";
-                iTxt.fontSize = 13;
+                iTxt.text = $"<b>{tweet.authorName}</b> {verifiedMark} <color=#80A0C0>({tweet.authorHandle} • {tweet.LocalizedTime})</color>  {sentimentBadge}\n<size=14>{tweet.LocalizedText}</size>";
+                iTxt.fontSize = 14;
                 iTxt.alignment = TextAnchor.MiddleLeft;
                 iTxt.color = Color.white;
 
@@ -5263,18 +5264,18 @@ namespace Farm2Shelf.UI
                 GameObject actionsObj = new GameObject("Actions");
                 actionsObj.transform.SetParent(cardObj.transform, false);
                 RectTransform aRect = actionsObj.AddComponent<RectTransform>();
-                aRect.anchoredPosition = new Vector2(215f, -18f);
-                aRect.sizeDelta = new Vector2(90f, 30f);
+                aRect.anchoredPosition = new Vector2(215f, -14f);
+                aRect.sizeDelta = new Vector2(100f, 32f);
 
                 // Heart Button
                 GameObject heartBtnObj = new GameObject("HeartBtn");
                 heartBtnObj.transform.SetParent(actionsObj.transform, false);
                 RectTransform hRect = heartBtnObj.AddComponent<RectTransform>();
-                hRect.anchoredPosition = new Vector2(-22f, 0f);
-                hRect.sizeDelta = new Vector2(40f, 26f);
+                hRect.anchoredPosition = new Vector2(-26f, 0f);
+                hRect.sizeDelta = new Vector2(46f, 28f);
 
                 Image hBg = heartBtnObj.AddComponent<Image>();
-                hBg.sprite = UIStyleUtility.CreateRoundedPillSprite(40, 26, 10, tweet.isLikedByPlayer ? new Color(0.90f, 0.25f, 0.35f) : new Color(0.20f, 0.25f, 0.32f));
+                hBg.sprite = UIStyleUtility.CreateRoundedPillSprite(46, 28, 12, tweet.isLikedByPlayer ? new Color(0.90f, 0.25f, 0.35f) : new Color(0.20f, 0.25f, 0.32f));
                 Button hBtn = heartBtnObj.AddComponent<Button>();
                 hBtn.targetGraphic = hBg;
                 hBtn.onClick.AddListener(() => {
@@ -5282,18 +5283,19 @@ namespace Farm2Shelf.UI
                     RefreshSocialMediaViews();
                 });
 
-                Text hTxt = CreateTextInPanel(heartBtnObj.transform, Vector2.zero, Vector2.one, $"❤️{tweet.likesCount}", 11, Color.white);
+                Text hTxt = CreateTextInPanel(heartBtnObj.transform, Vector2.zero, Vector2.one, $"Beğen {tweet.likesCount}", 11, Color.white);
                 hTxt.alignment = TextAnchor.MiddleCenter;
+                hTxt.fontStyle = FontStyle.Bold;
 
                 // Repost Button
                 GameObject rtBtnObj = new GameObject("RTBtn");
                 rtBtnObj.transform.SetParent(actionsObj.transform, false);
                 RectTransform rRect = rtBtnObj.AddComponent<RectTransform>();
-                rRect.anchoredPosition = new Vector2(22f, 0f);
-                rRect.sizeDelta = new Vector2(40f, 26f);
+                rRect.anchoredPosition = new Vector2(26f, 0f);
+                rRect.sizeDelta = new Vector2(46f, 28f);
 
                 Image rBg = rtBtnObj.AddComponent<Image>();
-                rBg.sprite = UIStyleUtility.CreateRoundedPillSprite(40, 26, 10, tweet.isRetweetedByPlayer ? new Color(0.20f, 0.75f, 0.40f) : new Color(0.20f, 0.25f, 0.32f));
+                rBg.sprite = UIStyleUtility.CreateRoundedPillSprite(46, 28, 12, tweet.isRetweetedByPlayer ? new Color(0.20f, 0.75f, 0.40f) : new Color(0.20f, 0.25f, 0.32f));
                 Button rBtn = rtBtnObj.AddComponent<Button>();
                 rBtn.targetGraphic = rBg;
                 rBtn.onClick.AddListener(() => {
@@ -5301,8 +5303,9 @@ namespace Farm2Shelf.UI
                     RefreshSocialMediaViews();
                 });
 
-                Text rTxt = CreateTextInPanel(rtBtnObj.transform, Vector2.zero, Vector2.one, $"🔁{tweet.retweetsCount}", 11, Color.white);
+                Text rTxt = CreateTextInPanel(rtBtnObj.transform, Vector2.zero, Vector2.one, $"RT {tweet.retweetsCount}", 11, Color.white);
                 rTxt.alignment = TextAnchor.MiddleCenter;
+                rTxt.fontStyle = FontStyle.Bold;
             }
         }
 
@@ -5353,7 +5356,7 @@ namespace Farm2Shelf.UI
 
             Text tTxt = titleObj.AddComponent<Text>();
             tTxt.font = globalFont;
-            tTxt.text = LocalizationManager.L("Compose_Header", "✍️ RESMİ DUYURU TWİTİ SEÇİNİZ (10 FARKLI SEÇENEK)", "✍️ SELECT OFFICIAL TWEET ANNOUNCEMENT (10 OPTIONS)");
+            tTxt.text = LocalizationManager.L("Compose_Header", "RESMİ DUYURU TWİTİ SEÇİNİZ (10 SEÇENEK)", "SELECT OFFICIAL TWEET ANNOUNCEMENT (10 OPTIONS)");
             tTxt.fontSize = 22;
             tTxt.fontStyle = FontStyle.Bold;
             tTxt.alignment = TextAnchor.MiddleCenter;
@@ -5422,16 +5425,16 @@ namespace Farm2Shelf.UI
 
             (string titleTr, string titleEn, string textTr, string textEn)[] tweetOptions = new (string, string, string, string)[]
             {
-                ("🚀 Mağaza Açılışı", "🚀 Grand Opening", $"🚀 Taptaze çiftlik mahsullerimizle dükkanımız hizmetinizde! Hepinizi @{sName} bekliyoruz! 🌾🛒", $"🚀 Grand opening! Fresh farm crops and wide variety of products ready for you at @{sName}! 🌾🛒"),
-                ("🏷️ %20 İndirim Kampanyası", "🏷️ 20% Discount Sale", $"🏷️ TÜM ÜRÜNLERDE %20 İNDİRİM! Tarladan rafa taze sebze ve meyveler @{sName} dükkanında özel fiyatla! 🍎🥦", $"🏷️ 20% OFF ALL PRODUCTS! Fresh vegetables and fruits direct from farm to shelf at @{sName}! 🍎🥦"),
-                ("⚡ Hızlı Kasa & Kesintisiz Hizmet", "⚡ Fast Checkout & Zero Wait", $"⚡ Ekstra kasalarımız açıldı! Sıra beklemeden taze ve hızlı alışverişin tadını çıkarın! @{sName} ⚡🛒", $"⚡ Extra checkout lines open! Enjoy lightning fast shopping with zero queue wait times at @{sName}! ⚡🛒"),
-                ("🌾 %100 Organik Taze Hasat", "🌾 100% Organic Fresh Harvest", $"🌾 Çiftliğimizden bu sabah toplanan %100 organik domates, çilek ve yeşillikler raflarda! @{sName} 🍓🍅", $"🌾 100% organic tomatoes, strawberries and greens harvested this morning are now stocked at @{sName}! 🍓🍅"),
-                ("🏪 Yeni Reyonlar & Genişletme", "🏪 Supermarket Expansion", $"🏪 Mağazamızı büyüttük! Soğuk içecekler, fırın ürünleri ve kozmetik reyonlarımız açıldı! @{sName} 🥐🧊", $"🏪 Store expanded! Introducing our brand new cold beverage, bakery and cosmetics aisles at @{sName}! 🥐🧊"),
-                ("🌙 Gece İndirimi & Kapanış Fırsatları", "🌙 Late Night Clearance Deal", $"🌙 Gece alışverişi fırsatı! Kapanış öncesi şarküteri ve unlu mamullerde özel indirimler! @{sName} 🌙🥖", $"🌙 Late night clearance deal! Special discounts on deli and bakery products before closing at @{sName}! 🌙🥖"),
-                ("👑 VIP Müşteri Sadakat Ödülleri", "👑 VIP Customer Appreciation", $"👑 Sadık müşterilerimize özel sürpriz hediye çekleri ve bonus puan kampanyamız başladı! @{sName} 👑🎁", $"👑 VIP customer appreciation day! Earn bonus points and voucher gifts with every order at @{sName}! 👑🎁"),
-                ("🥛 Taze Süt & Şarküteri Reyonu", "🥛 Fresh Dairy & Cold Deli", $"🥛 Günlük taze süt, organik peynir ve tereyağları soğutucu dolaplarımızda sizleri bekliyor! @{sName} 🥛🧀", $"🥛 Daily fresh milk, artisan cheese and organic butter now stocked in refrigerated displays at @{sName}! 🥛🧀"),
-                ("🧹 Hijyen & Temizlik Garantisi", "🧹 Sanitation & Cleanliness", $"🧹 Dükkanımızda hijyen ve temizlik standartlarımız %100! Güvenle alışveriş yapabilirsiniz. @{sName} ✨🧹", $"🧹 Top tier store cleanliness and sanitation standards guaranteed for your safe shopping at @{sName}! ✨🧹"),
-                ("🎉 Hafta Sonu Tarım Festivali", "🎉 Weekend Harvest Festival", $"🎉 Hafta sonuna özel Çiftlikten Rafa Tarım Festivali başladı! Sürpriz indirimleri kaçırmayın! @{sName} 🎉🌾", $"🎉 Weekend Farm-to-Shelf Harvest Festival is live! Don't miss out on special surprise deals at @{sName}! 🎉🌾")
+                ("Mağaza Açılışı", "Grand Opening", $"Taptaze çiftlik mahsullerimizle dükkanımız hizmetinizde! Hepinizi @{sName} bekliyoruz!", $"Grand opening! Fresh farm crops and wide variety of products ready for you at @{sName}!"),
+                ("%20 İndirim Kampanyası", "20% Discount Sale", $"TÜM ÜRÜNLERDE %20 İNDİRİM! Tarladan rafa taze sebze ve meyveler @{sName} dükkanında özel fiyatla!", $"20% OFF ALL PRODUCTS! Fresh vegetables and fruits direct from farm to shelf at @{sName}!"),
+                ("Hızlı Kasa & Kesintisiz Hizmet", "Fast Checkout & Zero Wait", $"Ekstra kasalarımız açıldı! Sıra beklemeden taze ve hızlı alışverişin tadını çıkarın! @{sName}", $"Extra checkout lines open! Enjoy lightning fast shopping with zero queue wait times at @{sName}!"),
+                ("%100 Organik Taze Hasat", "100% Organic Fresh Harvest", $"Çiftliğimizden bu sabah toplanan %100 organik domates, çilek ve yeşillikler raflarda! @{sName}", $"100% organic tomatoes, strawberries and greens harvested this morning are now stocked at @{sName}!"),
+                ("Yeni Reyonlar & Genişletme", "Supermarket Expansion", $"Mağazamızı büyüttük! Soğuk içecekler, fırın ürünleri ve kozmetik reyonlarımız açıldı! @{sName}", $"Store expanded! Introducing our brand new cold beverage, bakery and cosmetics aisles at @{sName}!"),
+                ("Gece İndirimi & Kapanış Fırsatları", "Late Night Clearance Deal", $"Gece alışverişi fırsatı! Kapanış öncesi şarküteri ve unlu mamullerde özel indirimler! @{sName}", $"Late night clearance deal! Special discounts on deli and bakery products before closing at @{sName}!"),
+                ("VIP Müşteri Sadakat Ödülleri", "VIP Customer Appreciation", $"Sadık müşterilerimize özel sürpriz hediye çekleri ve bonus puan kampanyamız başladı! @{sName}", $"VIP customer appreciation day! Earn bonus points and voucher gifts with every order at @{sName}!"),
+                ("Taze Süt & Şarküteri Reyonu", "Fresh Dairy & Cold Deli", $"Günlük taze süt, organik peynir ve tereyağları soğutucu dolaplarımızda sizleri bekliyor! @{sName}", $"Daily fresh milk, artisan cheese and organic butter now stocked in refrigerated displays at @{sName}!"),
+                ("Hijyen & Temizlik Garantisi", "Sanitation & Cleanliness", $"Dükkanımızda hijyen ve temizlik standartlarımız %100! Güvenle alışveriş yapabilirsiniz. @{sName}", $"Top tier store cleanliness and sanitation standards guaranteed for your safe shopping at @{sName}!"),
+                ("Hafta Sonu Tarım Festivali", "Weekend Harvest Festival", $"Hafta sonuna özel Çiftlikten Rafa Tarım Festivali başladı! Sürpriz indirimleri kaçırmayın! @{sName}", $"Weekend Farm-to-Shelf Harvest Festival is live! Don't miss out on special surprise deals at @{sName}!")
             };
 
             for (int i = 0; i < tweetOptions.Length; i++)
@@ -5441,26 +5444,26 @@ namespace Farm2Shelf.UI
                 itemObj.transform.SetParent(contentObj.transform, false);
 
                 LayoutElement le = itemObj.AddComponent<LayoutElement>();
-                le.minHeight = 78f;
-                le.preferredHeight = 78f;
+                le.minHeight = 82f;
+                le.preferredHeight = 82f;
                 le.flexibleWidth = 1f;
 
                 Image itemBg = itemObj.AddComponent<Image>();
-                itemBg.sprite = UIStyleUtility.CreateOutlinePillSprite(700, 78, 12, 1, new Color(0.15f, 0.55f, 0.85f), new Color(0.12f, 0.16f, 0.22f, 0.95f));
+                itemBg.sprite = UIStyleUtility.CreateOutlinePillSprite(700, 82, 12, 1, new Color(0.15f, 0.55f, 0.85f), new Color(0.12f, 0.16f, 0.22f, 0.95f));
 
                 // Text
                 GameObject txtObj = new GameObject("Text");
                 txtObj.transform.SetParent(itemObj.transform, false);
                 RectTransform tItemRect = txtObj.AddComponent<RectTransform>();
                 tItemRect.anchoredPosition = new Vector2(-60f, 0f);
-                tItemRect.sizeDelta = new Vector2(530f, 66f);
+                tItemRect.sizeDelta = new Vector2(530f, 70f);
 
                 Text itemTxt = txtObj.AddComponent<Text>();
                 itemTxt.font = globalFont;
                 string optTitle = LocalizationManager.L("OptTitle_" + i, opt.titleTr, opt.titleEn);
                 string optBody = LocalizationManager.L("OptBody_" + i, opt.textTr, opt.textEn);
-                itemTxt.text = $"<b><color=#40C4FF>{optTitle}</color></b>\n<size=13>{optBody}</size>";
-                itemTxt.fontSize = 13;
+                itemTxt.text = $"<b><color=#40C4FF>{optTitle}</color></b>\n<size=14>{optBody}</size>";
+                itemTxt.fontSize = 14;
                 itemTxt.alignment = TextAnchor.MiddleLeft;
                 itemTxt.color = Color.white;
 
@@ -5469,10 +5472,10 @@ namespace Farm2Shelf.UI
                 postBtnObj.transform.SetParent(itemObj.transform, false);
                 RectTransform pBtnRect = postBtnObj.AddComponent<RectTransform>();
                 pBtnRect.anchoredPosition = new Vector2(275f, 0f);
-                pBtnRect.sizeDelta = new Vector2(105f, 36f);
+                pBtnRect.sizeDelta = new Vector2(105f, 38f);
 
                 Image pBg = postBtnObj.AddComponent<Image>();
-                pBg.sprite = UIStyleUtility.CreateRoundedPillSprite(105, 36, 14, new Color(0.12f, 0.65f, 0.95f));
+                pBg.sprite = UIStyleUtility.CreateRoundedPillSprite(105, 38, 14, new Color(0.12f, 0.65f, 0.95f));
                 Button pBtn = postBtnObj.AddComponent<Button>();
                 pBtn.targetGraphic = pBg;
 
@@ -5488,7 +5491,7 @@ namespace Farm2Shelf.UI
                     RefreshSocialMediaViews();
                 });
 
-                Text pTxt = CreateTextInPanel(postBtnObj.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Btn_PostShort", "🚀 PAYLAŞ", "🚀 POST"), 13, Color.white);
+                Text pTxt = CreateTextInPanel(postBtnObj.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Btn_PostShort", "PAYLAŞ", "POST"), 14, Color.white);
                 pTxt.alignment = TextAnchor.MiddleCenter;
                 pTxt.fontStyle = FontStyle.Bold;
             }

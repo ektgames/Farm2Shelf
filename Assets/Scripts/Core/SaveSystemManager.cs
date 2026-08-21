@@ -108,10 +108,12 @@ namespace Farm2Shelf.Core
                 saveData.floorColorA = floorC.a;
             }
 
-            // 3. DÜKKAN AÇIK / KAPALI DURUMU
+            // 3. DÜKKAN AÇIK / KAPALI DURUMU VE ŞİRKET BİLGİLERİ
             if (StoreStatusManager.Instance != null)
             {
                 saveData.isStoreOpen = StoreStatusManager.Instance.IsOpen;
+                saveData.companyName = StoreStatusManager.Instance.CompanyName;
+                saveData.playerName = StoreStatusManager.Instance.PlayerName;
             }
 
             // 4. OYUN ZAMANI, GÜNÜ, MEVSİMİ VE YILI
@@ -394,9 +396,14 @@ namespace Farm2Shelf.Core
                 StoreQualityManager.Instance.SetQualityData(saveData.storeQualityScore, saveData.storeQualityLevel);
             }
 
-            // 5. Dükkan Açık/Kapalı Durumu
+            // 5. Dükkan Açık/Kapalı Durumu ve Şirket İsmi
             if (StoreStatusManager.Instance != null)
             {
+                if (!string.IsNullOrEmpty(saveData.companyName))
+                {
+                    StoreStatusManager.Instance.SetPlayerAndCompany(saveData.playerName, saveData.companyName);
+                }
+
                 if (saveData.isStoreOpen) StoreStatusManager.Instance.OpenStore();
                 else StoreStatusManager.Instance.CloseStore();
             }

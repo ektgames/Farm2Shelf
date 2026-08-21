@@ -11,42 +11,67 @@ using Touch = UnityEngine.InputSystem.EnhancedTouch.Touch;
 namespace Farm2Shelf.CameraSystem
 {
     /// <summary>
-    /// Mobil Dokunmatik Ekran Uyumlu İzometrik Kamera Sistemi.
+    /// Mobil Dokunmatik Ekran & PC Çapraz Uyumlu Yüksek Performanslı İzometrik Kamera Sistemi.
+    /// - Pürüzsüz & Titreşimsiz Enterpolasyon (SmoothDamp ile 60-120 FPS akıcı hareket)
     /// - Tek Parmak Sürükleme (Pan / Harita Kaydırma)
-    /// - İki Parmak Sıkıştırma (Pinch-to-Zoom / Yakınlaştırma)
-    /// - İki Parmak Dönüş (Twist / Kamera Açı Döndürme)
-    /// - Klavye WASD / QE Editör Desteği
-    /// Modal pencere açıkken veya mobilya yerleştirilirken girdileri otomatik durdurur.
+    /// - İki Parmak Sıkıştırma (Pinch-to-Zoom / Yumuşak Yakınlaştırma)
+    /// - İki Parmak Dönüş (Twist / Açı Döndürme)
+    /// - Fare Tekerleği & Klavye Desteği (WASD / QE / Ok Tuşları)
+    /// - Yüksek Derinlik Tamponu Hassasiyeti (Z-Fighting ve yırtılma önleyici Near/Far ayarları)
     /// </summary>
     public class IsometricCameraSetup : MonoBehaviour
     {
-        [Header("Kamera Kurulum Ayarları")]
+        public static IsometricCameraSetup Instance { get; private set; }
+
+        [Header("Hedef Pozisyon & Açı")]
         [SerializeField] private Vector3 targetPosition = new Vector3(0f, 0f, 0f);
         [SerializeField] private float distance = 25f;
         [SerializeField] private float pitchAngle = 50f;
         [SerializeField] private float yawAngle = 45f;
         [SerializeField] private float orthographicSize = 14f;
+
+        [Header("Zoom Sınırları & Hız")]
         [SerializeField] private float minZoom = 4f;
         [SerializeField] private float maxZoom = 35f;
-        [SerializeField] private float scrollZoomSpeed = 7.0f;
+        [SerializeField] private float scrollZoomSpeed = 6.0f;
         [SerializeField] private bool useOrthographic = true;
 
-        [Header("Dokunmatik & Klavye Ayarları")]
-        [SerializeField] private float panSensitivity = 0.035f;
-        [SerializeField] private float pinchSensitivity = 0.045f;
-        [SerializeField] private float rotateSensitivity = 0.2f;
-        [SerializeField] private float moveSpeed = 18f;
-        [SerializeField] private float rotateSpeed = 100f;
+        [Header("Hassasiyet & Akıcılık")]
+        [SerializeField] private float panSensitivity = 0.028f;
+        [SerializeField] private float pinchSensitivity = 0.035f;
+        [SerializeField] private float rotateSensitivity = 0.18f;
+        [SerializeField] private float moveSpeed = 22f;
+        [SerializeField] private float rotateSpeed = 90f;
+        [SerializeField] private float smoothTime = 0.05f;
         [SerializeField] private Vector2 mapBounds = new Vector2(80f, 80f);
 
+        // Pürüzsüz Enterpolasyon Durum Değişkenleri
+        private Vector3 currentPosition;
+        private Vector3 positionVelocity;
+
+        private float currentDistance;
+        private float distanceVelocity;
+
+        private float currentYawAngle;
+        private float yawVelocity;
+
+        private float currentOrthographicSize;
+        private float zoomVelocity;
+
         private Camera cam;
-        private Vector2 lastTouchPos;
         private float lastPinchDistance;
         private float lastPinchAngle;
 
         private void Awake()
         {
+            Instance = this;
             SetupCamera();
+
+            // Başlangıç değerlerini eşitle
+            currentPosition = targetPosition;
+            currentDistance = distance;
+            currentYawAngle = yawAngle;
+            currentOrthographicSize = orthographicSize;
         }
 
         private void OnEnable()
@@ -61,18 +86,7 @@ namespace Farm2Shelf.CameraSystem
 #if ENABLE_INPUT_SYSTEM
             EnhancedTouchSupport.Disable();
 #endif
-        }
-
-        private void Update()
-        {
-            // Ekranda herhangi bir Modal/Pencere açıkken veya Kutu/Mobilya taşınırken arka planda kamera hareketini engelle!
-            if (ModalManager.IsModalOpen) return;
-            if (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing) return;
-
-            HandleTouchInputs();
-            HandleMouseScrollZoom();
-            HandleKeyboardInput();
-            UpdateCameraTransform();
+            if (Instance == this) Instance = null;
         }
 
         public void SetupCamera()
@@ -85,15 +99,33 @@ namespace Farm2Shelf.CameraSystem
 
             cam.orthographic = useOrthographic;
             cam.orthographicSize = orthographicSize;
+            cam.nearClipPlane = 0.5f;
+            cam.farClipPlane = 180f; // Derinlik tamponu hassasiyetini 100 kat artırarak Z-fighting yırtılmalarını önler
             cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = new Color(0.20f, 0.25f, 0.28f);
+            cam.backgroundColor = new Color(0.18f, 0.22f, 0.26f);
 
-            UpdateCameraTransform();
+            ApplyCameraTransformInstant();
+        }
+
+        private void Update()
+        {
+            // Ekranda Modal/Pencere açıkken veya Kutu/Mobilya taşınırken harita hareketini engelle
+            if (ModalManager.IsModalOpen) return;
+            if (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing) return;
+
+            HandleTouchInputs();
+            HandleMouseScrollZoom();
+            HandleKeyboardInput();
+        }
+
+        private void LateUpdate()
+        {
+            // LateUpdate: Tüm fizik ve girdi hesaplamaları bittikten sonra kamerayı pürüzsüz taşı
+            SmoothUpdateCameraTransform();
         }
 
         private void HandleTouchInputs()
         {
-            // Bilgisayarda / Editörde Fare Sol Tıkının kamerayı kaydırmasını veya zoom yapmasını kesin olarak engeller!
 #if !UNITY_EDITOR && (UNITY_ANDROID || UNITY_IOS)
 #if ENABLE_INPUT_SYSTEM
             var activeTouches = Touch.activeTouches;
@@ -107,8 +139,13 @@ namespace Farm2Shelf.CameraSystem
                     Quaternion yawRot = Quaternion.Euler(0f, yawAngle, 0f);
                     Vector3 moveDir = yawRot * new Vector3(-delta.x, 0f, -delta.y);
 
-                    targetPosition += moveDir * panSensitivity * (cam.orthographicSize / 14f);
+                    targetPosition += moveDir * panSensitivity * (orthographicSize / 14f);
                     ClampTargetPosition();
+
+                    if (TutorialManager.Instance != null)
+                    {
+                        TutorialManager.Instance.NotifyCameraPan();
+                    }
                 }
             }
             else if (touchCount >= 2)
@@ -137,16 +174,25 @@ namespace Farm2Shelf.CameraSystem
                         orthographicSize = Mathf.Clamp(orthographicSize + zoomDelta, minZoom, maxZoom);
                         distance = Mathf.Clamp(distance + (zoomDelta * 1.5f), 6f, 60f);
 
-                        if (cam != null) cam.orthographicSize = orthographicSize;
                         lastPinchDistance = currentPinchDist;
+
+                        if (TutorialManager.Instance != null)
+                        {
+                            TutorialManager.Instance.NotifyCameraZoom();
+                        }
                     }
 
-                    // 2. Rotate (Twist / İki Parmak Kamerayı Döndürme)
+                    // 2. Rotate (Twist)
                     float deltaAngle = Mathf.DeltaAngle(lastPinchAngle, currentPinchAngle);
                     if (Mathf.Abs(deltaAngle) > 0.05f)
                     {
                         yawAngle += deltaAngle * rotateSensitivity * 1.2f;
                         lastPinchAngle = currentPinchAngle;
+
+                        if (TutorialManager.Instance != null)
+                        {
+                            TutorialManager.Instance.NotifyCameraRotate();
+                        }
                     }
                 }
             }
@@ -163,8 +209,13 @@ namespace Farm2Shelf.CameraSystem
                         Quaternion yawRot = Quaternion.Euler(0f, yawAngle, 0f);
                         Vector3 moveDir = yawRot * new Vector3(-delta.x, 0f, -delta.y);
 
-                        targetPosition += moveDir * panSensitivity * (cam.orthographicSize / 14f);
+                        targetPosition += moveDir * panSensitivity * (orthographicSize / 14f);
                         ClampTargetPosition();
+
+                        if (TutorialManager.Instance != null)
+                        {
+                            TutorialManager.Instance.NotifyCameraPan();
+                        }
                     }
                 }
                 else if (touchCount >= 2)
@@ -193,16 +244,25 @@ namespace Farm2Shelf.CameraSystem
                             orthographicSize = Mathf.Clamp(orthographicSize + zoomDelta, minZoom, maxZoom);
                             distance = Mathf.Clamp(distance + (zoomDelta * 1.5f), 6f, 60f);
 
-                            if (cam != null) cam.orthographicSize = orthographicSize;
                             lastPinchDistance = currentPinchDist;
+
+                            if (TutorialManager.Instance != null)
+                            {
+                                TutorialManager.Instance.NotifyCameraZoom();
+                            }
                         }
 
-                        // 2. Rotate (Twist / İki Parmak Kamerayı Döndürme)
+                        // 2. Rotate (Twist)
                         float deltaAngle = Mathf.DeltaAngle(lastPinchAngle, currentPinchAngle);
                         if (Mathf.Abs(deltaAngle) > 0.05f)
                         {
                             yawAngle += deltaAngle * rotateSensitivity * 1.2f;
                             lastPinchAngle = currentPinchAngle;
+
+                            if (TutorialManager.Instance != null)
+                            {
+                                TutorialManager.Instance.NotifyCameraRotate();
+                            }
                         }
                     }
                 }
@@ -235,18 +295,11 @@ namespace Farm2Shelf.CameraSystem
             if (Mathf.Abs(scrollY) > 0.001f)
             {
                 float scrollDir = Mathf.Sign(scrollY);
-                float step = Mathf.Max(Mathf.Abs(scrollY) * 0.08f, 3.0f);
+                float step = Mathf.Max(Mathf.Abs(scrollY) * 0.06f, 2.5f);
                 float zoomDelta = -scrollDir * step;
 
                 orthographicSize = Mathf.Clamp(orthographicSize + zoomDelta, minZoom, maxZoom);
-                distance = Mathf.Clamp(distance + (zoomDelta * 1.5f), 5f, 60f);
-
-                if (cam == null) cam = GetComponent<Camera>();
-                if (cam != null)
-                {
-                    cam.orthographic = useOrthographic;
-                    cam.orthographicSize = orthographicSize;
-                }
+                distance = Mathf.Clamp(distance + (zoomDelta * 1.4f), 5f, 60f);
 
                 if (TutorialManager.Instance != null)
                 {
@@ -266,15 +319,14 @@ namespace Farm2Shelf.CameraSystem
             var keyboard = Keyboard.current;
             if (keyboard != null)
             {
-                if (keyboard.wKey.isPressed) inputDir.z += 1f;
-                if (keyboard.sKey.isPressed) inputDir.z -= 1f;
-                if (keyboard.aKey.isPressed) inputDir.x -= 1f;
-                if (keyboard.dKey.isPressed) inputDir.x += 1f;
+                if (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed) inputDir.z += 1f;
+                if (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed) inputDir.z -= 1f;
+                if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed) inputDir.x -= 1f;
+                if (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed) inputDir.x += 1f;
 
                 if (keyboard.qKey.isPressed) qPressed = true;
                 if (keyboard.eKey.isPressed) ePressed = true;
 
-                // Klavye Numpad + / - veya Eşittir / Eksi tuşları ile Zoom desteği
                 if (keyboard.numpadPlusKey.isPressed || keyboard.equalsKey.isPressed)
                 {
                     orthographicSize = Mathf.Clamp(orthographicSize - 12f * dt, minZoom, maxZoom);
@@ -289,10 +341,10 @@ namespace Farm2Shelf.CameraSystem
 #else
             try
             {
-                if (Input.GetKey(KeyCode.W)) inputDir.z += 1f;
-                if (Input.GetKey(KeyCode.S)) inputDir.z -= 1f;
-                if (Input.GetKey(KeyCode.A)) inputDir.x -= 1f;
-                if (Input.GetKey(KeyCode.D)) inputDir.x += 1f;
+                if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow)) inputDir.z += 1f;
+                if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow)) inputDir.z -= 1f;
+                if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow)) inputDir.x -= 1f;
+                if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow)) inputDir.x += 1f;
 
                 if (Input.GetKey(KeyCode.Q)) qPressed = true;
                 if (Input.GetKey(KeyCode.E)) ePressed = true;
@@ -310,8 +362,13 @@ namespace Farm2Shelf.CameraSystem
                 Quaternion yawRotation = Quaternion.Euler(0f, yawAngle, 0f);
                 Vector3 moveVector = yawRotation * inputDir;
 
-                targetPosition += moveVector * moveSpeed * dt;
+                targetPosition += moveVector * moveSpeed * dt * (orthographicSize / 14f);
                 ClampTargetPosition();
+
+                if (TutorialManager.Instance != null)
+                {
+                    TutorialManager.Instance.NotifyCameraPan();
+                }
             }
         }
 
@@ -321,25 +378,56 @@ namespace Farm2Shelf.CameraSystem
             targetPosition.z = Mathf.Clamp(targetPosition.z, -mapBounds.y, mapBounds.y);
         }
 
-        private void UpdateCameraTransform()
+        private void SmoothUpdateCameraTransform()
         {
             if (cam == null) cam = GetComponent<Camera>();
             if (cam == null) return;
 
-            cam.orthographic = useOrthographic;
-            cam.orthographicSize = orthographicSize;
+            // Pürüzsüz Enterpolasyon (SmoothDamp)
+            currentPosition = Vector3.SmoothDamp(currentPosition, targetPosition, ref positionVelocity, smoothTime);
+            currentOrthographicSize = Mathf.SmoothDamp(currentOrthographicSize, orthographicSize, ref zoomVelocity, smoothTime);
+            currentDistance = Mathf.SmoothDamp(currentDistance, distance, ref distanceVelocity, smoothTime);
+            currentYawAngle = Mathf.SmoothDampAngle(currentYawAngle, yawAngle, ref yawVelocity, smoothTime);
 
-            Quaternion rotation = Quaternion.Euler(pitchAngle, yawAngle, 0f);
-            Vector3 position = targetPosition - (rotation * Vector3.forward * distance);
+            cam.orthographic = useOrthographic;
+            cam.orthographicSize = currentOrthographicSize;
+
+            Quaternion rotation = Quaternion.Euler(pitchAngle, currentYawAngle, 0f);
+            Vector3 position = currentPosition - (rotation * Vector3.forward * currentDistance);
 
             transform.position = position;
             transform.rotation = rotation;
         }
 
-        public void FocusOn(Vector3 centerPosition)
+        public void ApplyCameraTransformInstant()
+        {
+            if (cam == null) cam = GetComponent<Camera>();
+            if (cam == null) return;
+
+            currentPosition = targetPosition;
+            currentOrthographicSize = orthographicSize;
+            currentDistance = distance;
+            currentYawAngle = yawAngle;
+
+            cam.orthographic = useOrthographic;
+            cam.orthographicSize = currentOrthographicSize;
+
+            Quaternion rotation = Quaternion.Euler(pitchAngle, currentYawAngle, 0f);
+            Vector3 position = currentPosition - (rotation * Vector3.forward * currentDistance);
+
+            transform.position = position;
+            transform.rotation = rotation;
+        }
+
+        public void FocusOn(Vector3 centerPosition, bool instant = false)
         {
             targetPosition = centerPosition;
-            UpdateCameraTransform();
+            ClampTargetPosition();
+
+            if (instant)
+            {
+                ApplyCameraTransformInstant();
+            }
         }
     }
 }

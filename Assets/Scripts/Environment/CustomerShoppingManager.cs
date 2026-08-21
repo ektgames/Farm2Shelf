@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Farm2Shelf.Core;
+using Farm2Shelf.UI;
 
 namespace Farm2Shelf.Environment
 {
@@ -99,19 +100,13 @@ namespace Farm2Shelf.Environment
 
         private void OnEnable()
         {
-            if (EnvironmentBuilder.Instance != null)
-            {
-                EnvironmentBuilder.Instance.OnStoreUpgraded -= HandleStoreUpgraded;
-                EnvironmentBuilder.Instance.OnStoreUpgraded += HandleStoreUpgraded;
-            }
+            EnvironmentBuilder.OnStoreUpgraded -= HandleStoreUpgraded;
+            EnvironmentBuilder.OnStoreUpgraded += HandleStoreUpgraded;
         }
 
         private void OnDisable()
         {
-            if (EnvironmentBuilder.Instance != null)
-            {
-                EnvironmentBuilder.Instance.OnStoreUpgraded -= HandleStoreUpgraded;
-            }
+            EnvironmentBuilder.OnStoreUpgraded -= HandleStoreUpgraded;
         }
 
         private void HandleStoreUpgraded(int newLevel)
@@ -817,8 +812,7 @@ namespace Farm2Shelf.Environment
             tRect.anchorMax = Vector2.one;
 
             UnityEngine.UI.Text txt = textObj.AddComponent<UnityEngine.UI.Text>();
-            txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (txt.font == null) txt.font = Font.CreateDynamicFontFromOSFont("Arial", 20);
+            txt.font = UIStyleUtility.GetGlobalFont(20);
             txt.text = "🛒 Alışveriş Sepeti Yok!";
             txt.fontSize = 20;
             txt.fontStyle = FontStyle.Bold;
@@ -949,8 +943,15 @@ namespace Farm2Shelf.Environment
 
         private void UpdateVehicleCustomer(ActiveCustomerData cData, float deltaTime, int index)
         {
-            if (cData.vehicleObj == null)
-                 if (entranceBarrier == null || exitBarrier == null)
+            if (cData == null || cData.vehicleObj == null)
+            {
+                if (cData != null && cData.customerObj != null) Destroy(cData.customerObj);
+                if (cData != null && cData.vehicleObj != null) Destroy(cData.vehicleObj);
+                activeCustomers.RemoveAt(index);
+                return;
+            }
+
+            if (entranceBarrier == null || exitBarrier == null)
             {
                 FindParkingBarriers();
             }
@@ -1273,8 +1274,7 @@ namespace Farm2Shelf.Environment
             tRect.anchorMax = Vector2.one;
 
             UnityEngine.UI.Text txt = textObj.AddComponent<UnityEngine.UI.Text>();
-            txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (txt.font == null) txt.font = Font.CreateDynamicFontFromOSFont("Arial", 22);
+            txt.font = UIStyleUtility.GetGlobalFont(20);
             txt.text = text;
             txt.fontSize = 20;
             txt.fontStyle = FontStyle.Bold;
@@ -1805,8 +1805,7 @@ namespace Farm2Shelf.Environment
             tRect.anchorMax = Vector2.one;
 
             UnityEngine.UI.Text txt = textObj.AddComponent<UnityEngine.UI.Text>();
-            txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (txt.font == null) txt.font = Font.CreateDynamicFontFromOSFont("Arial", 20);
+            txt.font = UIStyleUtility.GetGlobalFont(22);
             txt.text = text;
             txt.fontSize = 22;
             txt.fontStyle = FontStyle.Bold;

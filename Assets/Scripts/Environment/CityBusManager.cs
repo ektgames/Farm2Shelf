@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Farm2Shelf.Core;
+using Farm2Shelf.UI;
 
 namespace Farm2Shelf.Environment
 {
@@ -160,8 +161,7 @@ namespace Farm2Shelf.Environment
             tRect.anchorMax = Vector2.one;
 
             UnityEngine.UI.Text txt = textObj.AddComponent<UnityEngine.UI.Text>();
-            txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (txt.font == null) txt.font = Font.CreateDynamicFontFromOSFont("Arial", 22);
+            txt.font = UIStyleUtility.GetGlobalFont(22);
             txt.text = text;
             txt.fontSize = 22;
             txt.fontStyle = FontStyle.Bold;

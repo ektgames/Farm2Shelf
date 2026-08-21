@@ -25,9 +25,9 @@ namespace Farm2Shelf.Core
 
     /// <summary>
     /// Farm2Shelf 10 Adımlı İnteraktif Başlangıç ve Eğitim (Tutorial) Yöneticisi.
-    /// Mobil ve PC hibrit kontrollerini, mağaza yönetimini, personel alımını, vardiyaları,
-    /// mobilya kurulumunu, toptancı toplu siparişini, çiftlik yönetimini, tohum ekimini
-    /// ve dükkan açılışını adım adım öğreten %100 çift dilli tam entegre sistem.
+    /// Mobil dokunmatik kontrollerini, mağaza yönetimini, personel alımını, vardiyaları,
+    /// mobilya kurulumunu, toptancı toplu siparişini ve reyon ürün dizimini,
+    /// çiftlik yönetimini, tohum ekimini ve dükkan açılışını adım adım öğreten %100 çift dilli tam entegre sistem.
     /// </summary>
     public class TutorialManager : MonoBehaviour
     {
@@ -58,7 +58,7 @@ namespace Farm2Shelf.Core
         // Step 6: Mobilya Yerleşimi
         public int TotalFurniturePlacedInTutorial { get; private set; }
 
-        // Step 7: Toplu Sipariş
+        // Step 7: Toplu Sipariş & Reyon Dizimi
         public bool DidPlaceBulkOrder { get; private set; }
 
         // Step 9: Tohum Alımı
@@ -248,7 +248,7 @@ namespace Farm2Shelf.Core
                 int farmers = GetFarmRoleCount(StaffRole.Çiftçi);
                 if (farmers >= 3)
                 {
-                    CheckStep8Completion();
+                    CheckFarmStaffCompletion();
                 }
             }
         }
@@ -278,7 +278,7 @@ namespace Farm2Shelf.Core
             }
             else if (CurrentStep == TutorialStep.Step8_HireFarmStaffAndShifts)
             {
-                CheckStep8Completion();
+                CheckFarmStaffCompletion();
             }
         }
 
@@ -298,7 +298,7 @@ namespace Farm2Shelf.Core
             }
         }
 
-        private void CheckStep8Completion()
+        private void CheckFarmStaffCompletion()
         {
             if (StaffManager.Instance == null) return;
             int farmers = GetFarmRoleCount(StaffRole.Çiftçi);
@@ -361,7 +361,69 @@ namespace Farm2Shelf.Core
             OnTutorialProgressUpdated?.Invoke();
             TutorialQuestTrackerUI.RefreshDisplay();
 
-            AdvanceToNextStep();
+            CheckStep7Completion();
+        }
+
+        public void NotifyProductAssignedToShelf()
+        {
+            if (CurrentStep != TutorialStep.Step7_PlaceWholesaleBulkOrder) return;
+
+            OnTutorialProgressUpdated?.Invoke();
+            TutorialQuestTrackerUI.RefreshDisplay();
+
+            CheckStep7Completion();
+        }
+
+        private void CheckStep7Completion()
+        {
+            if (DidPlaceBulkOrder && GetMaxAssignedRowsOnAnyShelf() >= 4 && GetMaxAssignedRowsOnAnyFridge() >= 4)
+            {
+                AdvanceToNextStep();
+            }
+        }
+
+        public int GetMaxAssignedRowsOnAnyShelf()
+        {
+            int maxAssigned = 0;
+            if (PlacedFurnitureController.AllPlacedFurniture != null)
+            {
+                foreach (var f in PlacedFurnitureController.AllPlacedFurniture)
+                {
+                    if (f == null || f.FurnitureType != FurnitureType.Shelf || f.rows == null) continue;
+                    int count = 0;
+                    for (int i = 0; i < f.rows.Length; i++)
+                    {
+                        if (f.rows[i] != null && !f.rows[i].IsUnassigned && !string.IsNullOrEmpty(f.rows[i].productName))
+                        {
+                            count++;
+                        }
+                    }
+                    if (count > maxAssigned) maxAssigned = count;
+                }
+            }
+            return Mathf.Min(4, maxAssigned);
+        }
+
+        public int GetMaxAssignedRowsOnAnyFridge()
+        {
+            int maxAssigned = 0;
+            if (PlacedFurnitureController.AllPlacedFurniture != null)
+            {
+                foreach (var f in PlacedFurnitureController.AllPlacedFurniture)
+                {
+                    if (f == null || f.FurnitureType != FurnitureType.Fridge || f.rows == null) continue;
+                    int count = 0;
+                    for (int i = 0; i < f.rows.Length; i++)
+                    {
+                        if (f.rows[i] != null && !f.rows[i].IsUnassigned && !string.IsNullOrEmpty(f.rows[i].productName))
+                        {
+                            count++;
+                        }
+                    }
+                    if (count > maxAssigned) maxAssigned = count;
+                }
+            }
+            return Mathf.Min(4, maxAssigned);
         }
 
         public void NotifySeedPurchased(string seedId, int count)

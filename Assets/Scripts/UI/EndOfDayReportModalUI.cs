@@ -110,8 +110,7 @@ namespace Farm2Shelf.UI
             titleRect.sizeDelta = new Vector2(680f, 50f);
 
             Text titleText = titleObj.AddComponent<Text>();
-            titleText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (titleText.font == null) titleText.font = Font.CreateDynamicFontFromOSFont("Arial", 28);
+            titleText.font = UIStyleUtility.GetGlobalFont(28);
             titleText.text = LocalizationManager.L("ZReport_Title", "📊 GÜN SONU Z RAPORU", "📊 END OF DAY Z-REPORT");
             titleText.fontSize = 28;
             titleText.fontStyle = FontStyle.Bold;
@@ -235,8 +234,7 @@ namespace Farm2Shelf.UI
             hRect.sizeDelta = new Vector2(290f, 30f);
 
             Text hTxt = hObj.AddComponent<Text>();
-            hTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (hTxt.font == null) hTxt.font = Font.CreateDynamicFontFromOSFont("Arial", 14);
+            hTxt.font = UIStyleUtility.GetGlobalFont(14);
             hTxt.text = header;
             hTxt.fontSize = 14;
             hTxt.fontStyle = FontStyle.Bold;

@@ -160,8 +160,7 @@ namespace Farm2Shelf.UI
             titleRect.sizeDelta = new Vector2(-75f, 36f);
 
             Text titleTxt = titleObj.AddComponent<Text>();
-            titleTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (titleTxt.font == null) titleTxt.font = Font.CreateDynamicFontFromOSFont("Arial", 24);
+            titleTxt.font = UIStyleUtility.GetGlobalFont(24);
             titleTxt.text = LocalizationManager.L("Customer_Profile_Title", "MÜŞTERİ PROFİLİ 🛒", "CUSTOMER PROFILE 🛒");
             titleTxt.fontSize = 24;
             titleTxt.resizeTextForBestFit = true;
@@ -202,8 +201,7 @@ namespace Farm2Shelf.UI
             cTxtRect.anchorMin = Vector2.zero;
             cTxtRect.anchorMax = Vector2.one;
             Text cTxt = closeTxtObj.AddComponent<Text>();
-            cTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (cTxt.font == null) cTxt.font = Font.CreateDynamicFontFromOSFont("Arial", 26);
+            cTxt.font = UIStyleUtility.GetGlobalFont(26);
             cTxt.text = "✕";
             cTxt.fontSize = 26;
             cTxt.fontStyle = FontStyle.Bold;
@@ -250,8 +248,7 @@ namespace Farm2Shelf.UI
             avtRect.anchorMin = Vector2.zero;
             avtRect.anchorMax = Vector2.one;
             avatarEmojiText = avTxtObj.AddComponent<Text>();
-            avatarEmojiText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (avatarEmojiText.font == null) avatarEmojiText.font = Font.CreateDynamicFontFromOSFont("Arial", 54);
+            avatarEmojiText.font = UIStyleUtility.GetGlobalFont(54);
             avatarEmojiText.fontSize = 54;
             avatarEmojiText.fontStyle = FontStyle.Bold;
             avatarEmojiText.alignment = TextAnchor.MiddleCenter;
@@ -268,8 +265,7 @@ namespace Farm2Shelf.UI
             nRect.sizeDelta = new Vector2(-36f, 36f);
 
             nameText = nameObj.AddComponent<Text>();
-            nameText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (nameText.font == null) nameText.font = Font.CreateDynamicFontFromOSFont("Arial", 26);
+            nameText.font = UIStyleUtility.GetGlobalFont(26);
             nameText.fontSize = 26;
             nameText.resizeTextForBestFit = true;
             nameText.resizeTextMinSize = 18;
@@ -289,8 +285,7 @@ namespace Farm2Shelf.UI
             gRect.sizeDelta = new Vector2(-36f, 28f);
 
             genderText = genderObj.AddComponent<Text>();
-            genderText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (genderText.font == null) genderText.font = Font.CreateDynamicFontFromOSFont("Arial", 20);
+            genderText.font = UIStyleUtility.GetGlobalFont(20);
             genderText.fontSize = 20;
             genderText.resizeTextForBestFit = true;
             genderText.resizeTextMinSize = 15;
@@ -310,8 +305,7 @@ namespace Farm2Shelf.UI
             aRect.sizeDelta = new Vector2(-36f, 28f);
 
             ageText = ageObj.AddComponent<Text>();
-            ageText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (ageText.font == null) ageText.font = Font.CreateDynamicFontFromOSFont("Arial", 20);
+            ageText.font = UIStyleUtility.GetGlobalFont(20);
             ageText.fontSize = 20;
             ageText.resizeTextForBestFit = true;
             ageText.resizeTextMinSize = 15;
@@ -331,8 +325,7 @@ namespace Farm2Shelf.UI
             oRect.sizeDelta = new Vector2(-36f, 32f);
 
             occupationText = occObj.AddComponent<Text>();
-            occupationText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (occupationText.font == null) occupationText.font = Font.CreateDynamicFontFromOSFont("Arial", 21);
+            occupationText.font = UIStyleUtility.GetGlobalFont(21);
             occupationText.fontSize = 21;
             occupationText.resizeTextForBestFit = true;
             occupationText.resizeTextMinSize = 15;
@@ -375,8 +368,7 @@ namespace Farm2Shelf.UI
             btRect.offsetMax = new Vector2(-8f, -4f);
 
             Text badgeTxt = badgeTxtObj.AddComponent<Text>();
-            badgeTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (badgeTxt.font == null) badgeTxt.font = Font.CreateDynamicFontFromOSFont("Arial", 18);
+            badgeTxt.font = UIStyleUtility.GetGlobalFont(18);
             badgeTxt.text = LocalizationManager.L("Customer_Status_Badge", "<color=#00E5FF>● MAĞAZA ZİYARETÇİSİ</color>\nTaze reyonları inceliyor 🛒", "<color=#00E5FF>● STORE VISITOR</color>\nBrowsing fresh shelves 🛒");
             badgeTxt.fontSize = 18;
             badgeTxt.resizeTextForBestFit = true;
@@ -416,8 +408,7 @@ namespace Farm2Shelf.UI
             bctRect.anchorMin = Vector2.zero;
             bctRect.anchorMax = Vector2.one;
             Text bcTxt = bcTxtObj.AddComponent<Text>();
-            bcTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (bcTxt.font == null) bcTxt.font = Font.CreateDynamicFontFromOSFont("Arial", 20);
+            bcTxt.font = UIStyleUtility.GetGlobalFont(20);
             bcTxt.text = LocalizationManager.L("Btn_Close", "✕ Kapat", "✕ Close");
             bcTxt.fontSize = 20;
             bcTxt.fontStyle = FontStyle.Bold;

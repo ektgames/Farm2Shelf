@@ -228,8 +228,7 @@ namespace Farm2Shelf.UI
             boxBg.sprite = UIStyleUtility.CreateOutlinePillSprite(900, 650, 24, 4, new Color(0.95f, 0.75f, 0.20f, 0.90f), new Color(0.10f, 0.13f, 0.17f, 0.98f));
             boxBg.raycastTarget = true;
 
-            globalFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (globalFont == null) globalFont = Font.CreateDynamicFontFromOSFont("Arial", 22);
+            globalFont = UIStyleUtility.GetGlobalFont(22);
 
             // 1. Üst Başlık (Header Bar)
             GameObject headerObj = new GameObject("HeaderBar");

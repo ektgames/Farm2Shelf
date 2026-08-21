@@ -97,6 +97,12 @@ namespace Farm2Shelf.Core
             TransactionRecord record = new TransactionRecord(recId, fullTimeStamp, category, description, amount, isIncome);
             transactionLog.Insert(0, record); // En yeni işlem üstte!
 
+            // Bellek sızıntısını önlemek için en fazla 100 işlem geçmişi sakla
+            if (transactionLog.Count > 100)
+            {
+                transactionLog.RemoveAt(transactionLog.Count - 1);
+            }
+
             if (isIncome)
             {
                 totalRevenue += amount;

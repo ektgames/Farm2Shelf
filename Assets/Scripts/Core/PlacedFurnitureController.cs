@@ -474,8 +474,7 @@ namespace Farm2Shelf.Core
             tRect.anchorMax = Vector2.one;
 
             UnityEngine.UI.Text txt = textObj.AddComponent<UnityEngine.UI.Text>();
-            txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (txt.font == null) txt.font = Font.CreateDynamicFontFromOSFont("Arial", 22);
+            txt.font = UIStyleUtility.GetGlobalFont(22);
             txt.text = $"+{amount:N0} Cr {emoji}";
             txt.fontSize = 22;
             txt.fontStyle = FontStyle.Bold;
@@ -554,8 +553,7 @@ namespace Farm2Shelf.Core
             tRect.anchorMax = Vector2.one;
 
             UnityEngine.UI.Text txt = textObj.AddComponent<UnityEngine.UI.Text>();
-            txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (txt.font == null) txt.font = Font.CreateDynamicFontFromOSFont("Arial", 22);
+            txt.font = UIStyleUtility.GetGlobalFont(22);
             txt.text = "🛠️ Mobilya Taşınıyor";
             txt.fontSize = 22;
             txt.fontStyle = FontStyle.Bold;
@@ -738,8 +736,7 @@ namespace Farm2Shelf.Core
                     tRect.sizeDelta = Vector2.zero;
 
                     UnityEngine.UI.Text txt = textObj.AddComponent<UnityEngine.UI.Text>();
-                    txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                    if (txt.font == null) txt.font = Font.CreateDynamicFontFromOSFont("Arial", 20);
+                    txt.font = UIStyleUtility.GetGlobalFont(20);
                     txt.text = "⚠️ MEVSİM DEĞİŞTİ!\n(Yeni Ürünleri Düzenleyin)";
                     txt.fontSize = 20;
                     txt.fontStyle = FontStyle.Bold;

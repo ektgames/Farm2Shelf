@@ -270,8 +270,7 @@ namespace Farm2Shelf.UI
             textRect.offsetMax = new Vector2(-12f, -2f);
 
             storeButtonText = textObj.AddComponent<Text>();
-            storeButtonText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (storeButtonText.font == null) storeButtonText.font = Font.CreateDynamicFontFromOSFont("Arial", 22);
+            storeButtonText.font = UIStyleUtility.GetGlobalFont(22);
             storeButtonText.text = LocalizationManager.L("Store_Closed_Upper", "DÜKKAN KAPALI", "STORE CLOSED");
             storeButtonText.fontSize = 15;
             storeButtonText.resizeTextForBestFit = true;
@@ -675,10 +674,7 @@ namespace Farm2Shelf.UI
 
         private Font GetGlobalFont()
         {
-            Font f = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (f == null) f = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            if (f == null) f = Font.CreateDynamicFontFromOSFont("Arial", 16);
-            return f;
+            return UIStyleUtility.GetGlobalFont(16);
         }
 
         private void CreateLowStockWarningPanel(GameObject canvasObj)

@@ -94,32 +94,32 @@ namespace Farm2Shelf.Core
             float currentSpeed = driveSpeed;
 
             // 1. Sağ Uçtan Sapağa İlerle
-            while (Vector3.Distance(truckObj.transform.position, junctionPos) > 0.3f)
+            while (truckObj != null && Vector3.Distance(truckObj.transform.position, junctionPos) > 0.3f)
             {
                 truckObj.transform.position = Vector3.MoveTowards(truckObj.transform.position, junctionPos, currentSpeed * Time.deltaTime);
                 RotateWheels(wheels, wheelRotateSpeed * Time.deltaTime);
                 yield return null;
             }
 
-            truckObj.transform.position = junctionPos;
+            if (truckObj != null) truckObj.transform.position = junctionPos;
 
             // 2. Kuzeye Dön ve Doka Gir
             Quaternion targetRotNorth = Quaternion.Euler(0f, 0f, 0f);
-            while (Quaternion.Angle(truckObj.transform.rotation, targetRotNorth) > 2f)
+            while (truckObj != null && Quaternion.Angle(truckObj.transform.rotation, targetRotNorth) > 2f)
             {
                 truckObj.transform.rotation = Quaternion.Slerp(truckObj.transform.rotation, targetRotNorth, 12f * Time.deltaTime);
                 yield return null;
             }
-            truckObj.transform.rotation = targetRotNorth;
+            if (truckObj != null) truckObj.transform.rotation = targetRotNorth;
 
-            while (Vector3.Distance(truckObj.transform.position, dockPos) > 0.2f)
+            while (truckObj != null && Vector3.Distance(truckObj.transform.position, dockPos) > 0.2f)
             {
                 truckObj.transform.position = Vector3.MoveTowards(truckObj.transform.position, dockPos, turnSpeed * Time.deltaTime);
                 RotateWheels(wheels, wheelRotateSpeed * Time.deltaTime);
                 yield return null;
             }
 
-            truckObj.transform.position = dockPos;
+            if (truckObj != null) truckObj.transform.position = dockPos;
 
             // 3. Kapıları Aç ve Malzemeleri Depo Rafına İndir (Tüm Koliler Biten Kadar Bekle)
             if (rearDoors != null) rearDoors.localRotation = Quaternion.Euler(0f, 35f, 0f);
@@ -164,31 +164,31 @@ namespace Farm2Shelf.Core
             yield return new WaitForSeconds(1.2f);
 
             // 4. Geri Geri Çık ve Despawn Ol
-            while (Vector3.Distance(truckObj.transform.position, junctionPos) > 0.3f)
+            while (truckObj != null && Vector3.Distance(truckObj.transform.position, junctionPos) > 0.3f)
             {
                 truckObj.transform.position = Vector3.MoveTowards(truckObj.transform.position, junctionPos, (turnSpeed * 0.7f) * Time.deltaTime);
                 RotateWheels(wheels, -wheelRotateSpeed * Time.deltaTime);
                 yield return null;
             }
 
-            truckObj.transform.position = junctionPos;
+            if (truckObj != null) truckObj.transform.position = junctionPos;
 
             Quaternion targetRotWest = Quaternion.Euler(0f, -90f, 0f);
-            while (Quaternion.Angle(truckObj.transform.rotation, targetRotWest) > 2f)
+            while (truckObj != null && Quaternion.Angle(truckObj.transform.rotation, targetRotWest) > 2f)
             {
                 truckObj.transform.rotation = Quaternion.Slerp(truckObj.transform.rotation, targetRotWest, 12f * Time.deltaTime);
                 yield return null;
             }
-            truckObj.transform.rotation = targetRotWest;
+            if (truckObj != null) truckObj.transform.rotation = targetRotWest;
 
-            while (Vector3.Distance(truckObj.transform.position, despawnPos) > 0.3f)
+            while (truckObj != null && Vector3.Distance(truckObj.transform.position, despawnPos) > 0.3f)
             {
                 truckObj.transform.position = Vector3.MoveTowards(truckObj.transform.position, despawnPos, driveSpeed * Time.deltaTime);
                 RotateWheels(wheels, wheelRotateSpeed * Time.deltaTime);
                 yield return null;
             }
 
-            Destroy(truckObj);
+            if (truckObj != null) Destroy(truckObj);
             IsTruckOnTheWay = false;
         }
 
@@ -227,8 +227,7 @@ namespace Farm2Shelf.Core
             tRect.anchorMax = Vector2.one;
 
             UnityEngine.UI.Text txt = txtObj.AddComponent<UnityEngine.UI.Text>();
-            txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (txt.font == null) txt.font = Font.CreateDynamicFontFromOSFont("Arial", 22);
+            txt.font = UIStyleUtility.GetGlobalFont(22);
             txt.text = text;
             txt.fontSize = 22;
             txt.fontStyle = FontStyle.Bold;

@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using Farm2Shelf.UI;
 
 namespace Farm2Shelf.Core
 {
@@ -133,8 +134,7 @@ namespace Farm2Shelf.Core
             tRect.anchorMax = Vector2.one;
 
             UnityEngine.UI.Text txt = textObj.AddComponent<UnityEngine.UI.Text>();
-            txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (txt.font == null) txt.font = Font.CreateDynamicFontFromOSFont("Arial", 20);
+            txt.font = UIStyleUtility.GetGlobalFont(20);
             
             string fullText = string.IsNullOrEmpty(reason) ? text : $"{text}\n<size=14>{reason}</size>";
             txt.text = fullText;

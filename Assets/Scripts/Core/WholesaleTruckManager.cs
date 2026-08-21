@@ -136,7 +136,7 @@ namespace Farm2Shelf.Core
             float truckCurrentSpeed = driveSpeed;
 
             // 2. AŞAMA: ANA YOLDA SAĞ UÇTAN MAL KABUL SAPAĞINA KADAR İLERLE
-            while (Vector3.Distance(truckObj.transform.position, junctionPos) > 0.3f)
+            while (truckObj != null && Vector3.Distance(truckObj.transform.position, junctionPos) > 0.3f)
             {
                 float targetLimit = driveSpeed;
                 if (CityTrafficManager.Instance != null)
@@ -150,25 +150,25 @@ namespace Farm2Shelf.Core
                 yield return null;
             }
 
-            truckObj.transform.position = junctionPos;
+            if (truckObj != null) truckObj.transform.position = junctionPos;
 
             // 3. AŞAMA: KUZEYE DÖN VE MAL KABUL ALANINA GİR
             Quaternion targetRotNorth = Quaternion.Euler(0f, 0f, 0f);
-            while (Quaternion.Angle(truckObj.transform.rotation, targetRotNorth) > 2f)
+            while (truckObj != null && Quaternion.Angle(truckObj.transform.rotation, targetRotNorth) > 2f)
             {
                 truckObj.transform.rotation = Quaternion.Slerp(truckObj.transform.rotation, targetRotNorth, 12f * Time.deltaTime);
                 yield return null;
             }
-            truckObj.transform.rotation = targetRotNorth;
+            if (truckObj != null) truckObj.transform.rotation = targetRotNorth;
 
-            while (Vector3.Distance(truckObj.transform.position, dockPos) > 0.2f)
+            while (truckObj != null && Vector3.Distance(truckObj.transform.position, dockPos) > 0.2f)
             {
                 truckObj.transform.position = Vector3.MoveTowards(truckObj.transform.position, dockPos, turnSpeed * Time.deltaTime);
                 RotateWheels(wheels, wheelRotateSpeed * Time.deltaTime);
                 yield return null;
             }
 
-            truckObj.transform.position = dockPos;
+            if (truckObj != null) truckObj.transform.position = dockPos;
 
             // 4. AŞAMA: MAL KABUL DOKUNDA DUR VE KAPILARI AÇ
             if (rearDoors != null)
@@ -216,26 +216,26 @@ namespace Farm2Shelf.Core
             yield return new WaitForSeconds(1.2f);
 
             // 6. AŞAMA: GERİ GERİ SAPAĞA ÇIK (Z: 1.5 -> Z: -7.5)
-            while (Vector3.Distance(truckObj.transform.position, junctionPos) > 0.3f)
+            while (truckObj != null && Vector3.Distance(truckObj.transform.position, junctionPos) > 0.3f)
             {
                 truckObj.transform.position = Vector3.MoveTowards(truckObj.transform.position, junctionPos, (turnSpeed * 0.7f) * Time.deltaTime);
                 RotateWheels(wheels, -wheelRotateSpeed * Time.deltaTime);
                 yield return null;
             }
 
-            truckObj.transform.position = junctionPos;
+            if (truckObj != null) truckObj.transform.position = junctionPos;
 
             // 7. AŞAMA: SOLA DÖN VE EN SOLDA DESPAWN OL
             Quaternion targetRotWest = Quaternion.Euler(0f, -90f, 0f);
-            while (Quaternion.Angle(truckObj.transform.rotation, targetRotWest) > 2f)
+            while (truckObj != null && Quaternion.Angle(truckObj.transform.rotation, targetRotWest) > 2f)
             {
                 truckObj.transform.rotation = Quaternion.Slerp(truckObj.transform.rotation, targetRotWest, 12f * Time.deltaTime);
                 yield return null;
             }
-            truckObj.transform.rotation = targetRotWest;
+            if (truckObj != null) truckObj.transform.rotation = targetRotWest;
 
             truckCurrentSpeed = driveSpeed;
-            while (Vector3.Distance(truckObj.transform.position, despawnPos) > 0.3f)
+            while (truckObj != null && Vector3.Distance(truckObj.transform.position, despawnPos) > 0.3f)
             {
                 float targetLimit = driveSpeed;
                 if (CityTrafficManager.Instance != null)
@@ -250,7 +250,7 @@ namespace Farm2Shelf.Core
             }
 
             // 8. TEMİZLİK VE KİLİT AÇMA
-            Destroy(truckObj);
+            if (truckObj != null) Destroy(truckObj);
             IsTruckOnTheWay = false;
 
             Debug.Log("[WholesaleTruck] Kamyon tüm 50'li koli malzemelerini eksiksiz indirdikten sonra ayrıldı.");
@@ -374,8 +374,7 @@ namespace Farm2Shelf.Core
             tRect.anchorMax = Vector2.one;
 
             UnityEngine.UI.Text txt = txtObj.AddComponent<UnityEngine.UI.Text>();
-            txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (txt.font == null) txt.font = Font.CreateDynamicFontFromOSFont("Arial", 22);
+            txt.font = UIStyleUtility.GetGlobalFont(22);
             txt.text = text;
             txt.fontSize = 22;
             txt.fontStyle = FontStyle.Bold;

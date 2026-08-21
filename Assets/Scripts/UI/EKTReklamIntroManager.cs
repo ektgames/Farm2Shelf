@@ -424,30 +424,7 @@ namespace Farm2Shelf.UI
 
         private Font GetSafeFont()
         {
-            Font font = null;
-            try { font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); } catch {}
-            if (font != null) return font;
-
-            try { font = Resources.GetBuiltinResource<Font>("Arial.ttf"); } catch {}
-            if (font != null) return font;
-
-            try { font = Font.CreateDynamicFontFromOSFont("Arial", 16); } catch {}
-            if (font != null) return font;
-
-            try
-            {
-                Text[] sceneTexts = UnityEngine.Object.FindObjectsOfType<Text>(true);
-                if (sceneTexts != null && sceneTexts.Length > 0)
-                {
-                    foreach (var st in sceneTexts)
-                    {
-                        if (st != null && st.font != null) return st.font;
-                    }
-                }
-            }
-            catch {}
-
-            return font;
+            return UIStyleUtility.GetGlobalFont(16);
         }
     }
 }

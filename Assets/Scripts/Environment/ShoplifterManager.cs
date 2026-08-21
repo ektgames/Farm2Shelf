@@ -476,8 +476,7 @@ namespace Farm2Shelf.Environment
             tRect.anchorMax = Vector2.one;
 
             Text txt = textObj.AddComponent<Text>();
-            txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (txt.font == null) txt.font = Font.CreateDynamicFontFromOSFont("Arial", 22);
+            txt.font = UIStyleUtility.GetGlobalFont(22);
             txt.text = tagText;
             txt.fontSize = 22;
             txt.fontStyle = FontStyle.Bold;
@@ -508,8 +507,7 @@ namespace Farm2Shelf.Environment
             tRect.anchorMax = Vector2.one;
 
             Text txt = textObj.AddComponent<Text>();
-            txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (txt.font == null) txt.font = Font.CreateDynamicFontFromOSFont("Arial", 22);
+            txt.font = UIStyleUtility.GetGlobalFont(22);
             txt.text = msg;
             txt.fontSize = 22;
             txt.fontStyle = FontStyle.Bold;
@@ -519,13 +517,24 @@ namespace Farm2Shelf.Environment
             Destroy(popupObj, 2.5f);
         }
 
+        private static readonly Dictionary<string, Material> thiefMatCache = new Dictionary<string, Material>();
+
         private Material CreateMat(string name, Color color)
         {
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null) shader = Shader.Find("Standard");
-            Material mat = new Material(shader);
-            mat.name = name;
-            mat.color = color;
+            string key = $"Thief_{name}_{color.r:F3}_{color.g:F3}_{color.b:F3}";
+            if (thiefMatCache.TryGetValue(key, out Material cached) && cached != null)
+            {
+                return cached;
+            }
+
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+            Material mat = new Material(shader)
+            {
+                name = name,
+                color = color
+            };
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
+            thiefMatCache[key] = mat;
             return mat;
         }
     }

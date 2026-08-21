@@ -21,15 +21,29 @@ namespace Farm2Shelf.Environment
             return litShader;
         }
 
+        private static readonly System.Collections.Generic.Dictionary<string, Material> matCache = new System.Collections.Generic.Dictionary<string, Material>();
+
         private static Material CreateMaterial(Color color, float metallic = 0.1f, float smoothness = 0.5f)
         {
-            Material mat = new Material(GetLitShader())
+            string key = $"{color.r:F3}_{color.g:F3}_{color.b:F3}_{color.a:F3}_{metallic:F2}_{smoothness:F2}";
+            if (matCache.TryGetValue(key, out Material cached) && cached != null)
             {
+                return cached;
+            }
+
+            Shader s = GetLitShader();
+            if (s == null) return null;
+
+            Material mat = new Material(s)
+            {
+                name = "ProdMat_" + key,
                 color = color
             };
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
             if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", metallic);
             if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", smoothness);
+
+            matCache[key] = mat;
             return mat;
         }
 

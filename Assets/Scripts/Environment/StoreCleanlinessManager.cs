@@ -27,6 +27,21 @@ namespace Farm2Shelf.Environment
             trashParentGroup = grp.transform;
         }
 
+        private static Material cachedTrashMat;
+
+        private Material GetTrashMaterial()
+        {
+            if (cachedTrashMat != null) return cachedTrashMat;
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+            cachedTrashMat = new Material(shader)
+            {
+                name = "TrashPuddleMat",
+                color = new Color(0.35f, 0.25f, 0.15f, 0.85f)
+            };
+            if (cachedTrashMat.HasProperty("_BaseColor")) cachedTrashMat.SetColor("_BaseColor", new Color(0.35f, 0.25f, 0.15f, 0.85f));
+            return cachedTrashMat;
+        }
+
         public void TrySpawnCustomerTrash(Vector3 customerPosition)
         {
             // %15 ihtimalle dükkan zeminine küçük çöp/leke düşer
@@ -47,16 +62,7 @@ namespace Farm2Shelf.Environment
             puddleMesh.transform.localScale = new Vector3(0.45f, 0.01f, 0.45f);
 
             Renderer ren = puddleMesh.GetComponent<Renderer>();
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null) shader = Shader.Find("Standard");
-
-            Material trashMat = new Material(shader)
-            {
-                color = new Color(0.35f, 0.25f, 0.15f, 0.85f)
-            };
-            if (trashMat.HasProperty("_BaseColor")) trashMat.SetColor("_BaseColor", new Color(0.35f, 0.25f, 0.15f, 0.85f));
-
-            ren.sharedMaterial = trashMat;
+            ren.sharedMaterial = GetTrashMaterial();
 
             Collider col = puddleMesh.GetComponent<Collider>();
             if (col != null) Destroy(col);

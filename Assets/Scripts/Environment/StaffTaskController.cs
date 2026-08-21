@@ -1256,8 +1256,7 @@ namespace Farm2Shelf.Environment
             tRect.anchorMax = Vector2.one;
 
             Text txt = textObj.AddComponent<Text>();
-            txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (txt.font == null) txt.font = Font.CreateDynamicFontFromOSFont("Arial", 22);
+            txt.font = UIStyleUtility.GetGlobalFont(22);
             txt.text = text;
             txt.fontSize = 20;
             txt.fontStyle = FontStyle.Bold;

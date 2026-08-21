@@ -170,18 +170,6 @@ namespace Farm2Shelf.UI
             }
             bdImg.raycastTarget = true;
 
-            // Sol Taraf Okunabilirlik Gölge Katmanı (Left Side Vignetting Overlay)
-            GameObject leftDimObj = new GameObject("LeftDimOverlay");
-            leftDimObj.transform.SetParent(backdrop.transform, false);
-            RectTransform ldRect = leftDimObj.AddComponent<RectTransform>();
-            ldRect.anchorMin = Vector2.zero;
-            ldRect.anchorMax = new Vector2(0.48f, 1f);
-            ldRect.sizeDelta = Vector2.zero;
-
-            Image ldImg = leftDimObj.AddComponent<Image>();
-            ldImg.sprite = UIStyleUtility.CreateRoundedPillSprite(600, 1080, 0, new Color(0.05f, 0.08f, 0.12f, 0.40f));
-            ldImg.raycastTarget = false;
-
             Font font = GetSafeFont(20);
 
             // Sol Taraf Ana Menü Kartı Paneli (Low-Poly Glass Container)
@@ -751,52 +739,9 @@ namespace Farm2Shelf.UI
             dialogTransform.localScale = targetScale;
         }
 
-        private Font GetSafeFont(int fontSize = 16)
+        private Font GetSafeFont(int fontSize = 24)
         {
-            // 1. Sahnedeki mevcut tüm Text nesnelerinin geçerli fontunu ara
-            try
-            {
-                Text[] sceneTexts = Object.FindObjectsOfType<Text>(true);
-                if (sceneTexts != null && sceneTexts.Length > 0)
-                {
-                    foreach (var st in sceneTexts)
-                    {
-                        if (st != null && st.font != null) return st.font;
-                    }
-                }
-            }
-            catch {}
-
-            // 2. Projedeki tüm yüklenmiş Font kaynaklarını ara
-            try
-            {
-                Font[] loadedFonts = Resources.FindObjectsOfTypeAll<Font>();
-                if (loadedFonts != null && loadedFonts.Length > 0)
-                {
-                    foreach (var f in loadedFonts)
-                    {
-                        if (f != null) return f;
-                    }
-                }
-            }
-            catch {}
-
-            // 3. Dahili Unity kaynak fontlarını dene
-            Font font = null;
-            try { font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); } catch {}
-            if (font != null) return font;
-
-            try { font = Resources.GetBuiltinResource<Font>("Arial.ttf"); } catch {}
-            if (font != null) return font;
-
-            // 4. İşletim sistemi fontları
-            try { font = Font.CreateDynamicFontFromOSFont("Arial", fontSize); } catch {}
-            if (font != null) return font;
-
-            try { font = Font.CreateDynamicFontFromOSFont("Segoe UI", fontSize); } catch {}
-            if (font != null) return font;
-
-            return font;
+            return UIStyleUtility.GetGlobalFont(fontSize);
         }
 
         private Text CreateTextInModal(GameObject parent, string content, int fontSize, FontStyle style, Color color)

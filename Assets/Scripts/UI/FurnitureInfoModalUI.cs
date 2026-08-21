@@ -903,6 +903,11 @@ namespace Farm2Shelf.UI
                             furniture.UpdateRow3DProductMeshes(rData.rowId);
                             Destroy(subPanel);
                             ShowModal(furniture); // Ana modali güncelle
+
+                            if (TutorialManager.Instance != null)
+                            {
+                                TutorialManager.Instance.NotifyProductAssignedToShelf();
+                            }
                         });
 
                         RectTransform sbRect = selectBtn.GetComponent<RectTransform>();
@@ -1168,8 +1173,7 @@ namespace Farm2Shelf.UI
             tRect.anchorMax = Vector2.one;
 
             Text txt = textObj.AddComponent<Text>();
-            txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (txt.font == null) txt.font = Font.CreateDynamicFontFromOSFont("Arial", 22);
+            txt.font = UIStyleUtility.GetGlobalFont(22);
             txt.text = $"+{amount:N0} Cr İade Edildi 💰";
             txt.fontSize = 22;
             txt.fontStyle = FontStyle.Bold;
@@ -1201,9 +1205,8 @@ namespace Farm2Shelf.UI
             rt.offsetMax = Vector2.zero;
 
             Text t = txtObj.AddComponent<Text>();
-            t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             int targetFontSize = Mathf.RoundToInt(fontSize * 1.25f);
-            if (t.font == null) t.font = Font.CreateDynamicFontFromOSFont("Arial", targetFontSize);
+            t.font = UIStyleUtility.GetGlobalFont(targetFontSize);
             t.text = content;
             t.fontSize = targetFontSize;
             t.resizeTextForBestFit = true;
@@ -1256,8 +1259,7 @@ namespace Farm2Shelf.UI
             phRect.offsetMax = new Vector2(-12, 0);
 
             Text phText = placeholderGo.AddComponent<Text>();
-            phText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (phText.font == null) phText.font = Font.CreateDynamicFontFromOSFont("Arial", 16);
+            phText.font = UIStyleUtility.GetGlobalFont(16);
             phText.text = placeholderText;
             phText.fontSize = 16;
             phText.fontStyle = FontStyle.Italic;
@@ -1274,8 +1276,7 @@ namespace Farm2Shelf.UI
             tRect.offsetMax = new Vector2(-12, 0);
 
             Text txt = textGo.AddComponent<Text>();
-            txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (txt.font == null) txt.font = Font.CreateDynamicFontFromOSFont("Arial", 16);
+            txt.font = UIStyleUtility.GetGlobalFont(16);
             txt.text = "";
             txt.fontSize = 16;
             txt.fontStyle = FontStyle.Normal;

@@ -63,6 +63,44 @@ namespace Farm2Shelf.UI
             }
         }
 
+        private static float GetSafeLeftMargin()
+        {
+            float safeLeft = 120f; // iPhone kamera çentiği / Dynamic Island sol boşluğu
+            if (Screen.safeArea.x > 0 && Screen.width > 0)
+            {
+                float canvasScale = 1920f / Screen.width;
+                safeLeft = Mathf.Max(120f, Screen.safeArea.x * canvasScale + 25f);
+            }
+            return safeLeft;
+        }
+
+        private void Update()
+        {
+            if (trackerInstance != null)
+            {
+                float targetLeft = GetSafeLeftMargin();
+                Transform card = trackerInstance.transform.Find("TrackerCard");
+                if (card != null)
+                {
+                    RectTransform rt = card.GetComponent<RectTransform>();
+                    if (rt != null && Mathf.Abs(rt.anchoredPosition.x - targetLeft) > 1f)
+                    {
+                        rt.anchoredPosition = new Vector2(targetLeft, rt.anchoredPosition.y);
+                    }
+                }
+
+                Transform modal = trackerInstance.transform.Find("AllQuestsRoadmapModal");
+                if (modal != null)
+                {
+                    RectTransform mrt = modal.GetComponent<RectTransform>();
+                    if (mrt != null && Mathf.Abs(mrt.anchoredPosition.x - targetLeft) > 1f)
+                    {
+                        mrt.anchoredPosition = new Vector2(targetLeft, mrt.anchoredPosition.y);
+                    }
+                }
+            }
+        }
+
         private static void BuildTrackerBox(Transform parent)
         {
             if (TutorialManager.Instance == null || !TutorialManager.Instance.IsTutorialActive) return;
@@ -70,11 +108,11 @@ namespace Farm2Shelf.UI
             TutorialStep step = TutorialManager.Instance.CurrentStep;
             int stepNum = (int)step;
 
-            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (font == null) font = Font.CreateDynamicFontFromOSFont("Arial", 16);
+            Font font = UIStyleUtility.GetGlobalFont(18);
 
-            float cardW = 520f;
-            float cardH = isMinimized ? 56f : 315f;
+            float cardW = 560f;
+            float cardH = isMinimized ? 58f : 345f;
+            float safeLeft = GetSafeLeftMargin();
 
             GameObject cardObj = new GameObject("TrackerCard");
             cardObj.transform.SetParent(parent, false);
@@ -83,11 +121,11 @@ namespace Farm2Shelf.UI
             cRect.anchorMin = new Vector2(0f, 0f);
             cRect.anchorMax = new Vector2(0f, 0f);
             cRect.pivot = new Vector2(0f, 0f);
-            cRect.anchoredPosition = new Vector2(30f, 30f);
+            cRect.anchoredPosition = new Vector2(safeLeft, 22f);
             cRect.sizeDelta = new Vector2(cardW, cardH);
 
             Image cardBg = cardObj.AddComponent<Image>();
-            cardBg.sprite = UIStyleUtility.CreateOutlinePillSprite(Mathf.RoundToInt(cardW), Mathf.RoundToInt(cardH), 20, 3, new Color(0.20f, 0.85f, 0.55f, 0.95f), new Color(0.10f, 0.13f, 0.18f, 0.96f));
+            cardBg.sprite = UIStyleUtility.CreateOutlinePillSprite(Mathf.RoundToInt(cardW), Mathf.RoundToInt(cardH), 22, 3, new Color(0.20f, 0.85f, 0.55f, 0.95f), new Color(0.10f, 0.13f, 0.18f, 0.96f));
 
             // 1. Üst Başlık Şeridi
             GameObject headerObj = new GameObject("Header");
@@ -97,10 +135,10 @@ namespace Farm2Shelf.UI
             hRect.anchorMax = new Vector2(1f, 1f);
             hRect.pivot = new Vector2(0.5f, 1f);
             hRect.anchoredPosition = new Vector2(0f, -8f);
-            hRect.sizeDelta = new Vector2(-16f, 40f);
+            hRect.sizeDelta = new Vector2(-16f, 42f);
 
             Image hBg = headerObj.AddComponent<Image>();
-            hBg.sprite = UIStyleUtility.CreateRoundedPillSprite(Mathf.RoundToInt(cardW - 16f), 40, 12, new Color(0.14f, 0.20f, 0.28f, 0.95f));
+            hBg.sprite = UIStyleUtility.CreateRoundedPillSprite(Mathf.RoundToInt(cardW - 16f), 42, 12, new Color(0.14f, 0.20f, 0.28f, 0.95f));
 
             // Başlık Yazısı
             GameObject hTxtObj = new GameObject("Txt");
@@ -109,48 +147,16 @@ namespace Farm2Shelf.UI
             htRect.anchorMin = Vector2.zero;
             htRect.anchorMax = Vector2.one;
             htRect.offsetMin = new Vector2(14f, 0f);
-            htRect.offsetMax = new Vector2(-90f, 0f);
+            htRect.offsetMax = new Vector2(-48f, 0f);
 
             Text hTxt = hTxtObj.AddComponent<Text>();
             hTxt.font = font;
             string stepTitle = GetStepShortTitle(step);
             hTxt.text = $"🎓 <b>{LocalizationManager.L("Tut_QuestPrefix", "GÖREV", "QUEST")} {stepNum}/10:</b> <color=#00FFA3>{stepTitle}</color>";
-            hTxt.fontSize = 15;
+            hTxt.fontSize = 17;
             hTxt.fontStyle = FontStyle.Bold;
             hTxt.alignment = TextAnchor.MiddleLeft;
             hTxt.color = Color.white;
-
-            // 📋 Tüm Görevler Butonu
-            GameObject allBtnObj = new GameObject("AllQuestsBtn");
-            allBtnObj.transform.SetParent(headerObj.transform, false);
-            RectTransform abRect = allBtnObj.AddComponent<RectTransform>();
-            abRect.anchorMin = new Vector2(1f, 0.5f);
-            abRect.anchorMax = new Vector2(1f, 0.5f);
-            abRect.pivot = new Vector2(1f, 0.5f);
-            abRect.anchoredPosition = new Vector2(-42f, 0f);
-            abRect.sizeDelta = new Vector2(34f, 30f);
-
-            Image abBg = allBtnObj.AddComponent<Image>();
-            abBg.sprite = UIStyleUtility.CreateRoundedPillSprite(34, 30, 8, new Color(0.18f, 0.45f, 0.35f, 0.90f));
-
-            Button allBtn = allBtnObj.AddComponent<Button>();
-            allBtn.targetGraphic = abBg;
-            allBtn.onClick.AddListener(() => {
-                showAllQuestsModal = !showAllQuestsModal;
-                RefreshDisplay();
-            });
-
-            GameObject abTxtObj = new GameObject("Txt");
-            abTxtObj.transform.SetParent(allBtnObj.transform, false);
-            RectTransform abtRect = abTxtObj.AddComponent<RectTransform>();
-            abtRect.anchorMin = Vector2.zero;
-            abtRect.anchorMax = Vector2.one;
-
-            Text abTxt = abTxtObj.AddComponent<Text>();
-            abTxt.font = font;
-            abTxt.text = "📋";
-            abTxt.fontSize = 15;
-            abTxt.alignment = TextAnchor.MiddleCenter;
 
             // Küçültme / Büyütme Butonu (Minimize/Expand)
             GameObject minBtnObj = new GameObject("MinBtn");
@@ -160,10 +166,10 @@ namespace Farm2Shelf.UI
             mbRect.anchorMax = new Vector2(1f, 0.5f);
             mbRect.pivot = new Vector2(1f, 0.5f);
             mbRect.anchoredPosition = new Vector2(-6f, 0f);
-            mbRect.sizeDelta = new Vector2(34f, 30f);
+            mbRect.sizeDelta = new Vector2(36f, 32f);
 
             Image mbBg = minBtnObj.AddComponent<Image>();
-            mbBg.sprite = UIStyleUtility.CreateRoundedPillSprite(34, 30, 8, new Color(0.25f, 0.32f, 0.42f, 0.90f));
+            mbBg.sprite = UIStyleUtility.CreateRoundedPillSprite(36, 32, 8, new Color(0.25f, 0.32f, 0.42f, 0.90f));
 
             Button minBtn = minBtnObj.AddComponent<Button>();
             minBtn.targetGraphic = mbBg;
@@ -181,7 +187,7 @@ namespace Farm2Shelf.UI
             Text mbTxt = mbTxtObj.AddComponent<Text>();
             mbTxt.font = font;
             mbTxt.text = isMinimized ? "▲" : "▼";
-            mbTxt.fontSize = 13;
+            mbTxt.fontSize = 14;
             mbTxt.fontStyle = FontStyle.Bold;
             mbTxt.alignment = TextAnchor.MiddleCenter;
             mbTxt.color = Color.white;
@@ -195,13 +201,13 @@ namespace Farm2Shelf.UI
             sRect.anchorMin = new Vector2(0f, 1f);
             sRect.anchorMax = new Vector2(1f, 1f);
             sRect.pivot = new Vector2(0.5f, 1f);
-            sRect.anchoredPosition = new Vector2(0f, -50f);
-            sRect.sizeDelta = new Vector2(-20f, 22f);
+            sRect.anchoredPosition = new Vector2(0f, -54f);
+            sRect.sizeDelta = new Vector2(-20f, 24f);
 
             Text sTxt = stripObj.AddComponent<Text>();
             sTxt.font = font;
             sTxt.text = Get10StepRoadmapString(stepNum);
-            sTxt.fontSize = 11;
+            sTxt.fontSize = 13;
             sTxt.fontStyle = FontStyle.Bold;
             sTxt.alignment = TextAnchor.MiddleCenter;
             sTxt.color = Color.white;
@@ -213,16 +219,16 @@ namespace Farm2Shelf.UI
             dRect.anchorMin = new Vector2(0f, 1f);
             dRect.anchorMax = new Vector2(1f, 1f);
             dRect.pivot = new Vector2(0.5f, 1f);
-            dRect.anchoredPosition = new Vector2(0f, -74f);
-            dRect.sizeDelta = new Vector2(-24f, 85f);
+            dRect.anchoredPosition = new Vector2(0f, -82f);
+            dRect.sizeDelta = new Vector2(-24f, 92f);
 
             Text dTxt = descObj.AddComponent<Text>();
             dTxt.font = font;
             dTxt.text = GetStepInstruction(step);
-            dTxt.fontSize = 12;
+            dTxt.fontSize = 14;
             dTxt.lineSpacing = 1.15f;
             dTxt.alignment = TextAnchor.UpperLeft;
-            dTxt.color = new Color(0.90f, 0.92f, 0.96f);
+            dTxt.color = new Color(0.92f, 0.94f, 0.98f);
 
             // 3. Canlı İlerleme & Kontrol Kutusu (Live Progress Checklist with Tikler)
             GameObject progObj = new GameObject("ProgressBox");
@@ -231,39 +237,39 @@ namespace Farm2Shelf.UI
             pRect.anchorMin = new Vector2(0f, 1f);
             pRect.anchorMax = new Vector2(1f, 1f);
             pRect.pivot = new Vector2(0.5f, 1f);
-            pRect.anchoredPosition = new Vector2(0f, -165f);
-            pRect.sizeDelta = new Vector2(-24f, 95f);
+            pRect.anchoredPosition = new Vector2(0f, -178f);
+            pRect.sizeDelta = new Vector2(-24f, 102f);
 
             Image pBg = progObj.AddComponent<Image>();
-            pBg.sprite = UIStyleUtility.CreateOutlinePillSprite(Mathf.RoundToInt(cardW - 24f), 95, 10, 1, new Color(0.30f, 0.40f, 0.52f, 0.6f), new Color(0.12f, 0.16f, 0.22f, 0.90f));
+            pBg.sprite = UIStyleUtility.CreateOutlinePillSprite(Mathf.RoundToInt(cardW - 24f), 102, 12, 1, new Color(0.30f, 0.40f, 0.52f, 0.6f), new Color(0.12f, 0.16f, 0.22f, 0.90f));
 
             GameObject pTxtObj = new GameObject("Txt");
             pTxtObj.transform.SetParent(progObj.transform, false);
             RectTransform ptRect = pTxtObj.AddComponent<RectTransform>();
             ptRect.anchorMin = Vector2.zero;
             ptRect.anchorMax = Vector2.one;
-            ptRect.offsetMin = new Vector2(12f, 6f);
-            ptRect.offsetMax = new Vector2(-12f, -6f);
+            ptRect.offsetMin = new Vector2(14f, 6f);
+            ptRect.offsetMax = new Vector2(-14f, -6f);
 
             Text pTxt = pTxtObj.AddComponent<Text>();
             pTxt.font = font;
             pTxt.text = GetStepLiveChecklist(step);
-            pTxt.fontSize = 12;
-            pTxt.lineSpacing = 1.18f;
+            pTxt.fontSize = 14;
+            pTxt.lineSpacing = 1.20f;
             pTxt.alignment = TextAnchor.MiddleLeft;
-            pTxt.color = new Color(0.95f, 0.95f, 0.95f);
+            pTxt.color = new Color(0.96f, 0.96f, 0.96f);
 
             // 4. Alt Butonlar (Devam Et & Eğitimi Geç)
             bool showNextBtn = (step == TutorialStep.Step1_CameraControls || step == TutorialStep.Step2_ExploreTabletApps);
 
             if (showNextBtn)
             {
-                CreateActionButton(cardObj.transform, new Vector2(-80f, 22f), new Vector2(160f, 34f), "Devam ▶", "Next ▶", new Color(0.20f, 0.80f, 0.45f), font, 13, () => {
+                CreateActionButton(cardObj.transform, new Vector2(-95f, 25f), new Vector2(175f, 40f), "Devam ▶", "Next ▶", new Color(0.20f, 0.80f, 0.45f), font, 15, () => {
                     TutorialManager.Instance.AdvanceToNextStep();
                 });
             }
 
-            CreateActionButton(cardObj.transform, new Vector2(showNextBtn ? 140f : 0f, 22f), new Vector2(150f, 34f), "Eğitimi Atla ⏭️", "Skip Tutorial ⏭️", new Color(0.35f, 0.40f, 0.48f), font, 12, () => {
+            CreateActionButton(cardObj.transform, new Vector2(showNextBtn ? 100f : 0f, 25f), new Vector2(175f, 40f), "Eğitimi Atla ⏭️", "Skip Tutorial ⏭️", new Color(0.35f, 0.40f, 0.48f), font, 14, () => {
                 TutorialManager.Instance.SkipTutorial();
             });
 
@@ -302,15 +308,16 @@ namespace Farm2Shelf.UI
             GameObject modalObj = new GameObject("AllQuestsRoadmapModal");
             modalObj.transform.SetParent(parent, false);
 
+            float safeLeft = GetSafeLeftMargin();
             RectTransform mRect = modalObj.AddComponent<RectTransform>();
             mRect.anchorMin = new Vector2(0f, 0f);
             mRect.anchorMax = new Vector2(0f, 0f);
             mRect.pivot = new Vector2(0f, 0f);
-            mRect.anchoredPosition = new Vector2(30f, 355f);
-            mRect.sizeDelta = new Vector2(520f, 360f);
+            mRect.anchoredPosition = new Vector2(safeLeft, 380f);
+            mRect.sizeDelta = new Vector2(560f, 380f);
 
             Image mBg = modalObj.AddComponent<Image>();
-            mBg.sprite = UIStyleUtility.CreateOutlinePillSprite(520, 360, 16, 2, new Color(0.25f, 0.85f, 0.55f), new Color(0.08f, 0.11f, 0.15f, 0.98f));
+            mBg.sprite = UIStyleUtility.CreateOutlinePillSprite(560, 380, 16, 2, new Color(0.25f, 0.85f, 0.55f), new Color(0.08f, 0.11f, 0.15f, 0.98f));
 
             // Başlık
             GameObject titleObj = new GameObject("Title");
@@ -320,12 +327,12 @@ namespace Farm2Shelf.UI
             tRect.anchorMax = new Vector2(1f, 1f);
             tRect.pivot = new Vector2(0.5f, 1f);
             tRect.anchoredPosition = new Vector2(0f, -8f);
-            tRect.sizeDelta = new Vector2(-20f, 32f);
+            tRect.sizeDelta = new Vector2(-20f, 36f);
 
             Text tTxt = titleObj.AddComponent<Text>();
             tTxt.font = font;
             tTxt.text = "📋 " + LocalizationManager.L("Tut_AllQuestsTitle", "TÜM EĞİTİM GÖREVLERİ & İLERLEME", "ALL TUTORIAL QUESTS & PROGRESS");
-            tTxt.fontSize = 14;
+            tTxt.fontSize = 16;
             tTxt.fontStyle = FontStyle.Bold;
             tTxt.alignment = TextAnchor.MiddleCenter;
             tTxt.color = new Color(0.30f, 0.95f, 0.65f);
@@ -337,12 +344,12 @@ namespace Farm2Shelf.UI
             lRect.anchorMin = Vector2.zero;
             lRect.anchorMax = Vector2.one;
             lRect.offsetMin = new Vector2(16f, 12f);
-            lRect.offsetMax = new Vector2(-16f, -42f);
+            lRect.offsetMax = new Vector2(-16f, -44f);
 
             Text lTxt = listObj.AddComponent<Text>();
             lTxt.font = font;
-            lTxt.fontSize = 12;
-            lTxt.lineSpacing = 1.15f;
+            lTxt.fontSize = 14;
+            lTxt.lineSpacing = 1.18f;
 
             StringBuilder sb = new StringBuilder();
             for (int i = 1; i <= 10; i++)
@@ -404,7 +411,7 @@ namespace Farm2Shelf.UI
             switch (step)
             {
                 case TutorialStep.Step1_CameraControls:
-                    return LocalizationManager.L("Tut_S1_Title", "Kamera & Dokunmatik Kontroller", "Camera & Mobile Controls");
+                    return LocalizationManager.L("Tut_S1_Title", "Kamera & Dokunmatik Kontroller", "Camera & Mobile Touch Controls");
                 case TutorialStep.Step2_ExploreTabletApps:
                     return LocalizationManager.L("Tut_S2_Title", "EKT Tablet Uygulamaları", "EKT Tablet Apps");
                 case TutorialStep.Step3_HireStoreStaffAndCallEarly:
@@ -416,7 +423,7 @@ namespace Farm2Shelf.UI
                 case TutorialStep.Step6_UnpackAndPlaceFurniture:
                     return LocalizationManager.L("Tut_S6_Title", "Mobilya & Reyon Kurulumu", "Install Furniture from Pallet");
                 case TutorialStep.Step7_PlaceWholesaleBulkOrder:
-                    return LocalizationManager.L("Tut_S7_Title", "Toptancı Toplu Sipariş", "Wholesaler Bulk Order");
+                    return LocalizationManager.L("Tut_S7_Title", "Toplu Sipariş & Reyon Dizme", "Wholesale Order & Stock Shelves");
                 case TutorialStep.Step8_HireFarmStaffAndShifts:
                     return LocalizationManager.L("Tut_S8_Title", "Çiftlik Personeli & Vardiyalar", "Farm Staff & Shifts");
                 case TutorialStep.Step9_BuyStartingSeeds:
@@ -435,18 +442,18 @@ namespace Farm2Shelf.UI
                 case TutorialStep.Step1_CameraControls:
                     return LocalizationManager.L(
                         "Tut_S1_Inst",
-                        "• <b>Kaydırma (Pan):</b> Parmağını ekranda sürükle (WASD).\n" +
-                        "• <b>Yakınlaştırma (Zoom):</b> İki parmağınla kıstır (Mouse Scroll).\n" +
-                        "• <b>Döndürme (Rotate):</b> İki parmağını çevir (Q / E Tuşları).",
-                        "• <b>Pan Map:</b> Drag with one finger (WASD keys).\n" +
-                        "• <b>Zoom View:</b> Pinch with two fingers (Mouse Scroll).\n" +
-                        "• <b>Rotate View:</b> Twist with two fingers (Q / E keys)."
+                        "• <b>Harita Kaydırma:</b> Parmağını ekranda sürükle.\n" +
+                        "• <b>Yakınlaştır / Uzaklaştır:</b> İki parmağınla ekranı kıstır veya aç.\n" +
+                        "• <b>Kamera Açısı Döndürme:</b> İki parmağını ekranda dairesel çevir.",
+                        "• <b>Pan Map:</b> Drag across the screen with one finger.\n" +
+                        "• <b>Zoom View:</b> Pinch or spread with two fingers.\n" +
+                        "• <b>Rotate View:</b> Twist with two fingers on the screen."
                     );
 
                 case TutorialStep.Step2_ExploreTabletApps:
                     return LocalizationManager.L(
                         "Tut_S2_Inst",
-                        "Sağ alttaki <b>📱 EKT TABLET</b> butonuna bas. Açılan 5 uygulamayı incele:\n" +
+                        "Sağ alttaki <b>📱 EKT TABLET</b> butonuna dokun. Açılan 5 uygulamayı incele:\n" +
                         "🛒 Mağaza Yönetimi • 🌾 Çiftlik • 🛍️ Alışveriş • 💳 Finans • 𝕏 Sosyal Medya",
                         "Tap the <b>📱 EKT TABLET</b> button at bottom right. Explore the 5 apps:\n" +
                         "🛒 Store Mgmt • 🌾 Farm • 🛍️ Shopping • 💳 Finance • 𝕏 Social Media"
@@ -455,7 +462,7 @@ namespace Farm2Shelf.UI
                 case TutorialStep.Step3_HireStoreStaffAndCallEarly:
                     return LocalizationManager.L(
                         "Tut_S3_Inst",
-                        "Tablette <b>Mağaza Yönetimi ➔ İşe Alım</b> sekmesine git. <b>3 Kasiyer</b> ve <b>3 Reyoncu</b> işe al. Ardından <b>Personel Kadrosu</b> sekmesinde sabah vardiyasındaki bir reyoncunun <b>⚡ Erken Çağır</b> butonuna bas!\n💡 <i>İpucu: Temizlikçi/Güvenlik isteğe bağlıdır.</i>",
+                        "Tablette <b>Mağaza Yönetimi ➔ İşe Alım</b> sekmesine git. <b>3 Kasiyer</b> ve <b>3 Reyoncu</b> işe al. Ardından <b>Personel Kadrosu</b> sekmesinde sabah vardiyasındaki bir reyoncunun <b>⚡ Erken Çağır</b> butonuna dokun!\n💡 <i>İpucu: Temizlikçi/Güvenlik isteğe bağlıdır.</i>",
                         "In Tablet, go to <b>Store Mgmt ➔ Hire Staff</b>. Hire <b>3 Cashiers</b> and <b>3 Restockers</b>. Then in <b>Staff List</b>, tap <b>⚡ Call Early</b> on a morning restocker!\n💡 <i>Tip: Cleaner/Security are optional.</i>"
                     );
 
@@ -471,7 +478,7 @@ namespace Farm2Shelf.UI
                         "Tut_S5_Inst",
                         "Tablette <b>Alışveriş (TrendyShop) ➔ Mobilyalar</b> sekmesine gir. Sepete şunları ekle:\n" +
                         "• 3x Standart Reyon • 1x Sepet Standı • 3x Depo Rafı • 1x Kasa • 2x Buzdolabı\n" +
-                        "Sepet ikonuna bas ve <b>Ödeme Yap</b> ile siparişi ver!",
+                        "Sepet ikonuna dokun ve <b>Ödeme Yap</b> ile siparişi ver!",
                         "In Tablet, open <b>Shopping ➔ Furniture</b>. Add to cart:\n" +
                         "• 3x Display Shelf • 1x Cart Stand • 3x Storage Rack • 1x Cashier • 2x Fridge\n" +
                         "Open Cart and tap <b>Checkout</b> to complete order!"
@@ -480,17 +487,19 @@ namespace Farm2Shelf.UI
                 case TutorialStep.Step6_UnpackAndPlaceFurniture:
                     return LocalizationManager.L(
                         "Tut_S6_Inst",
-                        "Mal Kabul kapısının yanındaki <b>Teslimat Paletine</b> git. Gelen kutulara tıklayarak mobilyaları dükkan içine ve depo raflarını depoya kur.",
-                        "Go to the <b>Delivery Pallet</b> near Goods Receipt. Click on boxes to place shelves inside the store and storage racks in warehouse."
+                        "Mal Kabul kapısının yanındaki <b>Teslimat Paletine</b> git. Gelen kutulara dokunarak mobilyaları dükkan içine ve depo raflarını depoya kur.",
+                        "Go to the <b>Delivery Pallet</b> near Goods Receipt. Tap on boxes to place shelves inside the store and storage racks in warehouse."
                     );
 
                 case TutorialStep.Step7_PlaceWholesaleBulkOrder:
                     return LocalizationManager.L(
                         "Tut_S7_Inst",
-                        "Tablette <b>Alışveriş</b> sekmesinde üstteki yeşil <b>📦 Toplu Sipariş</b> butonuna bas ve onayla!\n" +
-                        "💡 <i>Toplu Sipariş, tüm temel ürünleri %20 indirimli olarak toptancı kamyonuyla kapına getirir.</i>",
-                        "In Tablet <b>Shopping</b> tab, tap the green <b>📦 Bulk Order</b> button and confirm!\n" +
-                        "💡 <i>Bulk Order delivers all essential products with an automatic 20% discount straight to your loading dock.</i>"
+                        "1. Tablette <b>Alışveriş</b> sekmesinde yeşil <b>📦 Toplu Sipariş</b> butonuna dokun ve onayla!\n" +
+                        "2. Dükkandaki <b>1 Standart Reyon</b> ve <b>1 Buzdolabına</b> dokunarak her ikisinin de <b>4 rafına ürün ata (📦 Ürün Seç ➔ ✅ Rafa Koy)</b>.\n" +
+                        "💡 <i>Ürünler atandıktan sonra reyoncu depodan rafları otomatik dolduracaktır.</i>",
+                        "1. In Tablet <b>Shopping</b> tab, tap the green <b>📦 Bulk Order</b> button and confirm!\n" +
+                        "2. Tap <b>1 Display Shelf</b> and <b>1 Refrigerator</b> inside store to assign products to all <b>4 rows</b> of each (📦 Select Item ➔ ✅ Place on Shelf).\n" +
+                        "💡 <i>Once assigned, restockers will automatically unpack wholesale boxes to fill the shelves.</i>"
                     );
 
                 case TutorialStep.Step8_HireFarmStaffAndShifts:
@@ -512,8 +521,8 @@ namespace Farm2Shelf.UI
                 case TutorialStep.Step10_PlantSeedsAndOpenStore:
                     return LocalizationManager.L(
                         "Tut_S10_Inst",
-                        "Çiftliğin sağ tarafındaki boş tarlalara tıkla ve aldığın tohumları ek. Ekim bitince ekranın üstündeki <b>DÜKKAN KAPALI</b> butonuna basarak dükkanı müşterilere aç!",
-                        "Click on empty field plots on the right and plant your seeds. Once finished, tap <b>STORE CLOSED</b> on top HUD to open your store!"
+                        "Çiftliğin sağ tarafındaki boş tarlalara dokun ve aldığın tohumları ek. Ekim bitince ekranın üstündeki <b>DÜKKAN KAPALI</b> butonuna basarak dükkanı müşterilere aç!",
+                        "Tap on empty field plots on the right and plant your seeds. Once finished, tap <b>STORE CLOSED</b> on top HUD to open your store!"
                     );
 
                 default:
@@ -529,9 +538,9 @@ namespace Farm2Shelf.UI
             switch (step)
             {
                 case TutorialStep.Step1_CameraControls:
-                    string pan = tm.DidPanCamera ? "<color=#00FFA3>✅ [✓] Harita Kaydırma (Pan)</color>" : "<color=#FFD700>⏳ [ ] Harita Kaydırma (Pan)</color>";
-                    string zoom = tm.DidZoomCamera ? "<color=#00FFA3>✅ [✓] Yakınlaştırma (Zoom)</color>" : "<color=#FFD700>⏳ [ ] Yakınlaştırma (Zoom)</color>";
-                    string rot = tm.DidRotateCamera ? "<color=#00FFA3>✅ [✓] Açı Döndürme (Rotate)</color>" : "<color=#FFD700>⏳ [ ] Açı Döndürme (Rotate)</color>";
+                    string pan = tm.DidPanCamera ? "<color=#00FFA3>✅ [✓] Parmağınla Haritayı Kaydır</color>" : "<color=#FFD700>⏳ [ ] Parmağınla Haritayı Kaydır</color>";
+                    string zoom = tm.DidZoomCamera ? "<color=#00FFA3>✅ [✓] İki Parmakla Yakınlaştır (Pinch)</color>" : "<color=#FFD700>⏳ [ ] İki Parmakla Yakınlaştır (Pinch)</color>";
+                    string rot = tm.DidRotateCamera ? "<color=#00FFA3>✅ [✓] İki Parmakla Açıyı Döndür (Twist)</color>" : "<color=#FFD700>⏳ [ ] İki Parmakla Açıyı Döndür (Twist)</color>";
                     return $"• {pan}\n• {zoom}\n• {rot}";
 
                 case TutorialStep.Step2_ExploreTabletApps:
@@ -578,17 +587,21 @@ namespace Farm2Shelf.UI
                     return $"• {plStr}\n<color=#8EE2FF>Kutulara tıklayıp mağaza içine ve depoya yerleştir.</color>";
 
                 case TutorialStep.Step7_PlaceWholesaleBulkOrder:
-                    string bo = tm.DidPlaceBulkOrder ? "<color=#00FFA3>✅ [✓] Toptancı Toplu Siparişi Verildi 🚛</color>" : "<color=#FFD700>⏳ [ ] 📦 Toplu Sipariş Butonuna Bas ve Onayla</color>";
-                    return $"• {bo}\n<color=#8EE2FF>Alışveriş sekmesinde yeşil 'Toplu Sipariş' butonuna bas.</color>";
+                    string bo = tm.DidPlaceBulkOrder ? "<color=#00FFA3>✅ [✓] Toptancı Toplu Siparişi Verildi 🚛</color>" : "<color=#FFD700>⏳ [ ] 📦 Toplu Sipariş Butonuna Dokun ve Onayla</color>";
+                    int sRows = tm.GetMaxAssignedRowsOnAnyShelf();
+                    int fRows = tm.GetMaxAssignedRowsOnAnyFridge();
+                    string sStr = (sRows >= 4) ? $"<color=#00FFA3>✅ [✓] Standart Reyona 4 Ürün Atandı ({sRows}/4)</color>" : $"<color=#FFD700>⏳ [ ] Standart Reyona 4 Ürün Ata ({sRows}/4)</color>";
+                    string fStr = (fRows >= 4) ? $"<color=#00FFA3>✅ [✓] Buzdolabına 4 Ürün Atandı ({fRows}/4)</color>" : $"<color=#FFD700>⏳ [ ] Buzdolabına 4 Ürün Ata ({fRows}/4)</color>";
+                    return $"• {bo}\n• {sStr}  • {fStr}";
 
                 case TutorialStep.Step8_HireFarmStaffAndShifts:
                     int farm = tm.GetFarmRoleCount(StaffRole.Çiftçi);
-                    string fStr = (farm >= 3) ? $"<color=#00FFA3>✅ [✓] 3 Çiftçi İşe Alındı ({farm}/3)</color>" : $"<color=#FFD700>⏳ [ ] 3 Çiftçi İşe Al ({farm}/3)</color>";
+                    string fStr2 = (farm >= 3) ? $"<color=#00FFA3>✅ [✓] 3 Çiftçi İşe Alındı ({farm}/3)</color>" : $"<color=#FFD700>⏳ [ ] 3 Çiftçi İşe Al ({farm}/3)</color>";
                     bool fDay = tm.HasFarmShift("Gündüz") || tm.HasFarmShift("06:00");
                     bool fEve = tm.HasFarmShift("Akşam") || tm.HasFarmShift("14:00");
                     bool fNight = tm.HasFarmShift("Gece") || tm.HasFarmShift("22:00");
                     string fSh = (fDay && fEve && fNight) ? "<color=#00FFA3>✅ [✓] Çiftlik Vardiyaları Düzenlendi (Sabah/Öğle/Akşam)</color>" : "<color=#FFD700>⏳ [ ] Çiftçileri 3 Farklı Vardiyaya Ata</color>";
-                    return $"• {fStr}\n• {fSh}";
+                    return $"• {fStr2}\n• {fSh}";
 
                 case TutorialStep.Step9_BuyStartingSeeds:
                     string st1 = tm.DidBuyTomatoSeed ? "<color=#00FFA3>✅ [✓] 1x Domates Tohumu 🍅</color>" : "<color=#FFD700>⏳ [ ] 1x Domates Tohumu 🍅</color>";

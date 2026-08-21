@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Farm2Shelf.Environment
@@ -168,8 +169,16 @@ namespace Farm2Shelf.Environment
             return obj;
         }
 
+        private static readonly Dictionary<string, Material> truckMatCache = new Dictionary<string, Material>();
+
         private static Material CreateMaterial(string name, Color color, float metallic = 0f, float smoothness = 0.5f, bool transparent = false)
         {
+            string key = $"TruckMat_{name}_{color.r:F3}_{color.g:F3}_{color.b:F3}_{color.a:F3}_{metallic:F2}_{smoothness:F2}_{transparent}";
+            if (truckMatCache.TryGetValue(key, out Material cached) && cached != null)
+            {
+                return cached;
+            }
+
             Shader shader = Shader.Find("Universal Render Pipeline/Lit");
             if (shader == null) shader = Shader.Find("Standard");
 
@@ -190,6 +199,7 @@ namespace Farm2Shelf.Environment
                 mat.renderQueue = 3000;
             }
 
+            truckMatCache[key] = mat;
             return mat;
         }
     }

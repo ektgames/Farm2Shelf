@@ -25,7 +25,7 @@ namespace Farm2Shelf.Environment
         [Header("Geliştirme Seviyesi")]
         private int currentUpgradeLevel = 1; // 1: Başlangıç (12 Araç), 2: Seviye 2 (18 Araç), 3: Seviye 3 (26 Araç)
 
-        public event Action<int> OnStoreUpgraded;
+        public static event Action<int> OnStoreUpgraded;
 
         // Materyal Deposu
         private Material grassMat;
@@ -286,12 +286,12 @@ namespace Farm2Shelf.Environment
             barrierArmMat = CreateSolidMaterial("BarrierArmMat", new Color(0.85f, 0.15f, 0.15f));
 
             // Gerçekçi Kapı Materyalleri
-            doorFrameMat = CreateSolidMaterial("DoorFrameMat", new Color(0.18f, 0.20f, 0.24f));
-            mainDoorGlassMat = CreateSolidMaterial("MainDoorGlassMat", new Color(0.23f, 0.75f, 0.96f, 0.45f));
-            storageDoorMat = CreateSolidMaterial("StorageDoorMat", new Color(0.18f, 0.20f, 0.24f));
-            goodsDoorMat = CreateSolidMaterial("GoodsDoorMat", new Color(0.20f, 0.65f, 0.38f));
-            staffDoorMat = CreateSolidMaterial("StaffDoorMat", new Color(0.70f, 0.75f, 0.85f, 0.60f));
-            doorHandleMat = CreateSolidMaterial("DoorHandleMat", new Color(0.90f, 0.92f, 0.95f));
+            doorFrameMat = CreateSolidMaterial("DoorFrameMat", new Color(0.18f, 0.20f, 0.24f), 0.0f, 0.2f);
+            mainDoorGlassMat = CreateSolidMaterial("MainDoorGlassMat", new Color(0.23f, 0.75f, 0.96f, 1.0f), 0.0f, 0.25f);
+            storageDoorMat = CreateSolidMaterial("StorageDoorMat", new Color(0.18f, 0.20f, 0.24f), 0.0f, 0.2f);
+            goodsDoorMat = CreateSolidMaterial("GoodsDoorMat", new Color(0.20f, 0.65f, 0.38f), 0.0f, 0.2f);
+            staffDoorMat = CreateSolidMaterial("StaffDoorMat", new Color(0.42f, 0.48f, 0.58f, 1.0f), 0.0f, 0.2f);
+            doorHandleMat = CreateSolidMaterial("DoorHandleMat", new Color(0.90f, 0.92f, 0.95f), 0.2f, 0.3f);
 
             // Çiftlik Materyalleri
             footpathMat = CreateSolidMaterial("FootpathMat", new Color(0.75f, 0.68f, 0.55f));
@@ -322,7 +322,7 @@ namespace Farm2Shelf.Environment
             wheatCropMat = CreateSolidMaterial("WheatCropMat", new Color(0.92f, 0.78f, 0.25f));
 
             // Mimari Bina Detay Materyalleri
-            windowGlassMat = CreateSolidMaterial("WindowGlassMat", new Color(0.40f, 0.75f, 0.95f, 0.75f));
+            windowGlassMat = CreateSolidMaterial("WindowGlassMat", new Color(0.35f, 0.70f, 0.90f, 1.0f), 0.0f, 0.20f);
             windowFrameMat = CreateSolidMaterial("WindowFrameMat", new Color(0.95f, 0.95f, 0.95f));
             windowSillMat = CreateSolidMaterial("WindowSillMat", new Color(0.80f, 0.82f, 0.85f));
             chimneyBrickMat = CreateSolidMaterial("ChimneyBrickMat", new Color(0.65f, 0.28f, 0.20f));
@@ -832,10 +832,15 @@ namespace Farm2Shelf.Environment
             CreateFlushDoubleDoor("Goods_Receipt_DoubleDoor_RightWall", buildingGroup, new Vector3(11f, 0f, 2f), goodsDoorMat, false, "MAL KABUL (YÜKLEME)", "GOODS RECEIPT (LOADING)", Color.green, 90f, false, 3.0f);
             CreateFlushDoubleDoor("StaffRoom_DoubleDoor", buildingGroup, new Vector3(7f, 0f, storageBackZ), staffDoorMat, true, "PERSONEL ODASI", "STAFF ROOM", Color.magenta, 0f, false, 3.0f);
 
-            CreateLabel($"PERSONEL ODASI (SEVİYE {currentUpgradeLevel})", $"STAFF ROOM (LEVEL {currentUpgradeLevel})", buildingGroup, new Vector3(7f, 3.0f, storageBackZ + (staffDepth / 2f)), Color.magenta);
-
             // SEVİYEYE BAĞLI ODA BÜYÜKLÜĞÜ İLE %100 UYUMLU DETAYLI VE MOBİLYALI PERSONEL DİNLENME ODASI
             BuildStaffRoomFurnishings(buildingGroup, currentUpgradeLevel, storageBackZ, backWallZ, staffDepth);
+
+            // DÜKKAN ÖNÜ (OTOBÜS DURAĞI ARKASI) IŞIKLI VE OKUNAKLI ŞİRKET TABELASI (SEVİYE 1/2/3 MODELLERİ)
+            GameObject signHost = new GameObject("Storefront_Signboard_Host");
+            signHost.transform.SetParent(buildingGroup, false);
+            signHost.transform.localPosition = Vector3.zero;
+            StorefrontSignboardController signCtrl = signHost.AddComponent<StorefrontSignboardController>();
+            signCtrl.RefreshSignboard();
 
             // TÜM ODALAR (MAĞAZA, DEPO, PERSONEL) İÇİN DÜKKAN BÜYÜTME UYUMLU VE PARLAK TAVAN AYDINLATMALARI
             BuildDynamicStoreInteriorLighting(buildingGroup, storeDepth, storageDepth, staffDepth, frontWallZ, backWallZ, storageBackZ);
@@ -877,7 +882,7 @@ namespace Farm2Shelf.Environment
                 CreateStoreCeilingLightFixture(lightGroup, lPos, "StaffRoom_CeilingLight", fixtureFrameMat);
             }
 
-            // Sahnedeki mevcut tüm Panel_Fixture objelerini de garanti şeffaf materyale bağla
+            // Sahnedeki mevcut tüm Panel_Fixture objelerini temizle
 #if UNITY_2023_1_OR_NEWER
             GameObject[] allSceneObjs = UnityEngine.Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
 #else
@@ -887,12 +892,8 @@ namespace Farm2Shelf.Environment
             {
                 if (sceneObj != null && sceneObj.name == "Panel_Fixture")
                 {
-                    Renderer r = sceneObj.GetComponent<Renderer>();
-                    if (r != null)
-                    {
-                        r.sharedMaterial = fixtureFrameMat;
-                        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                    }
+                    if (Application.isPlaying) Destroy(sceneObj);
+                    else DestroyImmediate(sceneObj);
                 }
             }
         }
@@ -903,23 +904,11 @@ namespace Farm2Shelf.Environment
             fixtureObj.transform.SetParent(parent, false);
             fixtureObj.transform.position = worldPos;
 
-            // Tavan Armatürü Kasa (Şeffaf Kristal Cam LED Paneli)
-            GameObject panel = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            panel.name = "Panel_Fixture";
-            panel.transform.SetParent(fixtureObj.transform, false);
-            panel.transform.localPosition = Vector3.zero;
-            panel.transform.localScale = new Vector3(1.5f, 0.04f, 0.85f);
-            
-            Renderer panelRend = panel.GetComponent<Renderer>();
-            panelRend.sharedMaterial = frameMat;
-            panelRend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            Destroy(panel.GetComponent<Collider>());
-
-            // Işık Kaynağı (PointLight - Bright Warm White Fill Light: Intensity 3.8f, Range 18.0f)
+            // Işık Kaynağı (Görsel kirlilik yaratmayan saf ışık kaynağı - PointLight)
             Light ceilingLight = fixtureObj.AddComponent<Light>();
             ceilingLight.type = LightType.Point;
             ceilingLight.color = new Color(1.0f, 0.96f, 0.88f); // Canlı Sıcak Beyaz
-            ceilingLight.intensity = 3.8f; // Bir tık daha canlı ve aydınlık!
+            ceilingLight.intensity = 3.8f;
             ceilingLight.range = 18.0f;
             ceilingLight.shadows = LightShadows.None;
             ceilingLight.enabled = false; // Gündüz kapalı, gece DayNightCycleManager ile açılır
@@ -977,11 +966,11 @@ namespace Farm2Shelf.Environment
             {
                 // ---------------- LEVEL 2: GELİŞMİŞ PERSONEL DİNLENME ODASI ----------------
                 // 1. Karşılıklı Koltuk Takımı & Ortadaki Masa (Sol Arka Lounge Alanı - Personel Geçiş Yolu İçin Genişletilmiş Mesafe)
-                // Halı (Koltuklar ve Masa Arasında Genişletilmiş Alana Yayılır)
+                // Halı (Z-Fighting önleyici Y: 0.025f yüksekliği ile zeminin tam üstünde oturur)
                 GameObject rug = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 rug.transform.SetParent(roomGroup, false);
-                rug.transform.position = new Vector3(5.0f, 0.015f, backWallZ - 2.8f);
-                rug.transform.localScale = new Vector3(2.8f, 0.01f, 5.2f);
+                rug.transform.position = new Vector3(5.0f, 0.025f, backWallZ - 2.8f);
+                rug.transform.localScale = new Vector3(2.8f, 0.008f, 5.2f);
                 rug.GetComponent<Renderer>().sharedMaterial = rugMat;
                 Destroy(rug.GetComponent<Collider>());
 
@@ -1021,11 +1010,11 @@ namespace Farm2Shelf.Environment
                 Material vipIvoryCushionMat = CreateSolidMaterial("Staff_VipIvoryCushionMat", new Color(0.94f, 0.94f, 0.90f));
 
                 // 1. VIP 3+2+1 Koltuk Takımı & Cam Sehpa & Halı (Sol Arka VIP Lounge)
-                // Halı (Lüks Alanı Tam Kaplar)
+                // Halı (Z-Fighting önleyici Y: 0.025f yüksekliği ile lüks alanı tam kaplar)
                 GameObject rug = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 rug.transform.SetParent(roomGroup, false);
-                rug.transform.position = new Vector3(5.0f, 0.015f, backWallZ - 2.8f);
-                rug.transform.localScale = new Vector3(3.2f, 0.01f, 5.8f);
+                rug.transform.position = new Vector3(5.0f, 0.025f, backWallZ - 2.8f);
+                rug.transform.localScale = new Vector3(3.2f, 0.008f, 5.8f);
                 rug.GetComponent<Renderer>().sharedMaterial = rugMat;
                 Destroy(rug.GetComponent<Collider>());
 

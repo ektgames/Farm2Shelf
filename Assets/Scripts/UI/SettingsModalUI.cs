@@ -462,10 +462,10 @@ namespace Farm2Shelf.UI
             infoTxt.font = font;
             infoTxt.text = LocalizationManager.L(
                 "Info_Text",
-                "📱 <b>Kontrol & Grafikler:</b> Karma (PC Klavye/Fare + Dokunmatik)\n" +
+                "📱 <b>Kontrol & Grafikler:</b> Mobil Dokunmatik (Kaydır / Pinch-Zoom / Döndür)\n" +
                 "🖥️ <b>Grafik Kalitesi:</b> Yüksek (Low-Poly Ultra)\n\n" +
                 "<color=#80D8FF>💡 Tüm ses seviyeleri, müzik ve dil tercihleri otomatik kaydedilir!</color>",
-                "📱 <b>Controls & Graphics:</b> Hybrid (PC Mouse/Keyboard + Mobile Touch)\n" +
+                "📱 <b>Controls & Graphics:</b> Mobile Touch (Swipe / Pinch-Zoom / Twist)\n" +
                 "🖥️ <b>Graphic Quality:</b> High (Low-Poly Ultra)\n\n" +
                 "<color=#80D8FF>💡 All audio, music, and language settings are automatically saved!</color>"
             );

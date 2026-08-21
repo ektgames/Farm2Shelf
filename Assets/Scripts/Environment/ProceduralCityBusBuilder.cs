@@ -85,12 +85,24 @@ namespace Farm2Shelf.Environment
             return obj;
         }
 
+        private static readonly Dictionary<string, Material> busMatCache = new Dictionary<string, Material>();
+
         private static Material CreateMat(Shader shader, Color col, float metallic, float smoothness)
         {
-            Material mat = new Material(shader) { color = col };
+            string key = $"BusMat_{col.r:F3}_{col.g:F3}_{col.b:F3}_{col.a:F3}_{metallic:F2}_{smoothness:F2}";
+            if (busMatCache.TryGetValue(key, out Material cached) && cached != null)
+            {
+                return cached;
+            }
+
+            if (shader == null) shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+
+            Material mat = new Material(shader) { color = col, name = key };
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", col);
             if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", metallic);
             if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", smoothness);
+
+            busMatCache[key] = mat;
             return mat;
         }
     }

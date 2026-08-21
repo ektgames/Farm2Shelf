@@ -19,6 +19,7 @@ namespace Farm2Shelf.Core
         public string CompanyName { get; private set; } = "Farm2Shelf Market";
 
         public event Action<bool> OnStoreStatusChanged;
+        public event Action<string> OnCompanyNameChanged;
 
         private void Awake()
         {
@@ -29,7 +30,11 @@ namespace Farm2Shelf.Core
         public void SetPlayerAndCompany(string playerName, string companyName)
         {
             if (!string.IsNullOrWhiteSpace(playerName)) PlayerName = playerName.Trim();
-            if (!string.IsNullOrWhiteSpace(companyName)) CompanyName = companyName.Trim();
+            if (!string.IsNullOrWhiteSpace(companyName))
+            {
+                CompanyName = companyName.Trim();
+                OnCompanyNameChanged?.Invoke(CompanyName);
+            }
             Debug.Log($"[Farm2Shelf] Yeni Oyuncu Kurulumu: {PlayerName} | {CompanyName}");
         }
 
