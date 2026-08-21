@@ -2013,6 +2013,10 @@ namespace Farm2Shelf.Environment
 
             CreateLabel("TURNİKE (ÇIKIŞ)", "TURNSTILE (EXIT)", turnstileLeftRoot.transform, new Vector3(0f, 1.6f, 0f), Color.cyan);
 
+            // Turnike Yanı Güvenlik Duvarları (Karakterlerin/Müşterilerin dükkan sol duvarı ile turnikeler arasındaki çıkmaz ara boşluğa sapmasını %100 önler)
+            CreateWall("Store_Turnstile_Barrier_Wall", parkingGroup, new Vector3(-13.5f, 1.0f, -3.0f), new Vector3(1.1f, 2.0f, 0.4f));
+            CreateWall("Parking_Exit_Turnstile_West_Barrier_Wall", parkingGroup, new Vector3(-23.0f, 1.0f, -3.0f), new Vector3(6.0f, 2.0f, 0.4f));
+
             // KUSURSUZ ÇİFT TURNİKE YAYA GEÇİDİ (KALDIRIM İLE TAM HİZALI Z: -6.0m ile -3.0m ARASI 3m DERİNLİK)
             Transform turnstileCrosswalkGroup = new GameObject("Pedestrian_Crosswalk_Turnstile_Full").transform;
             turnstileCrosswalkGroup.SetParent(parkingGroup);

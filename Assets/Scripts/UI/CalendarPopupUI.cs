@@ -15,7 +15,7 @@ namespace Farm2Shelf.UI
     public class CalendarPopupUI : MonoBehaviour
     {
         public static CalendarPopupUI Instance { get; private set; }
-        public static bool IsCalendarModalOpen => Instance != null && Instance.popupCanvasObj != null && Instance.popupCanvasObj.activeSelf;
+        public static bool IsCalendarModalOpen => Instance != null && Instance.popupRoot != null && Instance.popupRoot.activeSelf;
 
         private GameObject popupCanvasObj;
         private GameObject popupRoot;
@@ -163,10 +163,10 @@ namespace Farm2Shelf.UI
         {
             switch (index)
             {
-                case 0: return LocalizationManager.L("Season_TabSpring", "🌸 İlkbahar", "🌸 Spring");
-                case 1: return LocalizationManager.L("Season_TabSummer", "☀️ Yaz", "☀️ Summer");
-                case 2: return LocalizationManager.L("Season_TabAutumn", "🍂 Sonbahar", "🍂 Autumn");
-                case 3: return LocalizationManager.L("Season_TabWinter", "❄️ Kış", "❄️ Winter");
+                case 0: return LocalizationManager.L("Season_TabSpring", "İlkbahar", "Spring");
+                case 1: return LocalizationManager.L("Season_TabSummer", "Yaz", "Summer");
+                case 2: return LocalizationManager.L("Season_TabAutumn", "Sonbahar", "Autumn");
+                case 3: return LocalizationManager.L("Season_TabWinter", "Kış", "Winter");
                 default: return "";
             }
         }
@@ -213,7 +213,7 @@ namespace Farm2Shelf.UI
             overlayImage.color = new Color(0.04f, 0.07f, 0.12f, 0.80f);
             overlayImage.raycastTarget = true;
 
-            // Centered Modal Window Box (880 x 630 px)
+            // Centered Modal Window Box (900 x 650 px)
             GameObject modalBox = new GameObject("Modal_Window_Box");
             modalBox.transform.SetParent(popupRoot.transform, false);
 
@@ -221,11 +221,11 @@ namespace Farm2Shelf.UI
             modalBoxRect.anchorMin = new Vector2(0.5f, 0.5f);
             modalBoxRect.anchorMax = new Vector2(0.5f, 0.5f);
             modalBoxRect.pivot = new Vector2(0.5f, 0.5f);
-            modalBoxRect.sizeDelta = new Vector2(880f, 630f);
+            modalBoxRect.sizeDelta = new Vector2(900f, 650f);
             modalBoxRect.anchoredPosition = Vector2.zero;
 
             Image boxBg = modalBox.AddComponent<Image>();
-            boxBg.sprite = UIStyleUtility.CreateOutlinePillSprite(880, 630, 24, 4, new Color(0.95f, 0.75f, 0.20f, 0.90f), new Color(0.10f, 0.13f, 0.17f, 0.98f));
+            boxBg.sprite = UIStyleUtility.CreateOutlinePillSprite(900, 650, 24, 4, new Color(0.95f, 0.75f, 0.20f, 0.90f), new Color(0.10f, 0.13f, 0.17f, 0.98f));
             boxBg.raycastTarget = true;
 
             globalFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -236,18 +236,17 @@ namespace Farm2Shelf.UI
             headerObj.transform.SetParent(modalBox.transform, false);
 
             RectTransform hRect = headerObj.AddComponent<RectTransform>();
-            hRect.anchoredPosition = new Vector2(0f, 275f);
-            hRect.sizeDelta = new Vector2(820f, 50f);
+            hRect.anchoredPosition = new Vector2(0f, 285f);
+            hRect.sizeDelta = new Vector2(840f, 50f);
 
             titleText = headerObj.AddComponent<Text>();
             titleText.font = globalFont;
-            titleText.text = "📅 TAKVİM";
+            titleText.text = "TAKVİM";
             titleText.fontSize = 28;
-            titleText.resizeTextForBestFit = true;
-            titleText.resizeTextMinSize = 18;
-            titleText.resizeTextMaxSize = 30;
             titleText.fontStyle = FontStyle.Bold;
             titleText.alignment = TextAnchor.MiddleCenter;
+            titleText.horizontalOverflow = HorizontalWrapMode.Overflow;
+            titleText.verticalOverflow = VerticalWrapMode.Overflow;
             titleText.color = new Color(1.0f, 0.88f, 0.25f);
             titleText.raycastTarget = false;
 
@@ -256,11 +255,11 @@ namespace Farm2Shelf.UI
             closeBtnObj.transform.SetParent(modalBox.transform, false);
 
             RectTransform cRect = closeBtnObj.AddComponent<RectTransform>();
-            cRect.anchoredPosition = new Vector2(410f, 275f);
-            cRect.sizeDelta = new Vector2(42f, 42f);
+            cRect.anchoredPosition = new Vector2(420f, 285f);
+            cRect.sizeDelta = new Vector2(44f, 44f);
 
             Image cBg = closeBtnObj.AddComponent<Image>();
-            cBg.sprite = UIStyleUtility.CreateRoundedPillSprite(42, 42, 21, new Color(0.92f, 0.22f, 0.22f, 0.98f));
+            cBg.sprite = UIStyleUtility.CreateRoundedPillSprite(44, 44, 22, new Color(0.92f, 0.22f, 0.22f, 0.98f));
             cBg.raycastTarget = true;
 
             Button cBtn = closeBtnObj.AddComponent<Button>();
@@ -275,7 +274,7 @@ namespace Farm2Shelf.UI
 
             Text cxText = cTextObj.AddComponent<Text>();
             cxText.font = globalFont;
-            cxText.text = "X";
+            cxText.text = "✕";
             cxText.fontSize = 24;
             cxText.fontStyle = FontStyle.Bold;
             cxText.alignment = TextAnchor.MiddleCenter;
@@ -287,11 +286,11 @@ namespace Farm2Shelf.UI
             tabsObj.transform.SetParent(modalBox.transform, false);
 
             RectTransform tabsRect = tabsObj.AddComponent<RectTransform>();
-            tabsRect.anchoredPosition = new Vector2(0f, 215f);
-            tabsRect.sizeDelta = new Vector2(820f, 48f);
+            tabsRect.anchoredPosition = new Vector2(0f, 226f);
+            tabsRect.sizeDelta = new Vector2(840f, 48f);
 
             HorizontalLayoutGroup layout = tabsObj.AddComponent<HorizontalLayoutGroup>();
-            layout.spacing = 12;
+            layout.spacing = 10;
             layout.childAlignment = TextAnchor.MiddleCenter;
 
             tabsContainer = tabsObj.transform;
@@ -301,12 +300,12 @@ namespace Farm2Shelf.UI
             gridObj.transform.SetParent(modalBox.transform, false);
 
             RectTransform gRect = gridObj.AddComponent<RectTransform>();
-            gRect.anchoredPosition = new Vector2(0f, -15f);
-            gRect.sizeDelta = new Vector2(820f, 380f);
+            gRect.anchoredPosition = new Vector2(0f, -14f);
+            gRect.sizeDelta = new Vector2(840f, 395f);
 
             GridLayoutGroup grid = gridObj.AddComponent<GridLayoutGroup>();
-            grid.cellSize = new Vector2(124f, 65f);
-            grid.spacing = new Vector2(12f, 10f);
+            grid.cellSize = new Vector2(130f, 68f);
+            grid.spacing = new Vector2(10f, 8f);
             grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             grid.constraintCount = 6;
 
@@ -317,19 +316,18 @@ namespace Farm2Shelf.UI
             footerObj.transform.SetParent(modalBox.transform, false);
 
             RectTransform fRect = footerObj.AddComponent<RectTransform>();
-            fRect.anchoredPosition = new Vector2(0f, -270f);
-            fRect.sizeDelta = new Vector2(820f, 45f);
+            fRect.anchoredPosition = new Vector2(0f, -282f);
+            fRect.sizeDelta = new Vector2(840f, 44f);
 
             footerSummaryText = footerObj.AddComponent<Text>();
             footerSummaryText.font = globalFont;
             footerSummaryText.text = "";
-            footerSummaryText.fontSize = 18;
-            footerSummaryText.resizeTextForBestFit = true;
-            footerSummaryText.resizeTextMinSize = 12;
-            footerSummaryText.resizeTextMaxSize = 19;
+            footerSummaryText.fontSize = 19;
             footerSummaryText.fontStyle = FontStyle.Bold;
             footerSummaryText.alignment = TextAnchor.MiddleCenter;
-            footerSummaryText.color = new Color(0.85f, 0.88f, 0.92f);
+            footerSummaryText.horizontalOverflow = HorizontalWrapMode.Overflow;
+            footerSummaryText.verticalOverflow = VerticalWrapMode.Overflow;
+            footerSummaryText.color = new Color(0.92f, 0.95f, 1.0f);
             footerSummaryText.raycastTarget = false;
         }
 
@@ -351,7 +349,7 @@ namespace Farm2Shelf.UI
                 tabBtn.transform.SetParent(tabsContainer, false);
 
                 RectTransform tabRect = tabBtn.AddComponent<RectTransform>();
-                tabRect.sizeDelta = new Vector2(185f, 44f);
+                tabRect.sizeDelta = new Vector2(195f, 46f);
 
                 Image tabBg = tabBtn.AddComponent<Image>();
                 tabBg.raycastTarget = true;
@@ -360,11 +358,11 @@ namespace Farm2Shelf.UI
 
                 if (isSelected)
                 {
-                    tabBg.sprite = UIStyleUtility.CreateOutlinePillSprite(185, 44, 22, 3, baseColor, new Color(baseColor.r, baseColor.g, baseColor.b, 0.45f));
+                    tabBg.sprite = UIStyleUtility.CreateOutlinePillSprite(195, 46, 23, 3, baseColor, new Color(baseColor.r, baseColor.g, baseColor.b, 0.45f));
                 }
                 else
                 {
-                    tabBg.sprite = UIStyleUtility.CreateRoundedPillSprite(185, 44, 22, new Color(0.14f, 0.17f, 0.22f, 0.85f));
+                    tabBg.sprite = UIStyleUtility.CreateRoundedPillSprite(195, 46, 23, new Color(0.14f, 0.17f, 0.22f, 0.85f));
                 }
 
                 Button btn = tabBtn.AddComponent<Button>();
@@ -384,10 +382,12 @@ namespace Farm2Shelf.UI
                 Text tabText = textObj.AddComponent<Text>();
                 tabText.font = globalFont;
                 tabText.text = GetSeasonTabName(i);
-                tabText.fontSize = isSelected ? 16 : 14;
+                tabText.fontSize = isSelected ? 19 : 17;
                 tabText.fontStyle = FontStyle.Bold;
                 tabText.alignment = TextAnchor.MiddleCenter;
-                tabText.color = isSelected ? Color.white : baseColor * 0.85f;
+                tabText.horizontalOverflow = HorizontalWrapMode.Overflow;
+                tabText.verticalOverflow = VerticalWrapMode.Overflow;
+                tabText.color = isSelected ? Color.white : baseColor * 0.90f;
                 tabText.raycastTarget = false;
 
                 if (isSelected)
@@ -428,8 +428,8 @@ namespace Farm2Shelf.UI
             
             string stardewTitleFormat = LocalizationManager.L(
                 "Calendar_TitleFormat",
-                "📅 TAKVİM — YIL {0}, {1} (30 GÜN)",
-                "📅 CALENDAR — YEAR {0}, {1} (30 DAYS)"
+                "TAKVİM — YIL {0}, {1} (30 GÜN)",
+                "CALENDAR — YEAR {0}, {1} (30 DAYS)"
             );
             titleText.text = string.Format(stardewTitleFormat, activeYear, GetSeasonRawName(selectedSeason));
             titleText.color = themeColor;
@@ -451,15 +451,15 @@ namespace Farm2Shelf.UI
 
                 if (isToday)
                 {
-                    cardBg.sprite = UIStyleUtility.CreateOutlinePillSprite(124, 65, 14, 3, new Color(1.0f, 0.85f, 0.20f), new Color(0.25f, 0.45f, 0.25f, 0.95f));
+                    cardBg.sprite = UIStyleUtility.CreateOutlinePillSprite(130, 68, 14, 3, new Color(1.0f, 0.85f, 0.20f), new Color(0.25f, 0.45f, 0.25f, 0.95f));
                 }
                 else if (isSelectedDay)
                 {
-                    cardBg.sprite = UIStyleUtility.CreateOutlinePillSprite(124, 65, 14, 2, themeColor, new Color(0.20f, 0.26f, 0.35f, 0.95f));
+                    cardBg.sprite = UIStyleUtility.CreateOutlinePillSprite(130, 68, 14, 2, themeColor, new Color(0.20f, 0.26f, 0.35f, 0.95f));
                 }
                 else
                 {
-                    cardBg.sprite = UIStyleUtility.CreateRoundedPillSprite(124, 65, 14, new Color(0.15f, 0.19f, 0.24f, 0.88f));
+                    cardBg.sprite = UIStyleUtility.CreateRoundedPillSprite(130, 68, 14, new Color(0.15f, 0.19f, 0.24f, 0.88f));
                 }
 
                 Button dayBtn = cardObj.AddComponent<Button>();
@@ -474,19 +474,21 @@ namespace Farm2Shelf.UI
                 dayTextObj.transform.SetParent(cardObj.transform, false);
 
                 RectTransform dRect = dayTextObj.AddComponent<RectTransform>();
-                dRect.anchorMin = new Vector2(0f, 0.40f);
-                dRect.anchorMax = new Vector2(1f, 1f);
+                dRect.anchorMin = new Vector2(0f, 0.42f);
+                dRect.anchorMax = new Vector2(1f, 0.98f);
                 dRect.offsetMin = Vector2.zero;
                 dRect.offsetMax = Vector2.zero;
 
                 Text dText = dayTextObj.AddComponent<Text>();
                 dText.font = globalFont;
                 string dayPrefix = LocalizationManager.L("Day_UpperWord", "GÜN", "DAY");
-                dText.text = isToday ? $"✨ {dayPrefix} {currentDayNum} ✨" : $"{dayPrefix} {currentDayNum}";
-                dText.fontSize = (isToday || isSelectedDay) ? 14 : 13;
+                dText.text = isToday ? $"★ {dayPrefix} {currentDayNum} ★" : $"{dayPrefix} {currentDayNum}";
+                dText.fontSize = isToday ? 17 : 16;
                 dText.fontStyle = FontStyle.Bold;
                 dText.alignment = TextAnchor.MiddleCenter;
-                dText.color = isToday ? new Color(1.0f, 0.92f, 0.30f) : (isSelectedDay ? themeColor : new Color(0.90f, 0.92f, 0.95f));
+                dText.horizontalOverflow = HorizontalWrapMode.Overflow;
+                dText.verticalOverflow = VerticalWrapMode.Overflow;
+                dText.color = isToday ? new Color(1.0f, 0.95f, 0.35f) : (isSelectedDay ? Color.white : new Color(0.92f, 0.95f, 0.98f));
                 dText.raycastTarget = false;
 
                 // O Günün Hava Durumu Tahmini (Güneşli, Yağmurlu, Karlı)
@@ -497,40 +499,41 @@ namespace Farm2Shelf.UI
                 switch (dayWeather)
                 {
                     case Farm2Shelf.Environment.WeatherType.Sunny:
-                        weatherLabel = LocalizationManager.L("Weather_Label_Sunny", "☀️ Güneşli", "☀️ Sunny");
+                        weatherLabel = LocalizationManager.L("Weather_Label_Sunny", "Güneşli", "Sunny");
                         weatherCol = new Color(1.0f, 0.88f, 0.30f);
                         break;
                     case Farm2Shelf.Environment.WeatherType.Rainy:
-                        weatherLabel = LocalizationManager.L("Weather_Label_Rainy", "🌧️ Yağmurlu", "🌧️ Rainy");
-                        weatherCol = new Color(0.45f, 0.85f, 1.0f);
+                        weatherLabel = LocalizationManager.L("Weather_Label_Rainy", "Yağmurlu", "Rainy");
+                        weatherCol = new Color(0.40f, 0.85f, 1.0f);
                         break;
                     case Farm2Shelf.Environment.WeatherType.Snowy:
-                        weatherLabel = LocalizationManager.L("Weather_Label_Snowy", "❄️ Karlı", "❄️ Snowy");
-                        weatherCol = new Color(0.92f, 0.96f, 1.0f);
+                        weatherLabel = LocalizationManager.L("Weather_Label_Snowy", "Karlı", "Snowy");
+                        weatherCol = new Color(0.85f, 0.95f, 1.0f);
                         break;
                 }
 
                 if (isToday)
                 {
-                    weatherLabel = LocalizationManager.L("Badge_TodayWeather", $"📍 {weatherLabel}", $"📍 {weatherLabel}");
-                    weatherCol = new Color(0.40f, 0.95f, 0.50f);
+                    weatherCol = new Color(0.45f, 0.98f, 0.55f);
                 }
 
                 GameObject weatherObj = new GameObject("WeatherBadgeText");
                 weatherObj.transform.SetParent(cardObj.transform, false);
 
                 RectTransform wRect = weatherObj.AddComponent<RectTransform>();
-                wRect.anchorMin = new Vector2(0f, 0f);
-                wRect.anchorMax = new Vector2(1f, 0.42f);
+                wRect.anchorMin = new Vector2(0f, 0.04f);
+                wRect.anchorMax = new Vector2(1f, 0.46f);
                 wRect.offsetMin = Vector2.zero;
                 wRect.offsetMax = Vector2.zero;
 
                 Text wText = weatherObj.AddComponent<Text>();
                 wText.font = globalFont;
                 wText.text = weatherLabel;
-                wText.fontSize = 11;
+                wText.fontSize = 14;
                 wText.fontStyle = FontStyle.Bold;
                 wText.alignment = TextAnchor.MiddleCenter;
+                wText.horizontalOverflow = HorizontalWrapMode.Overflow;
+                wText.verticalOverflow = VerticalWrapMode.Overflow;
                 wText.color = weatherCol;
                 wText.raycastTarget = false;
             }
@@ -546,25 +549,25 @@ namespace Farm2Shelf.UI
 
             if (selectedSeason == activeSeason && selectedDay == activeDay)
             {
-                eventDetail = LocalizationManager.L("Cal_FooterToday", "📍 BUGÜN (Oyunun Güncel Tarihi)", "📍 TODAY (Current Game Date)");
+                eventDetail = LocalizationManager.L("Cal_FooterToday", "BUGÜN (Oyunun Güncel Tarihi)", "TODAY (Current Game Date)");
             }
             else if (selectedDay == 1)
             {
-                eventDetail = LocalizationManager.L("Cal_FooterDay1", $"🌱 {selectedSeasonStr} Mevsiminin 1. Günü (Mevsim Başlangıcı)", $"🌱 {selectedSeasonStr} Season Day 1 (Season Start)");
+                eventDetail = LocalizationManager.L("Cal_FooterDay1", $"{selectedSeasonStr} Mevsiminin 1. Günü (Başlangıç)", $"{selectedSeasonStr} Season Day 1 (Start)");
             }
             else if (selectedDay == 30)
             {
-                eventDetail = LocalizationManager.L("Cal_FooterDay30", $"🎉 {selectedSeasonStr} Mevsiminin 30. Günü (Son Gün - Sezon Sonu Festivali)", $"🎉 {selectedSeasonStr} Season Day 30 (Last Day - Season End Festival)");
+                eventDetail = LocalizationManager.L("Cal_FooterDay30", $"{selectedSeasonStr} Mevsiminin 30. Günü (Son Gün - Sezon Sonu)", $"{selectedSeasonStr} Season Day 30 (Last Day - Season End)");
             }
             else if (selectedDay > 0)
             {
-                eventDetail = LocalizationManager.L("Cal_FooterDayN", $"📅 {selectedSeasonStr} Mevsimi, Gün {selectedDay}", $"📅 {selectedSeasonStr} Season, Day {selectedDay}");
+                eventDetail = LocalizationManager.L("Cal_FooterDayN", $"{selectedSeasonStr} Mevsimi, Gün {selectedDay}", $"{selectedSeasonStr} Season, Day {selectedDay}");
             }
 
             footerSummaryText.text = LocalizationManager.L(
                 "Cal_FooterSummaryFormat",
-                $"📍 Seçilen: {eventDetail} • Güncel Tarih: {activeSeasonStr}, Gün {activeDay}",
-                $"📍 Selected: {eventDetail} • Current Date: {activeSeasonStr}, Day {activeDay}"
+                $"Seçilen: {eventDetail}  •  Güncel Tarih: {activeSeasonStr}, Gün {activeDay}",
+                $"Selected: {eventDetail}  •  Current Date: {activeSeasonStr}, Day {activeDay}"
             );
         }
     }

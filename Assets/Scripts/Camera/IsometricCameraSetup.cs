@@ -247,6 +247,11 @@ namespace Farm2Shelf.CameraSystem
                     cam.orthographic = useOrthographic;
                     cam.orthographicSize = orthographicSize;
                 }
+
+                if (TutorialManager.Instance != null)
+                {
+                    TutorialManager.Instance.NotifyCameraZoom();
+                }
             }
         }
 

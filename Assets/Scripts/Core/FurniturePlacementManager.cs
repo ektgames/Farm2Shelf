@@ -425,6 +425,11 @@ namespace Farm2Shelf.Core
             savedReplacementRows = null;
             if (placementHUDCanvas != null) placementHUDCanvas.SetActive(false);
 
+            if (TutorialManager.Instance != null)
+            {
+                TutorialManager.Instance.NotifyFurniturePlaced(currentType);
+            }
+
             Debug.Log($"[FurniturePlacement] {currentType} başarıyla kuruldu! Konum: {pos}");
         }
 

@@ -32,20 +32,6 @@ namespace Farm2Shelf.Core
             DontDestroyOnLoad(gameObject);
         }
 
-        private void OnApplicationQuit()
-        {
-            // Oyundan çıkarken son durumu otomatik olarak Slot 1'e kaydet (Otomatik Kayıt Failsafe)
-            SaveCurrentGame(1);
-        }
-
-        private void OnApplicationPause(bool pauseStatus)
-        {
-            if (pauseStatus)
-            {
-                SaveCurrentGame(1);
-            }
-        }
-
         /// <summary>
         /// Belirtilen slot numarası (1, 2, 3) için kayıtlı oyun verisini okur.
         /// </summary>
@@ -345,6 +331,12 @@ namespace Farm2Shelf.Core
                 }
             }
 
+            // 15. EĞİTİM VE BAŞLANGIÇ GÖREVLERİ (TUTORIAL)
+            if (TutorialManager.Instance != null)
+            {
+                saveData.tutorialStep = TutorialManager.Instance.CurrentStep.ToString();
+            }
+
             try
             {
                 string json = JsonUtility.ToJson(saveData, true);
@@ -525,70 +517,88 @@ namespace Farm2Shelf.Core
                 }
             }
 
-            // 14. Tarladaki Ekinleri Yükleme
-            if (saveData.fieldCrops != null && saveData.fieldCrops.Count > 0)
+            // 14. Tarladaki Ekinleri Yükleme (Tüm parselleri eksiksiz ve firesiz güncelle)
+            FieldPlotController[] plots = UnityEngine.Object.FindObjectsByType<FieldPlotController>(FindObjectsSortMode.None);
+            if (plots != null)
             {
-                FieldPlotController[] plots = UnityEngine.Object.FindObjectsByType<FieldPlotController>(FindObjectsSortMode.None);
-                if (plots != null)
+                foreach (var p in plots)
                 {
-                    foreach (var p in plots)
+                    if (p == null) continue;
+                    CropSaveData cData = saveData.fieldCrops != null ? saveData.fieldCrops.Find(c => c.plotName == p.gameObject.name) : null;
+                    if (cData != null)
                     {
-                        if (p == null) continue;
-                        CropSaveData cData = saveData.fieldCrops.Find(c => c.plotName == p.gameObject.name);
-                        if (cData != null)
-                        {
-                            p.RestoreCropState(cData.seedId, cData.currentGrowthDay, cData.totalGrowthDays, cData.needsWater, cData.wateredToday, cData.state);
-                        }
+                        p.RestoreCropState(cData.seedId, cData.currentGrowthDay, cData.totalGrowthDays, cData.needsWater, cData.wateredToday, cData.state);
+                    }
+                    else
+                    {
+                        p.RestoreCropState("", 0, 1, false, false, "Empty");
                     }
                 }
             }
 
             // 15. Yerleştirilen Mobilyaları ve Raf Stoklarını Yükleme
-            if (saveData.furnitureList != null)
+            PlacedFurnitureController[] existingFurniture = UnityEngine.Object.FindObjectsByType<PlacedFurnitureController>(FindObjectsSortMode.None);
+            if (existingFurniture != null)
             {
-                PlacedFurnitureController[] existingFurniture = UnityEngine.Object.FindObjectsByType<PlacedFurnitureController>(FindObjectsSortMode.None);
-                if (existingFurniture != null)
+                foreach (var f in existingFurniture)
                 {
-                    foreach (var f in existingFurniture)
+                    if (f != null && f.gameObject != null)
                     {
-                        if (f != null && f.gameObject != null)
-                        {
-                            UnityEngine.Object.Destroy(f.gameObject);
-                        }
+                        PlacedFurnitureController.AllPlacedFurniture.Remove(f);
+                        UnityEngine.Object.Destroy(f.gameObject);
                     }
                 }
+            }
 
-                if (FurniturePlacementManager.Instance != null)
+            if (FurniturePlacementManager.Instance != null && saveData.furnitureList != null)
+            {
+                foreach (var sData in saveData.furnitureList)
                 {
-                    foreach (var sData in saveData.furnitureList)
+                    if (sData == null) continue;
+                    if (Enum.TryParse<FurnitureType>(sData.furnitureType, out FurnitureType fType))
                     {
-                        if (sData == null) continue;
-                        if (Enum.TryParse<FurnitureType>(sData.furnitureType, out FurnitureType fType))
+                        Vector3 pos = new Vector3(sData.posX, sData.posY, sData.posZ);
+                        Quaternion rot = Quaternion.Euler(sData.rotX, sData.rotY, sData.rotZ);
+
+                        ShelfRowData[] rows = null;
+                        if (sData.rows != null && sData.rows.Count > 0)
                         {
-                            Vector3 pos = new Vector3(sData.posX, sData.posY, sData.posZ);
-                            Quaternion rot = Quaternion.Euler(sData.rotX, sData.rotY, sData.rotZ);
-
-                            ShelfRowData[] rows = null;
-                            if (sData.rows != null && sData.rows.Count > 0)
+                            rows = new ShelfRowData[sData.rows.Count];
+                            for (int i = 0; i < sData.rows.Count; i++)
                             {
-                                rows = new ShelfRowData[sData.rows.Count];
-                                for (int i = 0; i < sData.rows.Count; i++)
-                                {
-                                    var rData = sData.rows[i];
-                                    rows[i] = new ShelfRowData(
-                                        rData.rowId,
-                                        rData.productName,
-                                        rData.currentStock,
-                                        rData.maxCapacity,
-                                        rData.unitPrice,
-                                        rData.productId
-                                    );
-                                }
+                                var rData = sData.rows[i];
+                                rows[i] = new ShelfRowData(
+                                    rData.rowId,
+                                    rData.productName,
+                                    rData.currentStock,
+                                    rData.maxCapacity,
+                                    rData.unitPrice,
+                                    rData.productId
+                                );
                             }
-
-                            FurniturePlacementManager.Instance.SpawnRestoredFurniture(fType, pos, rot, rows);
                         }
+
+                        FurniturePlacementManager.Instance.SpawnRestoredFurniture(fType, pos, rot, rows);
                     }
+                }
+            }
+
+            // 16. Eğitim ve Başlangıç Görevleri Yükleme
+            if (TutorialManager.Instance != null && !string.IsNullOrEmpty(saveData.tutorialStep))
+            {
+                if (Enum.TryParse<TutorialStep>(saveData.tutorialStep, out TutorialStep step))
+                {
+                    TutorialManager.Instance.RestoreTutorialStep(step);
+                }
+            }
+
+            // 17. Mağaza Hijyeni & Zemin Çöp Temizliği
+            GameObject trashGroup = GameObject.Find("Store_Trash_Group");
+            if (trashGroup != null)
+            {
+                for (int i = trashGroup.transform.childCount - 1; i >= 0; i--)
+                {
+                    UnityEngine.Object.Destroy(trashGroup.transform.GetChild(i).gameObject);
                 }
             }
 

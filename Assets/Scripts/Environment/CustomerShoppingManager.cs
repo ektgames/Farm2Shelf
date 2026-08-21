@@ -77,9 +77,13 @@ namespace Farm2Shelf.Environment
             public HashSet<PlacedFurnitureController> visitedShelvesSet = new HashSet<PlacedFurnitureController>();
             public int totalCartValue;
             public int totalItemsBought;
+
+            // Anti-Stuck Takılma Koruyucusu
+            public Vector3 lastTrackedPos;
+            public float stuckTimer;
         }
 
-        private readonly bool[] occupiedParkingSlots = new bool[10];
+        private readonly bool[] occupiedParkingSlots = new bool[30]; // Seviye 1 (10), Seviye 2 (16), Seviye 3 (22) araç kapasitesi
         private ParkingBarrierTurnstile entranceBarrier;
         private ParkingBarrierTurnstile exitBarrier;
 
@@ -91,6 +95,28 @@ namespace Farm2Shelf.Environment
                 return;
             }
             Instance = this;
+        }
+
+        private void OnEnable()
+        {
+            if (EnvironmentBuilder.Instance != null)
+            {
+                EnvironmentBuilder.Instance.OnStoreUpgraded -= HandleStoreUpgraded;
+                EnvironmentBuilder.Instance.OnStoreUpgraded += HandleStoreUpgraded;
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (EnvironmentBuilder.Instance != null)
+            {
+                EnvironmentBuilder.Instance.OnStoreUpgraded -= HandleStoreUpgraded;
+            }
+        }
+
+        private void HandleStoreUpgraded(int newLevel)
+        {
+            FindParkingBarriers();
         }
 
         private void Start()
@@ -140,16 +166,34 @@ namespace Farm2Shelf.Environment
         private int GetAvailableParkingSlot(out Vector3 slotPos)
         {
             slotPos = Vector3.zero;
-            float[] slotZCoords = new float[] { 1.0f, 3.8f, 6.6f, 9.4f, 12.2f };
+            int level = (EnvironmentBuilder.Instance != null) ? EnvironmentBuilder.Instance.CurrentUpgradeLevel : 1;
+            int totalSlotsCount = (level == 1) ? 10 : ((level == 2) ? 16 : 22);
+            int slotsPerRow = totalSlotsCount / 2;
 
-            for (int i = 0; i < 10; i++)
+            float totalZLength = (level == 1) ? 20.0f : ((level == 2) ? 29.0f : 38.0f);
+            float slotWidthX = 5.2f;
+            float zPitch = 2.8f;
+            float topPZ = (-3.0f + totalZLength) - 2.8f;
+
+            for (int i = 0; i < totalSlotsCount; i++)
             {
                 if (!occupiedParkingSlots[i])
                 {
-                    int row = i % 5;
-                    float z = slotZCoords[row];
-                    float x = (i < 5) ? -36.4f : -17.6f; // P1-P5 sol kutu (-36.4m), P6-P10 sağ kutu (-17.6m)
-                    slotPos = new Vector3(x, 0.05f, z);
+                    if (i < slotsPerRow)
+                    {
+                        // Sol Sütun (P1..P5 Seviye 1 / P1..P8 Seviye 2 / P1..P11 Seviye 3)
+                        float pz = 1.0f + (i * zPitch);
+                        float px = -39.0f + (slotWidthX / 2f); // -36.4m
+                        slotPos = new Vector3(px, 0.05f, pz);
+                    }
+                    else
+                    {
+                        // Sağ Sütun (P6..P10 Seviye 1 / P9..P16 Seviye 2 / P12..P22 Seviye 3)
+                        int rightIndex = i - slotsPerRow;
+                        float pz = topPZ - ((slotsPerRow - 1 - rightIndex) * zPitch);
+                        float px = -15.0f - (slotWidthX / 2f); // -17.6m
+                        slotPos = new Vector3(px, 0.05f, pz);
+                    }
                     return i;
                 }
             }
@@ -482,9 +526,11 @@ namespace Farm2Shelf.Environment
         {
             List<Vector3> route = new List<Vector3>();
 
-            route.Add(new Vector3(15.0f, 0.05f, -4.5f));
-            route.Add(new Vector3(-5.0f, 0.05f, -4.5f));
-            route.Add(new Vector3(-5.0f, 0.05f, -1.0f));
+            // Yaya Giriş Rotası: Kaldırım (X=25.0f, Z=-5.0f) -> Cam Kapı Önü (-5.0, -5.0) -> Kapıdan Geçiş (-5.0, -2.5) -> Ana Fuaye (-5.0, -0.5)
+            route.Add(new Vector3(25.0f, 0.05f, -5.0f));
+            route.Add(new Vector3(-5.0f, 0.05f, -5.0f));
+            route.Add(new Vector3(-5.0f, 0.05f, -2.5f));
+            route.Add(new Vector3(-5.0f, 0.05f, -0.5f));
 
             PlacedFurnitureController cartStand = GetActiveShoppingCartStand();
             hasCartStand = (cartStand != null);
@@ -495,10 +541,13 @@ namespace Farm2Shelf.Environment
             }
             else
             {
-                route.Add(new Vector3(-5.0f, 0.05f, -1.0f));
-                route.Add(new Vector3(-5.0f, 0.05f, -4.5f));
-                route.Add(new Vector3(-15.0f, 0.05f, -4.5f));
-                route.Add(new Vector3(-75.0f, 0.05f, -4.5f));
+                // Sepet stantı yoksa kapıdan geri dönüp çıkar
+                route.Add(new Vector3(-5.0f, 0.05f, -0.5f));
+                route.Add(new Vector3(-5.0f, 0.05f, -2.5f));
+                route.Add(new Vector3(-5.0f, 0.05f, -5.0f));
+                route.Add(new Vector3(-17.0f, 0.05f, -5.0f));
+                route.Add(new Vector3(-45.0f, 0.05f, -5.0f));
+                route.Add(new Vector3(-85.0f, 0.05f, -5.0f));
                 willVisitServiceDesk = false;
                 return route;
             }
@@ -535,10 +584,13 @@ namespace Farm2Shelf.Environment
             }
             route.Add(checkoutPos);
 
-            route.Add(new Vector3(-5.0f, 0.05f, -1.0f));
-            route.Add(new Vector3(-5.0f, 0.05f, -4.5f));
-            route.Add(new Vector3(-20.0f, 0.05f, -4.5f));
-            route.Add(new Vector3(-75.0f, 0.05f, -4.5f));
+            // Çıkış Rotası: Fuaye -> Kapı -> Dış Kaldırım -> Batı Despawn
+            route.Add(new Vector3(-5.0f, 0.05f, -0.5f));
+            route.Add(new Vector3(-5.0f, 0.05f, -2.5f));
+            route.Add(new Vector3(-5.0f, 0.05f, -5.0f));
+            route.Add(new Vector3(-17.0f, 0.05f, -5.0f));
+            route.Add(new Vector3(-45.0f, 0.05f, -5.0f));
+            route.Add(new Vector3(-85.0f, 0.05f, -5.0f));
 
             return route;
         }
@@ -547,11 +599,11 @@ namespace Farm2Shelf.Environment
         {
             List<Vector3> route = new List<Vector3>();
 
-            // 1. Geliş Rotası: Otobüsten İn (4.5, -5.8) -> Yaya Geçidi -> Cam Giriş Kapısı (-5.0, -1.8)
+            // 1. Geliş Rotası: Otobüsten İn (4.5, -5.0) -> Dış Kaldırım (-5.0, -5.0) -> Kapıdan Geçiş (-5.0, -2.5) -> Ana Fuaye (-5.0, -0.5)
             route.Add(disembarkPos);
-            route.Add(new Vector3(-2.5f, 0.05f, -5.8f)); // Yaya geçidi başlangıcı
-            route.Add(new Vector3(-5.0f, 0.05f, -5.8f)); // Yaya geçidi tam ortası
-            route.Add(new Vector3(-5.0f, 0.05f, -1.8f)); // Cam Giriş Kapısı
+            route.Add(new Vector3(-5.0f, 0.05f, -5.0f));
+            route.Add(new Vector3(-5.0f, 0.05f, -2.5f));
+            route.Add(new Vector3(-5.0f, 0.05f, -0.5f));
 
             PlacedFurnitureController cartStand = GetActiveShoppingCartStand();
             hasCartStand = (cartStand != null);
@@ -562,10 +614,12 @@ namespace Farm2Shelf.Environment
             }
             else
             {
-                route.Add(new Vector3(-5.0f, 0.05f, -1.8f));
-                route.Add(new Vector3(-5.0f, 0.05f, -5.8f));  // Kaldırıma in
-                route.Add(new Vector3(-18.0f, 0.05f, -5.8f)); // Sol tarafa doğru yürü
-                route.Add(new Vector3(-38.0f, 0.05f, -5.8f)); // Yok olma noktası
+                route.Add(new Vector3(-5.0f, 0.05f, -0.5f));
+                route.Add(new Vector3(-5.0f, 0.05f, -2.5f));
+                route.Add(new Vector3(-5.0f, 0.05f, -5.0f));
+                route.Add(new Vector3(-17.0f, 0.05f, -5.0f));
+                route.Add(new Vector3(-45.0f, 0.05f, -5.0f));
+                route.Add(new Vector3(-85.0f, 0.05f, -5.0f));
                 willVisitServiceDesk = false;
                 return route;
             }
@@ -602,11 +656,13 @@ namespace Farm2Shelf.Environment
             }
             route.Add(checkoutPos);
 
-            // ÇIKIŞ ROTASI: Çıkış kapısından çıkıp SOL TARAFA doğru yürüyüp yok olma yerinde yok olma!
-            route.Add(new Vector3(-5.0f, 0.05f, -1.8f));  // Cam Çıkış Kapısı
-            route.Add(new Vector3(-5.0f, 0.05f, -5.8f));  // Ana Kaldırım
-            route.Add(new Vector3(-18.0f, 0.05f, -5.8f)); // Sol tarafa doğru yürü
-            route.Add(new Vector3(-38.0f, 0.05f, -5.8f)); // Yok olma noktası
+            // ÇIKIŞ ROTASI: Fuaye -> Kapı -> Dış Kaldırım -> Batı Despawn
+            route.Add(new Vector3(-5.0f, 0.05f, -0.5f));
+            route.Add(new Vector3(-5.0f, 0.05f, -2.5f));
+            route.Add(new Vector3(-5.0f, 0.05f, -5.0f));
+            route.Add(new Vector3(-17.0f, 0.05f, -5.0f));
+            route.Add(new Vector3(-45.0f, 0.05f, -5.0f));
+            route.Add(new Vector3(-85.0f, 0.05f, -5.0f));
 
             return route;
         }
@@ -810,12 +866,20 @@ namespace Farm2Shelf.Environment
         {
             List<Vector3> route = new List<Vector3>();
 
-            Vector3 driverDoorPos = slotPos + (slotIndex < 5 ? Vector3.right * 1.2f : Vector3.left * 1.2f);
-            route.Add(driverDoorPos);                             // 0. Sürücü Kapısı İniş Noktası
-            route.Add(new Vector3(-25.5f, 0.05f, slotPos.z));     // 1. Otopark İç Yolu (Duvara takılmayı %100 önler)
-            route.Add(new Vector3(-25.5f, 0.05f, -4.5f));          // 2. Turnikelerin Yanı (Giriş Turnikesinden Kaldırıma Geçiş)
-            route.Add(new Vector3(-5.0f, 0.05f, -4.5f));           // 3. Cam Kapı Dış Giriş Kaldırımı
-            route.Add(new Vector3(-5.0f, 0.05f, -1.0f));           // 4. Ana Fuaye İç Giriş
+            int level = (EnvironmentBuilder.Instance != null) ? EnvironmentBuilder.Instance.CurrentUpgradeLevel : 1;
+            int slotsPerRow = ((level == 1) ? 10 : ((level == 2) ? 16 : 22)) / 2;
+            bool isLeftSlot = (slotIndex < slotsPerRow);
+
+            // Sürücü Kapısı İniş Noktası (Sol otopark için sağa x=-33.5m, Sağ otopark için sola x=-20.5m otopark orta yolu tarafına):
+            Vector3 driverDoorPos = slotPos + (isLeftSlot ? Vector3.right * 1.5f : Vector3.left * 1.5f);
+            route.Add(driverDoorPos);                             // 0. Sürücü Kapısı
+            route.Add(new Vector3(-27.0f, 0.05f, slotPos.z));     // 1. Otopark Orta Yolu
+            route.Add(new Vector3(-27.0f, 0.05f, 1.5f));          // 2. Otopark Boğazı
+            route.Add(new Vector3(-17.0f, 0.05f, 1.5f));          // 3. Turnike Giriş Boğazı
+            route.Add(new Vector3(-17.0f, 0.05f, -5.0f));         // 4. Turnike Yaya Geçidi / Dış Kaldırım
+            route.Add(new Vector3(-5.0f, 0.05f, -5.0f));          // 5. Ana Cam Kapı Önü Dış Kaldırım
+            route.Add(new Vector3(-5.0f, 0.05f, -2.5f));          // 6. Cam Kapı Geçişi
+            route.Add(new Vector3(-5.0f, 0.05f, -0.5f));          // 7. Ana Fuaye İç Giriş
 
             PlacedFurnitureController cartStand = GetActiveShoppingCartStand();
             hasCartStand = (cartStand != null);
@@ -826,11 +890,14 @@ namespace Farm2Shelf.Environment
             }
             else
             {
-                // Alışveriş sepeti stantı yoksa müşteri alışveriş yapamaz! Kapıda bekleyip arabasına döner.
-                route.Add(new Vector3(-5.0f, 0.05f, -1.0f));
-                route.Add(new Vector3(-5.0f, 0.05f, -4.5f));
-                route.Add(new Vector3(-25.5f, 0.05f, -4.5f));
-                route.Add(new Vector3(-25.5f, 0.05f, slotPos.z));
+                // Sepet stantı yoksa arabasına döner
+                route.Add(new Vector3(-5.0f, 0.05f, -0.5f));
+                route.Add(new Vector3(-5.0f, 0.05f, -2.5f));
+                route.Add(new Vector3(-5.0f, 0.05f, -5.0f));
+                route.Add(new Vector3(-17.0f, 0.05f, -5.0f));
+                route.Add(new Vector3(-17.0f, 0.05f, 1.5f));
+                route.Add(new Vector3(-27.0f, 0.05f, 1.5f));
+                route.Add(new Vector3(-27.0f, 0.05f, slotPos.z));
                 route.Add(driverDoorPos);
                 willVisitServiceDesk = false;
                 return route;
@@ -867,10 +934,14 @@ namespace Farm2Shelf.Environment
             }
             route.Add(checkoutPos);
 
-            route.Add(new Vector3(-5.0f, 0.05f, -1.0f));           // Ana Fuaye Çıkış
-            route.Add(new Vector3(-5.0f, 0.05f, -4.5f));           // Cam Kapı Dış Çıkış
-            route.Add(new Vector3(-25.5f, 0.05f, -4.5f));          // Turnikelerin Yanı (Kaldırımdan Otoparka Geçiş)
-            route.Add(new Vector3(-25.5f, 0.05f, slotPos.z));     // Otopark İç Yolu
+            // Arabaya Dönüş Rotası:
+            route.Add(new Vector3(-5.0f, 0.05f, -0.5f));          // Ana Fuaye Çıkış
+            route.Add(new Vector3(-5.0f, 0.05f, -2.5f));          // Cam Kapı Geçişi
+            route.Add(new Vector3(-5.0f, 0.05f, -5.0f));          // Dış Kaldırım
+            route.Add(new Vector3(-17.0f, 0.05f, -5.0f));         // Turnike Yaya Geçidi
+            route.Add(new Vector3(-17.0f, 0.05f, 1.5f));          // Turnike Giriş Boğazı
+            route.Add(new Vector3(-27.0f, 0.05f, 1.5f));          // Otopark Boğazı
+            route.Add(new Vector3(-27.0f, 0.05f, slotPos.z));     // Otopark Orta Yolu
             route.Add(driverDoorPos);                             // Sürücü Kapısı (Arabaya Biniş)
 
             return route;
@@ -943,8 +1014,11 @@ namespace Farm2Shelf.Environment
                     break;
 
                 case VehicleDrivePhase.ParkingInSlot:
-                    // 4. Park Yerine Hizalanıp Durma (P1..P5: -90°, P6..P10: 90°)
-                    float targetAngle = (cData.parkingSlotIndex < 5) ? -90f : 90f;
+                    // 4. Park Yerine Hizalanıp Durma (Sol Sütun: -90°, Sağ Sütun: 90°)
+                    int level = (EnvironmentBuilder.Instance != null) ? EnvironmentBuilder.Instance.CurrentUpgradeLevel : 1;
+                    int slotsPerRow = ((level == 1) ? 10 : ((level == 2) ? 16 : 22)) / 2;
+                    bool isLeftSlot = (cData.parkingSlotIndex < slotsPerRow);
+                    float targetAngle = isLeftSlot ? -90f : 90f;
                     MoveVehicle(cData, currentCarPos, cData.parkedSlotPos, Quaternion.Euler(0f, targetAngle, 0f), deltaTime);
 
                     if (Vector3.Distance(currentCarPos, cData.parkedSlotPos) < 0.3f)
@@ -952,8 +1026,8 @@ namespace Farm2Shelf.Environment
                         cData.vehicleObj.transform.position = cData.parkedSlotPos;
                         cData.vehicleObj.transform.rotation = Quaternion.Euler(0f, targetAngle, 0f);
 
-                        // Sürücü Araçtan İner:
-                        Vector3 driverDoorPos = cData.parkedSlotPos + (cData.parkingSlotIndex < 5 ? Vector3.right * 1.2f : Vector3.left * 1.2f);
+                        // Sürücü Araçtan İner (Sol otopark için sağa x=-33.5m, Sağ otopark için sola x=-20.5m otopark orta yolu tarafına):
+                        Vector3 driverDoorPos = cData.parkedSlotPos + (isLeftSlot ? Vector3.right * 1.5f : Vector3.left * 1.5f);
                         if (cData.customerObj != null)
                         {
                             cData.customerObj.transform.position = driverDoorPos;
@@ -1029,7 +1103,7 @@ namespace Farm2Shelf.Environment
 
                     if (Vector3.Distance(currentCarPos, despawnRoadPos) < 3.0f || currentCarPos.x <= -170.0f)
                     {
-                        if (cData.parkingSlotIndex >= 0 && cData.parkingSlotIndex < 10)
+                        if (cData.parkingSlotIndex >= 0 && cData.parkingSlotIndex < occupiedParkingSlots.Length)
                         {
                             occupiedParkingSlots[cData.parkingSlotIndex] = false;
                         }
@@ -1278,10 +1352,31 @@ namespace Farm2Shelf.Environment
                         exitWaypoints.Add(stepOutPos);
                     }
 
-                    exitWaypoints.Add(new Vector3(-5.0f, 0.05f, -1.0f)); // Dükkan Ana Cam Kapı Fuayesi
-                    exitWaypoints.Add(new Vector3(-5.0f, 0.05f, -4.5f)); // Dış Kaldırım
-                    exitWaypoints.Add(new Vector3(-15.0f, 0.05f, -4.5f));
-                    exitWaypoints.Add(new Vector3(-75.0f, 0.05f, -4.5f)); // Despawn
+                    exitWaypoints.Add(new Vector3(-5.0f, 0.05f, -0.5f)); // Dükkan İçi Fuaye
+                    exitWaypoints.Add(new Vector3(-5.0f, 0.05f, -2.5f)); // Cam Kapı Geçişi
+                    exitWaypoints.Add(new Vector3(-5.0f, 0.05f, -5.0f)); // Dış Kaldırım
+
+                    if (cData.hasVehicle)
+                    {
+                        // Araçlı Müşteri: Otoparka, arabasının kapısına geri döner
+                        int level = (EnvironmentBuilder.Instance != null) ? EnvironmentBuilder.Instance.CurrentUpgradeLevel : 1;
+                        int slotsPerRow = ((level == 1) ? 10 : ((level == 2) ? 16 : 22)) / 2;
+                        bool isLeftSlot = (cData.parkingSlotIndex < slotsPerRow);
+                        Vector3 driverDoor = cData.parkedSlotPos + (isLeftSlot ? Vector3.right * 1.5f : Vector3.left * 1.5f);
+
+                        exitWaypoints.Add(new Vector3(-17.0f, 0.05f, -5.0f)); // Turnike Yaya Geçidi
+                        exitWaypoints.Add(new Vector3(-17.0f, 0.05f, 1.5f));  // Turnike Giriş Boğazı
+                        exitWaypoints.Add(new Vector3(-27.0f, 0.05f, 1.5f));  // Otopark Boğazı
+                        exitWaypoints.Add(new Vector3(-27.0f, 0.05f, cData.parkedSlotPos.z)); // Otopark Orta Yolu
+                        exitWaypoints.Add(driverDoor); // Sürücü Kapısı (Biniş)
+                    }
+                    else
+                    {
+                        // Yaya / Otobüs Müşterisi: Kaldırımdan batıya doğru yürüyüp yok olur
+                        exitWaypoints.Add(new Vector3(-17.0f, 0.05f, -5.0f));
+                        exitWaypoints.Add(new Vector3(-45.0f, 0.05f, -5.0f));
+                        exitWaypoints.Add(new Vector3(-85.0f, 0.05f, -5.0f)); // Despawn
+                    }
 
                     cData.waypoints = exitWaypoints;
                     cData.currentWaypointIndex = 1;
@@ -1294,6 +1389,32 @@ namespace Farm2Shelf.Environment
             Vector3 targetWaypoint = cData.waypoints[cData.currentWaypointIndex];
             Vector3 toTarget = targetWaypoint - currentPos;
             float distToTarget = toTarget.magnitude;
+
+            // Anti-Stuck Takılma Koruyucusu (Müşteri 2.5 saniyeden uzun süre bir noktada kilitlenirse hedef noktaya ilerletilir):
+            if (Vector3.Distance(currentPos, cData.lastTrackedPos) < 0.08f)
+            {
+                cData.stuckTimer += deltaTime;
+                if (cData.stuckTimer > 2.5f)
+                {
+                    cData.stuckTimer = 0f;
+                    cData.currentWaypointIndex++;
+                    if (cData.currentWaypointIndex >= cData.waypoints.Count)
+                    {
+                        if (!cData.hasVehicle)
+                        {
+                            Destroy(cData.customerObj);
+                            activeCustomers.RemoveAt(index);
+                            return;
+                        }
+                    }
+                    return;
+                }
+            }
+            else
+            {
+                cData.stuckTimer = 0f;
+                cData.lastTrackedPos = currentPos;
+            }
 
             if (distToTarget < 0.6f)
             {
@@ -1502,13 +1623,14 @@ namespace Farm2Shelf.Environment
 
             string n = col.name.ToLower();
 
-            // SADECE VE SADECE DUVARLAR (WALLS / BUILDINGS / DIVIDERS) KATI ENGELDİR!
-            // Müşteriler dükkan ve bina dış/iç duvarlarından kesinlikle geçemezler!
+            // SADECE VE SADECE DUVARLAR (WALLS / BUILDINGS / DIVIDERS / BARRIERS) KATI ENGELDİR!
+            // Müşteriler dükkan ve bina dış/iç duvarlarından ve bariyerlerden kesinlikle geçemezler!
             if (n.Contains("wall") || n.Contains("duvar") || n.Contains("building") ||
                 n.Contains("fence") || n.Contains("facade") || n.Contains("partition") ||
                 n.Contains("divider") || n.Contains("boundary") || n.Contains("border") ||
                 n.Contains("outerwall") || n.Contains("storewall") || n.Contains("storagewall") ||
-                n.Contains("roomwall"))
+                n.Contains("roomwall") || n.Contains("barrier") || n.Contains("turnstile") ||
+                n.Contains("housing"))
             {
                 return true;
             }

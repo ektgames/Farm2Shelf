@@ -145,5 +145,8 @@ namespace Farm2Shelf.Core
 
         // Yerleştirilen Mobilyalar ve Raf Stokları
         public List<ShelfSaveData> furnitureList = new List<ShelfSaveData>();
+
+        // Eğitim & Başlangıç Görevleri
+        public string tutorialStep = "None";
     }
 }

@@ -398,7 +398,7 @@ namespace Farm2Shelf.UI
             trBtn.targetGraphic = trbBg;
             trBtn.onClick.AddListener(() => {
                 if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
-                LocalizationManager.Instance.SetLanguage(GameLanguage.Turkish);
+                if (LocalizationManager.Instance != null) LocalizationManager.Instance.SetLanguage(GameLanguage.Turkish);
                 BuildUI();
             });
 
@@ -432,7 +432,7 @@ namespace Farm2Shelf.UI
             enBtn.targetGraphic = enbBg;
             enBtn.onClick.AddListener(() => {
                 if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
-                LocalizationManager.Instance.SetLanguage(GameLanguage.English);
+                if (LocalizationManager.Instance != null) LocalizationManager.Instance.SetLanguage(GameLanguage.English);
                 BuildUI();
             });
 

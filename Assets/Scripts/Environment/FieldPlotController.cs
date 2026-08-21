@@ -27,9 +27,6 @@ namespace Farm2Shelf.Environment
         public bool WateredToday { get; private set; } = false;
 
         private GameObject cropMeshObj;
-        private GameObject floatingIconCanvas;
-        private Image floatingIconImage;
-        private Text floatingIconText;
 
         private static GameObject radialMenuCanvasObj;
         public static bool IsRadialMenuOpen => radialMenuCanvasObj != null;
@@ -48,7 +45,6 @@ namespace Farm2Shelf.Environment
                 TimeManager.Instance.OnDateUpdated += HandleDateUpdated;
             }
 
-            CreateFloatingIconUI();
             UpdateVisuals();
         }
 
@@ -76,7 +72,7 @@ namespace Farm2Shelf.Environment
 
         private void Update()
         {
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || IsRadialMenuOpen)
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || IsRadialMenuOpen || FieldPlotDetailModalUI.IsDetailOpen)
             {
                 // UI açıkken tarlaya tıklamayı engelle
             }
@@ -112,114 +108,22 @@ namespace Farm2Shelf.Environment
                     }
                 }
             }
-
-            if (floatingIconCanvas != null && Camera.main != null)
-            {
-                floatingIconCanvas.transform.rotation = Camera.main.transform.rotation;
-                float bobY = 0.65f + Mathf.Sin(Time.time * 3.2f) * 0.08f;
-                floatingIconCanvas.transform.position = transform.position + new Vector3(0f, bobY, 0f);
-            }
         }
 
         public void OnPlotClicked()
         {
-            switch (State)
-            {
-                case PlotState.Empty:
-                    OpenRadialPlantingMenu();
-                    break;
-
-                case PlotState.PlantedSprout:
-                case PlotState.Growing:
-                case PlotState.RipeReadyToHarvest:
-                case PlotState.SpoiledTrash:
-                    ShowPlotInfoModal();
-                    break;
-            }
-        }
-
-        public void ShowPlotInfoModal()
-        {
-            if (State == PlotState.SpoiledTrash)
-            {
-                ModalManager.ShowConfirmModal(
-                    "🗑️ ÇÜRÜMÜŞ EKİN BİLGİSİ",
-                    "Bu ekim zamanında biçilmediği için çürümüştür ve maalesef çöp olmuştur.\n\nToprağı temizleyerek yeniden tohum ekebilirsiniz.",
-                    () => { ClearSpoiledPlot(); },
-                    "🗑️ Temizle",
-                    "Kapat"
-                );
-                return;
-            }
-
-            GardenSeedDef sDef = GardenSeedDatabase.GetSeedById(PlantedSeedId);
-            if (sDef == null) return;
-
-            int remainingDays = Mathf.Max(0, TotalGrowthDays - CurrentGrowthDay);
-            string seasonStr = TimeManager.Instance != null ? TimeManager.Instance.GetLocalizedSeasonName(sDef.season) : sDef.season.ToString();
-
-            string waterStatusStr = NeedsWater
-                ? LocalizationManager.L("Water_Pending", "<color=#FF5252><b>💧 Su Bekliyor! (Henüz bugün sulanmadı)</b></color>", "<color=#FF5252><b>💧 Needs Water! (Not watered today)</b></color>")
-                : LocalizationManager.L("Water_Done", "<color=#00E676><b>✨ Sulanmış (Toprak Nemli)</b></color>", "<color=#00E676><b>✨ Watered (Moist Soil)</b></color>");
-
-            string growthDetailStr = (State == PlotState.RipeReadyToHarvest)
-                ? LocalizationManager.L("Growth_Ready", "<color=#00E676><b>🎉 EKİN TAMAMEN OLGUNLAŞTI! HASATA HAZIR!</b></color>", "<color=#00E676><b>🎉 CROP FULLY MATURED! READY TO HARVEST!</b></color>")
-                : LocalizationManager.L("Growth_TimeLeft", $"<b>Hasat Vaktine Kalan Süre:</b> <color=#00E676>{remainingDays} Gün</color>\n<b>Büyüme İlerlemesi:</b> {CurrentGrowthDay} / {TotalGrowthDays} Gün Büyüme", $"<b>Time Until Harvest:</b> <color=#00E676>{remainingDays} Days</color>\n<b>Growth Progress:</b> {CurrentGrowthDay} / {TotalGrowthDays} Days");
-
-            string bodyText = LocalizationManager.L(
-                "Plot_BodyFormat",
-                $"<b>Ekilmiş Mahsul:</b> {sDef.iconEmoji} <b>{sDef.LocalizedName}</b>\n" +
-                $"<b>Mevsim:</b> {seasonStr} • <b>Gerekli Seviye:</b> {sDef.requiredLevel}\n\n" +
-                $"{growthDetailStr}\n\n" +
-                $"<b>Sulama Durumu:</b> {waterStatusStr}\n" +
-                $"<b>Tahmini Rekolte:</b> {sDef.yieldPerPlot} KG\n" +
-                $"<b>Tahmini Satış Geliri:</b> {sDef.yieldPerPlot * sDef.unitSalePrice:N0}C (%40 Kâr Marjı)",
-                $"<b>Planted Crop:</b> {sDef.iconEmoji} <b>{sDef.LocalizedName}</b>\n" +
-                $"<b>Season:</b> {seasonStr} • <b>Required Level:</b> {sDef.requiredLevel}\n\n" +
-                $"{growthDetailStr}\n\n" +
-                $"<b>Water Status:</b> {waterStatusStr}\n" +
-                $"<b>Est. Yield:</b> {sDef.yieldPerPlot} KG\n" +
-                $"<b>Est. Sales Revenue:</b> {sDef.yieldPerPlot * sDef.unitSalePrice:N0}C (+40% Profit Margin)"
-            );
-
-            if (State == PlotState.RipeReadyToHarvest)
-            {
-                ModalManager.ShowConfirmModal(
-                    LocalizationManager.L("Title_HarvestInfo", $"🌾 HASAT BİLGİSİ — {sDef.LocalizedName}", $"🌾 HARVEST INFO — {sDef.LocalizedName}"),
-                    bodyText,
-                    () => { HarvestCrop(); },
-                    LocalizationManager.L("Btn_HarvestToBarn", "🌾 Biç ve Ahıra Koy", "🌾 Harvest to Barn"),
-                    LocalizationManager.L("Btn_Close", "Kapat", "Close")
-                );
-            }
-            else if (NeedsWater)
-            {
-                ModalManager.ShowConfirmModal(
-                    LocalizationManager.L("Title_PlotInfo", $"🌱 TARLA BİLGİSİ — {sDef.LocalizedName}", $"🌱 FIELD PLOT INFO — {sDef.LocalizedName}"),
-                    bodyText,
-                    () => { WaterCrop(); },
-                    LocalizationManager.L("Btn_WaterNow", "💧 Şimdi Sula", "💧 Water Now"),
-                    LocalizationManager.L("Btn_Close", "Kapat", "Close")
-                );
-            }
-            else
-            {
-                ModalManager.ShowModal(
-                    LocalizationManager.L("Title_PlotInfo", $"🌱 TARLA BİLGİSİ — {sDef.LocalizedName}", $"🌱 FIELD PLOT INFO — {sDef.LocalizedName}"),
-                    bodyText,
-                    LocalizationManager.L("Btn_OK", "Tamam", "OK")
-                );
-            }
+            FieldPlotDetailModalUI.ShowDetail(this);
         }
 
         public void WaterCrop()
         {
-            if (NeedsWater)
+            if (NeedsWater || !WateredToday)
             {
                 NeedsWater = false;
                 WateredToday = true;
-                UpdateFloatingIcon();
-                ShowPlotPopup(transform.position, "💧 Sulandı! ✨");
+                UpdateVisuals();
+                string waterPop = LocalizationManager.L("Plot_WateredPopup", "💧 Sulandı! ✨", "💧 Watered! ✨");
+                ShowPlotPopup(transform.position, waterPop);
             }
         }
 
@@ -234,18 +138,24 @@ namespace Farm2Shelf.Environment
 
             if (added)
             {
-                ShowPlotPopup(transform.position, $"🌾 +{yieldAmount} {sDef.name.Replace(" Tohumu", "")} Biçildi! 🧺");
+                string cropShortName = sDef.LocalizedName.Replace(" Tohumu", "").Replace(" Seeds", "").Replace(" Seed", "");
+                string harvestFmt = LocalizationManager.L("Plot_HarvestedPopup", "🌾 +{0} {1} Biçildi! 🧺", "🌾 +{0} {1} Harvested! 🧺");
+                ShowPlotPopup(transform.position, string.Format(harvestFmt, yieldAmount, cropShortName));
                 ResetPlotToEmpty();
             }
             else
             {
-                ModalManager.ShowModal("Ahır Dolu! ⚠️", "Ahır envanteri maksimum kapasiteye ulaştı! Lütfen ahırdaki ürünleri dükkana sevk edin veya ahırı geliştirin.", "Tamam");
+                string barnFullTitle = LocalizationManager.L("Modal_BarnFullTitle", "Ahır Dolu! ⚠️", "Barn Full! ⚠️");
+                string barnFullBody = LocalizationManager.L("Modal_BarnFullBody", "Ahır envanteri maksimum kapasiteye ulaştı! Lütfen ahırdaki ürünleri dükkana sevk edin veya ahırı geliştirin.", "Barn inventory has reached maximum capacity! Please transfer products to the store or upgrade the barn.");
+                string btnOk = LocalizationManager.L("Btn_Ok", "Tamam", "OK");
+                ModalManager.ShowModal(barnFullTitle, barnFullBody, btnOk);
             }
         }
 
         public void ClearSpoiledPlot()
         {
-            ShowPlotPopup(transform.position, "🗑️ Çürüyen Ekin Temizlendi");
+            string clearedPop = LocalizationManager.L("Plot_ClearedPopup", "🗑️ Çürüyen Ekin Temizlendi", "🗑️ Withered Crop Cleared");
+            ShowPlotPopup(transform.position, clearedPop);
             ResetPlotToEmpty();
         }
 
@@ -256,7 +166,10 @@ namespace Farm2Shelf.Environment
 
             if (!GardenSeedInventoryManager.Instance.ConsumeSeed(seedId, 1))
             {
-                ModalManager.ShowModal("Tohum Yok! ⚠️", "Elinde bu tohumdan kalmadı! EKT Tablet Tohumlar sekmesinden satın alabilirsin.", "Tamam");
+                string noSeedTitle = LocalizationManager.L("Modal_NoSeedTitle", "Tohum Yok! ⚠️", "No Seeds! ⚠️");
+                string noSeedBody = LocalizationManager.L("Modal_NoSeedBody", "Elinde bu tohumdan kalmadı! EKT Tablet Tohumlar sekmesinden satın alabilirsin.", "You have no more of this seed! You can buy more from EKT Tablet Seeds tab.");
+                string btnOk = LocalizationManager.L("Btn_Ok", "Tamam", "OK");
+                ModalManager.ShowModal(noSeedTitle, noSeedBody, btnOk);
                 return;
             }
 
@@ -268,7 +181,13 @@ namespace Farm2Shelf.Environment
             State = PlotState.PlantedSprout;
 
             UpdateVisuals();
-            ShowPlotPopup(transform.position, $"🌱 {sDef.name} Ekildi!");
+            string plantFmt = LocalizationManager.L("Plot_PlantedPopup", "🌱 {0} Ekildi!", "🌱 {0} Planted!");
+            ShowPlotPopup(transform.position, string.Format(plantFmt, sDef.LocalizedName));
+
+            if (TutorialManager.Instance != null)
+            {
+                TutorialManager.Instance.NotifyCropPlanted(seedId);
+            }
         }
 
         public void AdvanceGrowthByFarmerBonus(float boostFactor = 1.25f)
@@ -341,184 +260,32 @@ namespace Farm2Shelf.Environment
             Renderer ren = GetComponent<Renderer>();
             if (ren != null)
             {
-                // Sulanmış toprak koyulaşır
-                ren.material.color = NeedsWater ? new Color(0.35f, 0.22f, 0.12f) : new Color(0.20f, 0.12f, 0.06f);
+                // Toprak Görseli: Sulanmamış/Kuru = Açık Sıcak Kahverengi, Sulanmış/Nemli = Koyu Islak Kahverengi
+                bool isDry = (State == PlotState.Empty) || NeedsWater;
+                ren.material.color = isDry ? new Color(0.42f, 0.28f, 0.16f) : new Color(0.16f, 0.10f, 0.05f);
             }
 
-            GardenSeedDef sDef = GardenSeedDatabase.GetSeedById(PlantedSeedId);
-            Color cropColor = sDef != null ? sDef.cropColor : Color.green;
-
-            switch (State)
+            if (State != PlotState.Empty)
             {
-                case PlotState.PlantedSprout:
-                    // 1. Aşama: Küçük Yeşil Filizler (Sprout)
-                    cropMeshObj = new GameObject("Crop_Sprout");
-                    cropMeshObj.transform.SetParent(transform, false);
-                    cropMeshObj.transform.localPosition = Vector3.zero;
+                cropMeshObj = new GameObject("Crop3D_" + State);
+                cropMeshObj.transform.SetParent(transform, false);
+                cropMeshObj.transform.localPosition = new Vector3(0f, 0.52f, 0f);
 
-                    for (int i = -1; i <= 1; i += 2)
-                    {
-                        for (int j = -1; j <= 1; j += 2)
-                        {
-                            GameObject sprout = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                            sprout.transform.SetParent(cropMeshObj.transform, false);
-                            sprout.transform.localPosition = new Vector3(i * 0.4f, 0.12f, j * 0.4f);
-                            sprout.transform.localScale = new Vector3(0.08f, 0.15f, 0.08f);
-                            sprout.GetComponent<Renderer>().material.color = new Color(0.30f, 0.85f, 0.25f);
-                            Destroy(sprout.GetComponent<Collider>());
-                        }
-                    }
-                    break;
+                Vector3 pScale = transform.localScale;
+                Vector3 invScale = new Vector3(
+                    pScale.x > 0.001f ? 1f / pScale.x : 1f,
+                    pScale.y > 0.001f ? 1f / pScale.y : 1f,
+                    pScale.z > 0.001f ? 1f / pScale.z : 1f
+                );
+                cropMeshObj.transform.localScale = invScale;
 
-                case PlotState.Growing:
-                    // 2. Aşama: Büyüyen Bitki Yaprakları (Growing)
-                    cropMeshObj = new GameObject("Crop_Growing");
-                    cropMeshObj.transform.SetParent(transform, false);
-                    cropMeshObj.transform.localPosition = Vector3.zero;
-
-                    for (int i = -1; i <= 1; i += 2)
-                    {
-                        for (int j = -1; j <= 1; j += 2)
-                        {
-                            GameObject plant = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                            plant.transform.SetParent(cropMeshObj.transform, false);
-                            plant.transform.localPosition = new Vector3(i * 0.45f, 0.28f, j * 0.45f);
-                            plant.transform.localScale = new Vector3(0.40f, 0.45f, 0.40f);
-                            plant.GetComponent<Renderer>().material.color = new Color(0.20f, 0.70f, 0.22f);
-                            Destroy(plant.GetComponent<Collider>());
-                        }
-                    }
-                    break;
-
-                case PlotState.RipeReadyToHarvest:
-                    // 3. Aşama: Olgun Hasat Hazır Meyve/Sebze (Ripe)
-                    cropMeshObj = new GameObject("Crop_Ripe");
-                    cropMeshObj.transform.SetParent(transform, false);
-                    cropMeshObj.transform.localPosition = Vector3.zero;
-
-                    for (int i = -1; i <= 1; i += 2)
-                    {
-                        for (int j = -1; j <= 1; j += 2)
-                        {
-                            GameObject fruit = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                            fruit.transform.SetParent(cropMeshObj.transform, false);
-                            fruit.transform.localPosition = new Vector3(i * 0.45f, 0.42f, j * 0.45f);
-                            fruit.transform.localScale = new Vector3(0.55f, 0.55f, 0.55f);
-                            fruit.GetComponent<Renderer>().material.color = cropColor;
-                            Destroy(fruit.GetComponent<Collider>());
-                        }
-                    }
-                    break;
-
-                case PlotState.SpoiledTrash:
-                    // Çürük / Çöp (Withered Trash)
-                    cropMeshObj = new GameObject("Crop_Trash");
-                    cropMeshObj.transform.SetParent(transform, false);
-                    cropMeshObj.transform.localPosition = Vector3.zero;
-
-                    for (int i = -1; i <= 1; i += 2)
-                    {
-                        GameObject trash = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                        trash.transform.SetParent(cropMeshObj.transform, false);
-                        trash.transform.localPosition = new Vector3(i * 0.3f, 0.10f, 0f);
-                        trash.transform.localScale = new Vector3(0.35f, 0.08f, 0.35f);
-                        trash.GetComponent<Renderer>().material.color = new Color(0.25f, 0.18f, 0.12f);
-                        Destroy(trash.GetComponent<Collider>());
-                    }
-                    break;
+                ProceduralCrop3DBuilder.BuildCrop3D(cropMeshObj.transform, PlantedSeedId, State);
             }
-
-            UpdateFloatingIcon();
         }
 
-        private void CreateFloatingIconUI()
+        public void OpenRadialPlantingMenuDirect()
         {
-            if (floatingIconCanvas != null) Destroy(floatingIconCanvas);
-
-            floatingIconCanvas = new GameObject($"Plot_Floating_Icon_Canvas_{name}");
-            // Bağımsız Dünya Koordinatları (Parent scale 2.2x0.04 bozulmasını önlemek için null parent)
-            floatingIconCanvas.transform.SetParent(null);
-            floatingIconCanvas.transform.position = transform.position + new Vector3(0f, 0.65f, 0f);
-            floatingIconCanvas.transform.localScale = Vector3.one * 0.0085f;
-
-            Canvas canvas = floatingIconCanvas.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.WorldSpace;
-            canvas.sortingOrder = 85;
-
-            RectTransform rt = floatingIconCanvas.GetComponent<RectTransform>();
-            rt.sizeDelta = new Vector2(270f, 72f);
-
-            GameObject bgObj = new GameObject("Bg");
-            bgObj.transform.SetParent(floatingIconCanvas.transform, false);
-            RectTransform bRect = bgObj.AddComponent<RectTransform>();
-            bRect.anchorMin = Vector2.zero;
-            bRect.anchorMax = Vector2.one;
-            bRect.sizeDelta = Vector2.zero;
-
-            floatingIconImage = bgObj.AddComponent<Image>();
-            floatingIconImage.sprite = UIStyleUtility.CreateOutlinePillSprite(270, 72, 18, 3, new Color(0.15f, 0.85f, 1.0f), new Color(0.05f, 0.12f, 0.20f, 0.96f));
-
-            GameObject txtObj = new GameObject("Txt");
-            txtObj.transform.SetParent(bgObj.transform, false);
-            RectTransform tRect = txtObj.AddComponent<RectTransform>();
-            tRect.anchorMin = Vector2.zero;
-            tRect.anchorMax = Vector2.one;
-
-            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            floatingIconText = txtObj.AddComponent<Text>();
-            floatingIconText.font = font;
-            floatingIconText.fontSize = 24;
-            floatingIconText.fontStyle = FontStyle.Bold;
-            floatingIconText.alignment = TextAnchor.MiddleCenter;
-            floatingIconText.color = Color.white;
-
-            UpdateFloatingIcon();
-        }
-
-        private void UpdateFloatingIcon()
-        {
-            if (floatingIconCanvas == null) return;
-
-            if (State == PlotState.Empty)
-            {
-                floatingIconCanvas.SetActive(false);
-                return;
-            }
-
-            floatingIconCanvas.SetActive(true);
-
-            GardenSeedDef sDef = GardenSeedDatabase.GetSeedById(PlantedSeedId);
-            string cropName = sDef != null ? sDef.name.Replace(" Tohumu", "") : "";
-
-            if (State == PlotState.SpoiledTrash)
-            {
-                floatingIconText.text = "🗑️ ÇÜRÜMÜŞ EKİN";
-                if (floatingIconImage != null)
-                    floatingIconImage.sprite = UIStyleUtility.CreateOutlinePillSprite(270, 72, 18, 3, new Color(0.95f, 0.30f, 0.25f), new Color(0.18f, 0.08f, 0.08f, 0.96f));
-                return;
-            }
-
-            if (State == PlotState.RipeReadyToHarvest)
-            {
-                floatingIconText.text = $"🌾 HASAT ET ({cropName})";
-                if (floatingIconImage != null)
-                    floatingIconImage.sprite = UIStyleUtility.CreateOutlinePillSprite(270, 72, 18, 3, new Color(1.0f, 0.80f, 0.20f), new Color(0.20f, 0.15f, 0.05f, 0.96f));
-                return;
-            }
-
-            if (NeedsWater)
-            {
-                floatingIconText.text = "💧 SU BEKLİYOR!";
-                if (floatingIconImage != null)
-                    floatingIconImage.sprite = UIStyleUtility.CreateOutlinePillSprite(270, 72, 18, 3, new Color(0.15f, 0.85f, 1.0f), new Color(0.05f, 0.12f, 0.20f, 0.96f));
-                return;
-            }
-
-            // Büyüyor (Su verilmiş)
-            int remDays = Mathf.Max(0, TotalGrowthDays - CurrentGrowthDay);
-            floatingIconText.text = $"🌱 {cropName} ({remDays} Gün)";
-            if (floatingIconImage != null)
-                floatingIconImage.sprite = UIStyleUtility.CreateOutlinePillSprite(270, 72, 18, 3, new Color(0.25f, 0.88f, 0.45f), new Color(0.06f, 0.16f, 0.08f, 0.94f));
+            OpenRadialPlantingMenu();
         }
 
         // --- RADYAL TOHUM SEÇİM MENÜSÜ ---
@@ -586,30 +353,34 @@ namespace Farm2Shelf.Environment
             ringObj.transform.SetParent(backdrop.transform, false);
             RectTransform rRect = ringObj.AddComponent<RectTransform>();
             rRect.anchoredPosition = Vector2.zero;
-            rRect.sizeDelta = new Vector2(600f, 600f);
+            rRect.sizeDelta = new Vector2(800f, 800f);
 
             Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
             int count = seedList.Count;
 
-            // 1. Dinamik Buton ve Yarıçap Hesaplamaları (Tohum Sayısına Göre Şekil Alır)
-            float btnSize = Mathf.Clamp(92f - (count * 2.2f), 68f, 92f);
-            float singleRingRadius = Mathf.Clamp(70f + (count * 14f), 85f, 155f);
+            // 1. Dinamik Buton ve Yarıçap Hesaplamaları (Tohum Sayısına Göre Şekil Alır - Genişletilmiş & Okunaklı)
+            float btnSize = Mathf.Clamp(144f - (count * 3.5f), 120f, 140f);
+            float singleRingRadius = Mathf.Clamp(115f + (count * 20f), 140f, 215f);
 
             // 6'dan fazla tohum varsa iç içe 2 dairesel halkaya (Çift Halka) böl, az varsa tek halka yap!
             bool useDoubleRing = (count > 6);
-            float maxOuterRadius = useDoubleRing ? 175f : singleRingRadius;
+            if (useDoubleRing)
+            {
+                btnSize = 104f;
+            }
+            float maxOuterRadius = useDoubleRing ? 230f : singleRingRadius;
 
             // 2. Üst Başlık (En dış halkanın yukarısına dinamik oturur)
             GameObject titleObj = new GameObject("TopTitle");
             titleObj.transform.SetParent(ringObj.transform, false);
             RectTransform tRect = titleObj.AddComponent<RectTransform>();
-            float titleY = maxOuterRadius + (btnSize * 0.5f) + 20f;
+            float titleY = maxOuterRadius + (btnSize * 0.5f) + 28f;
             tRect.anchoredPosition = new Vector2(0f, titleY);
-            tRect.sizeDelta = new Vector2(230f, 44f);
+            tRect.sizeDelta = new Vector2(300f, 54f);
 
             Image tBg = titleObj.AddComponent<Image>();
-            tBg.sprite = UIStyleUtility.CreateRoundedPillSprite(230, 44, 22, new Color(0.12f, 0.18f, 0.24f, 0.96f));
+            tBg.sprite = UIStyleUtility.CreateRoundedPillSprite(300, 54, 27, new Color(0.08f, 0.12f, 0.18f, 0.97f));
 
             GameObject tTxtObj = new GameObject("Text");
             tTxtObj.transform.SetParent(titleObj.transform, false);
@@ -621,7 +392,7 @@ namespace Farm2Shelf.Environment
             tTxt.font = font;
             string selectSeedFmt = LocalizationManager.L("Radial_SelectSeed", "🌱 TOHUM SEÇİNİZ ({0})", "🌱 SELECT SEED ({0})");
             tTxt.text = string.Format(selectSeedFmt, count);
-            tTxt.fontSize = 16;
+            tTxt.fontSize = 20;
             tTxt.fontStyle = FontStyle.Bold;
             tTxt.alignment = TextAnchor.MiddleCenter;
             tTxt.color = new Color(0.35f, 0.85f, 0.40f);
@@ -647,8 +418,8 @@ namespace Farm2Shelf.Environment
                 int innerCount = Mathf.Min(4, count / 2);
                 int outerCount = count - innerCount;
 
-                float innerRadius = 95f;
-                float outerRadius = 175f;
+                float innerRadius = 130f;
+                float outerRadius = 230f;
 
                 // İç Halka
                 float innerStep = 360f / innerCount;
@@ -683,7 +454,8 @@ namespace Farm2Shelf.Environment
 
             int cornerRadius = Mathf.RoundToInt(btnSize * 0.5f);
             Image bBg = btnObj.AddComponent<Image>();
-            bBg.sprite = UIStyleUtility.CreateOutlinePillSprite(Mathf.RoundToInt(btnSize), Mathf.RoundToInt(btnSize), cornerRadius, 3, s.cropColor, new Color(0.12f, 0.16f, 0.22f, 0.96f));
+            Color btnBgColor = Color.Lerp(new Color(0.08f, 0.10f, 0.14f, 0.97f), s.cropColor, 0.20f);
+            bBg.sprite = UIStyleUtility.CreateOutlinePillSprite(Mathf.RoundToInt(btnSize), Mathf.RoundToInt(btnSize), cornerRadius, 4, s.cropColor, btnBgColor);
 
             Button btn = btnObj.AddComponent<Button>();
             btn.targetGraphic = bBg;
@@ -698,15 +470,25 @@ namespace Farm2Shelf.Environment
             RectTransform btRect = bTxtObj.AddComponent<RectTransform>();
             btRect.anchorMin = Vector2.zero;
             btRect.anchorMax = Vector2.one;
+            btRect.offsetMin = new Vector2(6f, 6f);
+            btRect.offsetMax = new Vector2(-6f, -6f);
 
             Text btTxt = bTxtObj.AddComponent<Text>();
             btTxt.font = font;
             int ownedCount = GardenSeedInventoryManager.Instance.GetSeedCount(s.id);
             string cropShortName = s.LocalizedName.Replace(" Tohumu", "").Replace(" Seeds", "").Replace(" Seed", "");
-            btTxt.fontSize = (btnSize < 75f) ? 10 : 12;
-            btTxt.text = $"{s.iconEmoji}\n<b>{cropShortName}</b>\n<color=#00E676>x{ownedCount}</color>";
+
+            int emojiSize = (btnSize >= 120f) ? 26 : ((btnSize >= 100f) ? 22 : 18);
+            int nameSize = (btnSize >= 120f) ? 17 : ((btnSize >= 100f) ? 15 : 13);
+            int countSize = (btnSize >= 120f) ? 16 : ((btnSize >= 100f) ? 14 : 12);
+
+            btTxt.fontSize = nameSize;
+            btTxt.lineSpacing = 1.08f;
+            btTxt.text = $"<size={emojiSize}>{s.iconEmoji}</size>\n<b>{cropShortName}</b>\n<size={countSize}><color=#00FFA3>x{ownedCount}</color></size>";
             btTxt.alignment = TextAnchor.MiddleCenter;
             btTxt.color = Color.white;
+            btTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
+            btTxt.verticalOverflow = VerticalWrapMode.Truncate;
         }
 
         private static void CloseRadialMenu()

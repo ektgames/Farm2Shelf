@@ -22,6 +22,7 @@ namespace Farm2Shelf.UI
         private Text occupationText;
         private Text avatarEmojiText;
         private Image avatarBgImage;
+        private Image avatarPhotoImg;
 
         public bool IsModalOpen => modalContainer != null && modalContainer.activeSelf;
 
@@ -120,7 +121,7 @@ namespace Farm2Shelf.UI
             bdBtn.targetGraphic = bdImg;
             bdBtn.onClick.AddListener(HideModal);
 
-            // Müşteri Kartı Paneli (Sol Alt Taraf)
+            // Müşteri Kartı Paneli (Sol Alt Taraf - Safe Area Desteğiyle)
             cardPanel = new GameObject("Customer_Profile_CardPanel");
             cardPanel.transform.SetParent(modalContainer.transform, false);
 
@@ -128,12 +129,12 @@ namespace Farm2Shelf.UI
             mainRect.anchorMin = new Vector2(0f, 0f);
             mainRect.anchorMax = new Vector2(0f, 0f);
             mainRect.pivot = new Vector2(0f, 0f);
-            mainRect.anchoredPosition = new Vector2(30f, 30f); // Sol alt köşe
-            mainRect.sizeDelta = new Vector2(360f, 440f);
+            mainRect.anchoredPosition = new Vector2(115f, 35f); // Mobil kamera çentiğini aşan güvenli sol alt pozisyon
+            mainRect.sizeDelta = new Vector2(380f, 490f);
 
             // Kart Arka Planı
             Image bgImage = cardPanel.AddComponent<Image>();
-            bgImage.color = new Color(0.12f, 0.14f, 0.22f, 0.98f);
+            bgImage.color = new Color(0.11f, 0.13f, 0.20f, 0.98f);
             bgImage.raycastTarget = true;
 
             // Üst Çerçeve Çizgisi Süsü (Neon Purple Header Line)
@@ -154,24 +155,24 @@ namespace Farm2Shelf.UI
             RectTransform titleRect = titleObj.AddComponent<RectTransform>();
             titleRect.anchorMin = new Vector2(0f, 1f);
             titleRect.anchorMax = new Vector2(1f, 1f);
-            titleRect.pivot = new Vector2(0.5f, 1f);
-            titleRect.anchoredPosition = new Vector2(18f, -18f);
-            titleRect.sizeDelta = new Vector2(-70f, 32f);
+            titleRect.pivot = new Vector2(0f, 1f);
+            titleRect.anchoredPosition = new Vector2(18f, -16f);
+            titleRect.sizeDelta = new Vector2(-75f, 36f);
 
             Text titleTxt = titleObj.AddComponent<Text>();
             titleTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (titleTxt.font == null) titleTxt.font = Font.CreateDynamicFontFromOSFont("Arial", 22);
+            if (titleTxt.font == null) titleTxt.font = Font.CreateDynamicFontFromOSFont("Arial", 24);
             titleTxt.text = LocalizationManager.L("Customer_Profile_Title", "MÜŞTERİ PROFİLİ 🛒", "CUSTOMER PROFILE 🛒");
-            titleTxt.fontSize = 22;
+            titleTxt.fontSize = 24;
             titleTxt.resizeTextForBestFit = true;
-            titleTxt.resizeTextMinSize = 14;
-            titleTxt.resizeTextMaxSize = 24;
+            titleTxt.resizeTextMinSize = 16;
+            titleTxt.resizeTextMaxSize = 25;
             titleTxt.fontStyle = FontStyle.Bold;
             titleTxt.alignment = TextAnchor.MiddleLeft;
-            titleTxt.color = new Color(0.75f, 0.45f, 0.95f);
+            titleTxt.color = new Color(0.80f, 0.50f, 1.0f);
             titleTxt.raycastTarget = false;
 
-            // Üst Sağ Kapat Butonu (X)
+            // Üst Sağ Kapat Butonu (X - Yüksek Kalite ve Dokunmatik Dostu)
             GameObject closeBtnObj = new GameObject("CloseButton");
             closeBtnObj.transform.SetParent(cardPanel.transform, false);
             RectTransform closeRect = closeBtnObj.AddComponent<RectTransform>();
@@ -179,14 +180,20 @@ namespace Farm2Shelf.UI
             closeRect.anchorMax = new Vector2(1f, 1f);
             closeRect.pivot = new Vector2(1f, 1f);
             closeRect.anchoredPosition = new Vector2(-10f, -10f);
-            closeRect.sizeDelta = new Vector2(40f, 40f);
+            closeRect.sizeDelta = new Vector2(44f, 44f);
 
             Image closeImg = closeBtnObj.AddComponent<Image>();
-            closeImg.color = new Color(0.90f, 0.20f, 0.20f);
+            closeImg.color = new Color(0.90f, 0.20f, 0.22f, 1f);
             closeImg.raycastTarget = true;
 
             Button closeBtn = closeBtnObj.AddComponent<Button>();
             closeBtn.targetGraphic = closeImg;
+            ColorBlock cb = closeBtn.colors;
+            cb.normalColor = new Color(0.90f, 0.20f, 0.22f, 1f);
+            cb.highlightedColor = new Color(1.0f, 0.32f, 0.34f, 1f);
+            cb.pressedColor = new Color(0.70f, 0.12f, 0.14f, 1f);
+            cb.selectedColor = cb.normalColor;
+            closeBtn.colors = cb;
             closeBtn.onClick.AddListener(HideModal);
 
             GameObject closeTxtObj = new GameObject("Text");
@@ -196,28 +203,47 @@ namespace Farm2Shelf.UI
             cTxtRect.anchorMax = Vector2.one;
             Text cTxt = closeTxtObj.AddComponent<Text>();
             cTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (cTxt.font == null) cTxt.font = Font.CreateDynamicFontFromOSFont("Arial", 22);
+            if (cTxt.font == null) cTxt.font = Font.CreateDynamicFontFromOSFont("Arial", 26);
             cTxt.text = "✕";
-            cTxt.fontSize = 24;
+            cTxt.fontSize = 26;
+            cTxt.fontStyle = FontStyle.Bold;
             cTxt.alignment = TextAnchor.MiddleCenter;
             cTxt.color = Color.white;
             cTxt.raycastTarget = false;
 
+            Outline cOutline = closeTxtObj.AddComponent<Outline>();
+            cOutline.effectColor = new Color(0f, 0f, 0f, 0.85f);
+            cOutline.effectDistance = new Vector2(1.5f, -1.5f);
+
             closeBtnObj.transform.SetAsLastSibling();
 
-            // 1. PROFİL FOTOĞRAFI KUTUSU (Avatar Box)
+            // 1. PROFİL FOTOĞRAFI KUTUSU (Realistic Portrait Avatar Box)
             GameObject avatarBox = new GameObject("AvatarBox");
             avatarBox.transform.SetParent(cardPanel.transform, false);
             RectTransform avRect = avatarBox.AddComponent<RectTransform>();
             avRect.anchorMin = new Vector2(0.5f, 1f);
             avRect.anchorMax = new Vector2(0.5f, 1f);
             avRect.pivot = new Vector2(0.5f, 1f);
-            avRect.anchoredPosition = new Vector2(0f, -58f);
-            avRect.sizeDelta = new Vector2(90f, 90f);
+            avRect.anchoredPosition = new Vector2(0f, -60f);
+            avRect.sizeDelta = new Vector2(106f, 106f);
 
             avatarBgImage = avatarBox.AddComponent<Image>();
-            avatarBgImage.color = new Color(0.25f, 0.35f, 0.65f);
+            avatarBgImage.color = new Color(0.20f, 0.25f, 0.35f, 1f); // Şık Çerçeve Kenarlığı
 
+            // İç Fotoğraf Katmanı (Gerçekçi Vesikalık Fotoğraf)
+            GameObject photoObj = new GameObject("AvatarPhoto");
+            photoObj.transform.SetParent(avatarBox.transform, false);
+            RectTransform pRect = photoObj.AddComponent<RectTransform>();
+            pRect.anchorMin = Vector2.zero;
+            pRect.anchorMax = Vector2.one;
+            pRect.offsetMin = new Vector2(3f, 3f);
+            pRect.offsetMax = new Vector2(-3f, -3f);
+
+            avatarPhotoImg = photoObj.AddComponent<Image>();
+            avatarPhotoImg.preserveAspect = true;
+            avatarPhotoImg.type = Image.Type.Simple;
+
+            // Yedek / Rozet Emoji Metni
             GameObject avTxtObj = new GameObject("AvatarEmoji");
             avTxtObj.transform.SetParent(avatarBox.transform, false);
             RectTransform avtRect = avTxtObj.AddComponent<RectTransform>();
@@ -225,10 +251,11 @@ namespace Farm2Shelf.UI
             avtRect.anchorMax = Vector2.one;
             avatarEmojiText = avTxtObj.AddComponent<Text>();
             avatarEmojiText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (avatarEmojiText.font == null) avatarEmojiText.font = Font.CreateDynamicFontFromOSFont("Arial", 48);
-            avatarEmojiText.fontSize = 48;
+            if (avatarEmojiText.font == null) avatarEmojiText.font = Font.CreateDynamicFontFromOSFont("Arial", 54);
+            avatarEmojiText.fontSize = 54;
             avatarEmojiText.fontStyle = FontStyle.Bold;
             avatarEmojiText.alignment = TextAnchor.MiddleCenter;
+            avatarEmojiText.gameObject.SetActive(false); // Fotoğraf varsa gizli
 
             // 2. İSİM SOYİSİM METNİ
             GameObject nameObj = new GameObject("NameText");
@@ -237,16 +264,16 @@ namespace Farm2Shelf.UI
             nRect.anchorMin = new Vector2(0f, 1f);
             nRect.anchorMax = new Vector2(1f, 1f);
             nRect.pivot = new Vector2(0.5f, 1f);
-            nRect.anchoredPosition = new Vector2(0f, -158f);
-            nRect.sizeDelta = new Vector2(-40f, 32f);
+            nRect.anchoredPosition = new Vector2(0f, -172f);
+            nRect.sizeDelta = new Vector2(-36f, 36f);
 
             nameText = nameObj.AddComponent<Text>();
             nameText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (nameText.font == null) nameText.font = Font.CreateDynamicFontFromOSFont("Arial", 24);
-            nameText.fontSize = 24;
+            if (nameText.font == null) nameText.font = Font.CreateDynamicFontFromOSFont("Arial", 26);
+            nameText.fontSize = 26;
             nameText.resizeTextForBestFit = true;
-            nameText.resizeTextMinSize = 16;
-            nameText.resizeTextMaxSize = 26;
+            nameText.resizeTextMinSize = 18;
+            nameText.resizeTextMaxSize = 28;
             nameText.fontStyle = FontStyle.Bold;
             nameText.alignment = TextAnchor.MiddleCenter;
             nameText.color = Color.white;
@@ -258,16 +285,16 @@ namespace Farm2Shelf.UI
             gRect.anchorMin = new Vector2(0f, 1f);
             gRect.anchorMax = new Vector2(1f, 1f);
             gRect.pivot = new Vector2(0.5f, 1f);
-            gRect.anchoredPosition = new Vector2(0f, -194f);
-            gRect.sizeDelta = new Vector2(-40f, 26f);
+            gRect.anchoredPosition = new Vector2(0f, -212f);
+            gRect.sizeDelta = new Vector2(-36f, 28f);
 
             genderText = genderObj.AddComponent<Text>();
             genderText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (genderText.font == null) genderText.font = Font.CreateDynamicFontFromOSFont("Arial", 18);
-            genderText.fontSize = 18;
+            if (genderText.font == null) genderText.font = Font.CreateDynamicFontFromOSFont("Arial", 20);
+            genderText.fontSize = 20;
             genderText.resizeTextForBestFit = true;
-            genderText.resizeTextMinSize = 12;
-            genderText.resizeTextMaxSize = 20;
+            genderText.resizeTextMinSize = 15;
+            genderText.resizeTextMaxSize = 22;
             genderText.fontStyle = FontStyle.Bold;
             genderText.alignment = TextAnchor.MiddleCenter;
             genderText.color = new Color(0.40f, 0.88f, 1.0f);
@@ -279,18 +306,19 @@ namespace Farm2Shelf.UI
             aRect.anchorMin = new Vector2(0f, 1f);
             aRect.anchorMax = new Vector2(1f, 1f);
             aRect.pivot = new Vector2(0.5f, 1f);
-            aRect.anchoredPosition = new Vector2(0f, -222f);
-            aRect.sizeDelta = new Vector2(-40f, 26f);
+            aRect.anchoredPosition = new Vector2(0f, -244f);
+            aRect.sizeDelta = new Vector2(-36f, 28f);
 
             ageText = ageObj.AddComponent<Text>();
             ageText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (ageText.font == null) ageText.font = Font.CreateDynamicFontFromOSFont("Arial", 18);
-            ageText.fontSize = 18;
+            if (ageText.font == null) ageText.font = Font.CreateDynamicFontFromOSFont("Arial", 20);
+            ageText.fontSize = 20;
             ageText.resizeTextForBestFit = true;
-            ageText.resizeTextMinSize = 12;
-            ageText.resizeTextMaxSize = 20;
+            ageText.resizeTextMinSize = 15;
+            ageText.resizeTextMaxSize = 22;
+            ageText.fontStyle = FontStyle.Bold;
             ageText.alignment = TextAnchor.MiddleCenter;
-            ageText.color = new Color(0.95f, 0.85f, 0.25f);
+            ageText.color = new Color(0.98f, 0.88f, 0.30f);
 
             // 5. MESLEK METNİ
             GameObject occObj = new GameObject("OccupationText");
@@ -299,35 +327,87 @@ namespace Farm2Shelf.UI
             oRect.anchorMin = new Vector2(0f, 1f);
             oRect.anchorMax = new Vector2(1f, 1f);
             oRect.pivot = new Vector2(0.5f, 1f);
-            oRect.anchoredPosition = new Vector2(0f, -250f);
-            oRect.sizeDelta = new Vector2(-40f, 28f);
+            oRect.anchoredPosition = new Vector2(0f, -276f);
+            oRect.sizeDelta = new Vector2(-36f, 32f);
 
             occupationText = occObj.AddComponent<Text>();
             occupationText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (occupationText.font == null) occupationText.font = Font.CreateDynamicFontFromOSFont("Arial", 19);
-            occupationText.fontSize = 19;
+            if (occupationText.font == null) occupationText.font = Font.CreateDynamicFontFromOSFont("Arial", 21);
+            occupationText.fontSize = 21;
             occupationText.resizeTextForBestFit = true;
-            occupationText.resizeTextMinSize = 13;
-            occupationText.resizeTextMaxSize = 21;
+            occupationText.resizeTextMinSize = 15;
+            occupationText.resizeTextMaxSize = 23;
             occupationText.fontStyle = FontStyle.Bold;
             occupationText.alignment = TextAnchor.MiddleCenter;
-            occupationText.color = new Color(0.20f, 0.85f, 0.45f);
+            occupationText.color = new Color(0.25f, 0.95f, 0.50f);
 
-            // 6. ALT KAPAT BUTONU ([ ❌ Kapat ])
+            // Seperatör Çizgisi
+            GameObject lineObj = new GameObject("DividerLine");
+            lineObj.transform.SetParent(cardPanel.transform, false);
+            RectTransform lRect = lineObj.AddComponent<RectTransform>();
+            lRect.anchorMin = new Vector2(0.5f, 1f);
+            lRect.anchorMax = new Vector2(0.5f, 1f);
+            lRect.pivot = new Vector2(0.5f, 1f);
+            lRect.anchoredPosition = new Vector2(0f, -316f);
+            lRect.sizeDelta = new Vector2(320f, 2f);
+            Image lImg = lineObj.AddComponent<Image>();
+            lImg.color = new Color(1f, 1f, 1f, 0.15f);
+
+            // 5.5 MAĞAZA DURUMU ETİKETİ (Status Badge)
+            GameObject badgeBox = new GameObject("StatusBadgeBox");
+            badgeBox.transform.SetParent(cardPanel.transform, false);
+            RectTransform badgeRect = badgeBox.AddComponent<RectTransform>();
+            badgeRect.anchorMin = new Vector2(0.5f, 1f);
+            badgeRect.anchorMax = new Vector2(0.5f, 1f);
+            badgeRect.pivot = new Vector2(0.5f, 1f);
+            badgeRect.anchoredPosition = new Vector2(0f, -332f);
+            badgeRect.sizeDelta = new Vector2(320f, 64f);
+
+            Image badgeImg = badgeBox.AddComponent<Image>();
+            badgeImg.color = new Color(0.16f, 0.20f, 0.30f, 0.85f);
+
+            GameObject badgeTxtObj = new GameObject("StatusBadgeText");
+            badgeTxtObj.transform.SetParent(badgeBox.transform, false);
+            RectTransform btRect = badgeTxtObj.AddComponent<RectTransform>();
+            btRect.anchorMin = Vector2.zero;
+            btRect.anchorMax = Vector2.one;
+            btRect.offsetMin = new Vector2(8f, 4f);
+            btRect.offsetMax = new Vector2(-8f, -4f);
+
+            Text badgeTxt = badgeTxtObj.AddComponent<Text>();
+            badgeTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (badgeTxt.font == null) badgeTxt.font = Font.CreateDynamicFontFromOSFont("Arial", 18);
+            badgeTxt.text = LocalizationManager.L("Customer_Status_Badge", "<color=#00E5FF>● MAĞAZA ZİYARETÇİSİ</color>\nTaze reyonları inceliyor 🛒", "<color=#00E5FF>● STORE VISITOR</color>\nBrowsing fresh shelves 🛒");
+            badgeTxt.fontSize = 18;
+            badgeTxt.resizeTextForBestFit = true;
+            badgeTxt.resizeTextMinSize = 13;
+            badgeTxt.resizeTextMaxSize = 19;
+            badgeTxt.fontStyle = FontStyle.Bold;
+            badgeTxt.alignment = TextAnchor.MiddleCenter;
+            badgeTxt.color = new Color(0.85f, 0.90f, 0.98f);
+
+            // 6. ALT KAPAT BUTONU ([ ✕ Kapat ])
             GameObject bottomCloseBtn = new GameObject("BottomCloseButton");
             bottomCloseBtn.transform.SetParent(cardPanel.transform, false);
             RectTransform bcr = bottomCloseBtn.AddComponent<RectTransform>();
-            bcr.anchorMin = new Vector2(0.10f, 0.05f);
-            bcr.anchorMax = new Vector2(0.90f, 0.16f);
-            bcr.offsetMin = Vector2.zero;
-            bcr.offsetMax = Vector2.zero;
+            bcr.anchorMin = new Vector2(0.5f, 1f);
+            bcr.anchorMax = new Vector2(0.5f, 1f);
+            bcr.pivot = new Vector2(0.5f, 1f);
+            bcr.anchoredPosition = new Vector2(0f, -418f);
+            bcr.sizeDelta = new Vector2(320f, 48f);
 
             Image bcImg = bottomCloseBtn.AddComponent<Image>();
-            bcImg.color = new Color(0.35f, 0.40f, 0.48f);
+            bcImg.color = new Color(0.26f, 0.32f, 0.42f, 1f);
             bcImg.raycastTarget = true;
 
             Button bcBtn = bottomCloseBtn.AddComponent<Button>();
             bcBtn.targetGraphic = bcImg;
+            ColorBlock bcb = bcBtn.colors;
+            bcb.normalColor = new Color(0.26f, 0.32f, 0.42f, 1f);
+            bcb.highlightedColor = new Color(0.34f, 0.42f, 0.54f, 1f);
+            bcb.pressedColor = new Color(0.18f, 0.22f, 0.30f, 1f);
+            bcb.selectedColor = bcb.normalColor;
+            bcBtn.colors = bcb;
             bcBtn.onClick.AddListener(HideModal);
 
             GameObject bcTxtObj = new GameObject("Text");
@@ -337,9 +417,9 @@ namespace Farm2Shelf.UI
             bctRect.anchorMax = Vector2.one;
             Text bcTxt = bcTxtObj.AddComponent<Text>();
             bcTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (bcTxt.font == null) bcTxt.font = Font.CreateDynamicFontFromOSFont("Arial", 16);
-            bcTxt.text = LocalizationManager.L("Btn_Close", "❌ Kapat", "❌ Close");
-            bcTxt.fontSize = 16;
+            if (bcTxt.font == null) bcTxt.font = Font.CreateDynamicFontFromOSFont("Arial", 20);
+            bcTxt.text = LocalizationManager.L("Btn_Close", "✕ Kapat", "✕ Close");
+            bcTxt.fontSize = 20;
             bcTxt.fontStyle = FontStyle.Bold;
             bcTxt.alignment = TextAnchor.MiddleCenter;
             bcTxt.color = Color.white;
@@ -348,11 +428,38 @@ namespace Farm2Shelf.UI
             modalContainer.SetActive(false);
         }
 
+        private void UpdatePanelPosition()
+        {
+            if (cardPanel == null) return;
+            RectTransform mainRect = cardPanel.GetComponent<RectTransform>();
+            if (mainRect == null) return;
+
+            float safeLeft = 115f; // Telefon kamerasından/çentiğinden uzak güvenli X tabanı
+            if (Screen.safeArea.x > 0 && Screen.width > 0)
+            {
+                float canvasScale = 1920f / Screen.width;
+                float dynamicSafeX = Screen.safeArea.x * canvasScale;
+                safeLeft = Mathf.Max(115f, dynamicSafeX + 25f);
+            }
+
+            float safeBottom = 35f;
+            if (Screen.safeArea.y > 0 && Screen.height > 0)
+            {
+                float canvasScaleY = 1080f / Screen.height;
+                float dynamicSafeY = Screen.safeArea.y * canvasScaleY;
+                safeBottom = Mathf.Max(35f, dynamicSafeY + 15f);
+            }
+
+            mainRect.anchoredPosition = new Vector2(safeLeft, safeBottom);
+        }
+
         public void ShowCustomerProfile(CustomerProfileData profile)
         {
             if (profile == null) return;
             currentCustomerProfile = profile;
             if (modalContainer == null) BuildUI();
+
+            UpdatePanelPosition();
 
             if (StaffProfileModalUI.Instance != null)
             {
@@ -362,8 +469,26 @@ namespace Farm2Shelf.UI
             modalContainer.SetActive(true);
             ModalManager.SetModalOpen(true);
 
-            // 1. Profil Fotoğrafı & Emoji
-            if (avatarEmojiText != null) avatarEmojiText.text = profile.avatarEmoji;
+            // 1. Gerçekçi Profil Fotoğrafı (Vesikalık)
+            Sprite avatarSprite = ProfileAvatarDatabase.GetCustomerAvatar(profile);
+            if (avatarPhotoImg != null)
+            {
+                if (avatarSprite != null)
+                {
+                    avatarPhotoImg.sprite = avatarSprite;
+                    avatarPhotoImg.gameObject.SetActive(true);
+                    if (avatarEmojiText != null) avatarEmojiText.gameObject.SetActive(false);
+                }
+                else
+                {
+                    avatarPhotoImg.gameObject.SetActive(false);
+                    if (avatarEmojiText != null)
+                    {
+                        avatarEmojiText.text = profile.avatarEmoji;
+                        avatarEmojiText.gameObject.SetActive(true);
+                    }
+                }
+            }
             if (avatarBgImage != null) avatarBgImage.color = profile.avatarBgColor;
 
             // 2. İsim Soyisim

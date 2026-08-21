@@ -371,7 +371,7 @@ namespace Farm2Shelf.UI
 
             weatherText = textObj.AddComponent<Text>();
             weatherText.font = storeButtonText.font;
-            weatherText.text = "☀️ GÜNEŞLİ";
+            weatherText.text = LocalizationManager.L("Weather_Sunny", "☀️ GÜNEŞLİ", "☀️ SUNNY");
             weatherText.fontSize = 18;
             weatherText.resizeTextForBestFit = true;
             weatherText.resizeTextMinSize = 11;
@@ -437,7 +437,8 @@ namespace Farm2Shelf.UI
 
             qualityText = textObj.AddComponent<Text>();
             qualityText.font = storeButtonText.font;
-            qualityText.text = "⭐ KALİTE: Lv.0 (0P)";
+            string initQWord = LocalizationManager.L("Quality_UpperWord", "KALİTE", "QUALITY");
+            qualityText.text = $"⭐ {initQWord}: Lv.0 (0P)";
             qualityText.fontSize = 19;
             qualityText.resizeTextForBestFit = true;
             qualityText.resizeTextMinSize = 11;
@@ -573,7 +574,8 @@ namespace Farm2Shelf.UI
         {
             if (qualityText != null)
             {
-                qualityText.text = $"⭐ KALİTE: Lv.{level} ({score}P)";
+                string qWord = LocalizationManager.L("Quality_UpperWord", "KALİTE", "QUALITY");
+                qualityText.text = $"⭐ {qWord}: Lv.{level} ({score}P)";
             }
         }
 

@@ -448,5 +448,95 @@ namespace Farm2Shelf.UI
             seedIconCache[seedId] = sprite;
             return sprite;
         }
+
+        private static Sprite diceIconCache = null;
+
+        /// <summary>
+        /// Prosedürel olarak çizilmiş, pürüzsüz kenarlı ve 5 noktalı yüksek kaliteli beyaz zar (Dice) ikonu üretir.
+        /// </summary>
+        public static Sprite CreateDiceIconSprite(int sz = 64)
+        {
+            if (diceIconCache != null) return diceIconCache;
+
+            Texture2D tex = new Texture2D(sz, sz, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Bilinear;
+            Color[] pixels = new Color[sz * sz];
+
+            float cx = (sz - 1) * 0.5f;
+            float cy = (sz - 1) * 0.5f;
+            float halfExtent = sz * 0.38f;
+            float cornerRadius = sz * 0.14f;
+            float innerExtent = halfExtent - cornerRadius;
+
+            Color dieFillColor = new Color(0.98f, 0.98f, 1.0f, 1.0f);
+            Color dieBorderColor = new Color(0.72f, 0.76f, 0.84f, 1.0f);
+            Color dieShadowColor = new Color(0.86f, 0.89f, 0.94f, 1.0f);
+            Color dotColor = new Color(0.12f, 0.15f, 0.22f, 1.0f);
+
+            float dotRadius = sz * 0.068f;
+            float offset = sz * 0.19f;
+            Vector2[] dots = new Vector2[]
+            {
+                new Vector2(cx, cy),
+                new Vector2(cx - offset, cy + offset),
+                new Vector2(cx + offset, cy + offset),
+                new Vector2(cx - offset, cy - offset),
+                new Vector2(cx + offset, cy - offset)
+            };
+
+            for (int y = 0; y < sz; y++)
+            {
+                for (int x = 0; x < sz; x++)
+                {
+                    float dx = Mathf.Max(0f, Mathf.Abs(x - cx) - innerExtent);
+                    float dy = Mathf.Max(0f, Mathf.Abs(y - cy) - innerExtent);
+                    float distCorner = Mathf.Sqrt(dx * dx + dy * dy);
+
+                    if (distCorner > cornerRadius + 0.6f)
+                    {
+                        pixels[y * sz + x] = Color.clear;
+                        continue;
+                    }
+
+                    float edgeAlpha = Mathf.Clamp01((cornerRadius + 0.6f) - distCorner);
+
+                    Color curColor;
+                    if (distCorner > cornerRadius - 1.6f)
+                    {
+                        curColor = dieBorderColor;
+                    }
+                    else if (y < cy - innerExtent * 0.4f)
+                    {
+                        curColor = dieShadowColor;
+                    }
+                    else
+                    {
+                        curColor = dieFillColor;
+                    }
+
+                    for (int d = 0; d < dots.Length; d++)
+                    {
+                        float ddx = x - dots[d].x;
+                        float ddy = y - dots[d].y;
+                        float distDot = Mathf.Sqrt(ddx * ddx + ddy * ddy);
+
+                        if (distDot <= dotRadius + 0.6f)
+                        {
+                            float dotAlpha = Mathf.Clamp01((dotRadius + 0.6f) - distDot);
+                            curColor = Color.Lerp(curColor, dotColor, dotAlpha);
+                        }
+                    }
+
+                    curColor.a *= edgeAlpha;
+                    pixels[y * sz + x] = curColor;
+                }
+            }
+
+            tex.SetPixels(pixels);
+            tex.Apply();
+
+            diceIconCache = Sprite.Create(tex, new Rect(0, 0, sz, sz), new Vector2(0.5f, 0.5f));
+            return diceIconCache;
+        }
     }
 }

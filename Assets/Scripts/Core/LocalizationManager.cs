@@ -33,6 +33,7 @@ namespace Farm2Shelf.Core
                     {
                         GameObject go = new GameObject("[LocalizationManager]");
                         instance = go.AddComponent<LocalizationManager>();
+                        DontDestroyOnLoad(go);
                     }
                 }
                 return instance;
@@ -68,7 +69,6 @@ namespace Farm2Shelf.Core
         {
             if (instance == this)
             {
-                isQuitting = true;
                 instance = null;
             }
         }
@@ -93,7 +93,22 @@ namespace Farm2Shelf.Core
             PlayerPrefs.Save();
 
             Debug.Log($"[LocalizationManager] Dil değiştirildi -> {CurrentLanguage}");
-            OnLanguageChanged?.Invoke(CurrentLanguage);
+
+            if (OnLanguageChanged != null)
+            {
+                Delegate[] invocationList = OnLanguageChanged.GetInvocationList();
+                foreach (var del in invocationList)
+                {
+                    try
+                    {
+                        ((Action<GameLanguage>)del).Invoke(CurrentLanguage);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogWarning($"[LocalizationManager] Dil güncelleme bildirimi uyarısı: {ex.Message}");
+                    }
+                }
+            }
         }
 
         public void ToggleLanguage()
@@ -107,7 +122,8 @@ namespace Farm2Shelf.Core
         /// </summary>
         public static string L(string key, string turkishText, string englishText)
         {
-            if (instance != null && instance.CurrentLanguage == GameLanguage.English)
+            LocalizationManager mgr = instance ?? Instance;
+            if (mgr != null && mgr.CurrentLanguage == GameLanguage.English)
             {
                 return englishText;
             }

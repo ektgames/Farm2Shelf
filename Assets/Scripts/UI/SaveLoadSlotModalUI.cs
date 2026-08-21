@@ -270,6 +270,37 @@ namespace Farm2Shelf.UI
                 abTxt.alignment = TextAnchor.MiddleCenter;
                 abTxt.color = Color.white;
                 abTxt.raycastTarget = false;
+
+                // Slot Sil Butonu (Doluysa gösterilir)
+                if (!slotData.isEmptySlot)
+                {
+                    GameObject delBtnObj = new GameObject("DelBtn_" + currentSlot);
+                    delBtnObj.transform.SetParent(slotCard.transform, false);
+                    RectTransform dbRect = delBtnObj.AddComponent<RectTransform>();
+                    dbRect.anchoredPosition = new Vector2(395f, 52f);
+                    dbRect.sizeDelta = new Vector2(34f, 34f);
+
+                    Image dbBg = delBtnObj.AddComponent<Image>();
+                    dbBg.sprite = UIStyleUtility.CreateRoundedPillSprite(34, 34, 6, new Color(0.85f, 0.20f, 0.25f));
+
+                    Button dbBtn = delBtnObj.AddComponent<Button>();
+                    dbBtn.targetGraphic = dbBg;
+                    dbBtn.onClick.AddListener(() => OnSlotDeleteClicked(currentSlot));
+
+                    GameObject dbTxtObj = new GameObject("Label");
+                    dbTxtObj.transform.SetParent(delBtnObj.transform, false);
+                    RectTransform dbtRect = dbTxtObj.AddComponent<RectTransform>();
+                    dbtRect.anchorMin = Vector2.zero;
+                    dbtRect.anchorMax = Vector2.one;
+
+                    Text dbTxt = dbTxtObj.AddComponent<Text>();
+                    dbTxt.font = font;
+                    dbTxt.text = "🗑️";
+                    dbTxt.fontSize = 16;
+                    dbTxt.alignment = TextAnchor.MiddleCenter;
+                    dbTxt.color = Color.white;
+                    dbTxt.raycastTarget = false;
+                }
             }
         }
 
@@ -308,6 +339,15 @@ namespace Farm2Shelf.UI
                         onCompleteCallback?.Invoke();
                     }
                 }
+            }
+        }
+
+        private void OnSlotDeleteClicked(int slotIndex)
+        {
+            if (SaveSystemManager.Instance != null)
+            {
+                SaveSystemManager.Instance.DeleteSlotData(slotIndex);
+                BuildUI(); // UI yenile
             }
         }
     }

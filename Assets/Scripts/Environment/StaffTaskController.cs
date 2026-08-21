@@ -1980,7 +1980,8 @@ namespace Farm2Shelf.Environment
                 n.Contains("fence") || n.Contains("facade") || n.Contains("partition") ||
                 n.Contains("divider") || n.Contains("boundary") || n.Contains("border") ||
                 n.Contains("outerwall") || n.Contains("storewall") || n.Contains("storagewall") ||
-                n.Contains("roomwall"))
+                n.Contains("roomwall") || n.Contains("barrier") || n.Contains("turnstile") ||
+                n.Contains("housing"))
             {
                 return true;
             }
@@ -2159,10 +2160,12 @@ namespace Farm2Shelf.Environment
                     doorExitRoute.Add(new Vector3(3.0f, 0.05f, 2.0f));       // Depo Kapısı
                 }
 
-                doorExitRoute.Add(new Vector3(-5.0f, 0.05f, -1.0f));  // 1. Ana Fuaye (İçeride)
-                doorExitRoute.Add(new Vector3(-5.0f, 0.05f, -4.5f));  // 2. Cam Ana Giriş Kapısı Çıkışı (Kaldırım Z = -4.5f)
-                doorExitRoute.Add(new Vector3(-20.0f, 0.05f, -4.5f)); // 3. Çıkış Turnikesi Yanı (Kaldırım Z = -4.5f)
-                doorExitRoute.Add(new Vector3(-75.0f, 0.05f, -4.5f)); // 4. Sol Kavşak Köşesi (Despawn Z = -4.5f)
+                doorExitRoute.Add(new Vector3(-5.0f, 0.05f, -0.5f));  // 1. Ana Fuaye (İçeride)
+                doorExitRoute.Add(new Vector3(-5.0f, 0.05f, -2.5f));  // 2. Cam Kapı Geçişi
+                doorExitRoute.Add(new Vector3(-5.0f, 0.05f, -5.0f));  // 3. Dış Kaldırım
+                doorExitRoute.Add(new Vector3(-17.0f, 0.05f, -5.0f)); // 4. Turnike Yaya Geçidi
+                doorExitRoute.Add(new Vector3(-45.0f, 0.05f, -5.0f)); // 5. Batı Kaldırım
+                doorExitRoute.Add(new Vector3(-85.0f, 0.05f, -5.0f)); // 6. Despawn
             }
 
             data.waypoints = doorExitRoute;

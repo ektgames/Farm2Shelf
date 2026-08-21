@@ -96,6 +96,9 @@ namespace Farm2Shelf.Core
             if (managersObj.GetComponent<SaveSystemManager>() == null)
                 managersObj.AddComponent<SaveSystemManager>();
 
+            if (managersObj.GetComponent<TutorialManager>() == null)
+                managersObj.AddComponent<TutorialManager>();
+
             // 2. Çevre Oluşturucu
             GameObject envManager = GameObject.Find("EnvironmentManager");
             if (envManager == null)

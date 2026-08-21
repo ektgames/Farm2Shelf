@@ -176,7 +176,7 @@ namespace Farm2Shelf.Environment
 
             if (targetShelf == null) return; // Çalınacak dolu raf yoksa gelme
 
-            Vector3 spawnPos = new Vector3(-22.0f, 0.05f, -4.5f);
+            Vector3 spawnPos = new Vector3(-45.0f, 0.05f, -5.0f);
             GameObject thiefObj = CreateMaleShoplifter3DModel(spawnPos);
 
             ShoplifterData data = new ShoplifterData
@@ -189,12 +189,15 @@ namespace Farm2Shelf.Environment
                 isEscaped = false
             };
 
-            // Rota: Spawn ➔ Fuaye ➔ Rafa yaklaşma
+            // Rota: Spawn ➔ Kaldırım ➔ Kapı ➔ Fuaye ➔ Rafa yaklaşma
             Vector3 shelfFront = targetShelf.GetFrontInteractionPosition(1.2f);
             data.waypoints = new List<Vector3>
             {
                 spawnPos,
-                new Vector3(-5.0f, 0.05f, -1.0f),
+                new Vector3(-17.0f, 0.05f, -5.0f),
+                new Vector3(-5.0f, 0.05f, -5.0f),
+                new Vector3(-5.0f, 0.05f, -2.5f),
+                new Vector3(-5.0f, 0.05f, -0.5f),
                 shelfFront
             };
             data.currentWaypointIndex = 1;
@@ -224,12 +227,16 @@ namespace Farm2Shelf.Environment
                         ExecuteTheft(data);
                         data.state = ShoplifterState.FleeingStore;
 
-                        // Kaçış rotası: Mevcut konum ➔ Fuaye ➔ Dış Kaldırım
+                        // Kaçış rotası: Mevcut konum ➔ Fuaye ➔ Kapı ➔ Dış Kaldırım ➔ Despawn
                         data.waypoints = new List<Vector3>
                         {
                             data.thiefObj.transform.position,
-                            new Vector3(-5.0f, 0.05f, -1.0f),
-                            new Vector3(-22.0f, 0.05f, -4.5f)
+                            new Vector3(-5.0f, 0.05f, -0.5f),
+                            new Vector3(-5.0f, 0.05f, -2.5f),
+                            new Vector3(-5.0f, 0.05f, -5.0f),
+                            new Vector3(-17.0f, 0.05f, -5.0f),
+                            new Vector3(-45.0f, 0.05f, -5.0f),
+                            new Vector3(-85.0f, 0.05f, -5.0f)
                         };
                         data.currentWaypointIndex = 1;
                     }

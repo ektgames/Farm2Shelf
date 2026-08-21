@@ -55,8 +55,6 @@ namespace Farm2Shelf.UI
             if (sellConfirmCanvas != null && sellConfirmCanvas.activeSelf) return true;
 
             if (CalendarPopupUI.IsCalendarModalOpen) return true;
-            GameObject calCanvas = GameObject.Find("Stardew_Calendar_Modal_Canvas");
-            if (calCanvas != null && calCanvas.activeSelf) return true;
 
             return false;
         }
