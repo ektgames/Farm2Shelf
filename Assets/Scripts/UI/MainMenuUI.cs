@@ -1,6 +1,8 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using Farm2Shelf.Core;
+using Farm2Shelf.Environment;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -754,6 +756,16 @@ namespace Farm2Shelf.UI
             HideMenu();
             if (EconomyManager.Instance != null) EconomyManager.Instance.SetCredits(400000);
             if (StoreStatusManager.Instance != null) StoreStatusManager.Instance.CloseStore();
+            if (StaffVisualManager.Instance != null) StaffVisualManager.Instance.ClearAllStaffModels();
+            if (StaffManager.Instance != null)
+            {
+                StaffManager.Instance.SetStaffList(new List<StaffMember>());
+                StaffManager.Instance.SetFarmStaffList(new List<StaffMember>());
+            }
+            if (CustomerShoppingManager.Instance != null)
+            {
+                CustomerShoppingManager.Instance.ClearAllCustomers();
+            }
 
             if (TutorialManager.Instance != null)
             {

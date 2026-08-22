@@ -106,6 +106,26 @@ namespace Farm2Shelf.Environment
             Instance = this;
         }
 
+        public void ClearAllCustomers()
+        {
+            for (int i = activeCustomers.Count - 1; i >= 0; i--)
+            {
+                var c = activeCustomers[i];
+                if (c != null)
+                {
+                    if (c.customerObj != null) Destroy(c.customerObj);
+                    if (c.vehicleObj != null) Destroy(c.vehicleObj);
+                    if (c.activeNoCashierPopup != null) Destroy(c.activeNoCashierPopup);
+                }
+            }
+            activeCustomers.Clear();
+            for (int i = 0; i < occupiedParkingSlots.Length; i++)
+            {
+                occupiedParkingSlots[i] = false;
+            }
+            spawnTimer = 0f;
+        }
+
         private void OnEnable()
         {
             EnvironmentBuilder.OnStoreUpgraded -= HandleStoreUpgraded;
@@ -155,7 +175,7 @@ namespace Farm2Shelf.Environment
             }
             if (shift.Contains("Akşam") || shift.Contains("16:00") || shift.Contains("14:00") || shift.Contains("Gece") || shift.Contains("22:00"))
             {
-                return (currentHour >= 16 && currentHour < 24);
+                return (currentHour >= 16 && (currentHour < 24 || activeCustomers.Count > 0));
             }
             return true;
         }
@@ -1178,6 +1198,7 @@ namespace Farm2Shelf.Environment
 
         private void UpdateActiveCustomers(float deltaTime)
         {
+            int prevCount = activeCustomers.Count;
             for (int i = activeCustomers.Count - 1; i >= 0; i--)
             {
                 ActiveCustomerData cData = activeCustomers[i];
@@ -1194,6 +1215,15 @@ namespace Farm2Shelf.Environment
                 else
                 {
                     UpdatePedestrianCustomer(cData, deltaTime, i);
+                }
+            }
+
+            if (prevCount > 0 && activeCustomers.Count == 0)
+            {
+                // Son müşteri de alanı terk etti: Eğer dükkan kapalıysa (gece 24:00 tahliyesi) personellerin çıkışını derhal tetikle
+                if (StaffVisualManager.Instance != null)
+                {
+                    StaffVisualManager.Instance.SyncStaff3DModels();
                 }
             }
         }

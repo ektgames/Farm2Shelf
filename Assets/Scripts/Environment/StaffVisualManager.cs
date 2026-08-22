@@ -30,6 +30,41 @@ namespace Farm2Shelf.Environment
 
         public bool IsStaffCalledEarlyToday(string staffId) => earlyCalledStaffIds.Contains(staffId);
 
+        public List<string> GetEarlyCalledStaffIds()
+        {
+            return new List<string>(earlyCalledStaffIds);
+        }
+
+        public void RestoreEarlyCalledStaff(List<string> staffIds)
+        {
+            earlyCalledStaffIds.Clear();
+            if (staffIds != null)
+            {
+                foreach (var id in staffIds)
+                {
+                    if (!string.IsNullOrEmpty(id)) earlyCalledStaffIds.Add(id);
+                }
+            }
+        }
+
+        public void ClearAllStaffModels()
+        {
+            foreach (var kvp in activeStaffModels)
+            {
+                if (kvp.Value != null)
+                {
+                    Destroy(kvp.Value);
+                }
+            }
+            activeStaffModels.Clear();
+            earlyCalledStaffIds.Clear();
+
+            if (StaffTaskController.Instance != null)
+            {
+                StaffTaskController.Instance.ClearAllStaffAI();
+            }
+        }
+
         public bool ForceSpawnStaffEarly(StaffMember staff)
         {
             if (staff == null) return false;
@@ -130,7 +165,10 @@ namespace Farm2Shelf.Environment
                 eligibleStaffIds.Add(id);
             }
 
-            if (isStoreOpen)
+            int activeCustCount = (CustomerShoppingManager.Instance != null) ? CustomerShoppingManager.Instance.ActiveCustomerCount : 0;
+
+            // Dükkan açıkken VEYA mağazada/kasada halen müşteri varken personeller sahnede aktif kalmaya devam eder!
+            if (isStoreOpen || activeCustCount > 0)
             {
                 if (activeStaffList != null)
                 {

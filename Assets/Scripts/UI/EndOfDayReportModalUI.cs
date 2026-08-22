@@ -267,10 +267,22 @@ namespace Farm2Shelf.UI
                 FinanceManager.Instance.ResetDailyStats();
             }
 
-            // 2. Zamanı Sabah 06:00'ya Geçir ve Günlük İlerlemeyi Yap
+            // 2. Tahliye Durumu Bayrağını Sıfırla
+            if (GameHUDManager.Instance != null)
+            {
+                GameHUDManager.Instance.SetWaitingForEvacuation(false);
+            }
+
+            // 3. Zamanı Sabah 06:00'ya Geçir ve Günlük İlerlemeyi Yap
             if (TimeManager.Instance != null)
             {
                 TimeManager.Instance.SkipToNextDay06AM();
+            }
+
+            // 4. Personellerin sabah modellerini senkronize et
+            if (StaffVisualManager.Instance != null)
+            {
+                StaffVisualManager.Instance.SyncStaff3DModels();
             }
         }
 

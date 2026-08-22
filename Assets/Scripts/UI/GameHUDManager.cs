@@ -244,6 +244,8 @@ namespace Farm2Shelf.UI
         }
 
         private bool isWaitingForEvacuation = false;
+        public bool IsWaitingForEvacuation => isWaitingForEvacuation;
+        public void SetWaitingForEvacuation(bool waiting) => isWaitingForEvacuation = waiting;
 
         private void CreateStoreToggleButton(Transform parent)
         {
@@ -718,8 +720,13 @@ namespace Farm2Shelf.UI
                 bool isStoreClosed = (StoreStatusManager.Instance != null && !StoreStatusManager.Instance.IsOpen);
                 int activeCustomers = (CustomerShoppingManager.Instance != null) ? CustomerShoppingManager.Instance.ActiveCustomerCount : 0;
 
-                if (isStoreClosed && activeCustomers == 0 && !ModalManager.IsModalOpen)
+                if (isStoreClosed && activeCustomers == 0)
                 {
+                    if (ModalManager.IsModalOpen)
+                    {
+                        ModalManager.CloseModal();
+                    }
+
                     isWaitingForEvacuation = false;
                     if (EndOfDayReportModalUI.Instance == null)
                     {

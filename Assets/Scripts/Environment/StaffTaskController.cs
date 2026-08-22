@@ -153,7 +153,11 @@ namespace Farm2Shelf.Environment
                 return (totalMinsCalc >= 360 && totalMinsCalc < 960); // 06:00 - 16:00 (Sabah Hazırlık ve Vardiya Süresi)
             }
 
-            if (StoreStatusManager.Instance == null || !StoreStatusManager.Instance.IsOpen) return false;
+            bool isStoreOpen = StoreStatusManager.Instance != null && StoreStatusManager.Instance.IsOpen;
+            int activeCustCount = CustomerShoppingManager.Instance != null ? CustomerShoppingManager.Instance.ActiveCustomerCount : 0;
+
+            // Dükkan kapalıysa VE dükkanda/kasada müşteri kalmamışsa personellerin vardiyası biter
+            if (!isStoreOpen && activeCustCount == 0) return false;
 
             string shift = staff.shiftHours ?? "";
 
@@ -164,10 +168,14 @@ namespace Farm2Shelf.Environment
                 return (totalMinsCalc >= 480 && totalMinsCalc < 960);
             }
             // 2. AKŞAM VARDİYASI: 16:00 - 24:00 (30 dk erken geliş / hazırlık: 15:30 - 16:00)
+            // Gece 24:00 (1440) olduğunda, dükkanda müşteri varsa (activeCustCount > 0) vardiya bitmez, personeller çalışmaya devam eder!
             else if (shift.Contains("Akşam") || shift.Contains("16:00") || shift.Contains("14:00") || shift.Contains("Gece") || shift.Contains("22:00"))
             {
                 if (totalMinsCalc >= 930 && totalMinsCalc < 960) { isEarlyArrivalWindow = true; return true; }
-                return (totalMinsCalc >= 960 && totalMinsCalc < 1440);
+                if (totalMinsCalc >= 960 && totalMinsCalc < 1440) return true;
+                // Saat 24:00 ve üstü (totalMinsCalc >= 1440 veya currentHour >= 24) ve içeride müşteri varsa personeller görev başında kalır:
+                if ((totalMinsCalc >= 1440 || currentHour >= 24) && activeCustCount > 0) return true;
+                return false;
             }
 
             return false;
@@ -545,9 +553,25 @@ namespace Farm2Shelf.Environment
             if (data != null)
             {
                 FreeSofaSeat(data);
+                ClearCarriedBoxesOnStaff(data);
                 if (data.staffObj != null) Destroy(data.staffObj);
                 staffTaskList.Remove(data);
             }
+        }
+
+        public void ClearAllStaffAI()
+        {
+            for (int i = staffTaskList.Count - 1; i >= 0; i--)
+            {
+                var data = staffTaskList[i];
+                if (data != null)
+                {
+                    FreeSofaSeat(data);
+                    ClearCarriedBoxesOnStaff(data);
+                    if (data.staffObj != null) Destroy(data.staffObj);
+                }
+            }
+            staffTaskList.Clear();
         }
 
         public bool IsStaffRegistered(string staffId)

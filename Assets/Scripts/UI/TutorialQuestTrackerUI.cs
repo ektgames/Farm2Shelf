@@ -462,8 +462,8 @@ namespace Farm2Shelf.UI
                 case TutorialStep.Step3_HireStoreStaffAndCallEarly:
                     return LocalizationManager.L(
                         "Tut_S3_Inst",
-                        "Tablette <b>Mağaza Yönetimi ➔ İşe Alım</b> sekmesine git. <b>3 Kasiyer</b> ve <b>3 Reyoncu</b> işe al. Ardından <b>Personel Kadrosu</b> sekmesinde sabah vardiyasındaki bir reyoncunun <b>⚡ Erken Çağır</b> butonuna dokun!\n💡 <i>İpucu: Temizlikçi/Güvenlik isteğe bağlıdır.</i>",
-                        "In Tablet, go to <b>Store Mgmt ➔ Hire Staff</b>. Hire <b>3 Cashiers</b> and <b>3 Restockers</b>. Then in <b>Staff List</b>, tap <b>⚡ Call Early</b> on a morning restocker!\n💡 <i>Tip: Cleaner/Security are optional.</i>"
+                        "Tablette <b>Mağaza Yönetimi ➔ İşe Alım</b> sekmesine git. <b>2 Kasiyer</b> ve <b>2 Reyoncu</b> işe al. Ardından <b>Personel Kadrosu</b> sekmesinde sabah vardiyasındaki bir reyoncunun <b>⚡ Erken Çağır</b> butonuna dokun!\n💡 <i>İpucu: Temizlikçi/Güvenlik isteğe bağlıdır.</i>",
+                        "In Tablet, go to <b>Store Mgmt ➔ Hire Staff</b>. Hire <b>2 Cashiers</b> and <b>2 Restockers</b>. Then in <b>Staff List</b>, tap <b>⚡ Call Early</b> on a morning restocker!\n💡 <i>Tip: Cleaner/Security are optional.</i>"
                     );
 
                 case TutorialStep.Step4_AssignStoreShifts:
@@ -554,8 +554,8 @@ namespace Farm2Shelf.UI
                 case TutorialStep.Step3_HireStoreStaffAndCallEarly:
                     int cash = tm.GetStoreRoleCount(StaffRole.Kasiyer);
                     int rest = tm.GetStoreRoleCount(StaffRole.Reyoncu);
-                    string cStr = (cash >= 3) ? $"<color=#00FFA3>✅ [✓] 3 Kasiyer İşe Alındı ({cash}/3)</color>" : $"<color=#FFD700>⏳ [ ] 3 Kasiyer İşe Al ({cash}/3)</color>";
-                    string rStr = (rest >= 3) ? $"<color=#00FFA3>✅ [✓] 3 Reyoncu İşe Alındı ({rest}/3)</color>" : $"<color=#FFD700>⏳ [ ] 3 Reyoncu İşe Al ({rest}/3)</color>";
+                    string cStr = (cash >= 2) ? $"<color=#00FFA3>✅ [✓] 2 Kasiyer İşe Alındı ({cash}/2)</color>" : $"<color=#FFD700>⏳ [ ] 2 Kasiyer İşe Al ({cash}/2)</color>";
+                    string rStr = (rest >= 2) ? $"<color=#00FFA3>✅ [✓] 2 Reyoncu İşe Alındı ({rest}/2)</color>" : $"<color=#FFD700>⏳ [ ] 2 Reyoncu İşe Al ({rest}/2)</color>";
                     string early = tm.DidCallRestockerEarly ? "<color=#00FFA3>✅ [✓] Sabah Reyoncusu Erken Çağırıldı</color>" : "<color=#FFD700>⏳ [ ] Sabah Reyoncusunu Erken Çağır</color>";
                     return $"• {cStr}\n• {rStr}\n• {early}";
 

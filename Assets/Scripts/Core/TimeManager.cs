@@ -46,6 +46,11 @@ namespace Farm2Shelf.Core
 
         public void StartDayTimeFlow()
         {
+            if (currentHour >= 24)
+            {
+                Debug.LogWarning("[TimeManager] Saat 24:00 olduğu için gün akışı başlatılamaz. Ertesi güne geçilmelidir.");
+                return;
+            }
             isDayActive = true;
             isTimePaused = false;
             Debug.Log("[TimeManager] GÜN ZAMAN AKIŞI BAŞLATILDI (Gece 12'ye kadar kesintisiz akacak)");
@@ -54,8 +59,15 @@ namespace Farm2Shelf.Core
         public void SetTime(int day, int hour, int minute)
         {
             currentDay = Mathf.Max(1, day);
-            currentHour = Mathf.Clamp(hour, 0, 23);
+            currentHour = Mathf.Clamp(hour, 0, 24);
             currentMinute = Mathf.Clamp(minute, 0, 59);
+            if (currentHour >= 24)
+            {
+                currentHour = 24;
+                currentMinute = 0;
+                isTimePaused = true;
+                isDayActive = false;
+            }
             OnTimeUpdated?.Invoke(currentHour, currentMinute);
             OnDateUpdated?.Invoke(currentSeason, currentDay, currentYear);
         }
@@ -63,10 +75,17 @@ namespace Farm2Shelf.Core
         public void SetTimeAndSeason(int day, int hour, int minute, Season season, int year)
         {
             currentDay = Mathf.Max(1, day);
-            currentHour = Mathf.Clamp(hour, 0, 23);
+            currentHour = Mathf.Clamp(hour, 0, 24);
             currentMinute = Mathf.Clamp(minute, 0, 59);
             currentSeason = season;
             currentYear = Mathf.Max(1, year);
+            if (currentHour >= 24)
+            {
+                currentHour = 24;
+                currentMinute = 0;
+                isTimePaused = true;
+                isDayActive = false;
+            }
             OnTimeUpdated?.Invoke(currentHour, currentMinute);
             OnDateUpdated?.Invoke(currentSeason, currentDay, currentYear);
         }
@@ -90,14 +109,24 @@ namespace Farm2Shelf.Core
 
         private void Update()
         {
-            // Gün başlatılmamışsa (Sabah 06:00 beklemesi) veya zaman duraklatılmışsa oyun saati ilerlemez!
-            if (isTimePaused || !isDayActive) return;
+            // Gün başlatılmamışsa (Sabah 06:00 beklemesi), zaman duraklatılmışsa veya Gece 24:00 olmuşsa oyun saati KESİNLİKLE ilerlemez!
+            if (isTimePaused || !isDayActive || currentHour >= 24) return;
 
             AdvanceTime();
         }
 
         private void AdvanceTime()
         {
+            // Saat 24:00 (Gece 12:00) veya üstüyse zaman KESİNTİSİZ DONAR
+            if (currentHour >= 24)
+            {
+                currentHour = 24;
+                currentMinute = 0;
+                isTimePaused = true;
+                isDayActive = false;
+                return;
+            }
+
             timer += Time.deltaTime;
             if (timer >= realSecondsPerGameMinute)
             {
@@ -112,13 +141,14 @@ namespace Farm2Shelf.Core
 
                     if (currentHour >= 24)
                     {
-                        // GECE YARISI (00:00 / GECE 12) AKIŞI:
-                        // 1. Saat 00:00'da sabitlenir ve zaman akışı duraklatılır
-                        // 2. Dükkan Kapalı Duruma Getirilir (Yeni müşteri girmez, içeridekiler çıkana kadar beklenir)
+                        // GECE YARISI (24:00 / GECE 12) AKIŞI:
+                        // 1. Saat 24:00'da sabitlenir ve zaman akışı KESİNTİSİZ DURDURULUR
+                        // 2. Dükkan Kapalı Duruma Getirilir (Yeni müşteri girmez, içeridekiler tahliye edilir)
                         // 3. Gece yarısı devir teslim ve maaş olaylarını tetikle
-                        currentHour = 0;
+                        currentHour = 24;
                         currentMinute = 0;
                         isTimePaused = true;
+                        isDayActive = false;
 
                         if (StoreStatusManager.Instance != null)
                         {

@@ -238,7 +238,7 @@ namespace Farm2Shelf.Core
             {
                 int cashiers = GetStoreRoleCount(StaffRole.Kasiyer);
                 int restockers = GetStoreRoleCount(StaffRole.Reyoncu);
-                if (cashiers >= 3 && restockers >= 3 && DidCallRestockerEarly)
+                if (cashiers >= 2 && restockers >= 2 && DidCallRestockerEarly)
                 {
                     AdvanceToNextStep();
                 }
@@ -263,7 +263,7 @@ namespace Farm2Shelf.Core
 
                 int cashiers = GetStoreRoleCount(StaffRole.Kasiyer);
                 int restockers = GetStoreRoleCount(StaffRole.Reyoncu);
-                if (cashiers >= 3 && restockers >= 3)
+                if (cashiers >= 2 && restockers >= 2)
                 {
                     AdvanceToNextStep();
                 }
@@ -286,7 +286,7 @@ namespace Farm2Shelf.Core
         {
             if (StaffManager.Instance == null) return;
             var staff = StaffManager.Instance.GetActiveStaff();
-            if (staff == null || staff.Count < 6) return;
+            if (staff == null || staff.Count < 4) return;
 
             bool hasMorning = staff.Exists(s => s.shiftHours.Contains("08:00") || s.shiftHours.Contains("Sabah") || s.shiftHours.Contains("Gündüz") || s.shiftHours.Contains("06:00"));
             bool hasEvening = staff.Exists(s => s.shiftHours.Contains("16:00") || s.shiftHours.Contains("Akşam") || s.shiftHours.Contains("14:00") || s.shiftHours.Contains("Gece") || s.shiftHours.Contains("22:00"));

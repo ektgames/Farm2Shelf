@@ -23,6 +23,17 @@ namespace Farm2Shelf.UI
             modalState = isOpen;
         }
 
+        public static void CloseModal()
+        {
+            if (currentGlobalPopupCanvas != null)
+            {
+                currentGlobalPopupCanvas.SetActive(false);
+                Object.Destroy(currentGlobalPopupCanvas);
+                currentGlobalPopupCanvas = null;
+            }
+            SetModalOpen(false);
+        }
+
         public static bool IsAnyModalCanvasActive()
         {
             if (currentGlobalPopupCanvas != null && currentGlobalPopupCanvas.activeInHierarchy) return true;

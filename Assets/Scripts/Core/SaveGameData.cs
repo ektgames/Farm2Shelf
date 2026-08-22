@@ -13,6 +13,7 @@ namespace Farm2Shelf.Core
         public int dailySalary;
         public string shiftHours;
         public bool isActive;
+        public bool isCalledEarly;
     }
 
     [Serializable]
@@ -100,6 +101,9 @@ namespace Farm2Shelf.Core
         public int gameMinute;              // Dakikası (ör. 30)
         public string gameSeason = "İlkbahar"; // Mevsim
         public int gameYear = 1;            // Yıl
+        public bool isTimePaused = true;    // Zaman Duraklatıldı mı?
+        public bool isDayActive = false;    // Gün Aktif mi?
+        public bool isWaitingForEvacuation = false; // Gece 24:00 tahliyesi bekleniyor mu?
 
         // Kalite & Dekorasyon (Tadilat)
         public int storeQualityScore;       // Yıldız Kalite Puanı
