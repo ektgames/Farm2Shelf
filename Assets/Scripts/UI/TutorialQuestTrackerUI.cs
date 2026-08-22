@@ -469,8 +469,8 @@ namespace Farm2Shelf.UI
                 case TutorialStep.Step4_AssignStoreShifts:
                     return LocalizationManager.L(
                         "Tut_S4_Inst",
-                        "Tablette <b>Mağaza Yönetimi ➔ Vardiyalar</b> sekmesini aç. Aldığın 3 Kasiyer ve 3 Reyoncuyu Sabah (06-14), Öğle (14-22) ve Akşam (22-06) vardiyalarına dağıt.",
-                        "In Tablet, go to <b>Store Mgmt ➔ Shifts</b>. Distribute the 3 Cashiers and 3 Restockers across Morning (06-14), Noon (14-22), and Night (22-06) shifts."
+                        "Tablette <b>Mağaza Yönetimi ➔ Vardiyalar</b> sekmesini aç. İşe aldığın personelleri <b>Sabah (08:00 - 16:00)</b> ve <b>Akşam (16:00 - 24:00)</b> vardiyalarına dağıt.",
+                        "In Tablet, go to <b>Store Mgmt ➔ Shifts</b>. Distribute your staff across <b>Morning (08:00 - 16:00)</b> and <b>Evening (16:00 - 24:00)</b> shifts."
                     );
 
                 case TutorialStep.Step5_BuyInitialFurniture:
@@ -505,8 +505,8 @@ namespace Farm2Shelf.UI
                 case TutorialStep.Step8_HireFarmStaffAndShifts:
                     return LocalizationManager.L(
                         "Tut_S8_Inst",
-                        "Tablette <b>Çiftlik ➔ İşe Alım</b> sekmesinden <b>3 Çiftçi</b> işe al. Ardından <b>Vardiyalar</b> sekmesinden çiftçileri 3 farklı vardiyaya (Sabah, Öğle, Akşam) ata.",
-                        "In Tablet <b>Farm ➔ Hire Staff</b>, hire <b>3 Farmers</b>. Then in <b>Shifts</b>, assign them across 3 daily shifts (Morning, Noon, Night)."
+                        "Tablette <b>Çiftlik ➔ İşe Alım</b> sekmesinden <b>3 Çiftçi</b> işe al. Ardından <b>Vardiyalar</b> sekmesinden çiftçileri Sabah (08:00 - 16:00) ve Akşam (16:00 - 24:00) vardiyalarına dağıt.",
+                        "In Tablet <b>Farm ➔ Hire Staff</b>, hire <b>3 Farmers</b>. Then in <b>Shifts</b>, assign them across Morning (08:00 - 16:00) and Evening (16:00 - 24:00) shifts."
                     );
 
                 case TutorialStep.Step9_BuyStartingSeeds:
@@ -560,13 +560,11 @@ namespace Farm2Shelf.UI
                     return $"• {cStr}\n• {rStr}\n• {early}";
 
                 case TutorialStep.Step4_AssignStoreShifts:
-                    bool shDay = tm.HasStoreShift("Gündüz") || tm.HasStoreShift("06:00");
-                    bool shEve = tm.HasStoreShift("Akşam") || tm.HasStoreShift("14:00");
-                    bool shNight = tm.HasStoreShift("Gece") || tm.HasStoreShift("22:00");
-                    string sD = shDay ? "<color=#00FFA3>✅ [✓] Sabah Vardiyası (06-14)</color>" : "<color=#FFD700>⏳ [ ] Sabah Vardiyasına Ata</color>";
-                    string sE = shEve ? "<color=#00FFA3>✅ [✓] Öğle Vardiyası (14-22)</color>" : "<color=#FFD700>⏳ [ ] Öğle Vardiyasına Ata</color>";
-                    string sN = shNight ? "<color=#00FFA3>✅ [✓] Akşam Vardiyası (22-06)</color>" : "<color=#FFD700>⏳ [ ] Akşam Vardiyasına Ata</color>";
-                    return $"• {sD}\n• {sE}\n• {sN}";
+                    bool shMorn = tm.HasStoreShift("Sabah") || tm.HasStoreShift("Gündüz") || tm.HasStoreShift("08:00") || tm.HasStoreShift("06:00");
+                    bool shEve = tm.HasStoreShift("Akşam") || tm.HasStoreShift("16:00") || tm.HasStoreShift("14:00");
+                    string sM = shMorn ? "<color=#00FFA3>✅ [✓] Sabah Vardiyası (08:00 - 16:00)</color>" : "<color=#FFD700>⏳ [ ] Sabah Vardiyasına Ata</color>";
+                    string sE = shEve ? "<color=#00FFA3>✅ [✓] Akşam Vardiyası (16:00 - 24:00)</color>" : "<color=#FFD700>⏳ [ ] Akşam Vardiyasına Ata</color>";
+                    return $"• {sM}\n• {sE}";
 
                 case TutorialStep.Step5_BuyInitialFurniture:
                     int sh = tm.GetBoughtCount(FurnitureType.Shelf);
@@ -597,10 +595,9 @@ namespace Farm2Shelf.UI
                 case TutorialStep.Step8_HireFarmStaffAndShifts:
                     int farm = tm.GetFarmRoleCount(StaffRole.Çiftçi);
                     string fStr2 = (farm >= 3) ? $"<color=#00FFA3>✅ [✓] 3 Çiftçi İşe Alındı ({farm}/3)</color>" : $"<color=#FFD700>⏳ [ ] 3 Çiftçi İşe Al ({farm}/3)</color>";
-                    bool fDay = tm.HasFarmShift("Gündüz") || tm.HasFarmShift("06:00");
-                    bool fEve = tm.HasFarmShift("Akşam") || tm.HasFarmShift("14:00");
-                    bool fNight = tm.HasFarmShift("Gece") || tm.HasFarmShift("22:00");
-                    string fSh = (fDay && fEve && fNight) ? "<color=#00FFA3>✅ [✓] Çiftlik Vardiyaları Düzenlendi (Sabah/Öğle/Akşam)</color>" : "<color=#FFD700>⏳ [ ] Çiftçileri 3 Farklı Vardiyaya Ata</color>";
+                    bool fMorn = tm.HasFarmShift("Sabah") || tm.HasFarmShift("Gündüz") || tm.HasFarmShift("08:00") || tm.HasFarmShift("06:00");
+                    bool fEve = tm.HasFarmShift("Akşam") || tm.HasFarmShift("16:00") || tm.HasFarmShift("14:00");
+                    string fSh = (fMorn && fEve) ? "<color=#00FFA3>✅ [✓] Çiftlik Vardiyaları Düzenlendi (Sabah 08-16 / Akşam 16-24)</color>" : "<color=#FFD700>⏳ [ ] Çiftçileri Sabah ve Akşam Vardiyalarına Dağıt</color>";
                     return $"• {fStr2}\n• {fSh}";
 
                 case TutorialStep.Step9_BuyStartingSeeds:

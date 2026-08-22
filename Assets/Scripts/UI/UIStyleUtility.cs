@@ -18,6 +18,50 @@ namespace Farm2Shelf.UI
         private static readonly Dictionary<string, Sprite> outlineSpriteCache = new Dictionary<string, Sprite>();
         private static readonly Dictionary<int, Font> fontCache = new Dictionary<int, Font>();
         private static Font defaultFallbackFont = null;
+        private static Texture2D cachedGridTex = null;
+
+        /// <summary>
+        /// Yerleştirme modunda zeminde beliren neon ızgara çizgileri dokusu üretir.
+        /// </summary>
+        public static Texture2D GetFloorGridTexture()
+        {
+            if (cachedGridTex != null) return cachedGridTex;
+
+            int size = 128;
+            cachedGridTex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            Color[] cols = new Color[size * size];
+            Color gridLineColor = new Color(0.20f, 0.90f, 0.85f, 0.45f); // Neon Cyan Izgara
+            Color subLineColor = new Color(0.20f, 0.90f, 0.85f, 0.18f);  // İnce Ara Çizgi
+            Color bgColor = new Color(0.05f, 0.12f, 0.18f, 0.08f);       // Çok hafif zemin rengi
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    bool isMainBorder = (x < 2 || x >= size - 2 || y < 2 || y >= size - 2);
+                    bool isSubLine = (x == size / 2 || y == size / 2);
+
+                    if (isMainBorder)
+                    {
+                        cols[y * size + x] = gridLineColor;
+                    }
+                    else if (isSubLine)
+                    {
+                        cols[y * size + x] = subLineColor;
+                    }
+                    else
+                    {
+                        cols[y * size + x] = bgColor;
+                    }
+                }
+            }
+
+            cachedGridTex.SetPixels(cols);
+            cachedGridTex.wrapMode = TextureWrapMode.Repeat;
+            cachedGridTex.filterMode = FilterMode.Bilinear;
+            cachedGridTex.Apply();
+            return cachedGridTex;
+        }
 
         /// <summary>
         /// Bellek sızıntılarını ve iOS çökmesini önleyen statik önbellekli global Font sağlayıcı.

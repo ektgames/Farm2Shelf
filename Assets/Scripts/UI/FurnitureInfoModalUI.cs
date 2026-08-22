@@ -489,7 +489,7 @@ namespace Farm2Shelf.UI
         {
             if (storageShelf == null || sRow == null || sRow.currentStock <= 0) return;
 
-            PlacedFurnitureController[] allFurniture = Object.FindObjectsByType<PlacedFurnitureController>(FindObjectsSortMode.None);
+            var allFurniture = PlacedFurnitureController.AllPlacedFurniture;
             PlacedFurnitureController targetStoreShelf = null;
             int targetRowIdx = -1;
 
@@ -696,7 +696,7 @@ namespace Farm2Shelf.UI
 
             // --- HANGİ ÜRÜNLERİN DÜKKANDA KAÇ ADET RAFTA ATANMIŞ OLDUĞUNU HESAPLA ---
             Dictionary<string, int> assignedCounts = new Dictionary<string, int>();
-            PlacedFurnitureController[] allShelves = Object.FindObjectsByType<PlacedFurnitureController>(FindObjectsSortMode.None);
+            var allShelves = PlacedFurnitureController.AllPlacedFurniture;
             foreach (var s in allShelves)
             {
                 if (s == null || s.rows == null || s.FurnitureType == FurnitureType.StorageShelf) continue;
@@ -1297,7 +1297,7 @@ namespace Farm2Shelf.UI
         private int GetTotalAvailableStorageCapacityForProduct(string productName)
         {
             int totalSpace = 0;
-            PlacedFurnitureController[] allFurniture = Object.FindObjectsByType<PlacedFurnitureController>(FindObjectsSortMode.None);
+            var allFurniture = PlacedFurnitureController.AllPlacedFurniture;
             foreach (var f in allFurniture)
             {
                 if (f == null || f.rows == null || f.FurnitureType != FurnitureType.StorageShelf) continue;
@@ -1322,7 +1322,7 @@ namespace Farm2Shelf.UI
             if (stockToTransfer <= 0) return true;
 
             int remainingToTransfer = stockToTransfer;
-            PlacedFurnitureController[] allFurniture = Object.FindObjectsByType<PlacedFurnitureController>(FindObjectsSortMode.None);
+            var allFurniture = PlacedFurnitureController.AllPlacedFurniture;
 
             // 1. ÖNCELİK: Zaten bu ürünün bulunduğu depo raflarına doldur
             foreach (var f in allFurniture)

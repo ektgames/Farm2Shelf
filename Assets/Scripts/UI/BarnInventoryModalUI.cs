@@ -11,7 +11,7 @@ namespace Farm2Shelf.UI
     public class BarnInventoryModalUI : MonoBehaviour
     {
         public static BarnInventoryModalUI Instance { get; private set; }
-        public static bool IsBarnModalOpen => Instance != null && Instance.canvasObj != null;
+        public static bool IsBarnModalOpen => Instance != null && Instance.canvasObj != null && Instance.canvasObj.activeInHierarchy;
 
         private GameObject canvasObj;
         private Transform listContentTransform;
@@ -46,6 +46,14 @@ namespace Farm2Shelf.UI
             }
         }
 
+        private void Update()
+        {
+            if (IsBarnModalOpen && Input.GetKeyDown(KeyCode.Escape))
+            {
+                HideModal();
+            }
+        }
+
         private void HandleLanguageChanged(GameLanguage lang)
         {
             if (IsBarnModalOpen)
@@ -57,6 +65,14 @@ namespace Farm2Shelf.UI
 
         public void ShowModal()
         {
+            // EventSystem Güvencesi
+            if (UnityEngine.EventSystems.EventSystem.current == null)
+            {
+                GameObject esObj = new GameObject("EventSystem");
+                esObj.AddComponent<UnityEngine.EventSystems.EventSystem>();
+                esObj.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+            }
+
             ModalManager.SetModalOpen(true);
             BuildUI();
             RefreshList();
@@ -64,18 +80,31 @@ namespace Farm2Shelf.UI
 
         public void HideModal()
         {
-            if (canvasObj != null) Destroy(canvasObj);
+            if (canvasObj != null)
+            {
+                Destroy(canvasObj);
+                canvasObj = null;
+            }
+
+            GameObject existing = GameObject.Find("Global_Barn_Inventory_Canvas");
+            if (existing != null)
+            {
+                Destroy(existing);
+            }
+
             ModalManager.SetModalOpen(false);
         }
 
         private void BuildUI()
         {
             if (canvasObj != null) Destroy(canvasObj);
+            GameObject existing = GameObject.Find("Global_Barn_Inventory_Canvas");
+            if (existing != null) Destroy(existing);
 
             canvasObj = new GameObject("Global_Barn_Inventory_Canvas");
             Canvas canvas = canvasObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 650;
+            canvas.sortingOrder = 950;
 
             CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -84,7 +113,7 @@ namespace Farm2Shelf.UI
 
             canvasObj.AddComponent<GraphicRaycaster>();
 
-            // Arka Plan Karartma (Overlay Backdrop)
+            // Arka Plan Karartma (Overlay Backdrop - Dışına Tıklayınca da Kapatır)
             GameObject backdrop = new GameObject("Backdrop");
             backdrop.transform.SetParent(canvasObj.transform, false);
             RectTransform bdRect = backdrop.AddComponent<RectTransform>();
@@ -93,10 +122,14 @@ namespace Farm2Shelf.UI
             bdRect.sizeDelta = Vector2.zero;
 
             Image bdImg = backdrop.AddComponent<Image>();
-            bdImg.color = new Color(0.05f, 0.08f, 0.12f, 0.80f);
+            bdImg.color = new Color(0.04f, 0.06f, 0.10f, 0.85f);
             bdImg.raycastTarget = true;
 
-            // Modal Paneli (800x650)
+            Button bdBtn = backdrop.AddComponent<Button>();
+            bdBtn.targetGraphic = bdImg;
+            bdBtn.onClick.AddListener(HideModal);
+
+            // Modal Paneli (820x660)
             GameObject panelObj = new GameObject("Barn_Panel");
             panelObj.transform.SetParent(backdrop.transform, false);
 
@@ -106,6 +139,7 @@ namespace Farm2Shelf.UI
 
             Image pBg = panelObj.AddComponent<Image>();
             pBg.sprite = UIStyleUtility.CreateOutlinePillSprite(820, 660, 18, 3, new Color(0.30f, 0.75f, 0.35f), new Color(0.10f, 0.14f, 0.18f, 0.98f));
+            pBg.raycastTarget = true; // Panel içine tıklamalar backdrop'a sızmaz
 
             Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
@@ -123,29 +157,32 @@ namespace Farm2Shelf.UI
             tText.fontStyle = FontStyle.Bold;
             tText.alignment = TextAnchor.MiddleLeft;
             tText.color = new Color(0.35f, 0.85f, 0.40f);
+            tText.raycastTarget = false;
 
             // Kapasite Metni
             GameObject capObj = new GameObject("CapacityText");
             capObj.transform.SetParent(panelObj.transform, false);
             RectTransform cRect = capObj.AddComponent<RectTransform>();
-            cRect.anchoredPosition = new Vector2(180f, 280f);
-            cRect.sizeDelta = new Vector2(380f, 40f);
+            cRect.anchoredPosition = new Vector2(170f, 280f);
+            cRect.sizeDelta = new Vector2(360f, 40f);
 
             capacityText = capObj.AddComponent<Text>();
             capacityText.font = font;
             capacityText.fontSize = 17;
             capacityText.alignment = TextAnchor.MiddleRight;
             capacityText.color = Color.white;
+            capacityText.raycastTarget = false;
 
             // Kapat Butonu (X)
             GameObject closeObj = new GameObject("CloseBtn");
             closeObj.transform.SetParent(panelObj.transform, false);
             RectTransform clRect = closeObj.AddComponent<RectTransform>();
             clRect.anchoredPosition = new Vector2(375f, 280f);
-            clRect.sizeDelta = new Vector2(40f, 40f);
+            clRect.sizeDelta = new Vector2(44f, 44f);
 
             Image clBg = closeObj.AddComponent<Image>();
-            clBg.sprite = UIStyleUtility.CreateRoundedPillSprite(40, 40, 8, new Color(0.85f, 0.20f, 0.25f));
+            clBg.sprite = UIStyleUtility.CreateRoundedPillSprite(44, 44, 10, new Color(0.85f, 0.20f, 0.25f));
+            clBg.raycastTarget = true;
 
             Button clBtn = closeObj.AddComponent<Button>();
             clBtn.targetGraphic = clBg;
@@ -160,9 +197,11 @@ namespace Farm2Shelf.UI
             Text clTxt = clTxtObj.AddComponent<Text>();
             clTxt.font = font;
             clTxt.text = "✖";
-            clTxt.fontSize = 18;
+            clTxt.fontSize = 20;
+            clTxt.fontStyle = FontStyle.Bold;
             clTxt.alignment = TextAnchor.MiddleCenter;
             clTxt.color = Color.white;
+            clTxt.raycastTarget = false;
 
             // Scroll Area
             GameObject scrollObj = new GameObject("ScrollView");
@@ -233,6 +272,7 @@ namespace Farm2Shelf.UI
             sbTxt.fontStyle = FontStyle.Bold;
             sbTxt.alignment = TextAnchor.MiddleCenter;
             sbTxt.color = Color.white;
+            sbTxt.raycastTarget = false;
 
             // Alt SAĞ Buton: "⚡ HIZLI SAT (%20 KÂR)"
             GameObject quickSellBtnObj = new GameObject("QuickSellBtn");
@@ -243,6 +283,7 @@ namespace Farm2Shelf.UI
 
             Image qsBg = quickSellBtnObj.AddComponent<Image>();
             qsBg.sprite = UIStyleUtility.CreateRoundedPillSprite(360, 52, 12, new Color(0.95f, 0.65f, 0.15f));
+            qsBg.raycastTarget = true;
 
             Button qsBtn = quickSellBtnObj.AddComponent<Button>();
             qsBtn.targetGraphic = qsBg;
@@ -261,6 +302,7 @@ namespace Farm2Shelf.UI
             qsTxt.fontStyle = FontStyle.Bold;
             qsTxt.alignment = TextAnchor.MiddleCenter;
             qsTxt.color = Color.white;
+            qsTxt.raycastTarget = false;
         }
 
         private void RefreshList()
@@ -285,6 +327,7 @@ namespace Farm2Shelf.UI
             shTxt.fontStyle = FontStyle.Bold;
             shTxt.alignment = TextAnchor.MiddleLeft;
             shTxt.color = new Color(0.35f, 0.85f, 0.40f);
+            shTxt.raycastTarget = false;
 
             Dictionary<string, int> ownedSeeds = GardenSeedInventoryManager.Instance.GetAllOwnedSeeds();
             if (ownedSeeds == null || ownedSeeds.Count == 0)
@@ -300,6 +343,7 @@ namespace Farm2Shelf.UI
                 nsTxt.fontSize = 14;
                 nsTxt.alignment = TextAnchor.MiddleLeft;
                 nsTxt.color = Color.gray;
+                nsTxt.raycastTarget = false;
             }
             else
             {

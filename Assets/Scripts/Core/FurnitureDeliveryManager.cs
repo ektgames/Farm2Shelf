@@ -99,17 +99,25 @@ namespace Farm2Shelf.Core
                 System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
 
                 DeliveryBoxController box = null;
+                bool hitPallet = false;
+
                 foreach (var h in hits)
                 {
                     if (h.collider == null) continue;
                     box = h.collider.GetComponentInParent<DeliveryBoxController>();
                     if (box == null) box = h.collider.GetComponent<DeliveryBoxController>();
                     if (box != null) break;
+
+                    if (palletObj != null && (h.collider.gameObject == palletObj || h.collider.transform.IsChildOf(palletObj.transform)))
+                    {
+                        hitPallet = true;
+                        break;
+                    }
                 }
 
-                if (box != null)
+                if (box != null || hitPallet)
                 {
-                    if (currentHoveredBox != box)
+                    if (box != null && currentHoveredBox != box)
                     {
                         ClearHoveredBox();
                         currentHoveredBox = box;
@@ -118,7 +126,8 @@ namespace Farm2Shelf.Core
 
                     if (WasPointerPressed() || Farm2Shelf.Utils.TouchInputHelper.IsCleanTapThisFrame(out _))
                     {
-                        box.TriggerPlacement();
+                        ClearHoveredBox();
+                        PalletStorageInventoryModalUI.ShowModal();
                     }
                     return;
                 }
@@ -167,23 +176,30 @@ namespace Farm2Shelf.Core
 
         private bool WasPointerPressed()
         {
-            try { if (Input.GetMouseButtonDown(0)) return true; } catch { }
-
 #if ENABLE_INPUT_SYSTEM
-            if (UnityEngine.InputSystem.Mouse.current != null && UnityEngine.InputSystem.Mouse.current.leftButton.wasPressedThisFrame)
+            if (UnityEngine.InputSystem.Touchscreen.current != null)
+            {
+                var touch = UnityEngine.InputSystem.Touchscreen.current.primaryTouch;
+                if (touch.press.wasPressedThisFrame || touch.press.wasReleasedThisFrame) return true;
+            }
+            if (UnityEngine.InputSystem.Mouse.current != null && (UnityEngine.InputSystem.Mouse.current.leftButton.wasPressedThisFrame || UnityEngine.InputSystem.Mouse.current.leftButton.wasReleasedThisFrame))
                 return true;
-            if (UnityEngine.InputSystem.Touchscreen.current != null && UnityEngine.InputSystem.Touchscreen.current.primaryTouch.press.wasPressedThisFrame)
+            if (UnityEngine.InputSystem.Pointer.current != null && (UnityEngine.InputSystem.Pointer.current.press.wasPressedThisFrame || UnityEngine.InputSystem.Pointer.current.press.wasReleasedThisFrame))
                 return true;
-            if (UnityEngine.InputSystem.Pointer.current != null && UnityEngine.InputSystem.Pointer.current.press.wasPressedThisFrame)
-                return true;
+#else
+            try
+            {
+                if (Input.touchCount > 0 && (Input.GetTouch(0).phase == TouchPhase.Began || Input.GetTouch(0).phase == TouchPhase.Ended)) return true;
+                if (Input.GetMouseButtonDown(0) || Input.GetMouseButtonUp(0)) return true;
+            }
+            catch {}
 #endif
-
             return false;
         }
 
         private bool IsPointerOverUI()
         {
-            return ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen;
+            return ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || PalletStorageInventoryModalUI.IsModalOpen;
         }
 
         private void InitMaterials()
@@ -211,6 +227,10 @@ namespace Farm2Shelf.Core
             palletObj = new GameObject("Delivery_Pallet_Root");
             palletObj.transform.position = palletPosition;
 
+            BoxCollider pCol = palletObj.AddComponent<BoxCollider>();
+            pCol.center = new Vector3(0f, 0.9f, 0f);
+            pCol.size = new Vector3(3.2f, 2.2f, 3.2f); // Geniş dokunmatik/tıklama alanı
+
             GameObject palletBase = GameObject.CreatePrimitive(PrimitiveType.Cube);
             palletBase.name = "EuroPallet_Base";
             palletBase.transform.SetParent(palletObj.transform, false);
@@ -237,6 +257,37 @@ namespace Farm2Shelf.Core
 
             boxContainer = new GameObject("Delivery_Boxes_Container").transform;
             boxContainer.SetParent(palletObj.transform, false);
+        }
+
+        public Dictionary<FurnitureType, int> GetPendingFurnitureCounts()
+        {
+            activeBoxes.RemoveAll(b => b == null || b.gameObject == null);
+            Dictionary<FurnitureType, int> counts = new Dictionary<FurnitureType, int>();
+            foreach (var b in activeBoxes)
+            {
+                if (b == null) continue;
+                if (!counts.ContainsKey(b.FurnitureType))
+                {
+                    counts[b.FurnitureType] = 0;
+                }
+                counts[b.FurnitureType]++;
+            }
+            return counts;
+        }
+
+        public DeliveryBoxController GetFirstBoxOfType(FurnitureType type)
+        {
+            activeBoxes.RemoveAll(b => b == null || b.gameObject == null);
+            return activeBoxes.Find(b => b != null && b.FurnitureType == type);
+        }
+
+        public void RemoveOneBoxOfType(FurnitureType type)
+        {
+            DeliveryBoxController box = GetFirstBoxOfType(type);
+            if (box != null)
+            {
+                RemoveBox(box);
+            }
         }
 
         public void AddOrdersToPallet(List<FurnitureType> items)

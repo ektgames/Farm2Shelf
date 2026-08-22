@@ -109,8 +109,8 @@ namespace Farm2Shelf.CameraSystem
 
         private void Update()
         {
-            // Ekranda Modal/Pencere açıkken veya Kutu/Mobilya taşınırken harita hareketini engelle
-            if (ModalManager.IsModalOpen) return;
+            // Ekranda Modal/Pencere/Tablet açıkken veya Kutu/Mobilya taşınırken harita hareketini engelle
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen) return;
             if (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing) return;
 
             HandleTouchInputs();

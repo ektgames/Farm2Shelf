@@ -136,7 +136,7 @@ namespace Farm2Shelf.Core
                 : maleNames[UnityEngine.Random.Range(0, maleNames.Length)];
             
             string randomName = selectedFirstName + " " + surnames[UnityEngine.Random.Range(0, surnames.Length)];
-            string defaultShift = "☀️ Gündüz (06:00 - 14:00)";
+            string defaultShift = "☀️ Sabah (08:00 - 16:00)";
             int dailySalary = GetRoleDailySalary(role);
 
             StaffMember newStaff = new StaffMember(newId, randomName, role, defaultShift, dailySalary, true, pickFemale);
@@ -191,12 +191,38 @@ namespace Farm2Shelf.Core
 
         public List<StaffMember> GetFarmStaffList() => farmStaffList;
 
+        public static string NormalizeShift(string shift)
+        {
+            if (string.IsNullOrEmpty(shift)) return "☀️ Sabah (08:00 - 16:00)";
+
+            // Önce Sabah / Gündüz / Morning / 08:00 kontrolleri
+            if (shift.Contains("Sabah") || shift.Contains("Gündüz") || shift.Contains("Morning") || shift.Contains("Day") || shift.Contains("08:00") || shift.Contains("06:00"))
+            {
+                return "☀️ Sabah (08:00 - 16:00)";
+            }
+
+            // Akşam / Gece / Evening / Night kontrolleri
+            if (shift.Contains("Akşam") || shift.Contains("Evening") || shift.Contains("Gece") || shift.Contains("Night") || shift.Contains("22:00") || shift.Contains("24:00") || shift.Contains("14:00"))
+            {
+                return "🌆 Akşam (16:00 - 24:00)";
+            }
+
+            return "☀️ Sabah (08:00 - 16:00)";
+        }
+
         public void SetFarmStaffList(List<StaffMember> newList)
         {
             farmStaffList.Clear();
             if (newList != null)
             {
-                farmStaffList.AddRange(newList);
+                foreach (var fs in newList)
+                {
+                    if (fs != null)
+                    {
+                        fs.shiftHours = NormalizeShift(fs.shiftHours);
+                        farmStaffList.Add(fs);
+                    }
+                }
             }
             OnStaffListChanged?.Invoke();
             OnFarmStaffListChanged?.Invoke();
@@ -207,7 +233,7 @@ namespace Farm2Shelf.Core
             // Benzersiz Rastgele İsim Üret (Erkek veya Kadın, İsim Tekrarı Olmaz)
             string randomName = GenerateUniqueFarmWorkerName();
             string newId = "FS" + UnityEngine.Random.Range(100, 999);
-            string defaultShift = "☀️ Gündüz (06:00 - 14:00)";
+            string defaultShift = "☀️ Sabah (08:00 - 16:00)";
             int dailySalary = GetRoleDailySalary(StaffRole.Çiftçi);
 
             StaffMember newStaff = new StaffMember(newId, randomName, StaffRole.Çiftçi, defaultShift, dailySalary, true);
@@ -262,10 +288,10 @@ namespace Farm2Shelf.Core
             StaffMember staff = farmStaffList.Find(s => s.id == staffId);
             if (staff != null)
             {
-                staff.shiftHours = newShift;
+                staff.shiftHours = NormalizeShift(newShift);
                 OnStaffListChanged?.Invoke();
                 OnFarmStaffListChanged?.Invoke();
-                Debug.Log($"[StaffManager] Çiftçi {staff.name} vardiyası güncellendi: {newShift}");
+                Debug.Log($"[StaffManager] Çiftçi {staff.name} vardiyası güncellendi: {staff.shiftHours}");
             }
         }
 
@@ -310,9 +336,9 @@ namespace Farm2Shelf.Core
             StaffMember staff = activeStaffList.Find(s => s.id == staffId);
             if (staff != null)
             {
-                staff.shiftHours = newShift;
+                staff.shiftHours = NormalizeShift(newShift);
                 OnStaffListChanged?.Invoke();
-                Debug.Log($"[Farm2Shelf] {staff.name} vardiyası değiştirildi: {newShift}");
+                Debug.Log($"[Farm2Shelf] {staff.name} vardiyası değiştirildi: {staff.shiftHours}");
             }
         }
 
@@ -321,7 +347,7 @@ namespace Farm2Shelf.Core
         public StaffMember HireStaff(string customName, string roleCategory, float dailySalary, float hireFee)
         {
             string newId = "SF" + UnityEngine.Random.Range(200, 999);
-            string defaultShift = "☀️ Gündüz (06:00 - 14:00)";
+            string defaultShift = "☀️ Sabah (08:00 - 16:00)";
             StaffMember newStaff = new StaffMember(newId, customName, StaffRole.Reyoncu, defaultShift, Mathf.RoundToInt(dailySalary), true);
             activeStaffList.Add(newStaff);
             OnStaffListChanged?.Invoke();
@@ -359,7 +385,14 @@ namespace Farm2Shelf.Core
             activeStaffList.Clear();
             if (newList != null)
             {
-                activeStaffList.AddRange(newList);
+                foreach (var s in newList)
+                {
+                    if (s != null)
+                    {
+                        s.shiftHours = NormalizeShift(s.shiftHours);
+                        activeStaffList.Add(s);
+                    }
+                }
             }
             OnStaffListChanged?.Invoke();
         }

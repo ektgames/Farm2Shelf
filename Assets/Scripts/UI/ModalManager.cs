@@ -13,49 +13,32 @@ namespace Farm2Shelf.UI
     public static class ModalManager
     {
         private static bool modalState = false;
+        private static GameObject currentGlobalPopupCanvas;
+        public static bool IsGlobalPopupOpen => currentGlobalPopupCanvas != null && currentGlobalPopupCanvas.activeInHierarchy;
 
-        public static bool IsModalOpen
-        {
-            get
-            {
-                bool anyActive = IsAnyModalCanvasActive();
-                if (modalState && !anyActive)
-                {
-                    modalState = false;
-                }
-                return modalState && anyActive;
-            }
-        }
+        public static bool IsModalOpen => IsAnyModalCanvasActive();
 
         public static void SetModalOpen(bool isOpen)
         {
             modalState = isOpen;
-            Debug.Log($"[Farm2Shelf] Modal Durumu: {(modalState ? "AÇIK (Arka Plan Kilitli)" : "KAPALI (Arka Plan Serbest)")}");
         }
 
         public static bool IsAnyModalCanvasActive()
         {
-            GameObject globalPopup = GameObject.Find("Global_Modal_Popup_Canvas");
-            if (globalPopup != null && globalPopup.activeSelf) return true;
-
+            if (currentGlobalPopupCanvas != null && currentGlobalPopupCanvas.activeInHierarchy) return true;
             if (EKTPhoneManager.IsTabletOpen) return true;
             if (Farm2Shelf.Environment.FieldPlotController.IsRadialMenuOpen) return true;
             if (BarnInventoryModalUI.IsBarnModalOpen) return true;
-
+            if (PalletStorageInventoryModalUI.IsModalOpen) return true;
             if (StaffProfileModalUI.Instance != null && StaffProfileModalUI.Instance.IsModalOpen) return true;
             if (CustomerProfileModalUI.Instance != null && CustomerProfileModalUI.Instance.IsModalOpen) return true;
             if (EndOfDayReportModalUI.IsReportModalOpen) return true;
-
             if (FurnitureInfoModalUI.IsFurnitureModalOpen) return true;
-            GameObject furnCanvas = GameObject.Find("Furniture_Info_Modal_Canvas");
-            if (furnCanvas != null && furnCanvas.activeSelf) return true;
-            GameObject furnGlobalCanvas = GameObject.Find("Global_Furniture_Info_Canvas");
-            if (furnGlobalCanvas != null && furnGlobalCanvas.activeSelf) return true;
-            GameObject sellConfirmCanvas = GameObject.Find("Sell_Confirm_Modal_Canvas");
-            if (sellConfirmCanvas != null && sellConfirmCanvas.activeSelf) return true;
-
             if (CalendarPopupUI.IsCalendarModalOpen) return true;
+            if (FieldPlotDetailModalUI.IsDetailOpen) return true;
 
+            // Eğer yukarıdaki gerçek modalların hiçbiri sahnede aktif değilse, modalState bayrağını da otomatik sıfırla!
+            modalState = false;
             return false;
         }
 
@@ -72,10 +55,15 @@ namespace Farm2Shelf.UI
             SetModalOpen(true);
 
             // Varsa eski popup'ı temizle
-            GameObject existing = GameObject.Find("Global_Modal_Popup_Canvas");
-            if (existing != null) Object.DestroyImmediate(existing);
+            if (currentGlobalPopupCanvas != null)
+            {
+                Object.DestroyImmediate(currentGlobalPopupCanvas);
+                currentGlobalPopupCanvas = null;
+            }
 
             GameObject canvasObj = new GameObject("Global_Modal_Popup_Canvas");
+            currentGlobalPopupCanvas = canvasObj;
+
             Canvas canvas = canvasObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 999;
@@ -155,6 +143,7 @@ namespace Farm2Shelf.UI
             btn.targetGraphic = bBg;
             btn.onClick.AddListener(() => {
                 if (canvasObj != null) canvasObj.SetActive(false);
+                if (currentGlobalPopupCanvas == canvasObj) currentGlobalPopupCanvas = null;
                 SetModalOpen(false);
                 if (canvasObj != null) Object.Destroy(canvasObj);
             });
@@ -192,10 +181,15 @@ namespace Farm2Shelf.UI
             SetModalOpen(true);
 
             // Varsa eski popup'ı temizle
-            GameObject existing = GameObject.Find("Global_Modal_Popup_Canvas");
-            if (existing != null) Object.DestroyImmediate(existing);
+            if (currentGlobalPopupCanvas != null)
+            {
+                Object.DestroyImmediate(currentGlobalPopupCanvas);
+                currentGlobalPopupCanvas = null;
+            }
 
             GameObject canvasObj = new GameObject("Global_Modal_Popup_Canvas");
+            currentGlobalPopupCanvas = canvasObj;
+
             Canvas canvas = canvasObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 999;
@@ -280,6 +274,7 @@ namespace Farm2Shelf.UI
             Button confirmBtn = confirmBtnObj.AddComponent<Button>();
             confirmBtn.targetGraphic = confirmBg;
             confirmBtn.onClick.AddListener(() => {
+                if (currentGlobalPopupCanvas == canvasObj) currentGlobalPopupCanvas = null;
                 SetModalOpen(false);
                 Object.Destroy(canvasObj);
                 onConfirm?.Invoke();
@@ -315,6 +310,7 @@ namespace Farm2Shelf.UI
             Button cancelBtn = cancelBtnObj.AddComponent<Button>();
             cancelBtn.targetGraphic = cancelBg;
             cancelBtn.onClick.AddListener(() => {
+                if (currentGlobalPopupCanvas == canvasObj) currentGlobalPopupCanvas = null;
                 SetModalOpen(false);
                 Object.Destroy(canvasObj);
                 onCancel?.Invoke();

@@ -273,7 +273,7 @@ namespace Farm2Shelf.Core
             }
 
             // 13. TARLADAKİ EKİNLER
-            FieldPlotController[] plots = UnityEngine.Object.FindObjectsByType<FieldPlotController>(FindObjectsSortMode.None);
+            var plots = FieldPlotController.AllPlots;
             if (plots != null)
             {
                 foreach (var p in plots)
@@ -293,7 +293,7 @@ namespace Farm2Shelf.Core
             }
 
             // 14. YERLEŞTİRİLEN MOBİLYALAR VE RAF STOKLARI
-            PlacedFurnitureController[] furnitureList = UnityEngine.Object.FindObjectsByType<PlacedFurnitureController>(FindObjectsSortMode.None);
+            var furnitureList = PlacedFurnitureController.AllPlacedFurniture;
             if (furnitureList != null)
             {
                 foreach (var f in furnitureList)
@@ -496,7 +496,8 @@ namespace Farm2Shelf.Core
                         if (sData == null) continue;
                         if (Enum.TryParse<StaffRole>(sData.role, out StaffRole parsedRole))
                         {
-                            StaffMember member = new StaffMember(sData.id, sData.name, parsedRole, sData.shiftHours, sData.dailySalary, sData.isActive, sData.isFemale);
+                            string normShift = StaffManager.NormalizeShift(sData.shiftHours);
+                            StaffMember member = new StaffMember(sData.id, sData.name, parsedRole, normShift, sData.dailySalary, sData.isActive, sData.isFemale);
                             restoredStaff.Add(member);
                         }
                     }
@@ -511,7 +512,8 @@ namespace Farm2Shelf.Core
                         if (fsData == null) continue;
                         if (Enum.TryParse<StaffRole>(fsData.role, out StaffRole parsedRole))
                         {
-                            StaffMember member = new StaffMember(fsData.id, fsData.name, parsedRole, fsData.shiftHours, fsData.dailySalary, fsData.isActive, fsData.isFemale);
+                            string normShift = StaffManager.NormalizeShift(fsData.shiftHours);
+                            StaffMember member = new StaffMember(fsData.id, fsData.name, parsedRole, normShift, fsData.dailySalary, fsData.isActive, fsData.isFemale);
                             restoredFarmStaff.Add(member);
                         }
                     }
@@ -525,7 +527,7 @@ namespace Farm2Shelf.Core
             }
 
             // 14. Tarladaki Ekinleri Yükleme (Tüm parselleri eksiksiz ve firesiz güncelle)
-            FieldPlotController[] plots = UnityEngine.Object.FindObjectsByType<FieldPlotController>(FindObjectsSortMode.None);
+            var plots = FieldPlotController.AllPlots;
             if (plots != null)
             {
                 foreach (var p in plots)
@@ -544,16 +546,13 @@ namespace Farm2Shelf.Core
             }
 
             // 15. Yerleştirilen Mobilyaları ve Raf Stoklarını Yükleme
-            PlacedFurnitureController[] existingFurniture = UnityEngine.Object.FindObjectsByType<PlacedFurnitureController>(FindObjectsSortMode.None);
-            if (existingFurniture != null)
+            var existingFurniture = new List<PlacedFurnitureController>(PlacedFurnitureController.AllPlacedFurniture);
+            foreach (var f in existingFurniture)
             {
-                foreach (var f in existingFurniture)
+                if (f != null && f.gameObject != null)
                 {
-                    if (f != null && f.gameObject != null)
-                    {
-                        PlacedFurnitureController.AllPlacedFurniture.Remove(f);
-                        UnityEngine.Object.Destroy(f.gameObject);
-                    }
+                    PlacedFurnitureController.AllPlacedFurniture.Remove(f);
+                    UnityEngine.Object.Destroy(f.gameObject);
                 }
             }
 

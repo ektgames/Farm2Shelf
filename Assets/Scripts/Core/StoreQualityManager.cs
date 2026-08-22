@@ -34,6 +34,21 @@ namespace Farm2Shelf.Core
             }
         }
 
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        private static void AutoInitialize()
+        {
+            if (Instance == null)
+            {
+                GameObject sqObj = new GameObject("StoreQualityManager_AutoInit");
+                sqObj.AddComponent<StoreQualityManager>();
+            }
+        }
+
+        private void Start()
+        {
+            OnQualityChanged?.Invoke(QualityScore, QualityLevel);
+        }
+
         /// <summary>
         /// Kaydedilmiş kalite puanı ve seviyesini doğrudan yükler.
         /// </summary>
@@ -41,6 +56,7 @@ namespace Farm2Shelf.Core
         {
             QualityScore = Mathf.Max(0, score);
             QualityLevel = Mathf.Max(0, level);
+            CheckLevelUp();
             OnQualityChanged?.Invoke(QualityScore, QualityLevel);
         }
 
@@ -74,9 +90,11 @@ namespace Farm2Shelf.Core
 
         /// <summary>
         /// Seviye eşiği hesabı (Sonsuz seviye ilerlemesi):
-        /// Lv 0: 0 - 99 Puan
-        /// Lv 1: 100 - 249 Puan
-        /// Lv 2: 250 - 449 Puan
+        /// Lv 0: 0 - 49 Puan
+        /// Lv 1: 50 - 199 Puan
+        /// Lv 2: 200 - 449 Puan
+        /// Lv 3: 450 - 799 Puan
+        /// Lv 4: 800 - 1249 Puan
         /// Lv N: Formülle katlanarak sonsuza kadar artar.
         /// </summary>
         private void CheckLevelUp()
@@ -99,8 +117,8 @@ namespace Farm2Shelf.Core
             if (score <= 0) return 0;
             
             int lvl = 0;
-            int required = 100;
-            int step = 150;
+            int required = 50;
+            int step = 100;
 
             while (score >= required)
             {

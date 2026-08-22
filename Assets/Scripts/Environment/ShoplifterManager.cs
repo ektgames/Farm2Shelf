@@ -152,7 +152,7 @@ namespace Farm2Shelf.Environment
 
         private void TrySpawnShoplifter()
         {
-            PlacedFurnitureController[] shelves = Object.FindObjectsByType<PlacedFurnitureController>(FindObjectsSortMode.None);
+            var shelves = PlacedFurnitureController.AllPlacedFurniture;
             PlacedFurnitureController targetShelf = null;
             int targetRow = -1;
 
@@ -176,7 +176,7 @@ namespace Farm2Shelf.Environment
 
             if (targetShelf == null) return; // Çalınacak dolu raf yoksa gelme
 
-            Vector3 spawnPos = new Vector3(-45.0f, 0.05f, -5.0f);
+            Vector3 spawnPos = new Vector3(45.0f, 0.05f, -5.0f);
             GameObject thiefObj = CreateMaleShoplifter3DModel(spawnPos);
 
             ShoplifterData data = new ShoplifterData
@@ -189,12 +189,11 @@ namespace Farm2Shelf.Environment
                 isEscaped = false
             };
 
-            // Rota: Spawn ➔ Kaldırım ➔ Kapı ➔ Fuaye ➔ Rafa yaklaşma
+            // Rota: Sağ Doğu Kaldırımı Spawn ➔ Cam Kapı Önü ➔ Kapı Geçişi ➔ Fuaye ➔ Hedef Rafa Yaklaşma
             Vector3 shelfFront = targetShelf.GetFrontInteractionPosition(1.2f);
             data.waypoints = new List<Vector3>
             {
                 spawnPos,
-                new Vector3(-17.0f, 0.05f, -5.0f),
                 new Vector3(-5.0f, 0.05f, -5.0f),
                 new Vector3(-5.0f, 0.05f, -2.5f),
                 new Vector3(-5.0f, 0.05f, -0.5f),
@@ -249,6 +248,12 @@ namespace Farm2Shelf.Environment
                         {
                             data.isEscaped = true;
                             ShowFloatingNotice(data.thiefObj.transform.position, "⚠️ Hırsız Ürünle Kaçtı!", new Color(0.95f, 0.20f, 0.20f));
+
+                            if (StoreQualityManager.Instance != null)
+                            {
+                                StoreQualityManager.Instance.SubtractQualityScore(15, data.thiefObj.transform.position, "Hırsız Kaçtı!");
+                            }
+
                             Destroy(data.thiefObj);
                             data.state = ShoplifterState.Escaped;
                         }
@@ -293,6 +298,11 @@ namespace Farm2Shelf.Environment
                 if (FinanceManager.Instance != null) FinanceManager.Instance.RecordIncome("Satış", $"Hırsızdan Kurtarılan Ürün ({data.stolenProductName})", reward);
 
                 ShowFloatingNotice(guardPos, $"👮 Hırsız Yakalandı! +{reward:N0} Cr Kasaya Yattı 💰", new Color(0.30f, 0.95f, 0.45f));
+
+                if (StoreQualityManager.Instance != null)
+                {
+                    StoreQualityManager.Instance.AddQualityScore(25, guardPos, "Hırsız Yakalandı!");
+                }
 
                 if (data.carriedStolenBox != null) Destroy(data.carriedStolenBox);
                 if (data.thiefObj != null) Destroy(data.thiefObj);

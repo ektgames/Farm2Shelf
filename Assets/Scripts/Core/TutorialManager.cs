@@ -288,11 +288,10 @@ namespace Farm2Shelf.Core
             var staff = StaffManager.Instance.GetActiveStaff();
             if (staff == null || staff.Count < 6) return;
 
-            bool hasDay = staff.Exists(s => s.shiftHours.Contains("06:00") || s.shiftHours.Contains("Gündüz"));
-            bool hasEve = staff.Exists(s => s.shiftHours.Contains("14:00") || s.shiftHours.Contains("Akşam"));
-            bool hasNight = staff.Exists(s => s.shiftHours.Contains("22:00") || s.shiftHours.Contains("Gece"));
+            bool hasMorning = staff.Exists(s => s.shiftHours.Contains("08:00") || s.shiftHours.Contains("Sabah") || s.shiftHours.Contains("Gündüz") || s.shiftHours.Contains("06:00"));
+            bool hasEvening = staff.Exists(s => s.shiftHours.Contains("16:00") || s.shiftHours.Contains("Akşam") || s.shiftHours.Contains("14:00") || s.shiftHours.Contains("Gece") || s.shiftHours.Contains("22:00"));
 
-            if (hasDay && hasEve && hasNight)
+            if (hasMorning && hasEvening)
             {
                 AdvanceToNextStep();
             }
@@ -305,11 +304,10 @@ namespace Farm2Shelf.Core
             var farmStaff = StaffManager.Instance.GetFarmStaffList();
             if (farmers >= 3 && farmStaff != null && farmStaff.Count >= 3)
             {
-                bool hasDay = farmStaff.Exists(s => s.shiftHours.Contains("06:00") || s.shiftHours.Contains("Gündüz"));
-                bool hasEve = farmStaff.Exists(s => s.shiftHours.Contains("14:00") || s.shiftHours.Contains("Akşam"));
-                bool hasNight = farmStaff.Exists(s => s.shiftHours.Contains("22:00") || s.shiftHours.Contains("Gece"));
+                bool hasMorning = farmStaff.Exists(s => s.shiftHours.Contains("08:00") || s.shiftHours.Contains("Sabah") || s.shiftHours.Contains("Gündüz") || s.shiftHours.Contains("06:00"));
+                bool hasEvening = farmStaff.Exists(s => s.shiftHours.Contains("16:00") || s.shiftHours.Contains("Akşam") || s.shiftHours.Contains("14:00") || s.shiftHours.Contains("Gece") || s.shiftHours.Contains("22:00"));
 
-                if (hasDay && hasEve && hasNight)
+                if (hasMorning && hasEvening)
                 {
                     AdvanceToNextStep();
                 }

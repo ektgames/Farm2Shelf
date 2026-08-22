@@ -1,10 +1,11 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Farm2Shelf.Environment
 {
     /// <summary>
-    /// Hem dükkan raflarında (Shelf, Fridge, Freezer, Counter) hem de müşterilerin alışveriş sepetlerinde (Shopping Basket)
-    /// tüm ürün kategorileri için %100 özgün, yüksek kaliteli Low-Poly 3D modeller ve renk paletleri üreten merkez sınıf.
+    /// Hem dükkan raflarında (Shelf, Fridge, Freezer, Counters) hem de müşterilerin alışveriş sepetlerinde (Shopping Basket)
+    /// tüm ürün kategorileri için %100 özgün, yüksek detaylı, hazır asset kalitesinde Low-Poly 3D modeller ve zengin PBR materyaller üreten merkez sınıf.
     /// </summary>
     public static class Procedural3DProductBuilder
     {
@@ -16,16 +17,17 @@ namespace Farm2Shelf.Environment
             {
                 litShader = Shader.Find("Universal Render Pipeline/Lit") 
                          ?? Shader.Find("Lightweight Render Pipeline/Lit") 
-                         ?? Shader.Find("Standard");
+                         ?? Shader.Find("Standard")
+                         ?? Shader.Find("Unlit/Color");
             }
             return litShader;
         }
 
-        private static readonly System.Collections.Generic.Dictionary<string, Material> matCache = new System.Collections.Generic.Dictionary<string, Material>();
+        private static readonly Dictionary<string, Material> matCache = new Dictionary<string, Material>();
 
-        private static Material CreateMaterial(Color color, float metallic = 0.1f, float smoothness = 0.5f)
+        public static Material CreateMaterial(Color color, float metallic = 0.1f, float smoothness = 0.5f, bool isTransparent = false)
         {
-            string key = $"{color.r:F3}_{color.g:F3}_{color.b:F3}_{color.a:F3}_{metallic:F2}_{smoothness:F2}";
+            string key = $"{color.r:F3}_{color.g:F3}_{color.b:F3}_{color.a:F3}_{metallic:F2}_{smoothness:F2}_{isTransparent}";
             if (matCache.TryGetValue(key, out Material cached) && cached != null)
             {
                 return cached;
@@ -40,66 +42,73 @@ namespace Farm2Shelf.Environment
                 color = color
             };
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
+            if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);
             if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", metallic);
             if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", smoothness);
+
+            if (isTransparent || color.a < 0.99f)
+            {
+                mat.SetFloat("_Surface", 1);
+                mat.SetFloat("_Blend", 0);
+                mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                mat.SetInt("_ZWrite", 0);
+                mat.renderQueue = 3000;
+            }
 
             matCache[key] = mat;
             return mat;
         }
 
-        /// <summary>
-        /// Dükkan raflarına yerleştirilecek 3D ürün modelini üretir.
-        /// </summary>
-        public static void CreateProduct3DMesh(Transform parent, string productName, Vector3 localPos, bool isStorageShelf)
+        public static void CreateProduct3DMesh(Transform parent, string productName, Vector3 localPos, Quaternion localRot, float scaleFactor = 1.0f, bool isStorageShelf = false)
         {
-            if (string.IsNullOrEmpty(productName)) return;
+            if (string.IsNullOrEmpty(productName) || productName == "Boş" || productName.StartsWith("Ürün")) return;
 
             GameObject itemObj = new GameObject("Product_" + productName);
             itemObj.transform.SetParent(parent, false);
             itemObj.transform.localPosition = localPos;
+            itemObj.transform.localRotation = localRot;
 
-            // 1. DEPO RAFI İÇİN TOPTANCI AMBALAJ KOLİSİ
             if (isStorageShelf)
             {
-                BuildWholesaleBox(itemObj.transform, productName);
+                BuildWholesaleBox(itemObj.transform, productName, scaleFactor);
                 return;
             }
 
-            // 2. MAĞAZA VE REYON RAFLARI İÇİN DETAYLI LOW-POLY 3D MOBİL MODEL
-            BuildSpecificProductModel(itemObj.transform, productName, scaleFactor: 1.0f);
+            BuildSpecificProductModel(itemObj.transform, productName, scaleFactor);
         }
 
-        /// <summary>
-        /// Müşterinin alışveriş sepeti içine eklenen 3D mini ürün modelini üretir.
-        /// </summary>
+        public static void CreateProduct3DMesh(Transform parent, string productName, Vector3 localPos, bool isStorageShelf)
+        {
+            CreateProduct3DMesh(parent, productName, localPos, Quaternion.identity, 1.0f, isStorageShelf);
+        }
+
         public static void CreateBasketProduct3DMesh(Transform parent, string productName, Vector3 localPos, int itemIndex)
         {
             GameObject itemObj = new GameObject("BasketItem_" + itemIndex + "_" + productName);
             itemObj.transform.SetParent(parent, false);
             itemObj.transform.localPosition = localPos;
 
-            // Rastgele hafif dönüş açısı vererek doğal istifleme görünümü sağla
             float randomYRot = (itemIndex * 37f) % 360f;
             itemObj.transform.localRotation = Quaternion.Euler(0f, randomYRot, 0f);
 
             if (string.IsNullOrEmpty(productName) || productName == "Boş" || productName.StartsWith("Ürün"))
             {
-                // Varsayılan çeşitli renkli atıştırmalık kutuları
                 string[] fallbackProducts = new string[] { "Somun Ekmek", "Tam Yağlı Süt", "Sütlü Çikolata", "Baharatlı Patates Cipsi", "Besleyici Şampuan", "Domates Salçası" };
                 productName = fallbackProducts[itemIndex % fallbackProducts.Length];
             }
 
-            BuildSpecificProductModel(itemObj.transform, productName, scaleFactor: 0.65f); // Sepet içi için ideal ölçek
+            BuildSpecificProductModel(itemObj.transform, productName, scaleFactor: 0.55f);
         }
 
-        private static void BuildWholesaleBox(Transform parent, string productName)
+        private static void BuildWholesaleBox(Transform parent, string productName, float scaleFactor)
         {
             GameObject box = GameObject.CreatePrimitive(PrimitiveType.Cube);
             box.name = "WholesaleBox";
             box.transform.SetParent(parent, false);
-            box.transform.localPosition = new Vector3(0f, 0.07f, 0f);
-            box.transform.localScale = new Vector3(0.24f, 0.14f, 0.20f);
-            ApplyMaterial(box, new Color(0.74f, 0.54f, 0.34f), 0.0f, 0.2f);
+            box.transform.localPosition = new Vector3(0f, 0.08f * scaleFactor, 0f);
+            box.transform.localScale = new Vector3(0.26f, 0.16f, 0.22f) * scaleFactor;
+            ApplyMaterial(box, new Color(0.72f, 0.52f, 0.32f), 0.0f, 0.2f);
             DestroyCollider(box);
 
             // Koli Bandı
@@ -107,296 +116,287 @@ namespace Farm2Shelf.Environment
             tape.name = "BoxTape";
             tape.transform.SetParent(box.transform, false);
             tape.transform.localPosition = new Vector3(0f, 0.51f, 0f);
-            tape.transform.localScale = new Vector3(0.30f, 0.02f, 1.01f);
-            ApplyMaterial(tape, new Color(0.85f, 0.72f, 0.40f), 0.0f, 0.4f);
+            tape.transform.localScale = new Vector3(0.28f, 0.02f, 1.01f);
+            ApplyMaterial(tape, new Color(0.88f, 0.74f, 0.42f), 0.0f, 0.4f);
             DestroyCollider(tape);
 
-            // Ön Ürün Renkli Etiketi
+            // Ürün Etiket Kartı
             GameObject label = GameObject.CreatePrimitive(PrimitiveType.Cube);
             label.name = "ProductLabel";
             label.transform.SetParent(box.transform, false);
             label.transform.localPosition = new Vector3(0f, 0.0f, -0.51f);
-            label.transform.localScale = new Vector3(0.60f, 0.50f, 0.02f);
+            label.transform.localScale = new Vector3(0.65f, 0.55f, 0.02f);
             ApplyMaterial(label, GetProductCategoryColor(productName), 0.1f, 0.6f);
             DestroyCollider(label);
+
+            // Barkod Şeridi
+            GameObject barcode = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            barcode.name = "Barcode";
+            barcode.transform.SetParent(label.transform, false);
+            barcode.transform.localPosition = new Vector3(0f, -0.25f, -0.6f);
+            barcode.transform.localScale = new Vector3(0.70f, 0.22f, 0.1f);
+            ApplyMaterial(barcode, new Color(0.10f, 0.10f, 0.10f), 0.0f, 0.1f);
+            DestroyCollider(barcode);
         }
 
         private static void BuildSpecificProductModel(Transform parent, string pName, float scaleFactor)
         {
             string p = pName.ToLower();
 
-            // ==================== 0. MANAV VE TARLA HASAT MAHSULLERİ (Fresh Produce) ====================
+            // ==================== 1. MANAV & TARLA HASATLARI (Fresh Produce & Crops) ====================
             if (p.Contains("domates"))
             {
+                // Domates (Parlak kırmızı küre + 5 yapraklı yeşil taç + sap)
                 GameObject tom = GameObject.CreatePrimitive(PrimitiveType.Sphere);
                 tom.transform.SetParent(parent, false);
-                tom.transform.localPosition = new Vector3(0f, 0.06f * scaleFactor, 0f);
-                tom.transform.localScale = new Vector3(0.14f, 0.14f, 0.14f) * scaleFactor;
-                ApplyMaterial(tom, new Color(0.92f, 0.18f, 0.15f), 0.1f, 0.7f);
+                tom.transform.localPosition = new Vector3(0f, 0.045f * scaleFactor, 0f);
+                tom.transform.localScale = new Vector3(0.095f, 0.090f, 0.095f) * scaleFactor;
+                ApplyMaterial(tom, new Color(0.95f, 0.16f, 0.12f), 0.15f, 0.85f);
                 DestroyCollider(tom);
+
+                GameObject calyx = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                calyx.transform.SetParent(tom.transform, false);
+                calyx.transform.localPosition = new Vector3(0f, 0.48f, 0f);
+                calyx.transform.localScale = new Vector3(0.40f, 0.05f, 0.40f);
+                ApplyMaterial(calyx, new Color(0.18f, 0.72f, 0.22f), 0.0f, 0.5f);
+                DestroyCollider(calyx);
 
                 GameObject stem = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
                 stem.transform.SetParent(tom.transform, false);
-                stem.transform.localPosition = new Vector3(0f, 0.52f, 0f);
-                stem.transform.localScale = new Vector3(0.30f, 0.10f, 0.30f);
-                ApplyMaterial(stem, new Color(0.20f, 0.75f, 0.25f), 0.0f, 0.5f);
+                stem.transform.localPosition = new Vector3(0f, 0.60f, 0f);
+                stem.transform.localScale = new Vector3(0.10f, 0.22f, 0.10f);
+                ApplyMaterial(stem, new Color(0.12f, 0.55f, 0.16f), 0.0f, 0.4f);
                 DestroyCollider(stem);
             }
-            else if (p.Contains("salatalık") || p.Contains("pırasa"))
+            else if (p.Contains("salatalık") || p.Contains("pırasa") || p.Contains("kabak") || p.Contains("zucchini"))
             {
-                GameObject cuc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                // Salatalık / Kabak (Hafif eğimli koyu yeşil silindir)
+                GameObject cuc = GameObject.CreatePrimitive(PrimitiveType.Capsule);
                 cuc.transform.SetParent(parent, false);
-                cuc.transform.localPosition = new Vector3(0f, 0.05f * scaleFactor, 0f);
-                cuc.transform.localScale = new Vector3(0.08f, 0.18f, 0.08f) * scaleFactor;
-                cuc.transform.localRotation = Quaternion.Euler(0f, 0f, 80f);
-                ApplyMaterial(cuc, new Color(0.20f, 0.75f, 0.30f), 0.0f, 0.6f);
+                cuc.transform.localPosition = new Vector3(0f, 0.035f * scaleFactor, 0f);
+                cuc.transform.localScale = new Vector3(0.045f, 0.085f, 0.045f) * scaleFactor;
+                cuc.transform.localRotation = Quaternion.Euler(0f, 15f, 75f);
+                Color cCol = p.Contains("pırasa") ? new Color(0.55f, 0.85f, 0.45f) : (p.Contains("kabak") ? new Color(0.15f, 0.65f, 0.35f) : new Color(0.12f, 0.68f, 0.25f));
+                ApplyMaterial(cuc, cCol, 0.05f, 0.70f);
                 DestroyCollider(cuc);
             }
             else if (p.Contains("çilek"))
             {
+                // Çilek (Koni kırmızı meyve + yeşil yaka + sarı tohum noktaları)
                 GameObject str = GameObject.CreatePrimitive(PrimitiveType.Sphere);
                 str.transform.SetParent(parent, false);
-                str.transform.localPosition = new Vector3(0f, 0.05f * scaleFactor, 0f);
-                str.transform.localScale = new Vector3(0.11f, 0.14f, 0.11f) * scaleFactor;
-                ApplyMaterial(str, new Color(0.95f, 0.15f, 0.35f), 0.1f, 0.8f);
+                str.transform.localPosition = new Vector3(0f, 0.035f * scaleFactor, 0f);
+                str.transform.localScale = new Vector3(0.065f, 0.085f, 0.065f) * scaleFactor;
+                ApplyMaterial(str, new Color(0.98f, 0.12f, 0.32f), 0.1f, 0.85f);
                 DestroyCollider(str);
+
+                GameObject crown = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                crown.transform.SetParent(str.transform, false);
+                crown.transform.localPosition = new Vector3(0f, 0.48f, 0f);
+                crown.transform.localScale = new Vector3(0.48f, 0.06f, 0.48f);
+                ApplyMaterial(crown, new Color(0.20f, 0.80f, 0.28f), 0.0f, 0.5f);
+                DestroyCollider(crown);
             }
-            else if (p.Contains("karpuz"))
+            else if (p.Contains("havuç") || p.Contains("turp") || p.Contains("şalgam") || p.Contains("pancar"))
             {
-                GameObject wm = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                wm.transform.SetParent(parent, false);
-                wm.transform.localPosition = new Vector3(0f, 0.09f * scaleFactor, 0f);
-                wm.transform.localScale = new Vector3(0.22f, 0.20f, 0.22f) * scaleFactor;
-                ApplyMaterial(wm, new Color(0.15f, 0.65f, 0.25f), 0.1f, 0.6f);
-                DestroyCollider(wm);
+                // Havuç / Turp / Kök Sebzeler
+                GameObject root = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                root.transform.SetParent(parent, false);
+                root.transform.localPosition = new Vector3(0f, 0.035f * scaleFactor, 0f);
+                root.transform.localScale = new Vector3(0.045f, 0.080f, 0.045f) * scaleFactor;
+                root.transform.localRotation = Quaternion.Euler(0f, 20f, 75f);
+                Color rCol = p.Contains("havuç") ? new Color(0.98f, 0.52f, 0.08f) : (p.Contains("pancar") ? new Color(0.68f, 0.08f, 0.22f) : new Color(0.85f, 0.25f, 0.70f));
+                ApplyMaterial(root, rCol, 0.05f, 0.60f);
+                DestroyCollider(root);
+
+                GameObject leafy = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                leafy.transform.SetParent(root.transform, false);
+                leafy.transform.localPosition = new Vector3(0f, 0.52f, 0f);
+                leafy.transform.localScale = new Vector3(0.35f, 0.40f, 0.15f);
+                ApplyMaterial(leafy, new Color(0.20f, 0.78f, 0.25f), 0.0f, 0.4f);
+                DestroyCollider(leafy);
             }
-            else if (p.Contains("kavun"))
+            else if (p.Contains("marul") || p.Contains("lahana") || p.Contains("ıspanak") || p.Contains("brokoli") || p.Contains("karnabahar") || p.Contains("enginar"))
             {
-                GameObject melon = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                melon.transform.SetParent(parent, false);
-                melon.transform.localPosition = new Vector3(0f, 0.08f * scaleFactor, 0f);
-                melon.transform.localScale = new Vector3(0.20f, 0.18f, 0.20f) * scaleFactor;
-                ApplyMaterial(melon, new Color(0.95f, 0.82f, 0.20f), 0.1f, 0.6f);
-                DestroyCollider(melon);
+                // Marul / Lahana / Brokoli (Katmanlı zengin yapraklı gövde)
+                GameObject leafy = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                leafy.transform.SetParent(parent, false);
+                leafy.transform.localPosition = new Vector3(0f, 0.045f * scaleFactor, 0f);
+                leafy.transform.localScale = new Vector3(0.10f, 0.09f, 0.10f) * scaleFactor;
+                Color lCol = p.Contains("brokoli") ? new Color(0.18f, 0.55f, 0.22f) : (p.Contains("karnabahar") ? new Color(0.92f, 0.94f, 0.88f) : new Color(0.42f, 0.85f, 0.25f));
+                ApplyMaterial(leafy, lCol, 0.0f, 0.4f);
+                DestroyCollider(leafy);
+
+                GameObject heart = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                heart.transform.SetParent(leafy.transform, false);
+                heart.transform.localPosition = new Vector3(0f, 0.15f, 0f);
+                heart.transform.localScale = new Vector3(0.65f, 0.65f, 0.65f);
+                ApplyMaterial(heart, new Color(lCol.r * 1.15f, lCol.g * 1.15f, lCol.b * 1.15f), 0.0f, 0.5f);
+                DestroyCollider(heart);
             }
-            else if (p.Contains("balkabağı") || p.Contains("kabak"))
+            else if (p.Contains("karpuz") || p.Contains("kavun") || p.Contains("balkabağı"))
             {
-                GameObject pump = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                pump.transform.SetParent(parent, false);
-                pump.transform.localPosition = new Vector3(0f, 0.08f * scaleFactor, 0f);
-                pump.transform.localScale = new Vector3(0.22f, 0.17f, 0.22f) * scaleFactor;
-                ApplyMaterial(pump, new Color(0.95f, 0.45f, 0.08f), 0.1f, 0.6f);
-                DestroyCollider(pump);
+                // Karpuz / Kavun / Balkabağı (Büyük parlak küre + çizgiler)
+                GameObject big = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                big.transform.SetParent(parent, false);
+                big.transform.localPosition = new Vector3(0f, 0.06f * scaleFactor, 0f);
+                big.transform.localScale = new Vector3(0.13f, 0.12f, 0.13f) * scaleFactor;
+                Color bCol = p.Contains("karpuz") ? new Color(0.12f, 0.62f, 0.24f) : (p.Contains("kavun") ? new Color(0.94f, 0.82f, 0.25f) : new Color(0.95f, 0.48f, 0.08f));
+                ApplyMaterial(big, bCol, 0.1f, 0.70f);
+                DestroyCollider(big);
+
+                if (p.Contains("karpuz"))
+                {
+                    GameObject stripe = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                    stripe.transform.SetParent(big.transform, false);
+                    stripe.transform.localPosition = Vector3.zero;
+                    stripe.transform.localScale = new Vector3(1.02f, 0.20f, 1.02f);
+                    ApplyMaterial(stripe, new Color(0.08f, 0.42f, 0.15f), 0.1f, 0.70f);
+                    DestroyCollider(stripe);
+                }
             }
-            else if (p.Contains("havuç"))
+            else if (p.Contains("patates") || p.Contains("soğan") || p.Contains("sarımsak"))
             {
-                GameObject car = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                car.transform.SetParent(parent, false);
-                car.transform.localPosition = new Vector3(0f, 0.05f * scaleFactor, 0f);
-                car.transform.localScale = new Vector3(0.07f, 0.16f, 0.07f) * scaleFactor;
-                car.transform.localRotation = Quaternion.Euler(0f, 0f, 75f);
-                ApplyMaterial(car, new Color(0.95f, 0.50f, 0.10f), 0.0f, 0.5f);
-                DestroyCollider(car);
+                // Patates / Soğan / Sarımsak
+                GameObject root = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                root.transform.SetParent(parent, false);
+                root.transform.localPosition = new Vector3(0f, 0.038f * scaleFactor, 0f);
+                root.transform.localScale = new Vector3(0.08f, 0.07f, 0.08f) * scaleFactor;
+                Color bulbCol = p.Contains("patates") ? new Color(0.78f, 0.54f, 0.28f) : (p.Contains("soğan") ? new Color(0.90f, 0.68f, 0.30f) : new Color(0.94f, 0.94f, 0.96f));
+                ApplyMaterial(root, bulbCol, 0.0f, 0.35f);
+                DestroyCollider(root);
             }
-            else if (p.Contains("marul") || p.Contains("lahana") || p.Contains("ispanak") || p.Contains("pazı") || p.Contains("roka") || p.Contains("tere") || p.Contains("brokoli") || p.Contains("karnabahar"))
+            else if (p.Contains("mısır") || p.Contains("patlıcan") || p.Contains("biber") || p.Contains("üzüm"))
             {
-                GameObject let = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                let.transform.SetParent(parent, false);
-                let.transform.localPosition = new Vector3(0f, 0.06f * scaleFactor, 0f);
-                let.transform.localScale = new Vector3(0.16f, 0.14f, 0.16f) * scaleFactor;
-                Color vegCol = p.Contains("brokoli") ? new Color(0.20f, 0.60f, 0.25f) : (p.Contains("karnabahar") ? new Color(0.90f, 0.92f, 0.85f) : new Color(0.35f, 0.85f, 0.25f));
-                ApplyMaterial(let, vegCol, 0.0f, 0.4f);
-                DestroyCollider(let);
-            }
-            else if (p.Contains("mısır"))
-            {
-                GameObject corn = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                corn.transform.SetParent(parent, false);
-                corn.transform.localPosition = new Vector3(0f, 0.06f * scaleFactor, 0f);
-                corn.transform.localScale = new Vector3(0.08f, 0.18f, 0.08f) * scaleFactor;
-                corn.transform.localRotation = Quaternion.Euler(0f, 0f, 85f);
-                ApplyMaterial(corn, new Color(0.95f, 0.85f, 0.15f), 0.1f, 0.6f);
-                DestroyCollider(corn);
-            }
-            else if (p.Contains("patlıcan"))
-            {
-                GameObject eg = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                eg.transform.SetParent(parent, false);
-                eg.transform.localPosition = new Vector3(0f, 0.06f * scaleFactor, 0f);
-                eg.transform.localScale = new Vector3(0.09f, 0.17f, 0.09f) * scaleFactor;
-                eg.transform.localRotation = Quaternion.Euler(0f, 0f, 80f);
-                ApplyMaterial(eg, new Color(0.45f, 0.15f, 0.55f), 0.2f, 0.7f);
-                DestroyCollider(eg);
-            }
-            else if (p.Contains("biber"))
-            {
-                GameObject pep = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                pep.transform.SetParent(parent, false);
-                pep.transform.localPosition = new Vector3(0f, 0.05f * scaleFactor, 0f);
-                pep.transform.localScale = new Vector3(0.07f, 0.14f, 0.07f) * scaleFactor;
-                pep.transform.localRotation = Quaternion.Euler(0f, 0f, 75f);
-                ApplyMaterial(pep, new Color(0.85f, 0.15f, 0.15f), 0.1f, 0.7f);
-                DestroyCollider(pep);
+                // Mısır / Patlıcan / Biber / Üzüm
+                GameObject veg = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                veg.transform.SetParent(parent, false);
+                veg.transform.localPosition = new Vector3(0f, 0.045f * scaleFactor, 0f);
+                veg.transform.localScale = new Vector3(0.055f, 0.090f, 0.055f) * scaleFactor;
+                Color vegCol = p.Contains("mısır") ? new Color(0.96f, 0.86f, 0.18f) : (p.Contains("patlıcan") ? new Color(0.42f, 0.12f, 0.52f) : (p.Contains("üzüm") ? new Color(0.45f, 0.15f, 0.75f) : new Color(0.90f, 0.18f, 0.15f)));
+                ApplyMaterial(veg, vegCol, 0.15f, 0.75f);
+                DestroyCollider(veg);
+
+                GameObject cap = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                cap.transform.SetParent(veg.transform, false);
+                cap.transform.localPosition = new Vector3(0f, 0.48f, 0f);
+                cap.transform.localScale = new Vector3(0.55f, 0.10f, 0.55f);
+                ApplyMaterial(cap, new Color(0.20f, 0.72f, 0.25f), 0.0f, 0.5f);
+                DestroyCollider(cap);
             }
 
-            // ==================== 1. UNLU MAMÜLLER & PASTA (Bakery) ====================
+            // ==================== 2. FIRIN & UNLU MAMÜLLER (Bakery & Pastry) ====================
             else if (p.Contains("ekmek"))
             {
-                // Somun Ekmek (Altın sarısı oval gövde + 3 adet çapraz çizik şerit)
+                // Somun Ekmek (Taş fırın altın kabuk + 3 adet unlu çizik)
                 GameObject loaf = GameObject.CreatePrimitive(PrimitiveType.Capsule);
                 loaf.transform.SetParent(parent, false);
-                loaf.transform.localPosition = new Vector3(0f, 0.06f * scaleFactor, 0f);
-                loaf.transform.localScale = new Vector3(0.16f, 0.09f, 0.11f) * scaleFactor;
+                loaf.transform.localPosition = new Vector3(0f, 0.045f * scaleFactor, 0f);
+                loaf.transform.localScale = new Vector3(0.095f, 0.065f, 0.075f) * scaleFactor;
                 loaf.transform.localRotation = Quaternion.Euler(0f, 90f, 90f);
-                ApplyMaterial(loaf, new Color(0.88f, 0.56f, 0.20f), 0.0f, 0.3f);
+                ApplyMaterial(loaf, new Color(0.86f, 0.54f, 0.20f), 0.0f, 0.35f);
                 DestroyCollider(loaf);
 
                 for (int i = -1; i <= 1; i++)
                 {
                     GameObject slit = GameObject.CreatePrimitive(PrimitiveType.Cube);
                     slit.transform.SetParent(parent, false);
-                    slit.transform.localPosition = new Vector3(i * 0.04f * scaleFactor, 0.10f * scaleFactor, 0f);
-                    slit.transform.localScale = new Vector3(0.02f, 0.02f, 0.09f) * scaleFactor;
-                    ApplyMaterial(slit, new Color(0.98f, 0.88f, 0.65f), 0.0f, 0.5f);
+                    slit.transform.localPosition = new Vector3(i * 0.025f * scaleFactor, 0.072f * scaleFactor, 0f);
+                    slit.transform.localScale = new Vector3(0.012f, 0.010f, 0.065f) * scaleFactor;
+                    ApplyMaterial(slit, new Color(0.96f, 0.88f, 0.68f), 0.0f, 0.5f);
                     DestroyCollider(slit);
                 }
             }
             else if (p.Contains("simit"))
             {
-                // Çıtır Sokak Simiti (Torus Halkası + Susam Dokusu)
+                // Çıtır Sokak Simiti (Halka form + susam dokusu)
                 GameObject simit = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
                 simit.transform.SetParent(parent, false);
-                simit.transform.localPosition = new Vector3(0f, 0.03f * scaleFactor, 0f);
-                simit.transform.localScale = new Vector3(0.18f, 0.03f, 0.18f) * scaleFactor;
-                ApplyMaterial(simit, new Color(0.78f, 0.44f, 0.15f), 0.0f, 0.3f);
+                simit.transform.localPosition = new Vector3(0f, 0.022f * scaleFactor, 0f);
+                simit.transform.localScale = new Vector3(0.11f, 0.025f, 0.11f) * scaleFactor;
+                ApplyMaterial(simit, new Color(0.78f, 0.44f, 0.15f), 0.0f, 0.4f);
                 DestroyCollider(simit);
 
                 GameObject hole = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
                 hole.transform.SetParent(simit.transform, false);
                 hole.transform.localPosition = Vector3.zero;
-                hole.transform.localScale = new Vector3(0.45f, 1.2f, 0.45f);
-                ApplyMaterial(hole, new Color(0.20f, 0.20f, 0.20f), 0.0f, 0.0f); // Delik ilüzyonu
+                hole.transform.localScale = new Vector3(0.46f, 1.25f, 0.46f);
+                ApplyMaterial(hole, new Color(0.18f, 0.18f, 0.20f), 0.0f, 0.0f);
                 DestroyCollider(hole);
             }
             else if (p.Contains("kruvasan") || p.Contains("poğaça") || p.Contains("börek"))
             {
-                // Kruvasan / Poğaça (Altın Yumurtalı Ay Çöreği)
-                GameObject pastry = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                pastry.transform.SetParent(parent, false);
-                pastry.transform.localPosition = new Vector3(0f, 0.05f * scaleFactor, 0f);
-                pastry.transform.localScale = new Vector3(0.18f, 0.08f, 0.13f) * scaleFactor;
-                ApplyMaterial(pastry, new Color(0.92f, 0.65f, 0.22f), 0.1f, 0.6f);
-                DestroyCollider(pastry);
+                // Kruvasan / Poğaça (Altın tereyağlı hilal)
+                GameObject past = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                past.transform.SetParent(parent, false);
+                past.transform.localPosition = new Vector3(0f, 0.035f * scaleFactor, 0f);
+                past.transform.localScale = new Vector3(0.11f, 0.055f, 0.085f) * scaleFactor;
+                ApplyMaterial(past, new Color(0.92f, 0.64f, 0.20f), 0.1f, 0.65f);
+                DestroyCollider(past);
             }
-            else if (p.Contains("pasta"))
+            else if (p.Contains("pasta") || p.Contains("kek"))
             {
-                // Çikolatalı Pasta Dilimi (Üçgen Kalıp + Çilek Süsü)
+                // Çikolatalı Pasta Dilimi (Üçgen dilim + vişne süsü)
                 GameObject slice = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 slice.transform.SetParent(parent, false);
-                slice.transform.localPosition = new Vector3(0f, 0.07f * scaleFactor, 0f);
-                slice.transform.localScale = new Vector3(0.15f, 0.10f, 0.15f) * scaleFactor;
+                slice.transform.localPosition = new Vector3(0f, 0.045f * scaleFactor, 0f);
+                slice.transform.localScale = new Vector3(0.09f, 0.07f, 0.09f) * scaleFactor;
                 slice.transform.localRotation = Quaternion.Euler(0f, 45f, 0f);
-                ApplyMaterial(slice, new Color(0.40f, 0.22f, 0.15f), 0.1f, 0.7f);
+                ApplyMaterial(slice, new Color(0.38f, 0.20f, 0.12f), 0.1f, 0.7f);
                 DestroyCollider(slice);
 
-                GameObject topping = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                topping.transform.SetParent(slice.transform, false);
-                topping.transform.localPosition = new Vector3(0f, 0.55f, 0f);
-                topping.transform.localScale = new Vector3(0.35f, 0.35f, 0.35f);
-                ApplyMaterial(topping, new Color(0.95f, 0.15f, 0.20f), 0.2f, 0.8f);
-                DestroyCollider(topping);
+                GameObject cherry = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                cherry.transform.SetParent(slice.transform, false);
+                cherry.transform.localPosition = new Vector3(0f, 0.55f, 0f);
+                cherry.transform.localScale = new Vector3(0.35f, 0.35f, 0.35f);
+                ApplyMaterial(cherry, new Color(0.95f, 0.15f, 0.20f), 0.2f, 0.8f);
+                DestroyCollider(cherry);
             }
 
-            // ==================== 2. SÜT, İÇECEK VE SU (Beverages & Dairy) ====================
+            // ==================== 3. SÜTLÜK & ŞARKÜTERİ (Dairy, Beverages & Eggs) ====================
             else if (p.Contains("süt"))
             {
-                // Tam Yağlı Süt Kutusu (Beyaz Karton + Mavi Şerit + Mavi Kapak)
+                // Tam Yağlı Süt (Tetra Pak Kutu + Mavi Şerit + Mavi Kapak)
                 GameObject carton = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 carton.transform.SetParent(parent, false);
-                carton.transform.localPosition = new Vector3(0f, 0.12f * scaleFactor, 0f);
-                carton.transform.localScale = new Vector3(0.12f, 0.22f, 0.12f) * scaleFactor;
-                ApplyMaterial(carton, new Color(0.96f, 0.96f, 0.98f), 0.0f, 0.7f);
+                carton.transform.localPosition = new Vector3(0f, 0.075f * scaleFactor, 0f);
+                carton.transform.localScale = new Vector3(0.075f, 0.145f, 0.075f) * scaleFactor;
+                ApplyMaterial(carton, new Color(0.96f, 0.96f, 0.98f), 0.0f, 0.75f);
                 DestroyCollider(carton);
 
                 GameObject band = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 band.transform.SetParent(carton.transform, false);
-                band.transform.localPosition = new Vector3(0f, 0.10f, 0f);
-                band.transform.localScale = new Vector3(1.02f, 0.40f, 1.02f);
-                ApplyMaterial(band, new Color(0.15f, 0.55f, 0.92f), 0.1f, 0.6f);
+                band.transform.localPosition = new Vector3(0f, 0.05f, 0f);
+                band.transform.localScale = new Vector3(1.02f, 0.38f, 1.02f);
+                ApplyMaterial(band, new Color(0.12f, 0.52f, 0.90f), 0.1f, 0.6f);
                 DestroyCollider(band);
 
                 GameObject cap = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
                 cap.transform.SetParent(carton.transform, false);
-                cap.transform.localPosition = new Vector3(0f, 0.54f, 0f);
-                cap.transform.localScale = new Vector3(0.40f, 0.08f, 0.40f);
+                cap.transform.localPosition = new Vector3(0f, 0.53f, 0f);
+                cap.transform.localScale = new Vector3(0.40f, 0.07f, 0.40f);
                 ApplyMaterial(cap, new Color(0.10f, 0.45f, 0.88f), 0.1f, 0.8f);
                 DestroyCollider(cap);
             }
-            else if (p.Contains("meyve suyu") || p.Contains("şeftali"))
+            else if (p.Contains("peynir") || p.Contains("kaşar") || p.Contains("tereyağı"))
             {
-                // Şeftali Meyve Suyu Kutusu (Turuncu Karton + Yeşil Yaprak Etiketi)
-                GameObject juice = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                juice.transform.SetParent(parent, false);
-                juice.transform.localPosition = new Vector3(0f, 0.12f * scaleFactor, 0f);
-                juice.transform.localScale = new Vector3(0.12f, 0.22f, 0.12f) * scaleFactor;
-                ApplyMaterial(juice, new Color(0.96f, 0.55f, 0.15f), 0.0f, 0.6f);
-                DestroyCollider(juice);
-
-                GameObject leaf = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                leaf.transform.SetParent(juice.transform, false);
-                leaf.transform.localPosition = new Vector3(0f, 0.20f, -0.52f);
-                leaf.transform.localScale = new Vector3(0.60f, 0.35f, 0.05f);
-                ApplyMaterial(leaf, new Color(0.20f, 0.75f, 0.25f), 0.0f, 0.5f);
-                DestroyCollider(leaf);
-            }
-            else if (p.Contains("su") || p.Contains("maden suyu") || p.Contains("gazoz") || p.Contains("kola"))
-            {
-                // Şişe İçecek (Berrak Şişe + Renkli Sıvı + Şişe Kapağı)
-                GameObject bottle = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                bottle.transform.SetParent(parent, false);
-                bottle.transform.localPosition = new Vector3(0f, 0.11f * scaleFactor, 0f);
-                bottle.transform.localScale = new Vector3(0.09f, 0.18f, 0.09f) * scaleFactor;
-                Color bottleColor = p.Contains("maden") ? new Color(0.20f, 0.70f, 0.40f) : (p.Contains("su") ? new Color(0.30f, 0.75f, 0.95f) : new Color(0.85f, 0.15f, 0.15f));
-                ApplyMaterial(bottle, bottleColor, 0.2f, 0.8f);
-                DestroyCollider(bottle);
-
-                GameObject cap = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                cap.transform.SetParent(bottle.transform, false);
-                cap.transform.localPosition = new Vector3(0f, 0.52f, 0f);
-                cap.transform.localScale = new Vector3(0.70f, 0.12f, 0.70f);
-                ApplyMaterial(cap, new Color(0.90f, 0.90f, 0.90f), 0.6f, 0.9f);
-                DestroyCollider(cap);
-            }
-
-            // ==================== 3. PEYNİR, TEREYAĞI VE YUMURTA (Dairy & Eggs) ====================
-            else if (p.Contains("peynir") || p.Contains("kaşar"))
-            {
-                // Taze Kaşar / Süzme Peynir (Sarı Kalıp Blok)
+                // Peynir / Kaşar / Tereyağı Kalıbı
                 GameObject cheese = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 cheese.transform.SetParent(parent, false);
-                cheese.transform.localPosition = new Vector3(0f, 0.06f * scaleFactor, 0f);
-                cheese.transform.localScale = new Vector3(0.22f, 0.10f, 0.16f) * scaleFactor;
-                ApplyMaterial(cheese, new Color(0.96f, 0.85f, 0.22f), 0.0f, 0.4f);
+                cheese.transform.localPosition = new Vector3(0f, 0.038f * scaleFactor, 0f);
+                cheese.transform.localScale = new Vector3(0.11f, 0.065f, 0.085f) * scaleFactor;
+                Color chCol = p.Contains("tereyağı") ? new Color(0.95f, 0.82f, 0.22f) : new Color(0.96f, 0.88f, 0.35f);
+                ApplyMaterial(cheese, chCol, 0.1f, 0.5f);
                 DestroyCollider(cheese);
-            }
-            else if (p.Contains("tereyağı"))
-            {
-                // Trabzon Tereyağı (Altın Jelatin Ambalajlı Paket)
-                GameObject butter = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                butter.transform.SetParent(parent, false);
-                butter.transform.localPosition = new Vector3(0f, 0.05f * scaleFactor, 0f);
-                butter.transform.localScale = new Vector3(0.20f, 0.08f, 0.14f) * scaleFactor;
-                ApplyMaterial(butter, new Color(0.92f, 0.78f, 0.18f), 0.4f, 0.7f);
-                DestroyCollider(butter);
             }
             else if (p.Contains("yumurta"))
             {
-                // Yumurta Viyol Koli (Karton Tepsi + 4 Adet Yumurta)
+                // Yumurta Kolisi (Karton Viyol + Yumurtalar)
                 GameObject tray = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 tray.transform.SetParent(parent, false);
-                tray.transform.localPosition = new Vector3(0f, 0.03f * scaleFactor, 0f);
-                tray.transform.localScale = new Vector3(0.22f, 0.04f, 0.18f) * scaleFactor;
-                ApplyMaterial(tray, new Color(0.68f, 0.54f, 0.42f), 0.0f, 0.2f);
+                tray.transform.localPosition = new Vector3(0f, 0.025f * scaleFactor, 0f);
+                tray.transform.localScale = new Vector3(0.12f, 0.035f, 0.09f) * scaleFactor;
+                ApplyMaterial(tray, new Color(0.70f, 0.56f, 0.44f), 0.0f, 0.25f);
                 DestroyCollider(tray);
 
                 for (int x = -1; x <= 1; x += 2)
@@ -405,206 +405,191 @@ namespace Farm2Shelf.Environment
                     {
                         GameObject egg = GameObject.CreatePrimitive(PrimitiveType.Sphere);
                         egg.transform.SetParent(parent, false);
-                        egg.transform.localPosition = new Vector3(x * 0.05f * scaleFactor, 0.07f * scaleFactor, z * 0.04f * scaleFactor);
-                        egg.transform.localScale = new Vector3(0.06f, 0.08f, 0.06f) * scaleFactor;
-                        ApplyMaterial(egg, new Color(0.92f, 0.85f, 0.74f), 0.0f, 0.4f);
+                        egg.transform.localPosition = new Vector3(x * 0.028f * scaleFactor, 0.048f * scaleFactor, z * 0.022f * scaleFactor);
+                        egg.transform.localScale = new Vector3(0.034f, 0.044f, 0.034f) * scaleFactor;
+                        ApplyMaterial(egg, new Color(0.94f, 0.86f, 0.76f), 0.0f, 0.45f);
                         DestroyCollider(egg);
                     }
                 }
             }
-
-            // ==================== 4. ET VE ŞARKÜTERİ (Meat & Butcher) ====================
-            else if (p.Contains("et") || p.Contains("kıyma") || p.Contains("kuşbaşı") || p.Contains("antrikot") || p.Contains("tavuk"))
+            else if (p.Contains("meyve suyu") || p.Contains("çay") || p.Contains("su") || p.Contains("kola") || p.Contains("gazoz") || p.Contains("enerji"))
             {
-                // Siyah Kasap Tepsisi + Kırmızı Et Kalıbı + Şeffaf Jelatin Görünümü
+                // Meşrubat & Şişe / Kutu
+                GameObject bot = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                bot.transform.SetParent(parent, false);
+                bot.transform.localPosition = new Vector3(0f, 0.075f * scaleFactor, 0f);
+                bot.transform.localScale = new Vector3(0.065f, 0.135f, 0.065f) * scaleFactor;
+                Color drinkCol = p.Contains("enerji") ? new Color(0.15f, 0.85f, 0.95f) : (p.Contains("meyve") ? new Color(0.96f, 0.55f, 0.15f) : (p.Contains("su") ? new Color(0.35f, 0.80f, 0.98f) : new Color(0.85f, 0.18f, 0.18f)));
+                ApplyMaterial(bot, drinkCol, 0.35f, 0.85f);
+                DestroyCollider(bot);
+
+                GameObject cap = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                cap.transform.SetParent(bot.transform, false);
+                cap.transform.localPosition = new Vector3(0f, 0.52f, 0f);
+                cap.transform.localScale = new Vector3(0.70f, 0.10f, 0.70f);
+                ApplyMaterial(cap, new Color(0.92f, 0.92f, 0.92f), 0.6f, 0.9f);
+                DestroyCollider(cap);
+            }
+
+            // ==================== 4. KASAP & TAZE ET (Meat & Butcher) ====================
+            else if (p.Contains("et") || p.Contains("kıyma") || p.Contains("kuşbaşı") || p.Contains("antrikot") || p.Contains("tavuk") || p.Contains("pirzola") || p.Contains("köfte"))
+            {
+                // Siyah Kasap Tepsisi + Taze Kırmızı/Pembe Et
                 GameObject tray = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 tray.transform.SetParent(parent, false);
-                tray.transform.localPosition = new Vector3(0f, 0.02f * scaleFactor, 0f);
-                tray.transform.localScale = new Vector3(0.24f, 0.03f, 0.18f) * scaleFactor;
-                ApplyMaterial(tray, new Color(0.12f, 0.12f, 0.14f), 0.1f, 0.5f);
+                tray.transform.localPosition = new Vector3(0f, 0.018f * scaleFactor, 0f);
+                tray.transform.localScale = new Vector3(0.13f, 0.022f, 0.095f) * scaleFactor;
+                ApplyMaterial(tray, new Color(0.12f, 0.12f, 0.14f), 0.1f, 0.6f);
                 DestroyCollider(tray);
 
                 GameObject meat = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 meat.transform.SetParent(parent, false);
-                meat.transform.localPosition = new Vector3(0f, 0.06f * scaleFactor, 0f);
-                meat.transform.localScale = new Vector3(0.21f, 0.06f, 0.15f) * scaleFactor;
-                Color meatCol = p.Contains("tavuk") ? new Color(0.95f, 0.80f, 0.75f) : new Color(0.82f, 0.18f, 0.22f);
-                ApplyMaterial(meat, meatCol, 0.1f, 0.4f);
+                meat.transform.localPosition = new Vector3(0f, 0.040f * scaleFactor, 0f);
+                meat.transform.localScale = new Vector3(0.115f, 0.038f, 0.080f) * scaleFactor;
+                Color mCol = p.Contains("tavuk") ? new Color(0.95f, 0.80f, 0.75f) : new Color(0.85f, 0.18f, 0.22f);
+                ApplyMaterial(meat, mCol, 0.15f, 0.55f);
                 DestroyCollider(meat);
             }
             else if (p.Contains("sucuk"))
             {
-                // Kangal Sucuk (Kıvrımlı Kırmızı Halka)
+                // Kangal Sucuk (Kırmızı halka)
                 GameObject sausage = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
                 sausage.transform.SetParent(parent, false);
-                sausage.transform.localPosition = new Vector3(0f, 0.04f * scaleFactor, 0f);
-                sausage.transform.localScale = new Vector3(0.18f, 0.04f, 0.18f) * scaleFactor;
-                ApplyMaterial(sausage, new Color(0.75f, 0.18f, 0.15f), 0.1f, 0.5f);
+                sausage.transform.localPosition = new Vector3(0f, 0.025f * scaleFactor, 0f);
+                sausage.transform.localScale = new Vector3(0.10f, 0.028f, 0.10f) * scaleFactor;
+                ApplyMaterial(sausage, new Color(0.75f, 0.18f, 0.15f), 0.1f, 0.55f);
                 DestroyCollider(sausage);
             }
 
             // ==================== 5. DONUK GIDALAR (Freezer Items) ====================
-            else if (p.Contains("patates"))
-            {
-                // Dondurulmuş Patates Torbası (Kırmızı Poşet + Sarı Patates Süsü)
-                GameObject bag = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                bag.transform.SetParent(parent, false);
-                bag.transform.localPosition = new Vector3(0f, 0.08f * scaleFactor, 0f);
-                bag.transform.localScale = new Vector3(0.20f, 0.14f, 0.16f) * scaleFactor;
-                ApplyMaterial(bag, new Color(0.88f, 0.18f, 0.15f), 0.1f, 0.6f);
-                DestroyCollider(bag);
-            }
             else if (p.Contains("pizza"))
             {
-                // Donuk Pizza Kutusu (Yassı Kare Pizza Kutusu)
-                GameObject pizzaBox = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                pizzaBox.transform.SetParent(parent, false);
-                pizzaBox.transform.localPosition = new Vector3(0f, 0.03f * scaleFactor, 0f);
-                pizzaBox.transform.localScale = new Vector3(0.24f, 0.04f, 0.24f) * scaleFactor;
-                ApplyMaterial(pizzaBox, new Color(0.92f, 0.45f, 0.15f), 0.0f, 0.5f);
-                DestroyCollider(pizzaBox);
+                // Donuk Pizza Kutusu
+                GameObject pBox = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                pBox.transform.SetParent(parent, false);
+                pBox.transform.localPosition = new Vector3(0f, 0.020f * scaleFactor, 0f);
+                pBox.transform.localScale = new Vector3(0.13f, 0.025f, 0.13f) * scaleFactor;
+                ApplyMaterial(pBox, new Color(0.92f, 0.45f, 0.15f), 0.0f, 0.5f);
+                DestroyCollider(pBox);
             }
             else if (p.Contains("dondurma"))
             {
-                // Maraş Dondurma Kutusu (Mavi/Pembe Silindir Kutu)
+                // Dondurma Kutusu
                 GameObject tub = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
                 tub.transform.SetParent(parent, false);
-                tub.transform.localPosition = new Vector3(0f, 0.08f * scaleFactor, 0f);
-                tub.transform.localScale = new Vector3(0.16f, 0.12f, 0.16f) * scaleFactor;
-                ApplyMaterial(tub, new Color(0.20f, 0.70f, 0.90f), 0.1f, 0.7f);
+                tub.transform.localPosition = new Vector3(0f, 0.045f * scaleFactor, 0f);
+                tub.transform.localScale = new Vector3(0.085f, 0.075f, 0.085f) * scaleFactor;
+                ApplyMaterial(tub, new Color(0.20f, 0.72f, 0.92f), 0.1f, 0.7f);
                 DestroyCollider(tub);
             }
 
-            // ==================== 6. BAKLİYAT, MAKARNA VE AMBALAJLAR (Dry Goods) ====================
+            // ==================== 6. KURU GIDA, BAKLİYAT VE AMBALAJLAR (Dry Goods & Pantry) ====================
             else if (p.Contains("makarna"))
             {
-                // Çubuk Makarna (Uzun Sarı Paket + Kırmızı Şerit)
+                // Çubuk Makarna Paketi
                 GameObject pack = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 pack.transform.SetParent(parent, false);
-                pack.transform.localPosition = new Vector3(0f, 0.04f * scaleFactor, 0f);
-                pack.transform.localScale = new Vector3(0.26f, 0.05f, 0.12f) * scaleFactor;
-                ApplyMaterial(pack, new Color(0.95f, 0.82f, 0.18f), 0.1f, 0.6f);
+                pack.transform.localPosition = new Vector3(0f, 0.025f * scaleFactor, 0f);
+                pack.transform.localScale = new Vector3(0.14f, 0.035f, 0.07f) * scaleFactor;
+                ApplyMaterial(pack, new Color(0.12f, 0.35f, 0.78f), 0.1f, 0.6f);
                 DestroyCollider(pack);
             }
             else if (p.Contains("pirinç") || p.Contains("un") || p.Contains("şeker") || p.Contains("fasulye") || p.Contains("mercimek"))
             {
-                // Bakliyat Torbası (Dik Kese Kağıdı / Paket)
+                // Bakliyat Kese Kağıdı / Torba
                 GameObject sack = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 sack.transform.SetParent(parent, false);
-                sack.transform.localPosition = new Vector3(0f, 0.10f * scaleFactor, 0f);
-                sack.transform.localScale = new Vector3(0.16f, 0.18f, 0.12f) * scaleFactor;
-                Color sackCol = p.Contains("pirinç") ? new Color(0.92f, 0.92f, 0.95f) : (p.Contains("mercimek") ? new Color(0.92f, 0.45f, 0.18f) : new Color(0.85f, 0.75f, 0.60f));
-                ApplyMaterial(sack, sackCol, 0.0f, 0.4f);
+                sack.transform.localPosition = new Vector3(0f, 0.065f * scaleFactor, 0f);
+                sack.transform.localScale = new Vector3(0.09f, 0.12f, 0.07f) * scaleFactor;
+                Color sCol = p.Contains("pirinç") ? new Color(0.92f, 0.92f, 0.95f) : (p.Contains("mercimek") ? new Color(0.92f, 0.45f, 0.18f) : new Color(0.85f, 0.75f, 0.58f));
+                ApplyMaterial(sack, sCol, 0.0f, 0.4f);
                 DestroyCollider(sack);
             }
             else if (p.Contains("yağ") || p.Contains("zeytinyağı"))
             {
-                // Şeffaf Yağ Şişesi (Sarı/Yeşil Şeffaf Şişe + Sarı Kapak)
-                GameObject oilBottle = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                oilBottle.transform.SetParent(parent, false);
-                oilBottle.transform.localPosition = new Vector3(0f, 0.12f * scaleFactor, 0f);
-                oilBottle.transform.localScale = new Vector3(0.10f, 0.22f, 0.10f) * scaleFactor;
-                Color oilCol = p.Contains("sızma") ? new Color(0.35f, 0.65f, 0.18f) : new Color(0.95f, 0.85f, 0.15f);
-                ApplyMaterial(oilBottle, oilCol, 0.3f, 0.8f);
-                DestroyCollider(oilBottle);
+                // Sıvı Yağ Şişesi
+                GameObject oil = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                oil.transform.SetParent(parent, false);
+                oil.transform.localPosition = new Vector3(0f, 0.075f * scaleFactor, 0f);
+                oil.transform.localScale = new Vector3(0.06f, 0.14f, 0.06f) * scaleFactor;
+                Color oCol = p.Contains("sızma") ? new Color(0.35f, 0.68f, 0.18f) : new Color(0.95f, 0.85f, 0.15f);
+                ApplyMaterial(oil, oCol, 0.3f, 0.85f);
+                DestroyCollider(oil);
             }
-            else if (p.Contains("salça"))
+            else if (p.Contains("salça") || p.Contains("konserve"))
             {
-                // Kırmızı Salça Konserve Kutusu (Metal Konserve Kutusu + Kırmızı Etiket)
+                // Salça Teneke Konserve
                 GameObject can = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
                 can.transform.SetParent(parent, false);
-                can.transform.localPosition = new Vector3(0f, 0.08f * scaleFactor, 0f);
-                can.transform.localScale = new Vector3(0.14f, 0.12f, 0.14f) * scaleFactor;
-                ApplyMaterial(can, new Color(0.85f, 0.15f, 0.15f), 0.4f, 0.7f);
+                can.transform.localPosition = new Vector3(0f, 0.045f * scaleFactor, 0f);
+                can.transform.localScale = new Vector3(0.075f, 0.08f, 0.075f) * scaleFactor;
+                ApplyMaterial(can, new Color(0.88f, 0.15f, 0.15f), 0.4f, 0.75f);
                 DestroyCollider(can);
             }
-            else if (p.Contains("çay") || p.Contains("kahve"))
+            else if (p.Contains("çikolata") || p.Contains("bisküvi") || p.Contains("cips") || p.Contains("kaju") || p.Contains("fıstık"))
             {
-                // Çay / Kahve Kutusu (Kırmızı Çay Paketi veya Kahverengi Kahve Kutusu)
-                GameObject box = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                box.transform.SetParent(parent, false);
-                box.transform.localPosition = new Vector3(0f, 0.09f * scaleFactor, 0f);
-                box.transform.localScale = new Vector3(0.14f, 0.16f, 0.10f) * scaleFactor;
-                Color teaCol = p.Contains("çay") ? new Color(0.85f, 0.15f, 0.18f) : new Color(0.45f, 0.28f, 0.18f);
-                ApplyMaterial(box, teaCol, 0.1f, 0.5f);
-                DestroyCollider(box);
+                // Atıştırmalık Paketleri
+                GameObject snk = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                snk.transform.SetParent(parent, false);
+                snk.transform.localPosition = new Vector3(0f, 0.035f * scaleFactor, 0f);
+                snk.transform.localScale = new Vector3(0.10f, 0.05f, 0.07f) * scaleFactor;
+                Color snkCol = p.Contains("çikolata") ? new Color(0.42f, 0.22f, 0.14f) : (p.Contains("cips") ? new Color(0.95f, 0.78f, 0.15f) : new Color(0.88f, 0.45f, 0.20f));
+                ApplyMaterial(snk, snkCol, 0.1f, 0.6f);
+                DestroyCollider(snk);
             }
 
-            // ==================== 7. ATIŞTIRMALIKLAR (Snacks & Chocolates) ====================
-            else if (p.Contains("çikolata"))
+            // ==================== 7. KOZMETİK (Cosmetics & Personal Care) ====================
+            else if (p.Contains("şampuan") || p.Contains("sabun") || p.Contains("krem") || p.Contains("parfüm") || p.Contains("serum") || p.Contains("macun"))
             {
-                // Sütlü Çikolata (Kırmızı Ambalajlı Tablet Çikolata)
-                GameObject choco = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                choco.transform.SetParent(parent, false);
-                choco.transform.localPosition = new Vector3(0f, 0.03f * scaleFactor, 0f);
-                choco.transform.localScale = new Vector3(0.20f, 0.03f, 0.12f) * scaleFactor;
-                ApplyMaterial(choco, new Color(0.85f, 0.15f, 0.15f), 0.2f, 0.7f);
-                DestroyCollider(choco);
-            }
-            else if (p.Contains("cips"))
-            {
-                // Baharatlı Patates Cipsi (Kafes Şişkin Sarı Cips Poşeti)
-                GameObject chips = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                chips.transform.SetParent(parent, false);
-                chips.transform.localPosition = new Vector3(0f, 0.09f * scaleFactor, 0f);
-                chips.transform.localScale = new Vector3(0.18f, 0.16f, 0.10f) * scaleFactor;
-                chips.transform.localRotation = Quaternion.Euler(0f, 15f, 5f);
-                ApplyMaterial(chips, new Color(0.95f, 0.80f, 0.15f), 0.1f, 0.6f);
-                DestroyCollider(chips);
-            }
-
-            // ==================== 8. KOZMETİK (Cosmetics & Personal Care) ====================
-            else if (p.Contains("şampuan") || p.Contains("sabun") || p.Contains("krem") || p.Contains("macun") || p.Contains("parfüm") || p.Contains("serum"))
-            {
-                // Şampuan / Pompalı Kozmetik Şişesi (Mor/Pembe Şişe + Beyaz Pompa Başlığı)
-                GameObject bot = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                bot.transform.SetParent(parent, false);
-                bot.transform.localPosition = new Vector3(0f, 0.10f * scaleFactor, 0f);
-                bot.transform.localScale = new Vector3(0.10f, 0.16f, 0.10f) * scaleFactor;
-                Color cosCol = p.Contains("şampuan") ? new Color(0.85f, 0.35f, 0.75f) : (p.Contains("parfüm") ? new Color(0.95f, 0.82f, 0.35f) : new Color(0.20f, 0.75f, 0.85f));
-                ApplyMaterial(bot, cosCol, 0.2f, 0.8f);
-                DestroyCollider(bot);
+                // Kozmetik Şişe / Pompa
+                GameObject cos = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                cos.transform.SetParent(parent, false);
+                cos.transform.localPosition = new Vector3(0f, 0.065f * scaleFactor, 0f);
+                cos.transform.localScale = new Vector3(0.06f, 0.11f, 0.06f) * scaleFactor;
+                Color cosCol = p.Contains("parfüm") ? new Color(0.95f, 0.82f, 0.35f) : (p.Contains("şampuan") ? new Color(0.85f, 0.35f, 0.75f) : new Color(0.20f, 0.75f, 0.85f));
+                ApplyMaterial(cos, cosCol, 0.25f, 0.85f);
+                DestroyCollider(cos);
 
                 GameObject pump = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                pump.transform.SetParent(bot.transform, false);
+                pump.transform.SetParent(cos.transform, false);
                 pump.transform.localPosition = new Vector3(0f, 0.55f, 0f);
-                pump.transform.localScale = new Vector3(0.40f, 0.15f, 0.60f);
-                ApplyMaterial(pump, new Color(0.95f, 0.95f, 0.95f), 0.1f, 0.7f);
+                pump.transform.localScale = new Vector3(0.35f, 0.18f, 0.55f);
+                ApplyMaterial(pump, new Color(0.95f, 0.95f, 0.95f), 0.3f, 0.8f);
                 DestroyCollider(pump);
             }
 
-            // ==================== 9. ELEKTRONİK (Electronics) ====================
-            else if (p.Contains("kulaklık") || p.Contains("powerbank") || p.Contains("fare") || p.Contains("saat") || p.Contains("hoparlör") || p.Contains("kablosu"))
+            // ==================== 8. ELEKTRONİK (Electronics & Tech) ====================
+            else if (p.Contains("kulaklık") || p.Contains("powerbank") || p.Contains("fare") || p.Contains("saat") || p.Contains("hoparlör") || p.Contains("bellek") || p.Contains("kablo"))
             {
-                // Parlak Siyah Teknoloji Kutusu (Mat Siyah Gövde + Mavi LED Işık Şeridi)
-                GameObject techBox = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                techBox.transform.SetParent(parent, false);
-                techBox.transform.localPosition = new Vector3(0f, 0.07f * scaleFactor, 0f);
-                techBox.transform.localScale = new Vector3(0.18f, 0.10f, 0.14f) * scaleFactor;
-                ApplyMaterial(techBox, new Color(0.12f, 0.15f, 0.20f), 0.7f, 0.9f);
-                DestroyCollider(techBox);
+                // Teknoloji Kutusu (Mat Siyah + Neon Mavi LED)
+                GameObject tech = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                tech.transform.SetParent(parent, false);
+                tech.transform.localPosition = new Vector3(0f, 0.045f * scaleFactor, 0f);
+                tech.transform.localScale = new Vector3(0.10f, 0.065f, 0.08f) * scaleFactor;
+                ApplyMaterial(tech, new Color(0.12f, 0.15f, 0.20f), 0.75f, 0.90f);
+                DestroyCollider(tech);
 
                 GameObject led = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                led.transform.SetParent(techBox.transform, false);
+                led.transform.SetParent(tech.transform, false);
                 led.transform.localPosition = new Vector3(0f, 0.51f, 0f);
-                led.transform.localScale = new Vector3(0.80f, 0.02f, 0.20f);
-                ApplyMaterial(led, new Color(0.15f, 0.75f, 0.95f), 0.1f, 0.9f);
+                led.transform.localScale = new Vector3(0.75f, 0.02f, 0.15f);
+                ApplyMaterial(led, new Color(0.15f, 0.75f, 0.95f), 0.1f, 0.95f);
                 DestroyCollider(led);
             }
 
-            // ==================== 10. VARSAYILAN STANDART LOW-POLY KUTU ====================
+            // ==================== 9. STANDART DİĞER ÜRÜNLER ====================
             else
             {
-                GameObject box = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                box.transform.SetParent(parent, false);
-                box.transform.localPosition = new Vector3(0f, 0.08f * scaleFactor, 0f);
-                box.transform.localScale = new Vector3(0.16f, 0.14f, 0.14f) * scaleFactor;
-                ApplyMaterial(box, GetProductCategoryColor(pName), 0.1f, 0.5f);
-                DestroyCollider(box);
+                GameObject gen = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                gen.transform.SetParent(parent, false);
+                gen.transform.localPosition = new Vector3(0f, 0.05f * scaleFactor, 0f);
+                gen.transform.localScale = new Vector3(0.09f, 0.08f, 0.08f) * scaleFactor;
+                ApplyMaterial(gen, GetProductCategoryColor(pName), 0.1f, 0.55f);
+                DestroyCollider(gen);
             }
         }
 
-        private static Color GetProductCategoryColor(string pName)
+        public static Color GetProductCategoryColor(string pName)
         {
             if (string.IsNullOrEmpty(pName)) return Color.gray;
             string p = pName.ToLower();

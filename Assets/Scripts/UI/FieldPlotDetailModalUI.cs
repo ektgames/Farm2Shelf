@@ -411,10 +411,14 @@ namespace Farm2Shelf.UI
 
         public static void CloseModal()
         {
-            if (modalInstance != null) Destroy(modalInstance);
+            if (modalInstance != null)
+            {
+                Destroy(modalInstance);
+                modalInstance = null;
+            }
             ModalManager.SetModalOpen(false);
         }
 
-        public static bool IsDetailOpen => modalInstance != null;
+        public static bool IsDetailOpen => modalInstance != null && modalInstance.activeInHierarchy;
     }
 }

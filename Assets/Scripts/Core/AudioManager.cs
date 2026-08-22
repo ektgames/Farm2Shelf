@@ -140,7 +140,7 @@ namespace Farm2Shelf.Core
             }
 
             // SFX Seslerini Yükle
-            string[] sfxNames = new string[] { "button_click", "tablet_tap", "coins_purchase", "harvest_crop", "modal_open", "modal_close" };
+            string[] sfxNames = new string[] { "button_click", "tablet_tap", "coins_purchase", "harvest_crop", "modal_open", "modal_close", "barcode_beep", "cash_register" };
             foreach (string name in sfxNames)
             {
                 AudioClip clip = Resources.Load<AudioClip>($"Audio/SFX/{name}");
@@ -293,6 +293,8 @@ namespace Farm2Shelf.Core
             int sampleRate = 44100;
             float duration = 0.15f;
             if (sfxName == "coins_purchase") duration = 0.30f;
+            else if (sfxName == "barcode_beep") duration = 0.075f;
+            else if (sfxName == "cash_register") duration = 0.32f;
 
             int totalSamples = (int)(duration * sampleRate);
             float[] data = new float[totalSamples];
@@ -307,6 +309,19 @@ namespace Farm2Shelf.Core
                 else if (sfxName == "tablet_tap") freq = 500f - (t / duration) * 200f;
                 else if (sfxName == "coins_purchase") freq = (t < 0.12f) ? 1046f : 1318f;
                 else if (sfxName == "harvest_crop") freq = 600f + (t / duration) * 400f;
+                else if (sfxName == "barcode_beep")
+                {
+                    // Gerçekçi Süpermarket Barkod Okuyucu Bip Sesi (2700 Hz Net ve Parlak Bip)
+                    freq = 2700f;
+                    float attack = Mathf.Clamp01(t / 0.006f);
+                    float decay = Mathf.Pow(env, 0.5f);
+                    data[i] = (Mathf.Sin(2f * Mathf.PI * freq * t) * 0.8f + Mathf.Sin(4f * Mathf.PI * freq * t) * 0.2f) * 0.45f * attack * decay;
+                    continue;
+                }
+                else if (sfxName == "cash_register")
+                {
+                    freq = (t < 0.14f) ? 1568f : 2093f; // G6 -> C7 neşeli kasa çanı
+                }
 
                 data[i] = Mathf.Sin(2f * Mathf.PI * freq * t) * 0.35f * env;
             }
@@ -420,6 +435,19 @@ namespace Farm2Shelf.Core
         public void PlayHarvest() => PlaySFX("harvest_crop");
         public void PlayModalOpen() => PlaySFX("modal_open");
         public void PlayModalClose() => PlaySFX("modal_close");
+
+        public void PlayBarcodeBeep(float pitch = 1.0f)
+        {
+            if (isSfxMuted || sfxSource == null) return;
+            if (sfxClips.TryGetValue("barcode_beep", out AudioClip clip))
+            {
+                sfxSource.pitch = Mathf.Clamp(pitch, 0.7f, 1.4f);
+                sfxSource.PlayOneShot(clip, sfxVolume * 0.90f);
+                sfxSource.pitch = 1.0f;
+            }
+        }
+
+        public void PlayCashRegister() => PlaySFX("cash_register");
 
         // ==================== PROPERTY GETTERS ====================
 

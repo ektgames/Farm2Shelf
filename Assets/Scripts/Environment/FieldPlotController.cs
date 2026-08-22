@@ -19,6 +19,8 @@ namespace Farm2Shelf.Environment
 
     public class FieldPlotController : MonoBehaviour
     {
+        public static readonly List<FieldPlotController> AllPlots = new List<FieldPlotController>();
+
         public PlotState State { get; private set; } = PlotState.Empty;
         public string PlantedSeedId { get; private set; } = "";
         public int CurrentGrowthDay { get; private set; } = 0;
@@ -31,8 +33,20 @@ namespace Farm2Shelf.Environment
         private static GameObject radialMenuCanvasObj;
         public static bool IsRadialMenuOpen => radialMenuCanvasObj != null;
 
+        private void OnEnable()
+        {
+            if (!AllPlots.Contains(this)) AllPlots.Add(this);
+        }
+
+        private void OnDisable()
+        {
+            AllPlots.Remove(this);
+        }
+
         private void Start()
         {
+            if (!AllPlots.Contains(this)) AllPlots.Add(this);
+
             if (GetComponent<Collider>() == null)
             {
                 BoxCollider col = gameObject.AddComponent<BoxCollider>();
@@ -64,6 +78,7 @@ namespace Farm2Shelf.Environment
 
         private void OnDestroy()
         {
+            AllPlots.Remove(this);
             if (TimeManager.Instance != null)
             {
                 TimeManager.Instance.OnDateUpdated -= HandleDateUpdated;
@@ -97,7 +112,7 @@ namespace Farm2Shelf.Environment
                                     FieldPlotController plot = h.collider.GetComponentInParent<FieldPlotController>();
                                     if (plot == null) plot = h.collider.GetComponent<FieldPlotController>();
 
-                                    if (plot != null)
+                                    if (plot == this)
                                     {
                                         plot.OnPlotClicked();
                                         break;

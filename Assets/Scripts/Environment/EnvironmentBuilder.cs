@@ -1059,18 +1059,18 @@ namespace Farm2Shelf.Environment
         {
             if (obj == null) return;
 
-            // 1. Fiziksel Çarpışma Kutusu (BoxCollider - Karakterlerin/Fizik Nesnelerinin İçinden Geçmesini Engeller)
+            // 1. Karakterlerin takılmadan rahatça koltuğa/sandalyeye oturabilmesi için Trigger BoxCollider
             BoxCollider col = obj.AddComponent<BoxCollider>();
             col.center = center;
             col.size = size;
+            col.isTrigger = true;
 
-            // 2. NavMesh Dinamik Yürüyüş Engeli (NavMeshObstacle with Carving - Yolu Karakterler İçin Tam Olarak Oyar ve Yürünmez Yapar)
+            // 2. NavMesh Dinamik Yürüyüş Engeli (Oturmayı ve serbest geçişi engellemez)
             NavMeshObstacle obstacle = obj.AddComponent<NavMeshObstacle>();
             obstacle.shape = NavMeshObstacleShape.Box;
             obstacle.center = center;
             obstacle.size = size;
-            obstacle.carving = true;
-            obstacle.carveOnlyStationary = false;
+            obstacle.carving = false;
         }
 
         private void CreateBreakTableWithChairs(Transform parent, Vector3 centerPos, int chairCount, Material tableMat, Material chairMat)

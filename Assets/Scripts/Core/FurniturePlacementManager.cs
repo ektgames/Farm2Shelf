@@ -55,6 +55,8 @@ namespace Farm2Shelf.Core
 
         public void StartPlacement(FurnitureType type, DeliveryBoxController boxController)
         {
+            if (EKTPhoneManager.Instance != null) EKTPhoneManager.Instance.ClosePhoneTabletInstant();
+            PalletStorageInventoryModalUI.HideModal();
             ModalManager.SetModalOpen(false);
             if (FurnitureInfoModalUI.Instance != null) FurnitureInfoModalUI.Instance.CloseModal();
 
@@ -70,33 +72,25 @@ namespace Farm2Shelf.Core
             ghostObj = FurnitureModelBuilder.CreateFurnitureModel(type, isGhost: true);
             ghostObj.name = "Ghost_" + type.ToString();
 
-            if (boxController != null)
-            {
-                ghostObj.transform.position = boxController.transform.position;
-            }
-            else
-            {
-                Camera mainCam = Camera.main;
-                if (mainCam != null)
-                {
-                    Ray ray = mainCam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
-                    if (groundPlane.Raycast(ray, out float enter))
-                    {
-                        Vector3 hitPoint = ray.GetPoint(enter);
-                        hitPoint.x = Mathf.Round(hitPoint.x * 4f) / 4f;
-                        hitPoint.z = Mathf.Round(hitPoint.z * 4f) / 4f;
-                        hitPoint.y = 0.01f;
-                        ghostObj.transform.position = hitPoint;
-                    }
-                }
-            }
+            FurnitureItemDef def = FurnitureDatabase.GetDef(type);
+            Vector3 startPos = (def != null && def.zone == FurnitureZone.StorageOnly)
+                ? new Vector3(7.0f, 0.01f, 4.5f)
+                : new Vector3(-5.0f, 0.01f, 4.0f);
 
+            ghostObj.transform.position = startPos;
+            ghostObj.transform.rotation = Quaternion.Euler(0f, currentYRotation, 0f);
+
+            SetFloorGridVisible(true);
             if (placementHUDCanvas != null) placementHUDCanvas.SetActive(true);
 
-            FurnitureItemDef def = FurnitureDatabase.GetDef(type);
             if (infoStatusText != null && def != null)
             {
-                infoStatusText.text = $"🛠️ {def.name} Yerleştiriliyor\nEkrana dokunarak veya tıklayarak taşıyın | Paneldeki [✅ Kur] butonuna basarak kurun";
+                string infoFmt = LocalizationManager.L(
+                    "HUD_PlacingInfo",
+                    "🛠️ {0} Yerleştiriliyor\nEkrana dokunarak taşıyın | Paneldeki [✅ Kur] butonuna basın",
+                    "🛠️ Placing {0}\nDrag on screen to move | Tap [✅ Assemble] to place"
+                );
+                infoStatusText.text = string.Format(infoFmt, def.LocalizedName);
             }
         }
 
@@ -122,6 +116,7 @@ namespace Farm2Shelf.Core
             ghostObj.transform.position = origPos;
             ghostObj.transform.rotation = origRot;
 
+            SetFloorGridVisible(true);
             if (placementHUDCanvas != null) placementHUDCanvas.SetActive(true);
 
             FurnitureItemDef def = FurnitureDatabase.GetDef(type);
@@ -147,23 +142,29 @@ namespace Farm2Shelf.Core
             Camera mainCam = Camera.main;
             if (mainCam != null)
             {
-                Vector2 pointerPos = GetPointerPosition();
-
-                // PC ve Mobil'de imleç UI Butonlarının (ör. ✅ Kur) üzerinde değilse,
-                // önizlemeyi fare imlecinin durduğu, sürüklendiği veya tıklandığı 3D zemin noktasına pürüzsüzce taşı!
-                if (pointerPos != Vector2.zero && !IsPointerOverUIButton(pointerPos))
+                // 1. DOKUNMA VEYA FARE TIKLAMASI/SÜRÜKLEMESİ:
+                // Ekrana dokunulduğunda veya tıklandığında anında o konuma taşınır.
+                // Parmağı/fareyi bıraktığınızda mobilya tam olarak orada kalır!
+                if (IsAnyPointerPressed(out Vector2 pointerPos, out bool isTouchInput))
                 {
-                    Ray ray = mainCam.ScreenPointToRay(pointerPos);
-                    Plane floorPlane = new Plane(Vector3.up, new Vector3(0f, 0.01f, 0f));
-
-                    if (floorPlane.Raycast(ray, out float enter))
+                    if (!IsPointerOverUIButton(pointerPos))
                     {
-                        Vector3 hitPoint = ray.GetPoint(enter);
-                        hitPoint.x = Mathf.Round(hitPoint.x * 4f) / 4f;
-                        hitPoint.z = Mathf.Round(hitPoint.z * 4f) / 4f;
-                        hitPoint.y = 0.01f;
+                        Ray ray = mainCam.ScreenPointToRay(pointerPos);
+                        Plane floorPlane = new Plane(Vector3.up, new Vector3(0f, 0.01f, 0f));
 
-                        ghostObj.transform.position = hitPoint;
+                        if (floorPlane.Raycast(ray, out float enter))
+                        {
+                            Vector3 hitPoint = ray.GetPoint(enter);
+                            hitPoint.x = Mathf.Round(hitPoint.x * 4f) / 4f; // 0.25m hassas ızgara yapışması
+                            hitPoint.z = Mathf.Round(hitPoint.z * 4f) / 4f;
+                            hitPoint.y = 0.01f;
+
+                            // Sınır güvenliği
+                            hitPoint.x = Mathf.Clamp(hitPoint.x, -14f, 12f);
+                            hitPoint.z = Mathf.Clamp(hitPoint.z, -3f, 25f);
+
+                            ghostObj.transform.position = hitPoint;
+                        }
                     }
                 }
 
@@ -177,11 +178,7 @@ namespace Farm2Shelf.Core
                 if (keyMove != Vector3.zero && Time.time - lastKeyMoveTime > 0.10f)
                 {
                     lastKeyMoveTime = Time.time;
-                    Vector3 newPos = ghostObj.transform.position + keyMove;
-                    newPos.x = Mathf.Round(newPos.x * 4f) / 4f;
-                    newPos.z = Mathf.Round(newPos.z * 4f) / 4f;
-                    newPos.y = 0.01f;
-                    ghostObj.transform.position = newPos;
+                    NudgeGhost(keyMove.x, keyMove.z);
                 }
             }
 
@@ -201,7 +198,7 @@ namespace Farm2Shelf.Core
             {
                 if (isValid)
                 {
-                    infoStatusText.text = $"🛠️ {def.name} Taşınıyor (Konum UYGUN ✅)\nEkrana dokunarak veya tıklayarak taşıyın | Paneldeki [✅ Kur] butonuna basın";
+                    infoStatusText.text = $"🛠️ {def.name} Taşınıyor (Konum UYGUN ✅)\nEkrana dokunarak taşıyın | Paneldeki [✅ Kur] butonuna basın";
                     infoStatusText.color = Color.white;
                 }
                 else
@@ -230,16 +227,75 @@ namespace Farm2Shelf.Core
         }
 
         // --- HİBRİT INPUT SYSTEM & LEGACY INPUT OKUYUCULARI ---
-        private Vector2 GetPointerPosition()
+        private bool IsAnyPointerPressed(out Vector2 pointerPos, out bool isTouch)
         {
-            try
-            {
-                Vector3 mPos = Input.mousePosition;
-                if (mPos.sqrMagnitude > 0.01f) return new Vector2(mPos.x, mPos.y);
-            }
-            catch { }
+            pointerPos = Vector2.zero;
+            isTouch = false;
 
 #if ENABLE_INPUT_SYSTEM
+            if (UnityEngine.InputSystem.Touchscreen.current != null)
+            {
+                var touch = UnityEngine.InputSystem.Touchscreen.current.primaryTouch;
+                if (touch.press.isPressed)
+                {
+                    pointerPos = touch.position.ReadValue();
+                    isTouch = true;
+                    if (pointerPos.sqrMagnitude > 1f) return true;
+                }
+            }
+
+            if (UnityEngine.InputSystem.Mouse.current != null)
+            {
+                if (UnityEngine.InputSystem.Mouse.current.leftButton.isPressed)
+                {
+                    pointerPos = UnityEngine.InputSystem.Mouse.current.position.ReadValue();
+                    isTouch = false;
+                    if (pointerPos.sqrMagnitude > 1f) return true;
+                }
+            }
+
+            if (UnityEngine.InputSystem.Pointer.current != null)
+            {
+                if (UnityEngine.InputSystem.Pointer.current.press.isPressed)
+                {
+                    pointerPos = UnityEngine.InputSystem.Pointer.current.position.ReadValue();
+                    isTouch = false;
+                    if (pointerPos.sqrMagnitude > 1f) return true;
+                }
+            }
+#else
+            try
+            {
+                if (Input.touchCount > 0)
+                {
+                    pointerPos = Input.GetTouch(0).position;
+                    isTouch = true;
+                    return true;
+                }
+                if (Input.GetMouseButton(0))
+                {
+                    pointerPos = (Vector2)Input.mousePosition;
+                    isTouch = false;
+                    return true;
+                }
+            }
+            catch {}
+#endif
+
+            return false;
+        }
+
+        private Vector2 GetPointerPosition()
+        {
+#if ENABLE_INPUT_SYSTEM
+            if (UnityEngine.InputSystem.Touchscreen.current != null)
+            {
+                var touch = UnityEngine.InputSystem.Touchscreen.current.primaryTouch;
+                if (touch.press.isPressed)
+                {
+                    return touch.position.ReadValue();
+                }
+            }
             if (UnityEngine.InputSystem.Mouse.current != null)
             {
                 Vector2 mPos = UnityEngine.InputSystem.Mouse.current.position.ReadValue();
@@ -250,10 +306,14 @@ namespace Farm2Shelf.Core
                 Vector2 pPos = UnityEngine.InputSystem.Pointer.current.position.ReadValue();
                 if (pPos.sqrMagnitude > 0.01f) return pPos;
             }
-            if (UnityEngine.InputSystem.Touchscreen.current != null && UnityEngine.InputSystem.Touchscreen.current.primaryTouch.press.isPressed)
+#else
+            try
             {
-                return UnityEngine.InputSystem.Touchscreen.current.primaryTouch.position.ReadValue();
+                if (Input.touchCount > 0) return Input.GetTouch(0).position;
+                Vector3 mPos = Input.mousePosition;
+                if (mPos.sqrMagnitude > 0.01f) return new Vector2(mPos.x, mPos.y);
             }
+            catch { }
 #endif
 
             return Vector2.zero;
@@ -418,11 +478,16 @@ namespace Farm2Shelf.Core
             {
                 FurnitureDeliveryManager.Instance.RemoveBox(sourceBox);
             }
+            else if (FurnitureDeliveryManager.Instance != null)
+            {
+                FurnitureDeliveryManager.Instance.RemoveOneBoxOfType(currentType);
+            }
 
             CleanupGhost();
             isPlacing = false;
             isReinstalling = false;
             savedReplacementRows = null;
+            SetFloorGridVisible(false);
             if (placementHUDCanvas != null) placementHUDCanvas.SetActive(false);
 
             if (TutorialManager.Instance != null)
@@ -677,45 +742,18 @@ namespace Farm2Shelf.Core
             if (PlacedFurnitureController.IsWalkableFloorDecoration(type)) return false;
 
             Vector3 frontDir = Quaternion.Euler(0f, rotationY, 0f) * Vector3.forward;
-            float checkDist = 1.0f; // 1 kare (~1 metre) ok yönü zorunlu geçiş koridoru boşluğu
+            float checkDist = 0.5f; // Ok yönü hafif mesafe kontrolü
             Vector3 frontCheckPos = pos + frontDir * checkDist;
 
-            // A. Duvar Sınırı Kontrolü: Ön ok yönü duvara çok yakın bakamaz (En az 1 kare mesafe olmalı)
-            EnvironmentBuilder env = EnvironmentBuilder.Instance;
-            int level = (env != null) ? env.CurrentUpgradeLevel : 1;
-            float frontWallZ = -3.0f;
-            float storeDepth = (level == 1) ? 18.0f : ((level == 2) ? 27.0f : 36.0f);
-            float storageDepth = (level == 1) ? 9.5f : ((level == 2) ? 14.5f : 19.5f);
-            float backWallZ = frontWallZ + storeDepth;
-            float storageBackZ = frontWallZ + storageDepth;
-
-            FurnitureItemDef def = FurnitureDatabase.GetDef(type);
-            FurnitureZone zone = (def != null) ? def.zone : FurnitureZone.StoreOnly;
-
-            if (zone == FurnitureZone.StoreOnly)
-            {
-                if (frontCheckPos.x < -12.3f || frontCheckPos.x > 2.3f || frontCheckPos.z < -2.3f || frontCheckPos.z > (backWallZ - 0.8f))
-                {
-                    return true;
-                }
-            }
-            else if (zone == FurnitureZone.StorageOnly)
-            {
-                if (frontCheckPos.x < 3.7f || frontCheckPos.x > 10.3f || frontCheckPos.z < -2.3f || frontCheckPos.z > (storageBackZ - 0.8f))
-                {
-                    return true;
-                }
-            }
-
-            // B. Kapı Önleri Geçiş Koridorları (Dükkan Ana Kapısı ve Depo Geçiş Kapısı)
-            // Ana Kapı Geçiş Yolu (-6.8f ile -3.2f arası, z <= -0.8f)
-            if (pos.x >= -6.8f && pos.x <= -3.2f && pos.z <= -0.8f)
+            // A. Kapı Önleri Geçiş Koridoru (Dükkan Ana Girişi Tam Önü)
+            // Ana Kapı Geçiş Yolu (-6.0f ile -4.0f arası, z <= -1.2f)
+            if (pos.x >= -6.0f && pos.x <= -4.0f && pos.z <= -1.2f)
             {
                 return true;
             }
 
-            // Depo Kapı Geçiş Yolu (x: 2.0f - 4.4f, z: -0.2f - 4.2f)
-            if (pos.x >= 2.0f && pos.x <= 4.4f && pos.z >= -0.2f && pos.z <= 4.2f)
+            // B. Depo Kapı Geçiş Yolu (x: 2.2f - 4.2f, z: 0.0f - 3.5f)
+            if (pos.x >= 2.2f && pos.x <= 4.2f && pos.z >= 0.0f && pos.z <= 3.5f)
             {
                 return true;
             }
@@ -797,6 +835,7 @@ namespace Farm2Shelf.Core
 
             CleanupGhost();
             isPlacing = false;
+            SetFloorGridVisible(false);
             if (placementHUDCanvas != null) placementHUDCanvas.SetActive(false);
             Debug.Log("[FurniturePlacement] Yerleştirme iptal edildi.");
         }
@@ -812,7 +851,7 @@ namespace Farm2Shelf.Core
 
         private bool IsPointerOverUIButton(Vector2 pointerPos)
         {
-            if (UnityEngine.EventSystems.EventSystem.current == null) return false;
+            if (UnityEngine.EventSystems.EventSystem.current == null || placementHUDCanvas == null) return false;
 
             UnityEngine.EventSystems.PointerEventData eventData = new UnityEngine.EventSystems.PointerEventData(UnityEngine.EventSystems.EventSystem.current);
             eventData.position = pointerPos;
@@ -821,9 +860,12 @@ namespace Farm2Shelf.Core
 
             foreach (var r in results)
             {
-                if (r.gameObject != null && (r.gameObject.GetComponentInParent<Button>() != null || r.gameObject.GetComponent<Button>() != null))
+                if (r.gameObject != null && r.gameObject.transform.IsChildOf(placementHUDCanvas.transform))
                 {
-                    return true;
+                    if (r.gameObject.GetComponentInParent<Button>() != null || r.gameObject.GetComponent<Button>() != null)
+                    {
+                        return true;
+                    }
                 }
             }
 
@@ -852,8 +894,75 @@ namespace Farm2Shelf.Core
             }
             else
             {
-                ModalManager.ShowModal("Geçersiz Konum! ⚠️", "Seçtiğiniz konum duvarlar, kapılar veya başka bir mobilya ile çakışıyor!\n\nLütfen mobilyayı temiz ve boş bir alana taşıyın.", "Tamam");
+                string warnTitle = LocalizationManager.L("Modal_InvalidPlacement_Title", "Geçersiz Konum! ⚠️", "Invalid Location! ⚠️");
+                string warnBody = LocalizationManager.L("Modal_InvalidPlacement_Body", "Seçtiğiniz konum duvarlar, kapılar veya başka bir mobilya ile çakışıyor!\n\nLütfen mobilyayı temiz ve boş bir alana taşıyın.", "The chosen spot overlaps with walls, doors, or other furniture!\n\nPlease move the furniture to an open and clear space.");
+                string btnOk = LocalizationManager.L("Btn_OK", "Tamam", "OK");
+                ModalManager.ShowModal(warnTitle, warnBody, btnOk);
             }
+        }
+
+        public void NudgeGhost(float dx, float dz)
+        {
+            if (ghostObj == null || !isPlacing) return;
+            Vector3 pos = ghostObj.transform.position;
+            pos.x = Mathf.Round((pos.x + dx) * 4f) / 4f;
+            pos.z = Mathf.Round((pos.z + dz) * 4f) / 4f;
+            pos.y = 0.01f;
+            ghostObj.transform.position = pos;
+        }
+
+        private GameObject floorGridObj;
+
+        private void CreateFloorGridOverlay()
+        {
+            if (floorGridObj != null) return;
+
+            floorGridObj = new GameObject("Placement_FloorGrid_Overlay");
+            floorGridObj.transform.position = new Vector3(-5.0f, 0.02f, 6.0f);
+            floorGridObj.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+
+            GameObject storeQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            storeQuad.name = "Store_Grid_Quad";
+            storeQuad.transform.SetParent(floorGridObj.transform, false);
+            storeQuad.transform.localPosition = Vector3.zero;
+            storeQuad.transform.localScale = new Vector3(16.0f, 20.0f, 1f);
+
+            DestroyImmediate(storeQuad.GetComponent<Collider>());
+
+            Shader s = Shader.Find("Universal Render Pipeline/Unlit");
+            if (s == null) s = Shader.Find("Universal Render Pipeline/Lit");
+            if (s == null) s = Shader.Find("Unlit/Color");
+            if (s == null) s = Shader.Find("Sprites/Default");
+            if (s == null) s = Shader.Find("Standard");
+
+            Material gridMat = new Material(s);
+            gridMat.name = "Floor_Grid_Material";
+            Texture2D gridTex = UIStyleUtility.GetFloorGridTexture();
+            gridMat.mainTexture = gridTex;
+            if (gridMat.HasProperty("_BaseMap")) gridMat.SetTexture("_BaseMap", gridTex);
+            if (gridMat.HasProperty("_BaseColor")) gridMat.SetColor("_BaseColor", Color.white);
+            gridMat.color = Color.white;
+
+            gridMat.mainTextureScale = new Vector2(16f, 20f);
+            if (gridMat.HasProperty("_BaseMap")) gridMat.SetTextureScale("_BaseMap", new Vector2(16f, 20f));
+
+            gridMat.SetFloat("_Surface", 1);
+            gridMat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            gridMat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            gridMat.SetInt("_ZWrite", 0);
+            gridMat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            gridMat.EnableKeyword("_ALPHABLEND_ON");
+            gridMat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+
+            storeQuad.GetComponent<Renderer>().sharedMaterial = gridMat;
+
+            floorGridObj.SetActive(false);
+        }
+
+        private void SetFloorGridVisible(bool visible)
+        {
+            if (floorGridObj == null) CreateFloorGridOverlay();
+            if (floorGridObj != null) floorGridObj.SetActive(visible);
         }
 
         private void CreatePlacementHUDUI()
@@ -864,11 +973,12 @@ namespace Farm2Shelf.Core
             placementHUDCanvas = new GameObject("Placement_HUD_Canvas");
             Canvas canvas = placementHUDCanvas.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 120;
+            canvas.sortingOrder = 950; // En üst öncelikli katman (Tablet ve diğer HUD'ların önünde net görünür)
 
             CanvasScaler scaler = placementHUDCanvas.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);
+            scaler.matchWidthOrHeight = 0.5f;
             placementHUDCanvas.AddComponent<GraphicRaycaster>();
 
             GameObject panel = new GameObject("HUD_BottomBar");
@@ -878,44 +988,123 @@ namespace Farm2Shelf.Core
             pRect.anchorMin = new Vector2(0.5f, 0f);
             pRect.anchorMax = new Vector2(0.5f, 0f);
             pRect.pivot = new Vector2(0.5f, 0f);
-            pRect.anchoredPosition = new Vector2(0f, 40f);
-            pRect.sizeDelta = new Vector2(940f, 95f);
+            pRect.anchoredPosition = new Vector2(-75f, 25f);
+            pRect.sizeDelta = new Vector2(760f, 85f);
 
             Image bg = panel.AddComponent<Image>();
-            bg.sprite = UIStyleUtility.CreateOutlinePillSprite(940, 95, 16, 2, new Color(0.95f, 0.40f, 0.55f), new Color(0.12f, 0.15f, 0.20f, 0.95f));
+            bg.sprite = UIStyleUtility.CreateOutlinePillSprite(760, 85, 16, 2, new Color(0.95f, 0.40f, 0.55f), new Color(0.12f, 0.15f, 0.20f, 0.95f));
             bg.raycastTarget = false;
 
             GameObject textObj = new GameObject("HUD_InfoText");
             textObj.transform.SetParent(panel.transform, false);
 
             RectTransform tRect = textObj.AddComponent<RectTransform>();
-            tRect.anchoredPosition = new Vector2(-220f, 0f);
-            tRect.sizeDelta = new Vector2(440f, 75f);
+            tRect.anchoredPosition = new Vector2(-180f, 0f);
+            tRect.sizeDelta = new Vector2(360f, 70f);
 
             infoStatusText = textObj.AddComponent<Text>();
             infoStatusText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             infoStatusText.raycastTarget = false;
-            infoStatusText.text = "🛠️ Mobilya Yerleştiriliyor...";
-            infoStatusText.fontSize = 17;
+            infoStatusText.text = LocalizationManager.L("HUD_PlacingGeneric", "🛠️ Mobilya Yerleştiriliyor...", "🛠️ Placing Furniture...");
+            infoStatusText.fontSize = 15;
             infoStatusText.alignment = TextAnchor.MiddleCenter;
             infoStatusText.color = Color.white;
 
             // 1. KUR BUTONU (Yeşil - Dokunulan Yere Kurmayı Onaylar)
-            CreateHUDButton(panel.transform, new Vector2(100f, 0f), new Vector2(130f, 60f), "✅ Kur", new Color(0.18f, 0.78f, 0.38f), () => {
+            string btnAssemble = LocalizationManager.L("Btn_AssembleHUD", "✅ Kur", "✅ Assemble");
+            CreateHUDButton(panel.transform, new Vector2(65f, 0f), new Vector2(110f, 55f), btnAssemble, new Color(0.18f, 0.78f, 0.38f), () => {
                 ConfirmCurrentPlacement();
             });
 
             // 2. DÖNDÜR BUTONU (Mavi - 90 Derece Döndürür)
-            CreateHUDButton(panel.transform, new Vector2(245f, 0f), new Vector2(130f, 60f), "🔄 Döndür", new Color(0.20f, 0.55f, 0.88f), () => {
+            string btnRotate = LocalizationManager.L("Btn_RotateHUD", "🔄 Döndür", "🔄 Rotate");
+            CreateHUDButton(panel.transform, new Vector2(185f, 0f), new Vector2(110f, 55f), btnRotate, new Color(0.20f, 0.55f, 0.88f), () => {
                 RotatePlacement();
             });
 
             // 3. İPTAL BUTONU (Kırmızı - Eski Konumuna Veya Envantere İade Eder)
-            CreateHUDButton(panel.transform, new Vector2(390f, 0f), new Vector2(130f, 60f), "❌ İptal", new Color(0.88f, 0.25f, 0.25f), () => {
+            string btnCancel = LocalizationManager.L("Btn_CancelHUD", "❌ İptal", "❌ Cancel");
+            CreateHUDButton(panel.transform, new Vector2(305f, 0f), new Vector2(110f, 55f), btnCancel, new Color(0.88f, 0.25f, 0.25f), () => {
                 CancelPlacement();
             });
 
+            // 🎮 4. MİNİ D-PAD (Hassas İnce Ayar Ok Tuşları: 0.25m Adımlarla Hizalama)
+            GameObject dpadPanel = new GameObject("HUD_DPad_Panel");
+            dpadPanel.transform.SetParent(placementHUDCanvas.transform, false);
+
+            RectTransform dpRect = dpadPanel.AddComponent<RectTransform>();
+            dpRect.anchorMin = new Vector2(0.5f, 0f);
+            dpRect.anchorMax = new Vector2(0.5f, 0f);
+            dpRect.pivot = new Vector2(0.5f, 0f);
+            dpRect.anchoredPosition = new Vector2(380f, 25f);
+            dpRect.sizeDelta = new Vector2(130f, 130f);
+
+            Image dpBg = dpadPanel.AddComponent<Image>();
+            dpBg.sprite = UIStyleUtility.CreateOutlinePillSprite(130, 130, 18, 2, new Color(0.20f, 0.70f, 0.95f, 0.85f), new Color(0.10f, 0.13f, 0.18f, 0.95f));
+            dpBg.raycastTarget = false;
+
+            // Merkez Bilgi Rozeti (0.25m)
+            GameObject centerObj = new GameObject("DPad_Center_Text");
+            centerObj.transform.SetParent(dpadPanel.transform, false);
+            RectTransform crt = centerObj.AddComponent<RectTransform>();
+            crt.anchoredPosition = Vector2.zero;
+            crt.sizeDelta = new Vector2(40f, 40f);
+
+            Text cText = centerObj.AddComponent<Text>();
+            cText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            cText.text = "📐\n<size=9>0.25m</size>";
+            cText.fontSize = 12;
+            cText.fontStyle = FontStyle.Bold;
+            cText.alignment = TextAnchor.MiddleCenter;
+            cText.color = new Color(0.40f, 0.85f, 1.0f);
+            cText.raycastTarget = false;
+
+            // ⬆️ YUKARI (Z + 0.25m)
+            CreateDPadArrowButton(dpadPanel.transform, new Vector2(0f, 42f), "⬆️", () => NudgeGhost(0f, 0.25f));
+            // ⬇️ AŞAĞI (Z - 0.25m)
+            CreateDPadArrowButton(dpadPanel.transform, new Vector2(0f, -42f), "⬇️", () => NudgeGhost(0f, -0.25f));
+            // ⬅️ SOL (X - 0.25m)
+            CreateDPadArrowButton(dpadPanel.transform, new Vector2(-42f, 0f), "⬅️", () => NudgeGhost(-0.25f, 0f));
+            // ➡️ SAĞ (X + 0.25m)
+            CreateDPadArrowButton(dpadPanel.transform, new Vector2(42f, 0f), "➡️", () => NudgeGhost(0.25f, 0f));
+
             placementHUDCanvas.SetActive(false);
+        }
+
+        private GameObject CreateDPadArrowButton(Transform parent, Vector2 pos, string arrow, UnityEngine.Events.UnityAction onClick)
+        {
+            GameObject btnObj = new GameObject("DPad_" + arrow);
+            btnObj.transform.SetParent(parent, false);
+
+            RectTransform r = btnObj.AddComponent<RectTransform>();
+            r.anchoredPosition = pos;
+            r.sizeDelta = new Vector2(46f, 46f);
+
+            Image img = btnObj.AddComponent<Image>();
+            img.sprite = UIStyleUtility.CreateRoundedPillSprite(46, 46, 12, new Color(0.18f, 0.26f, 0.38f, 0.95f));
+            img.raycastTarget = true;
+
+            Button btn = btnObj.AddComponent<Button>();
+            btn.targetGraphic = img;
+            btn.onClick.AddListener(onClick);
+
+            GameObject txtObj = new GameObject("Arrow");
+            txtObj.transform.SetParent(btnObj.transform, false);
+            RectTransform tr = txtObj.AddComponent<RectTransform>();
+            tr.anchorMin = Vector2.zero;
+            tr.anchorMax = Vector2.one;
+            tr.sizeDelta = Vector2.zero;
+
+            Text txt = txtObj.AddComponent<Text>();
+            txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            txt.text = arrow;
+            txt.fontSize = 18;
+            txt.fontStyle = FontStyle.Bold;
+            txt.alignment = TextAnchor.MiddleCenter;
+            txt.color = Color.white;
+            txt.raycastTarget = false;
+
+            return btnObj;
         }
 
         private GameObject CreateHUDButton(Transform parent, Vector2 pos, Vector2 size, string label, Color bgCol, UnityEngine.Events.UnityAction onClick)
@@ -929,6 +1118,7 @@ namespace Farm2Shelf.Core
 
             Image img = btnObj.AddComponent<Image>();
             img.sprite = UIStyleUtility.CreateRoundedPillSprite((int)size.x, (int)size.y, 10, bgCol);
+            img.raycastTarget = true;
 
             Button btn = btnObj.AddComponent<Button>();
             btn.targetGraphic = img;
@@ -948,6 +1138,7 @@ namespace Farm2Shelf.Core
             txt.fontStyle = FontStyle.Bold;
             txt.alignment = TextAnchor.MiddleCenter;
             txt.color = Color.white;
+            txt.raycastTarget = false;
 
             return btnObj;
         }

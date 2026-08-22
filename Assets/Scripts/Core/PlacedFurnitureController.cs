@@ -644,29 +644,277 @@ namespace Farm2Shelf.Core
             GameObject rowContainer = new GameObject(containerName);
             rowContainer.transform.SetParent(transform, false);
 
-            // Raf Yükseklik Y Yörüngeleri
-            float rowY = 0.35f + targetIndex * 0.48f;
-            if (FurnitureType == FurnitureType.StorageShelf) rowY = 0.18f + targetIndex * 0.20f;
-            else if (FurnitureType == FurnitureType.Fridge || FurnitureType == FurnitureType.Freezer) rowY = 0.25f + targetIndex * 0.42f;
+            GetShelfRowGridPlacement(FurnitureType, targetIndex, rData.currentStock, rData.maxCapacity, out List<Vector3> positions, out Quaternion rotation, out float scale);
 
-            // Stok Miktarına Göre Görsel Nesne Sayısı (Tam Doluysa 8 Nesne: 2 Sıra x 4 Sütun)
-            float fillRatio = Mathf.Clamp01((float)rData.currentStock / rData.maxCapacity);
-            int visualCount = Mathf.Clamp(Mathf.RoundToInt(fillRatio * 8f), 1, 8);
-            if (rData.currentStock == rData.maxCapacity) visualCount = 8; // Tam doluysa 8 nesne!
-
-            float[] xOffsets = new float[] { -0.52f, -0.18f, 0.18f, 0.52f };
-            float[] zOffsets = new float[] { -0.14f, 0.14f };
-
-            for (int k = 0; k < visualCount; k++)
+            for (int k = 0; k < positions.Count; k++)
             {
-                int xIndex = k % 4;
-                int zIndex = (k / 4) % 2;
-
-                Vector3 localPos = new Vector3(xOffsets[xIndex], rowY, zOffsets[zIndex]);
-                Farm2Shelf.Environment.Procedural3DProductBuilder.CreateProduct3DMesh(rowContainer.transform, rData.productName, localPos, FurnitureType == FurnitureType.StorageShelf);
+                Farm2Shelf.Environment.Procedural3DProductBuilder.CreateProduct3DMesh(
+                    rowContainer.transform, 
+                    rData.productName, 
+                    positions[k], 
+                    rotation, 
+                    scale, 
+                    FurnitureType == FurnitureType.StorageShelf
+                );
             }
 
             EnsureChildClickForwarders();
+        }
+
+        private void GetShelfRowGridPlacement(
+            FurnitureType type, 
+            int rowIndex, 
+            int currentStock, 
+            int maxCapacity, 
+            out List<Vector3> positions, 
+            out Quaternion rotation, 
+            out float scale)
+        {
+            positions = new List<Vector3>();
+            rotation = Quaternion.identity;
+            scale = 1.0f;
+
+            float fillRatio = Mathf.Clamp01((float)currentStock / Mathf.Max(1, maxCapacity));
+
+            switch (type)
+            {
+                case FurnitureType.Shelf:
+                {
+                    // Standart Teşhir Rafı (w=1.8m, h=2.0m, d=0.6m) - 4 Kat
+                    float[] shelfY = new float[] { 0.33f, 0.93f, 1.53f, 2.05f };
+                    float y = (rowIndex < shelfY.Length) ? shelfY[rowIndex] : (0.33f + rowIndex * 0.58f);
+                    
+                    float[] xCols = new float[] { -0.55f, -0.275f, 0f, 0.275f, 0.55f };
+                    float[] zRanks = new float[] { -0.09f, 0.09f };
+                    scale = 0.95f;
+
+                    int maxSlots = xCols.Length * zRanks.Length; // 10 nesne
+                    int visibleCount = (currentStock >= maxCapacity) ? maxSlots : Mathf.Clamp(Mathf.CeilToInt(fillRatio * maxSlots), currentStock > 0 ? 1 : 0, maxSlots);
+
+                    for (int k = 0; k < visibleCount; k++)
+                    {
+                        int xIdx = k % xCols.Length;
+                        int zIdx = (k / xCols.Length) % zRanks.Length;
+                        positions.Add(new Vector3(xCols[xIdx], y, zRanks[zIdx]));
+                    }
+                    break;
+                }
+
+                case FurnitureType.ProduceShelf:
+                {
+                    // Manav Rafı (3 Eğimli Ahşap Kasa, 15° Açılı)
+                    float[] yHeights = new float[] { 0.44f, 0.89f, 1.29f, 1.68f };
+                    float[] zDepths = new float[] { -0.10f, 0.00f, 0.10f, 0.18f };
+                    float y = (rowIndex < yHeights.Length) ? yHeights[rowIndex] : 0.44f;
+                    float zCenter = (rowIndex < zDepths.Length) ? zDepths[rowIndex] : 0.0f;
+                    
+                    rotation = (rowIndex < 3) ? Quaternion.Euler(15f, 0f, 0f) : Quaternion.identity;
+                    scale = 0.92f;
+
+                    float[] xCols = new float[] { -0.56f, -0.28f, 0f, 0.28f, 0.56f };
+                    float[] zLocal = new float[] { -0.08f, 0.08f };
+
+                    int maxSlots = xCols.Length * zLocal.Length; // 10 nesne
+                    int visibleCount = (currentStock >= maxCapacity) ? maxSlots : Mathf.Clamp(Mathf.CeilToInt(fillRatio * maxSlots), currentStock > 0 ? 1 : 0, maxSlots);
+
+                    for (int k = 0; k < visibleCount; k++)
+                    {
+                        int xIdx = k % xCols.Length;
+                        int zIdx = (k / xCols.Length) % zLocal.Length;
+                        Vector3 offset = new Vector3(xCols[xIdx], 0f, zLocal[zIdx]);
+                        Vector3 rotOffset = rotation * offset;
+                        positions.Add(new Vector3(rotOffset.x, y + rotOffset.y, zCenter + rotOffset.z));
+                    }
+                    break;
+                }
+
+                case FurnitureType.BakeryCounter:
+                {
+                    // Fırın & Pasta Tezgahı (Cam Fanus İçi Ahşap Tepsiler)
+                    float y = (rowIndex < 2) ? 0.84f : 1.09f;
+                    float zCenter = (rowIndex < 2) ? -0.06f : 0.04f;
+                    float xOffsetCenter = (rowIndex % 2 == 0) ? -0.38f : 0.38f;
+                    scale = 0.88f;
+
+                    float[] xCols = new float[] { -0.22f, 0f, 0.22f };
+                    float[] zRanks = new float[] { -0.08f, 0.08f };
+
+                    int maxSlots = xCols.Length * zRanks.Length; // 6 nesne per row
+                    int visibleCount = (currentStock >= maxCapacity) ? maxSlots : Mathf.Clamp(Mathf.CeilToInt(fillRatio * maxSlots), currentStock > 0 ? 1 : 0, maxSlots);
+
+                    for (int k = 0; k < visibleCount; k++)
+                    {
+                        int xIdx = k % xCols.Length;
+                        int zIdx = (k / xCols.Length) % zRanks.Length;
+                        positions.Add(new Vector3(xOffsetCenter + xCols[xIdx], y, zCenter + zRanks[zIdx]));
+                    }
+                    break;
+                }
+
+                case FurnitureType.Fridge:
+                {
+                    // Ticari Camlı Meşrubat & Sütlük Dolabı (w=1.4m, h=2.2m) - 4 Kat
+                    float[] shelfY = new float[] { 0.38f, 0.82f, 1.26f, 1.70f };
+                    float y = (rowIndex < shelfY.Length) ? shelfY[rowIndex] : 0.38f;
+                    scale = 0.90f;
+
+                    float[] xCols = new float[] { -0.36f, -0.12f, 0.12f, 0.36f };
+                    float[] zRanks = new float[] { -0.12f, 0.06f };
+
+                    int maxSlots = xCols.Length * zRanks.Length; // 8 nesne
+                    int visibleCount = (currentStock >= maxCapacity) ? maxSlots : Mathf.Clamp(Mathf.CeilToInt(fillRatio * maxSlots), currentStock > 0 ? 1 : 0, maxSlots);
+
+                    for (int k = 0; k < visibleCount; k++)
+                    {
+                        int xIdx = k % xCols.Length;
+                        int zIdx = (k / xCols.Length) % zRanks.Length;
+                        positions.Add(new Vector3(xCols[xIdx], y, zRanks[zIdx]));
+                    }
+                    break;
+                }
+
+                case FurnitureType.Freezer:
+                {
+                    // Sandık Dondurucu (İç taban y=0.48f, 4 Bölme)
+                    float y = 0.48f;
+                    float xCenter = (rowIndex % 2 == 0) ? -0.42f : 0.42f;
+                    float zCenter = (rowIndex < 2) ? -0.18f : 0.18f;
+                    scale = 0.82f;
+
+                    float[] xCols = new float[] { -0.22f, 0f, 0.22f };
+                    float[] zRanks = new float[] { -0.07f, 0.07f };
+
+                    int maxSlots = xCols.Length * zRanks.Length; // 6 nesne per quadrant
+                    int visibleCount = (currentStock >= maxCapacity) ? maxSlots : Mathf.Clamp(Mathf.CeilToInt(fillRatio * maxSlots), currentStock > 0 ? 1 : 0, maxSlots);
+
+                    for (int k = 0; k < visibleCount; k++)
+                    {
+                        int xIdx = k % xCols.Length;
+                        int zIdx = (k / xCols.Length) % zRanks.Length;
+                        positions.Add(new Vector3(xCenter + xCols[xIdx], y, zCenter + zRanks[zIdx]));
+                    }
+                    break;
+                }
+
+                case FurnitureType.ButcherCounter:
+                {
+                    // Kasap Reyonu Çelik Vitrini (y=0.72f, 4 Paslanmaz Tepsi)
+                    float y = 0.72f;
+                    float[] trayX = new float[] { -0.68f, -0.23f, 0.23f, 0.68f };
+                    float xCenter = (rowIndex < trayX.Length) ? trayX[rowIndex] : 0f;
+                    scale = 0.82f;
+
+                    float[] xCols = new float[] { -0.07f, 0.07f };
+                    float[] zRanks = new float[] { -0.16f, 0.0f, 0.16f };
+
+                    int maxSlots = xCols.Length * zRanks.Length; // 6 nesne
+                    int visibleCount = (currentStock >= maxCapacity) ? maxSlots : Mathf.Clamp(Mathf.CeilToInt(fillRatio * maxSlots), currentStock > 0 ? 1 : 0, maxSlots);
+
+                    for (int k = 0; k < visibleCount; k++)
+                    {
+                        int xIdx = k % xCols.Length;
+                        int zIdx = (k / xCols.Length) % zRanks.Length;
+                        positions.Add(new Vector3(xCenter + xCols[xIdx], y, -0.08f + zRanks[zIdx]));
+                    }
+                    break;
+                }
+
+                case FurnitureType.CosmeticShelf:
+                {
+                    // Kozmetik & Bakım Cam Rafı (w=1.6m, h=2.1m) - 4 Kat
+                    float[] shelfY = new float[] { 0.44f, 0.89f, 1.34f, 1.79f };
+                    float y = (rowIndex < shelfY.Length) ? shelfY[rowIndex] : 0.44f;
+                    scale = 0.88f;
+
+                    float[] xCols = new float[] { -0.46f, -0.23f, 0f, 0.23f, 0.46f };
+                    float[] zRanks = new float[] { -0.08f, 0.08f };
+
+                    int maxSlots = xCols.Length * zRanks.Length; // 10 nesne
+                    int visibleCount = (currentStock >= maxCapacity) ? maxSlots : Mathf.Clamp(Mathf.CeilToInt(fillRatio * maxSlots), currentStock > 0 ? 1 : 0, maxSlots);
+
+                    for (int k = 0; k < visibleCount; k++)
+                    {
+                        int xIdx = k % xCols.Length;
+                        int zIdx = (k / xCols.Length) % zRanks.Length;
+                        positions.Add(new Vector3(xCols[xIdx], y, zRanks[zIdx]));
+                    }
+                    break;
+                }
+
+                case FurnitureType.ElectronicsShelf:
+                {
+                    // Elektronik Cam Vitrini (w=1.7m, h=2.1m) - 4 Kat
+                    float[] shelfY = new float[] { 0.54f, 1.09f, 1.64f, 1.95f };
+                    float y = (rowIndex < shelfY.Length) ? shelfY[rowIndex] : 0.54f;
+                    scale = 0.88f;
+
+                    float[] xCols = new float[] { -0.46f, -0.15f, 0.15f, 0.46f };
+                    float[] zRanks = new float[] { -0.09f, 0.09f };
+
+                    int maxSlots = xCols.Length * zRanks.Length; // 8 nesne
+                    int visibleCount = (currentStock >= maxCapacity) ? maxSlots : Mathf.Clamp(Mathf.CeilToInt(fillRatio * maxSlots), currentStock > 0 ? 1 : 0, maxSlots);
+
+                    for (int k = 0; k < visibleCount; k++)
+                    {
+                        int xIdx = k % xCols.Length;
+                        int zIdx = (k / xCols.Length) % zRanks.Length;
+                        positions.Add(new Vector3(xCols[xIdx], y, zRanks[zIdx]));
+                    }
+                    break;
+                }
+
+                case FurnitureType.StorageShelf:
+                {
+                    // Depo Ağır Yük Palet Rafı (10 Bölme, 3 Kat)
+                    float y = 0.28f;
+                    float xPos = 0f;
+
+                    if (rowIndex < 3)
+                    {
+                        y = 0.28f;
+                        float[] xTier0 = new float[] { -0.60f, 0f, 0.60f };
+                        xPos = xTier0[rowIndex % 3];
+                    }
+                    else if (rowIndex < 7)
+                    {
+                        y = 1.18f;
+                        float[] xTier1 = new float[] { -0.66f, -0.22f, 0.22f, 0.66f };
+                        xPos = xTier1[(rowIndex - 3) % 4];
+                    }
+                    else
+                    {
+                        y = 2.08f;
+                        float[] xTier2 = new float[] { -0.60f, 0f, 0.60f };
+                        xPos = xTier2[(rowIndex - 7) % 3];
+                    }
+
+                    scale = 1.0f;
+                    positions.Add(new Vector3(xPos, y, 0f));
+                    if (currentStock > 25)
+                    {
+                        positions.Add(new Vector3(xPos, y + 0.16f, 0f)); // 2. Kat İstifli Koli
+                    }
+                    break;
+                }
+
+                default:
+                {
+                    float y = 0.35f + rowIndex * 0.45f;
+                    float[] xCols = new float[] { -0.40f, 0f, 0.40f };
+                    float[] zRanks = new float[] { -0.08f, 0.08f };
+
+                    int maxSlots = xCols.Length * zRanks.Length;
+                    int visibleCount = (currentStock >= maxCapacity) ? maxSlots : Mathf.Clamp(Mathf.CeilToInt(fillRatio * maxSlots), currentStock > 0 ? 1 : 0, maxSlots);
+
+                    for (int k = 0; k < visibleCount; k++)
+                    {
+                        int xIdx = k % xCols.Length;
+                        int zIdx = (k / xCols.Length) % zRanks.Length;
+                        positions.Add(new Vector3(xCols[xIdx], y, zRanks[zIdx]));
+                    }
+                    break;
+                }
+            }
         }
 
         public Vector3 GetFrontInteractionPosition(float offset = 0.75f)

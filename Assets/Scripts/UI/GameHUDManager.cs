@@ -739,8 +739,8 @@ namespace Farm2Shelf.UI
         {
             if (lowStockPanelRoot == null || lowStockListText == null) return;
 
-            PlacedFurnitureController[] furnitureList = Object.FindObjectsByType<PlacedFurnitureController>(FindObjectsSortMode.None);
-            if (furnitureList == null || furnitureList.Length == 0)
+            var furnitureList = PlacedFurnitureController.AllPlacedFurniture;
+            if (furnitureList == null || furnitureList.Count == 0)
             {
                 lowStockPanelRoot.SetActive(false);
                 return;

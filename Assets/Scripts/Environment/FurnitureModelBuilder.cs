@@ -48,6 +48,8 @@ namespace Farm2Shelf.Environment
             Material mat = new Material(shader);
             mat.name = name;
             mat.color = color;
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
+            if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);
 
             if (isTransparent || color.a < 1.0f)
             {
@@ -56,11 +58,41 @@ namespace Farm2Shelf.Environment
                 mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
                 mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
                 mat.SetInt("_ZWrite", 0);
+                mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
                 mat.DisableKeyword("_ALPHATEST_ON");
                 mat.EnableKeyword("_ALPHABLEND_ON");
                 mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
                 mat.renderQueue = 3000;
             }
+
+            return mat;
+        }
+
+        private static Material CreateGhostMaterial(string name, Color color)
+        {
+            // URP Unlit veya Transparent shader'ı öncelikli olarak seç
+            Shader shader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (shader == null) shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null) shader = Shader.Find("Unlit/Color");
+            if (shader == null) shader = Shader.Find("Sprites/Default");
+            if (shader == null) shader = Shader.Find("Standard");
+
+            Material mat = new Material(shader);
+            mat.name = name;
+            mat.color = color;
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
+            if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);
+
+            mat.SetFloat("_Surface", 1); // URP Transparent
+            mat.SetFloat("_Blend", 0);   // URP Alpha
+            mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            mat.SetInt("_ZWrite", 0);
+            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            mat.EnableKeyword("_ALPHABLEND_ON");
+            mat.DisableKeyword("_ALPHATEST_ON");
+            mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent + 100;
 
             return mat;
         }
@@ -120,9 +152,9 @@ namespace Farm2Shelf.Environment
             pinkLedMat.EnableKeyword("_EMISSION");
             pinkLedMat.SetColor("_EmissionColor", new Color(0.80f, 0.15f, 0.50f));
 
-            // Ghost (Önizleme) ve Koli Materyalleri
-            ValidGhostMaterial = CreateSmartMaterial("Ghost_Valid", new Color(0.20f, 0.90f, 0.35f, 0.55f), isTransparent: true);
-            InvalidGhostMaterial = CreateSmartMaterial("Ghost_Invalid", new Color(0.95f, 0.20f, 0.20f, 0.55f), isTransparent: true);
+            // Ghost (Önizleme) ve Koli Materyalleri - Canlı ve Yüksek Görünürlükte Neon Renkler
+            ValidGhostMaterial = CreateGhostMaterial("Ghost_Valid", new Color(0.15f, 1.0f, 0.35f, 0.70f));
+            InvalidGhostMaterial = CreateGhostMaterial("Ghost_Invalid", new Color(1.0f, 0.15f, 0.20f, 0.70f));
             CardboardBoxMaterial = CreateSmartMaterial("Furniture_CardboardBox", new Color(0.72f, 0.52f, 0.32f));
         }
 
@@ -218,15 +250,22 @@ namespace Farm2Shelf.Environment
 
         public static void ApplyGhostMaterial(GameObject root, Material ghostMat)
         {
+            if (root == null || ghostMat == null) return;
             Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
             foreach (Renderer r in renderers)
             {
-                r.material = ghostMat;
+                if (r == null) continue;
+                if (r.sharedMaterial != ghostMat)
+                {
+                    r.sharedMaterial = ghostMat;
+                }
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                r.receiveShadows = false;
             }
             Collider[] colliders = root.GetComponentsInChildren<Collider>(true);
             foreach (Collider c in colliders)
             {
-                Object.Destroy(c); // Ghost nesnesindeki collider'ları silerek raycast çakışmasını engelle
+                if (c != null) Object.Destroy(c);
             }
         }
 

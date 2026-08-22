@@ -133,7 +133,7 @@ namespace Farm2Shelf.UI
 
             Text subText = subObj.AddComponent<Text>();
             subText.font = titleText.font;
-            subText.text = LocalizationManager.L("Box_ClickToPlace", "👆 Tıkla: Kuruluma Başla", "👆 Click: Start Placement");
+            subText.text = LocalizationManager.L("Box_ClickToOpenInventory", "👆 Tıkla: Palet Deposunu Aç", "👆 Click: Open Pallet Storage");
             subText.fontSize = 18;
             subText.resizeTextForBestFit = true;
             subText.resizeTextMinSize = 11;
@@ -249,16 +249,8 @@ namespace Farm2Shelf.UI
 
         public void TriggerPlacement()
         {
-            ModalManager.SetModalOpen(false);
-            if (FurniturePlacementManager.Instance != null)
-            {
-                ShowHover(false);
-                FurniturePlacementManager.Instance.StartPlacement(furnitureType, this);
-            }
-            else
-            {
-                Debug.LogWarning("[DeliveryBox] FurniturePlacementManager sahnede bulunamadı!");
-            }
+            ShowHover(false);
+            PalletStorageInventoryModalUI.ShowModal();
         }
     }
 }

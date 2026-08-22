@@ -55,7 +55,7 @@ namespace Farm2Shelf.Core
             usedRow = -1;
             if (pDef == null) return false;
 
-            PlacedFurnitureController[] placedFurniture = Object.FindObjectsByType<PlacedFurnitureController>(FindObjectsSortMode.None);
+            var placedFurniture = PlacedFurnitureController.AllPlacedFurniture;
 
             foreach (var f in placedFurniture)
             {
@@ -268,7 +268,7 @@ namespace Farm2Shelf.Core
         public static PlacedFurnitureController GetNextAvailableStorageShelfForProduct(WholesaleProductDef pDef)
         {
             if (pDef == null) return null;
-            PlacedFurnitureController[] placedFurniture = Object.FindObjectsByType<PlacedFurnitureController>(FindObjectsSortMode.None);
+            var placedFurniture = PlacedFurnitureController.AllPlacedFurniture;
             foreach (var f in placedFurniture)
             {
                 if (f == null || f.rows == null || f.FurnitureType != FurnitureType.StorageShelf) continue;
@@ -293,7 +293,7 @@ namespace Farm2Shelf.Core
             depositedUnits = 0;
             if (pDef == null) return true;
 
-            PlacedFurnitureController[] placedFurniture = Object.FindObjectsByType<PlacedFurnitureController>(FindObjectsSortMode.None);
+            var placedFurniture = PlacedFurnitureController.AllPlacedFurniture;
 
             // 1. ÖNCELİK: Mağazada Oyuncunun Bizzat Atadığı Rafı / Dolabı Bul (Atanmamış / Boş Raflara Asla Rastgele Ürün Koyulmaz!)
             foreach (var f in placedFurniture)
