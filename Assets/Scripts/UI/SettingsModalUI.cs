@@ -21,6 +21,7 @@ namespace Farm2Shelf.UI
         private Image sfxMuteImg;
         private Text bgmMuteText;
         private Text sfxMuteText;
+        private Transform closeBtnTransform;
 
         private void Awake()
         {
@@ -148,10 +149,11 @@ namespace Farm2Shelf.UI
             closeObj.transform.SetParent(panelObj.transform, false);
             RectTransform clRect = closeObj.AddComponent<RectTransform>();
             clRect.anchoredPosition = new Vector2(320f, 260f);
-            clRect.sizeDelta = new Vector2(40f, 40f);
+            clRect.sizeDelta = new Vector2(46f, 46f);
 
             Image clBg = closeObj.AddComponent<Image>();
-            clBg.sprite = UIStyleUtility.CreateRoundedPillSprite(40, 40, 8, new Color(0.85f, 0.20f, 0.25f));
+            clBg.sprite = UIStyleUtility.CreateRoundedPillSprite(46, 46, 23, new Color(0.92f, 0.18f, 0.20f, 1f));
+            clBg.raycastTarget = true;
 
             Button clBtn = closeObj.AddComponent<Button>();
             clBtn.targetGraphic = clBg;
@@ -169,10 +171,17 @@ namespace Farm2Shelf.UI
             Text clTxt = clTxtObj.AddComponent<Text>();
             clTxt.font = font;
             clTxt.text = "✖";
-            clTxt.fontSize = 18;
+            clTxt.fontSize = 26;
+            clTxt.fontStyle = FontStyle.Bold;
             clTxt.alignment = TextAnchor.MiddleCenter;
             clTxt.color = Color.white;
             clTxt.raycastTarget = false;
+
+            Outline clOutline = clTxtObj.AddComponent<Outline>();
+            clOutline.effectColor = new Color(0f, 0f, 0f, 0.85f);
+            clOutline.effectDistance = new Vector2(1.5f, -1.5f);
+
+            closeBtnTransform = closeObj.transform;
 
             // ==================== BÖLÜM 1: 10 PARÇALIK BGM MÜZİK KONTROLÜ ====================
             GameObject musicBox = new GameObject("MusicControlBox");
@@ -472,6 +481,8 @@ namespace Farm2Shelf.UI
             infoTxt.fontSize = 14;
             infoTxt.alignment = TextAnchor.MiddleCenter;
             infoTxt.color = Color.white;
+
+            if (closeBtnTransform != null) closeBtnTransform.SetAsLastSibling();
         }
 
         private GameObject CreateVolButton(Transform parent, Vector2 pos, string label, System.Action onClick)

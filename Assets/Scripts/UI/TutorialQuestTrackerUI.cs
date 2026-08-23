@@ -417,7 +417,7 @@ namespace Farm2Shelf.UI
                 case TutorialStep.Step3_HireStoreStaffAndCallEarly:
                     return LocalizationManager.L("Tut_S3_Title", "Personel Alımı & Erken Çağır", "Hire Staff & Call Early");
                 case TutorialStep.Step4_AssignStoreShifts:
-                    return LocalizationManager.L("Tut_S4_Title", "Mağaza Vardiya Düzeni", "Store Staff Shifts");
+                    return LocalizationManager.L("Tut_S4_Title", "Personel Vardiyalarını Ayarla", "Set Staff Shifts");
                 case TutorialStep.Step5_BuyInitialFurniture:
                     return LocalizationManager.L("Tut_S5_Title", "İlk Mobilyaları Satın Al", "Buy Starting Furniture");
                 case TutorialStep.Step6_UnpackAndPlaceFurniture:
@@ -462,15 +462,15 @@ namespace Farm2Shelf.UI
                 case TutorialStep.Step3_HireStoreStaffAndCallEarly:
                     return LocalizationManager.L(
                         "Tut_S3_Inst",
-                        "Tablette <b>Mağaza Yönetimi ➔ İşe Alım</b> sekmesine git. <b>2 Kasiyer</b> ve <b>2 Reyoncu</b> işe al. Ardından <b>Personel Kadrosu</b> sekmesinde sabah vardiyasındaki bir reyoncunun <b>⚡ Erken Çağır</b> butonuna dokun!\n💡 <i>İpucu: Temizlikçi/Güvenlik isteğe bağlıdır.</i>",
-                        "In Tablet, go to <b>Store Mgmt ➔ Hire Staff</b>. Hire <b>2 Cashiers</b> and <b>2 Restockers</b>. Then in <b>Staff List</b>, tap <b>⚡ Call Early</b> on a morning restocker!\n💡 <i>Tip: Cleaner/Security are optional.</i>"
+                        "Tablette <b>Mağaza Yönetimi ➔ İşe Alım</b> sekmesine git. <b>2 Kasiyer</b> ve <b>2 Reyoncu</b> işe al. Ardından <b>Personel Kadrosu</b> sekmesinde sabah vardiyasındaki bir reyoncunun <b>⚡ Erken Çağır</b> butonuna dokun!\n💡 <i>İpucu: Bir sonraki görevde personellerin vardiyalarını ayarlayacaksın.</i>",
+                        "In Tablet, go to <b>Store Mgmt ➔ Hire Staff</b>. Hire <b>2 Cashiers</b> and <b>2 Restockers</b>. Then in <b>Staff List</b>, tap <b>⚡ Call Early</b> on a morning restocker!\n💡 <i>Tip: In the next step, you will configure staff shifts.</i>"
                     );
 
                 case TutorialStep.Step4_AssignStoreShifts:
                     return LocalizationManager.L(
                         "Tut_S4_Inst",
-                        "Tablette <b>Mağaza Yönetimi ➔ Vardiyalar</b> sekmesini aç. İşe aldığın personelleri <b>Sabah (08:00 - 16:00)</b> ve <b>Akşam (16:00 - 24:00)</b> vardiyalarına dağıt.",
-                        "In Tablet, go to <b>Store Mgmt ➔ Shifts</b>. Distribute your staff across <b>Morning (08:00 - 16:00)</b> and <b>Evening (16:00 - 24:00)</b> shifts."
+                        "Tablette <b>Mağaza Yönetimi ➔ Vardiyalar</b> sekmesini aç. İşe aldığın personellerin <b>Vardiyalarını Ayarla</b> (Sabah 08:00 - 16:00 ve Akşam 16:00 - 24:00 vardiyalarına dağıt).",
+                        "In Tablet, open <b>Store Mgmt ➔ Shifts</b> tab. <b>Set staff shifts</b> by distributing your staff across Morning (08:00 - 16:00) and Evening (16:00 - 24:00) shifts."
                     );
 
                 case TutorialStep.Step5_BuyInitialFurniture:
@@ -562,9 +562,12 @@ namespace Farm2Shelf.UI
                 case TutorialStep.Step4_AssignStoreShifts:
                     bool shMorn = tm.HasStoreShift("Sabah") || tm.HasStoreShift("Gündüz") || tm.HasStoreShift("08:00") || tm.HasStoreShift("06:00");
                     bool shEve = tm.HasStoreShift("Akşam") || tm.HasStoreShift("16:00") || tm.HasStoreShift("14:00");
-                    string sM = shMorn ? "<color=#00FFA3>✅ [✓] Sabah Vardiyası (08:00 - 16:00)</color>" : "<color=#FFD700>⏳ [ ] Sabah Vardiyasına Ata</color>";
-                    string sE = shEve ? "<color=#00FFA3>✅ [✓] Akşam Vardiyası (16:00 - 24:00)</color>" : "<color=#FFD700>⏳ [ ] Akşam Vardiyasına Ata</color>";
-                    return $"• {sM}\n• {sE}";
+                    string sHeader = (shMorn && shEve) 
+                        ? "<color=#00FFA3>✅ [✓] Personel Vardiyalarını Ayarla (Tamamlandı)</color>" 
+                        : "<color=#FFD700>⏳ [ ] Personellerin Vardiyalarını Ayarla</color>";
+                    string sM = shMorn ? "<color=#00FFA3>  • [✓] Sabah Vardiyası (08:00 - 16:00)</color>" : "<color=#FFD700>  • [ ] Sabah Vardiyasına Personel Ata</color>";
+                    string sE = shEve ? "<color=#00FFA3>  • [✓] Akşam Vardiyası (16:00 - 24:00)</color>" : "<color=#FFD700>  • [ ] Akşam Vardiyasına Personel Ata</color>";
+                    return $"{sHeader}\n{sM}\n{sE}";
 
                 case TutorialStep.Step5_BuyInitialFurniture:
                     int sh = tm.GetBoughtCount(FurnitureType.Shelf);

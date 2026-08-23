@@ -217,10 +217,10 @@ namespace Farm2Shelf.UI
             closeBtnObj.transform.SetParent(headerObj.transform, false);
             RectTransform cRect = closeBtnObj.AddComponent<RectTransform>();
             cRect.anchoredPosition = new Vector2(430f, 0f);
-            cRect.sizeDelta = new Vector2(44f, 40f);
+            cRect.sizeDelta = new Vector2(46f, 46f);
 
             Image closeBg = closeBtnObj.AddComponent<Image>();
-            closeBg.sprite = UIStyleUtility.CreateOutlinePillSprite(44, 40, 20, 2, new Color(0.95f, 0.35f, 0.40f), new Color(0.35f, 0.10f, 0.12f, 0.95f));
+            closeBg.sprite = UIStyleUtility.CreateRoundedPillSprite(46, 46, 23, new Color(0.92f, 0.18f, 0.20f, 1f));
             closeBg.raycastTarget = true;
 
             Button closeBtn = closeBtnObj.AddComponent<Button>();
@@ -237,11 +237,17 @@ namespace Farm2Shelf.UI
             Text closeTxt = closeTxtObj.AddComponent<Text>();
             closeTxt.font = globalFont;
             closeTxt.text = "✖";
-            closeTxt.fontSize = 18;
+            closeTxt.fontSize = 26;
             closeTxt.fontStyle = FontStyle.Bold;
             closeTxt.alignment = TextAnchor.MiddleCenter;
             closeTxt.color = Color.white;
             closeTxt.raycastTarget = false;
+
+            Outline ctOutline = closeTxtObj.AddComponent<Outline>();
+            ctOutline.effectColor = new Color(0f, 0f, 0f, 0.85f);
+            ctOutline.effectDistance = new Vector2(1.5f, -1.5f);
+
+            closeBtnObj.transform.SetAsLastSibling();
         }
 
         private void BuildInventoryScrollView(Transform parent)

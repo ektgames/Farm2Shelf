@@ -29,6 +29,7 @@ namespace Farm2Shelf.UI
         private int selectedDay = -1; // Oyuncunun tıkladığı seçili gün (-1 ise güncel gün)
         private Font globalFont;
         private bool isAnimating = false;
+        private Transform closeBtnTransform;
 
         private readonly string[] rawSeasonKeys = new string[] { "İlkbahar", "Yaz", "Sonbahar", "Kış" };
         private readonly Color[] seasonColors = new Color[] {
@@ -255,10 +256,10 @@ namespace Farm2Shelf.UI
 
             RectTransform cRect = closeBtnObj.AddComponent<RectTransform>();
             cRect.anchoredPosition = new Vector2(420f, 285f);
-            cRect.sizeDelta = new Vector2(44f, 44f);
+            cRect.sizeDelta = new Vector2(46f, 46f);
 
             Image cBg = closeBtnObj.AddComponent<Image>();
-            cBg.sprite = UIStyleUtility.CreateRoundedPillSprite(44, 44, 22, new Color(0.92f, 0.22f, 0.22f, 0.98f));
+            cBg.sprite = UIStyleUtility.CreateRoundedPillSprite(46, 46, 23, new Color(0.92f, 0.18f, 0.20f, 1f));
             cBg.raycastTarget = true;
 
             Button cBtn = closeBtnObj.AddComponent<Button>();
@@ -273,12 +274,18 @@ namespace Farm2Shelf.UI
 
             Text cxText = cTextObj.AddComponent<Text>();
             cxText.font = globalFont;
-            cxText.text = "✕";
-            cxText.fontSize = 24;
+            cxText.text = "✖";
+            cxText.fontSize = 26;
             cxText.fontStyle = FontStyle.Bold;
             cxText.alignment = TextAnchor.MiddleCenter;
             cxText.color = Color.white;
             cxText.raycastTarget = false;
+
+            Outline cxOutline = cTextObj.AddComponent<Outline>();
+            cxOutline.effectColor = new Color(0f, 0f, 0f, 0.85f);
+            cxOutline.effectDistance = new Vector2(1.5f, -1.5f);
+
+            closeBtnTransform = closeBtnObj.transform;
 
             // 2. Mevsim Seçim Sekmeleri Barı
             GameObject tabsObj = new GameObject("SeasonTabs");
@@ -328,6 +335,8 @@ namespace Farm2Shelf.UI
             footerSummaryText.verticalOverflow = VerticalWrapMode.Overflow;
             footerSummaryText.color = new Color(0.92f, 0.95f, 1.0f);
             footerSummaryText.raycastTarget = false;
+
+            if (closeBtnTransform != null) closeBtnTransform.SetAsLastSibling();
         }
 
         private void RenderSeasonTabs()

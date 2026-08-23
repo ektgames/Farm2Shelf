@@ -1040,6 +1040,45 @@ namespace Farm2Shelf.UI
             cbRect.anchorMax = new Vector2(0.97f, 0.82f);
             cbRect.offsetMin = Vector2.zero;
             cbRect.offsetMax = Vector2.zero;
+
+            // Üst Sağ Kırmızı X Kapat Butonu
+            GameObject topCloseBtn = new GameObject("Top_Close_Button_X");
+            topCloseBtn.transform.SetParent(parentPanel.transform, false);
+            RectTransform tcRect = topCloseBtn.AddComponent<RectTransform>();
+            tcRect.anchorMin = new Vector2(1f, 1f);
+            tcRect.anchorMax = new Vector2(1f, 1f);
+            tcRect.pivot = new Vector2(1f, 1f);
+            tcRect.anchoredPosition = new Vector2(-10f, -10f);
+            tcRect.sizeDelta = new Vector2(44f, 44f);
+
+            Image tcBg = topCloseBtn.AddComponent<Image>();
+            tcBg.sprite = UIStyleUtility.CreateRoundedPillSprite(44, 44, 22, new Color(0.92f, 0.18f, 0.20f, 1f));
+            tcBg.raycastTarget = true;
+
+            Button tcBtn = topCloseBtn.AddComponent<Button>();
+            tcBtn.targetGraphic = tcBg;
+            tcBtn.onClick.AddListener(CloseModal);
+
+            GameObject tcTxtObj = new GameObject("X");
+            tcTxtObj.transform.SetParent(topCloseBtn.transform, false);
+            RectTransform tcxRect = tcTxtObj.AddComponent<RectTransform>();
+            tcxRect.anchorMin = Vector2.zero;
+            tcxRect.anchorMax = Vector2.one;
+
+            Text tcTxt = tcTxtObj.AddComponent<Text>();
+            tcTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            tcTxt.text = "✖";
+            tcTxt.fontSize = 24;
+            tcTxt.fontStyle = FontStyle.Bold;
+            tcTxt.alignment = TextAnchor.MiddleCenter;
+            tcTxt.color = Color.white;
+            tcTxt.raycastTarget = false;
+
+            Outline tcOutline = tcTxtObj.AddComponent<Outline>();
+            tcOutline.effectColor = new Color(0f, 0f, 0f, 0.85f);
+            tcOutline.effectDistance = new Vector2(1.5f, -1.5f);
+
+            topCloseBtn.transform.SetAsLastSibling();
         }
 
         private void PromptSellFurnitureConfirmation(PlacedFurnitureController furniture, FurnitureItemDef def, int refundPrice)

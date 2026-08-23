@@ -16,6 +16,7 @@ namespace Farm2Shelf.UI
         private GameObject canvasObj;
         private Transform listContentTransform;
         private Text capacityText;
+        private Transform closeBtnTransform;
 
         private void Awake()
         {
@@ -178,10 +179,10 @@ namespace Farm2Shelf.UI
             closeObj.transform.SetParent(panelObj.transform, false);
             RectTransform clRect = closeObj.AddComponent<RectTransform>();
             clRect.anchoredPosition = new Vector2(375f, 280f);
-            clRect.sizeDelta = new Vector2(44f, 44f);
+            clRect.sizeDelta = new Vector2(46f, 46f);
 
             Image clBg = closeObj.AddComponent<Image>();
-            clBg.sprite = UIStyleUtility.CreateRoundedPillSprite(44, 44, 10, new Color(0.85f, 0.20f, 0.25f));
+            clBg.sprite = UIStyleUtility.CreateRoundedPillSprite(46, 46, 23, new Color(0.92f, 0.18f, 0.20f, 1f));
             clBg.raycastTarget = true;
 
             Button clBtn = closeObj.AddComponent<Button>();
@@ -197,11 +198,17 @@ namespace Farm2Shelf.UI
             Text clTxt = clTxtObj.AddComponent<Text>();
             clTxt.font = font;
             clTxt.text = "✖";
-            clTxt.fontSize = 20;
+            clTxt.fontSize = 26;
             clTxt.fontStyle = FontStyle.Bold;
             clTxt.alignment = TextAnchor.MiddleCenter;
             clTxt.color = Color.white;
             clTxt.raycastTarget = false;
+
+            Outline clOutline = clTxtObj.AddComponent<Outline>();
+            clOutline.effectColor = new Color(0f, 0f, 0f, 0.85f);
+            clOutline.effectDistance = new Vector2(1.5f, -1.5f);
+
+            closeBtnTransform = closeObj.transform;
 
             // Scroll Area
             GameObject scrollObj = new GameObject("ScrollView");
@@ -303,6 +310,8 @@ namespace Farm2Shelf.UI
             qsTxt.alignment = TextAnchor.MiddleCenter;
             qsTxt.color = Color.white;
             qsTxt.raycastTarget = false;
+
+            if (closeBtnTransform != null) closeBtnTransform.SetAsLastSibling();
         }
 
         private void RefreshList()

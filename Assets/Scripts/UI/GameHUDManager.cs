@@ -719,8 +719,9 @@ namespace Farm2Shelf.UI
             {
                 bool isStoreClosed = (StoreStatusManager.Instance != null && !StoreStatusManager.Instance.IsOpen);
                 int activeCustomers = (CustomerShoppingManager.Instance != null) ? CustomerShoppingManager.Instance.ActiveCustomerCount : 0;
+                bool hasStaffInHandTasks = (StaffTaskController.Instance != null && StaffTaskController.Instance.HasActiveInHandTasks());
 
-                if (isStoreClosed && activeCustomers == 0)
+                if (isStoreClosed && activeCustomers == 0 && !hasStaffInHandTasks)
                 {
                     if (ModalManager.IsModalOpen)
                     {

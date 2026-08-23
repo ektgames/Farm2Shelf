@@ -110,6 +110,15 @@ namespace Farm2Shelf.UI
         private Text[] storeTabBtnTexts = new Text[4];
         private Image[] farmTabBtnImgs = new Image[4];
         private Text[] farmTabBtnTexts = new Text[4];
+        private Transform tabletCloseButtonTransform;
+
+        private void EnsureCloseButtonOnTop()
+        {
+            if (tabletCloseButtonTransform != null)
+            {
+                tabletCloseButtonTransform.SetAsLastSibling();
+            }
+        }
 
         private string GetRoleCategoryName(int index)
         {
@@ -304,7 +313,7 @@ namespace Farm2Shelf.UI
             globalFont = btnText.font;
 
             btnText.text = LocalizationManager.L("Btn_EktPhone", "📱 EKT TABLET", "📱 EKT PHONE");
-            btnText.fontSize = 17;
+            btnText.fontSize = 20;
             btnText.fontStyle = FontStyle.Bold;
             btnText.alignment = TextAnchor.MiddleCenter;
             btnText.color = new Color(0.35f, 0.92f, 1.0f);
@@ -513,7 +522,7 @@ namespace Farm2Shelf.UI
             Text brandText = brandObj.AddComponent<Text>();
             brandText.font = globalFont;
             brandText.text = "EKT PHONE";
-            brandText.fontSize = 20;
+            brandText.fontSize = 24;
             brandText.fontStyle = FontStyle.Bold;
             brandText.alignment = TextAnchor.MiddleCenter;
             brandText.color = new Color(0.90f, 0.92f, 0.95f);
@@ -523,11 +532,11 @@ namespace Farm2Shelf.UI
             closeBtnObj.transform.SetParent(tabletBox.transform, false);
 
             RectTransform cRect = closeBtnObj.AddComponent<RectTransform>();
-            cRect.anchoredPosition = new Vector2(430f, 285f);
-            cRect.sizeDelta = new Vector2(40f, 40f);
+            cRect.anchoredPosition = new Vector2(430f, 282f);
+            cRect.sizeDelta = new Vector2(46f, 46f);
 
             Image cBg = closeBtnObj.AddComponent<Image>();
-            cBg.sprite = UIStyleUtility.CreateRoundedPillSprite(40, 40, 20, new Color(0.90f, 0.20f, 0.20f, 0.95f));
+            cBg.sprite = UIStyleUtility.CreateRoundedPillSprite(46, 46, 23, new Color(0.92f, 0.18f, 0.20f, 1f));
             cBg.raycastTarget = true;
 
             Button cBtn = closeBtnObj.AddComponent<Button>();
@@ -543,11 +552,17 @@ namespace Farm2Shelf.UI
             Text cxText = cxObj.AddComponent<Text>();
             cxText.font = globalFont;
             cxText.text = "✖";
-            cxText.fontSize = 20;
+            cxText.fontSize = 26;
             cxText.fontStyle = FontStyle.Bold;
             cxText.alignment = TextAnchor.MiddleCenter;
             cxText.color = Color.white;
             cxText.raycastTarget = false;
+
+            Outline cxOutline = cxObj.AddComponent<Outline>();
+            cxOutline.effectColor = new Color(0f, 0f, 0f, 0.85f);
+            cxOutline.effectDistance = new Vector2(1.5f, -1.5f);
+
+            tabletCloseButtonTransform = closeBtnObj.transform;
 
             GameObject screenObj = new GameObject("Tablet_Screen");
             screenObj.transform.SetParent(tabletBox.transform, false);
@@ -567,6 +582,9 @@ namespace Farm2Shelf.UI
             CreateShoppingAppView(screenObj.transform);
             CreateFinanceAppView(screenObj.transform);
             CreateSocialMediaAppView(screenObj.transform);
+
+            // Kırmızı X Kapat Butonunu KESİNLİKLE En Üst Katmana Çıkar
+            EnsureCloseButtonOnTop();
         }
 
         private void CreateStatusBar(Transform parent)
@@ -587,7 +605,7 @@ namespace Farm2Shelf.UI
             Text tText = timeObj.AddComponent<Text>();
             tText.font = globalFont;
             tText.text = "06:00 AM";
-            tText.fontSize = 14;
+            tText.fontSize = 17;
             tText.fontStyle = FontStyle.Bold;
             tText.alignment = TextAnchor.MiddleLeft;
             tText.color = new Color(0.90f, 0.92f, 0.95f);
@@ -602,7 +620,7 @@ namespace Farm2Shelf.UI
             Text rText = statusRightObj.AddComponent<Text>();
             rText.font = globalFont;
             rText.text = "📶 5G   🔋 98%";
-            rText.fontSize = 14;
+            rText.fontSize = 17;
             rText.fontStyle = FontStyle.Bold;
             rText.alignment = TextAnchor.MiddleRight;
             rText.color = new Color(0.90f, 0.92f, 0.95f);
@@ -679,7 +697,7 @@ namespace Farm2Shelf.UI
                 Text iText = iconObj.AddComponent<Text>();
                 iText.font = globalFont;
                 iText.text = appIcons[i];
-                iText.fontSize = 38;
+                iText.fontSize = 48;
                 iText.alignment = TextAnchor.MiddleCenter;
                 iText.color = Color.white;
                 iText.raycastTarget = false;
@@ -693,7 +711,7 @@ namespace Farm2Shelf.UI
                 Text lText = labelObj.AddComponent<Text>();
                 lText.font = globalFont;
                 lText.text = appNames[i];
-                lText.fontSize = (appIndex == 0) ? 12 : 14;
+                lText.fontSize = (appIndex == 0) ? 15 : 17;
                 lText.fontStyle = FontStyle.Bold;
                 lText.alignment = TextAnchor.MiddleCenter;
                 lText.color = appColors[i];
@@ -743,7 +761,7 @@ namespace Farm2Shelf.UI
             Text bText = bTextObj.AddComponent<Text>();
             bText.font = globalFont;
             bText.text = LocalizationManager.L("Btn_HomeScreen", "← Ana Ekran", "← Home Screen");
-            bText.fontSize = 15;
+            bText.fontSize = 18;
             bText.fontStyle = FontStyle.Bold;
             bText.alignment = TextAnchor.MiddleCenter;
             bText.color = new Color(0.35f, 0.85f, 1.0f);
@@ -758,7 +776,7 @@ namespace Farm2Shelf.UI
             Text tText = titleObj.AddComponent<Text>();
             tText.font = globalFont;
             tText.text = LocalizationManager.L("Header_StoreMgmt", "🛒 MAĞAZA YÖNETİMİ", "🛒 STORE MANAGEMENT");
-            tText.fontSize = 20;
+            tText.fontSize = 24;
             tText.fontStyle = FontStyle.Bold;
             tText.alignment = TextAnchor.MiddleCenter;
             tText.color = new Color(1.0f, 0.85f, 0.25f);
@@ -844,7 +862,7 @@ namespace Farm2Shelf.UI
                 Text tabText = textObj.AddComponent<Text>();
                 tabText.font = globalFont;
                 tabText.text = tabs[i];
-                tabText.fontSize = 15;
+                tabText.fontSize = 18;
                 tabText.fontStyle = FontStyle.Bold;
                 tabText.alignment = TextAnchor.MiddleCenter;
                 tabText.raycastTarget = false;
@@ -888,18 +906,18 @@ namespace Farm2Shelf.UI
             headerObj.transform.SetParent(viewObj.transform, false);
 
             RectTransform hRect = headerObj.AddComponent<RectTransform>();
-            hRect.anchoredPosition = new Vector2(0f, 205f);
-            hRect.sizeDelta = new Vector2(850f, 40f);
+            hRect.anchoredPosition = new Vector2(0f, 212f);
+            hRect.sizeDelta = new Vector2(850f, 36f);
 
             GameObject backBtnObj = new GameObject("BackButton");
             backBtnObj.transform.SetParent(headerObj.transform, false);
 
             RectTransform bRect = backBtnObj.AddComponent<RectTransform>();
             bRect.anchoredPosition = new Vector2(-360f, 0f);
-            bRect.sizeDelta = new Vector2(130f, 36f);
+            bRect.sizeDelta = new Vector2(130f, 34f);
 
             Image bBg = backBtnObj.AddComponent<Image>();
-            bBg.sprite = UIStyleUtility.CreateRoundedPillSprite(130, 36, 18, new Color(0.20f, 0.25f, 0.32f, 0.90f));
+            bBg.sprite = UIStyleUtility.CreateRoundedPillSprite(130, 34, 17, new Color(0.20f, 0.25f, 0.32f, 0.90f));
             bBg.raycastTarget = true;
 
             Button bBtn = backBtnObj.AddComponent<Button>();
@@ -915,7 +933,7 @@ namespace Farm2Shelf.UI
             Text bText = bTextObj.AddComponent<Text>();
             bText.font = globalFont;
             bText.text = LocalizationManager.L("Btn_HomeScreen", "← Ana Ekran", "← Home Screen");
-            bText.fontSize = 15;
+            bText.fontSize = 16;
             bText.fontStyle = FontStyle.Bold;
             bText.alignment = TextAnchor.MiddleCenter;
             bText.color = new Color(0.35f, 0.85f, 1.0f);
@@ -925,27 +943,27 @@ namespace Farm2Shelf.UI
             titleObj.transform.SetParent(headerObj.transform, false);
             RectTransform tRect = titleObj.AddComponent<RectTransform>();
             tRect.anchoredPosition = new Vector2(0f, 0f);
-            tRect.sizeDelta = new Vector2(400f, 40f);
+            tRect.sizeDelta = new Vector2(450f, 36f);
 
             Text tText = titleObj.AddComponent<Text>();
             tText.font = globalFont;
             tText.text = LocalizationManager.L("App_FinanceHeader", "💳 FİNANS VE GELİR GİDER", "💳 FINANCE & EARNINGS");
-            tText.fontSize = 20;
+            tText.fontSize = 22;
             tText.fontStyle = FontStyle.Bold;
             tText.alignment = TextAnchor.MiddleCenter;
             tText.color = new Color(0.75f, 0.35f, 0.95f);
             tText.raycastTarget = false;
 
-            // Sekme Butonları (Y = 170f, alt sınırı 150f)
+            // Sekme Butonları (Y = 168f)
             CreateFinanceTabs(viewObj.transform);
 
-            // Sabit Üst Kontrol Barı (Arama Çubuğu + Otomatik Fiyat Ayarla Butonu, Y = 120f, alt sınırı 101f)
+            // Sabit Üst Kontrol Barı (Arama Çubuğu + Otomatik Fiyat Ayarla Butonu, Y = 118f)
             GameObject financeProductsControlBarObj = new GameObject("FinanceProductsControlBar");
             financeProductsControlBarObj.transform.SetParent(viewObj.transform, false);
 
             RectTransform fpcRect = financeProductsControlBarObj.AddComponent<RectTransform>();
-            fpcRect.anchoredPosition = new Vector2(0f, 115f);
-            fpcRect.sizeDelta = new Vector2(850f, 36f);
+            fpcRect.anchoredPosition = new Vector2(0f, 118f);
+            fpcRect.sizeDelta = new Vector2(850f, 38f);
             financeProductsControlBar = financeProductsControlBarObj.transform;
 
             // Arama Çubuğu (Sol Taraf)
@@ -971,7 +989,7 @@ namespace Farm2Shelf.UI
             Text phText = phObj.AddComponent<Text>();
             phText.font = globalFont;
             phText.text = LocalizationManager.L("Placeholder_FinanceSearch", "🔍 Ürün İsmi veya Kategori Ara...", "🔍 Search Product Name or Category...");
-            phText.fontSize = 14;
+            phText.fontSize = 16;
             phText.fontStyle = FontStyle.Italic;
             phText.alignment = TextAnchor.MiddleLeft;
             phText.color = new Color(0.65f, 0.70f, 0.75f);
@@ -987,7 +1005,7 @@ namespace Farm2Shelf.UI
 
             Text inText = inTextObj.AddComponent<Text>();
             inText.font = globalFont;
-            inText.fontSize = 14;
+            inText.fontSize = 16;
             inText.fontStyle = FontStyle.Bold;
             inText.alignment = TextAnchor.MiddleLeft;
             inText.color = Color.white;
@@ -1003,11 +1021,11 @@ namespace Farm2Shelf.UI
             autoPriceBtnObj.transform.SetParent(financeProductsControlBarObj.transform, false);
 
             RectTransform apRect = autoPriceBtnObj.AddComponent<RectTransform>();
-            apRect.anchoredPosition = new Vector2(250f, 0f);
-            apRect.sizeDelta = new Vector2(300f, 38f);
+            apRect.anchoredPosition = new Vector2(255f, 0f);
+            apRect.sizeDelta = new Vector2(310f, 38f);
 
             Image apBg = autoPriceBtnObj.AddComponent<Image>();
-            apBg.sprite = UIStyleUtility.CreateRoundedPillSprite(300, 38, 19, new Color(0.20f, 0.70f, 0.45f));
+            apBg.sprite = UIStyleUtility.CreateRoundedPillSprite(310, 38, 19, new Color(0.20f, 0.70f, 0.45f));
             apBg.raycastTarget = true;
 
             Button apBtn = autoPriceBtnObj.AddComponent<Button>();
@@ -1030,18 +1048,18 @@ namespace Farm2Shelf.UI
             Text apText = aptObj.AddComponent<Text>();
             apText.font = globalFont;
             apText.text = LocalizationManager.L("Btn_AutoPricing", "⚡ Otomatik Fiyatlandırma (%20 Kâr)", "⚡ Auto Pricing (+20% Profit)");
-            apText.fontSize = 13;
+            apText.fontSize = 15;
             apText.fontStyle = FontStyle.Bold;
             apText.alignment = TextAnchor.MiddleCenter;
             apText.color = Color.white;
             apText.raycastTarget = false;
 
-            // Scroll Viewport ve Content Kapları (Sekmelerin Altında 20px Temiz Havalandırma Mesafesi)
+            // Scroll Viewport ve Content Kapları
             financeProductsContent = CreateScrollableViewContainer(viewObj.transform, "FinanceProducts", new Vector2(0f, -80f), new Vector2(850f, 330f), out financeProductsViewportObj);
-            financeSummaryContent = CreateScrollableViewContainer(viewObj.transform, "FinanceSummary", new Vector2(0f, -57.5f), new Vector2(850f, 375f), out financeSummaryViewportObj);
-            financeHistoryContent = CreateScrollableViewContainer(viewObj.transform, "FinanceHistory", new Vector2(0f, -57.5f), new Vector2(850f, 375f), out financeHistoryViewportObj);
-            financeLoansContent = CreateScrollableViewContainer(viewObj.transform, "FinanceLoans", new Vector2(0f, -57.5f), new Vector2(850f, 375f), out financeLoansViewportObj);
-            financeStocksContent = CreateScrollableViewContainer(viewObj.transform, "FinanceStocks", new Vector2(0f, -57.5f), new Vector2(850f, 375f), out financeStocksViewportObj);
+            financeSummaryContent = CreateScrollableViewContainer(viewObj.transform, "FinanceSummary", new Vector2(0f, -60f), new Vector2(850f, 370f), out financeSummaryViewportObj);
+            financeHistoryContent = CreateScrollableViewContainer(viewObj.transform, "FinanceHistory", new Vector2(0f, -60f), new Vector2(850f, 370f), out financeHistoryViewportObj);
+            financeLoansContent = CreateScrollableViewContainer(viewObj.transform, "FinanceLoans", new Vector2(0f, -60f), new Vector2(850f, 370f), out financeLoansViewportObj);
+            financeStocksContent = CreateScrollableViewContainer(viewObj.transform, "FinanceStocks", new Vector2(0f, -60f), new Vector2(850f, 370f), out financeStocksViewportObj);
 
             VerticalLayoutGroup productsLayout = financeProductsContent.gameObject.AddComponent<VerticalLayoutGroup>();
             productsLayout.spacing = 10f;
@@ -1072,19 +1090,19 @@ namespace Farm2Shelf.UI
             tabsObj.transform.SetParent(parent, false);
 
             RectTransform tRect = tabsObj.AddComponent<RectTransform>();
-            tRect.anchoredPosition = new Vector2(0f, 175f);
+            tRect.anchoredPosition = new Vector2(0f, 168f);
             tRect.sizeDelta = new Vector2(850f, 38f);
 
             HorizontalLayoutGroup layout = tabsObj.AddComponent<HorizontalLayoutGroup>();
-            layout.spacing = 8;
+            layout.spacing = 6;
             layout.childAlignment = TextAnchor.MiddleCenter;
 
             string[] tabs = new string[] {
                 LocalizationManager.L("Tab_Products", "🏷️ Ürünler", "🏷️ Products"),
                 LocalizationManager.L("Tab_Summary", "📊 Özet", "📊 Summary"),
                 LocalizationManager.L("Tab_History", "📜 İşlem Geçmişi", "📜 History"),
-                LocalizationManager.L("Tab_Loans", "🏛️ Banka Kredileri", "🏛️ Bank Loans"),
-                LocalizationManager.L("Tab_Stocks", "📈 Borsa & Hisseler", "📈 Stock Market")
+                LocalizationManager.L("Tab_Loans", "🏛️ Krediler", "🏛️ Bank Loans"),
+                LocalizationManager.L("Tab_Stocks", "📈 Borsa & Hisse", "📈 Stock Market")
             };
 
             for (int i = 0; i < 5; i++)
@@ -1094,10 +1112,10 @@ namespace Farm2Shelf.UI
                 tabBtn.transform.SetParent(tabsObj.transform, false);
 
                 RectTransform tabRect = tabBtn.AddComponent<RectTransform>();
-                tabRect.sizeDelta = new Vector2(162f, 40f);
+                tabRect.sizeDelta = new Vector2(164f, 38f);
 
                 Image tabBg = tabBtn.AddComponent<Image>();
-                tabBg.sprite = UIStyleUtility.CreateOutlinePillSprite(162, 40, 18, 2, new Color(0.75f, 0.35f, 0.95f), new Color(0.12f, 0.16f, 0.22f, 0.85f));
+                tabBg.sprite = UIStyleUtility.CreateOutlinePillSprite(164, 38, 18, 2, new Color(0.75f, 0.35f, 0.95f), new Color(0.12f, 0.16f, 0.22f, 0.85f));
                 tabBg.raycastTarget = true;
 
                 Button btn = tabBtn.AddComponent<Button>();
@@ -1120,6 +1138,7 @@ namespace Farm2Shelf.UI
                 tabText.fontStyle = FontStyle.Bold;
                 tabText.alignment = TextAnchor.MiddleCenter;
                 tabText.color = new Color(0.85f, 0.55f, 1.0f);
+                tabText.horizontalOverflow = HorizontalWrapMode.Overflow;
                 tabText.raycastTarget = false;
             }
         }
@@ -1213,7 +1232,7 @@ namespace Farm2Shelf.UI
             Text bText = bTextObj.AddComponent<Text>();
             bText.font = globalFont;
             bText.text = LocalizationManager.L("Btn_HomeScreen", "← Ana Ekran", "← Home Screen");
-            bText.fontSize = 15;
+            bText.fontSize = 18;
             bText.fontStyle = FontStyle.Bold;
             bText.alignment = TextAnchor.MiddleCenter;
             bText.color = new Color(0.95f, 0.40f, 0.55f);
@@ -1229,7 +1248,7 @@ namespace Farm2Shelf.UI
             Text tText = titleObj.AddComponent<Text>();
             tText.font = globalFont;
             tText.text = "🛍️ TRENDYSHOP";
-            tText.fontSize = 17;
+            tText.fontSize = 22;
             tText.fontStyle = FontStyle.Bold;
             tText.alignment = TextAnchor.MiddleLeft;
             tText.color = new Color(0.95f, 0.45f, 0.60f);
@@ -1260,7 +1279,7 @@ namespace Farm2Shelf.UI
             Text boText = boTxtObj.AddComponent<Text>();
             boText.font = globalFont;
             boText.text = LocalizationManager.L("Btn_BulkOrder", "📦 Toplu Sipariş", "📦 Bulk Order");
-            boText.fontSize = 14;
+            boText.fontSize = 16;
             boText.fontStyle = FontStyle.Bold;
             boText.alignment = TextAnchor.MiddleCenter;
             boText.color = Color.white;
@@ -1289,7 +1308,7 @@ namespace Farm2Shelf.UI
             Text phText = phObj.AddComponent<Text>();
             phText.font = globalFont;
             phText.text = LocalizationManager.L("Placeholder_SearchProduct", "🔍 Ürün Ara...", "🔍 Search Product...");
-            phText.fontSize = 14;
+            phText.fontSize = 16;
             phText.fontStyle = FontStyle.Italic;
             phText.alignment = TextAnchor.MiddleLeft;
             phText.color = new Color(0.65f, 0.70f, 0.75f);
@@ -1305,7 +1324,7 @@ namespace Farm2Shelf.UI
 
             Text inText = inTextObj.AddComponent<Text>();
             inText.font = globalFont;
-            inText.fontSize = 14;
+            inText.fontSize = 16;
             inText.fontStyle = FontStyle.Bold;
             inText.alignment = TextAnchor.MiddleLeft;
             inText.color = Color.white;
@@ -1343,7 +1362,7 @@ namespace Farm2Shelf.UI
             headerCartButtonText = ctObj.AddComponent<Text>();
             headerCartButtonText.font = globalFont;
             headerCartButtonText.text = "🛒 SEPET (0)";
-            headerCartButtonText.fontSize = 14;
+            headerCartButtonText.fontSize = 17;
             headerCartButtonText.fontStyle = FontStyle.Bold;
             headerCartButtonText.alignment = TextAnchor.MiddleCenter;
             headerCartButtonText.color = Color.white;
@@ -1381,7 +1400,7 @@ namespace Farm2Shelf.UI
             shoppingCategoryHeaderTitle = headerTitleObj.AddComponent<Text>();
             shoppingCategoryHeaderTitle.font = globalFont;
             shoppingCategoryHeaderTitle.text = "🛋️ Mobilyalar";
-            shoppingCategoryHeaderTitle.fontSize = 22;
+            shoppingCategoryHeaderTitle.fontSize = 26;
             shoppingCategoryHeaderTitle.fontStyle = FontStyle.Bold;
             shoppingCategoryHeaderTitle.alignment = TextAnchor.MiddleLeft;
             shoppingCategoryHeaderTitle.color = new Color(0.95f, 0.45f, 0.60f);
@@ -1403,7 +1422,7 @@ namespace Farm2Shelf.UI
             shoppingCategoryHeaderSub = headerSubObj.AddComponent<Text>();
             shoppingCategoryHeaderSub.font = globalFont;
             shoppingCategoryHeaderSub.text = "🛋️ MOBİLYALAR KATALOĞU\n\nBu kategorinin içeriği henüz boş.\nBirlikte eklemek istediğiniz ürünleri belirleyebilirsiniz.";
-            shoppingCategoryHeaderSub.fontSize = 16;
+            shoppingCategoryHeaderSub.fontSize = 18;
             shoppingCategoryHeaderSub.fontStyle = FontStyle.Normal;
             shoppingCategoryHeaderSub.alignment = TextAnchor.MiddleCenter;
             shoppingCategoryHeaderSub.color = new Color(0.85f, 0.90f, 0.95f);
@@ -1428,7 +1447,7 @@ namespace Farm2Shelf.UI
             shoppingCartSummaryText = cartTextObj.AddComponent<Text>();
             shoppingCartSummaryText.font = globalFont;
             shoppingCartSummaryText.text = "🛒 Sepet: 0 Ürün (0C)";
-            shoppingCartSummaryText.fontSize = 16;
+            shoppingCartSummaryText.fontSize = 18;
             shoppingCartSummaryText.fontStyle = FontStyle.Bold;
             shoppingCartSummaryText.alignment = TextAnchor.MiddleLeft;
             shoppingCartSummaryText.color = Color.white;
@@ -1450,7 +1469,7 @@ namespace Farm2Shelf.UI
             });
 
             string checkoutLabel = LocalizationManager.L("Btn_Checkout", "Siparişi Tamamla", "Checkout Order");
-            Text chTxt = CreateTextInPanel(checkoutBtnObj.transform, Vector2.zero, Vector2.one, checkoutLabel, 14, Color.white);
+            Text chTxt = CreateTextInPanel(checkoutBtnObj.transform, Vector2.zero, Vector2.one, checkoutLabel, 17, Color.white);
             chTxt.alignment = TextAnchor.MiddleCenter;
 
             viewObj.SetActive(false);
@@ -1464,6 +1483,7 @@ namespace Farm2Shelf.UI
             if (farmAppView != null) farmAppView.gameObject.SetActive(false);
             if (shoppingAppView != null) shoppingAppView.gameObject.SetActive(false);
             if (socialMediaAppView != null) socialMediaAppView.gameObject.SetActive(false);
+            EnsureCloseButtonOnTop();
         }
 
         private void ShowStoreManagementApp()
@@ -1476,6 +1496,7 @@ namespace Farm2Shelf.UI
 
             activeTab = 0;
             RefreshStoreManagementViews();
+            EnsureCloseButtonOnTop();
         }
 
         private void ShowFinanceApp()
@@ -1488,6 +1509,7 @@ namespace Farm2Shelf.UI
 
             activeFinanceTab = 0;
             RefreshFinanceViews();
+            EnsureCloseButtonOnTop();
         }
 
         private void ShowFarmApp()
@@ -1500,6 +1522,7 @@ namespace Farm2Shelf.UI
 
             activeFarmTab = 0;
             RefreshFarmViews();
+            EnsureCloseButtonOnTop();
         }
 
         private void ShowShoppingApp()
@@ -1513,6 +1536,7 @@ namespace Farm2Shelf.UI
 
             activeShoppingCategory = 0;
             RefreshShoppingViews();
+            EnsureCloseButtonOnTop();
         }
 
         private void ShowSocialMediaApp()
@@ -1526,6 +1550,7 @@ namespace Farm2Shelf.UI
 
             activeSocialTab = 0;
             RefreshSocialMediaViews();
+            EnsureCloseButtonOnTop();
         }
 
         private void RefreshShoppingViews()
@@ -1573,7 +1598,7 @@ namespace Farm2Shelf.UI
                     RefreshShoppingViews();
                 });
 
-                Text catText = CreateTextInPanel(catBtn.transform, Vector2.zero, Vector2.one, categories[i], 14, isActive ? Color.white : new Color(0.80f, 0.85f, 0.90f));
+                Text catText = CreateTextInPanel(catBtn.transform, Vector2.zero, Vector2.one, categories[i], 17, isActive ? Color.white : new Color(0.80f, 0.85f, 0.90f));
                 catText.alignment = TextAnchor.MiddleLeft;
                 RectTransform tRect = catText.GetComponent<RectTransform>();
                 tRect.anchoredPosition = new Vector2(12f, 0f);
@@ -1655,7 +1680,7 @@ namespace Farm2Shelf.UI
                 el.minHeight = 120f;
                 el.preferredHeight = 120f;
 
-                Text emptyTxt = CreateTextInPanel(emptyMsgObj.transform, Vector2.zero, Vector2.one, $"🔍 '{currentShoppingSearchQuery}' araması için Toptancı sekmesinde ürün bulunamadı.", 15, Color.gray);
+                Text emptyTxt = CreateTextInPanel(emptyMsgObj.transform, Vector2.zero, Vector2.one, $"🔍 '{currentShoppingSearchQuery}' araması için Toptancı sekmesinde ürün bulunamadı.", 17, Color.gray);
                 emptyTxt.alignment = TextAnchor.MiddleCenter;
                 UpdateCartSummary();
                 return;
@@ -1694,13 +1719,13 @@ namespace Farm2Shelf.UI
                 ipRect.anchoredPosition = new Vector2(-30f, 0f);
                 ipRect.sizeDelta = new Vector2(300f, 75f);
 
-                Text titleText = CreateTextInPanel(infoPanel.transform, new Vector2(0f, 22f), new Vector2(300f, 24f), $"{def.iconEmoji} {def.LocalizedName} (50)", 16, Color.white);
+                Text titleText = CreateTextInPanel(infoPanel.transform, new Vector2(0f, 22f), new Vector2(300f, 24f), $"{def.iconEmoji} {def.LocalizedName} (50)", 19, Color.white);
                 titleText.fontStyle = FontStyle.Bold;
                 titleText.alignment = TextAnchor.MiddleLeft;
 
                 string priceInfoFmt = LocalizationManager.L("Wholesale_PriceInfoFmt", "Toptan Koli Alış: {0:N0}C ({1:N0}C/Birim) | Kâr: +{2:N0}C (%20)", "Wholesale Pack Cost: {0:N0}C ({1:N0}C/Pcs) | Profit: +{2:N0}C (20%)");
                 string priceInfo = string.Format(priceInfoFmt, def.TotalPackCost, def.wholesaleUnitPrice, def.TotalPackProfit);
-                Text priceText = CreateTextInPanel(infoPanel.transform, new Vector2(0f, 0f), new Vector2(300f, 20f), priceInfo, 14, new Color(0.95f, 0.85f, 0.30f));
+                Text priceText = CreateTextInPanel(infoPanel.transform, new Vector2(0f, 0f), new Vector2(300f, 20f), priceInfo, 16, new Color(0.95f, 0.85f, 0.30f));
                 priceText.alignment = TextAnchor.MiddleLeft;
 
                 string badgeUnlockedFmt = LocalizationManager.L("Wholesale_UnlockedBadge", "✅ Seviye {0} | {1} (50 Adet)", "✅ Level {0} | {1} (50 Pcs)");
@@ -1708,7 +1733,7 @@ namespace Farm2Shelf.UI
                 string badgeText = isUnlocked ? string.Format(badgeUnlockedFmt, def.requiredLevel, def.GetTargetShelfText()) : string.Format(badgeLockedFmt, def.requiredLevel, def.GetTargetShelfText());
                 Color badgeColor = isUnlocked ? new Color(0.30f, 0.85f, 0.45f) : new Color(0.95f, 0.45f, 0.35f);
 
-                Text subText = CreateTextInPanel(infoPanel.transform, new Vector2(0f, -20f), new Vector2(300f, 20f), badgeText, 13, badgeColor);
+                Text subText = CreateTextInPanel(infoPanel.transform, new Vector2(0f, -20f), new Vector2(300f, 20f), badgeText, 15, badgeColor);
                 subText.alignment = TextAnchor.MiddleLeft;
 
                 // Sağ Kontrol Alanı (Koli Ekle / Adet / Kilitli)
@@ -1736,7 +1761,7 @@ namespace Farm2Shelf.UI
                         }, 20);
 
                         // Adet Göstergesi
-                        Text countTxt = CreateTextInPanel(ctrlPanel.transform, new Vector2(0f, 0f), new Vector2(30f, 32f), inCartCount.ToString(), 17, Color.white);
+                        Text countTxt = CreateTextInPanel(ctrlPanel.transform, new Vector2(0f, 0f), new Vector2(30f, 32f), inCartCount.ToString(), 20, Color.white);
                         countTxt.fontStyle = FontStyle.Bold;
                         countTxt.alignment = TextAnchor.MiddleCenter;
 
@@ -1756,14 +1781,14 @@ namespace Farm2Shelf.UI
                             wholesaleCart[targetProdId] = 1;
                             RenderWholesaleProductList();
                             UpdateCartSummary();
-                        });
+                        }, 16);
                     }
                 }
                 else
                 {
                     // Kilitli Buton
                     string lockTextStr = LocalizationManager.L("Btn_LockedItem", "🔒 Kilitli", "🔒 Locked");
-                    GameObject lockBtn = CreateButtonInPanel(ctrlPanel.transform, new Vector2(0f, 0f), new Vector2(100f, 34f), lockTextStr, new Color(0.35f, 0.35f, 0.40f), null);
+                    GameObject lockBtn = CreateButtonInPanel(ctrlPanel.transform, new Vector2(0f, 0f), new Vector2(100f, 34f), lockTextStr, new Color(0.35f, 0.35f, 0.40f), null, 15);
                 }
             }
 
@@ -1842,13 +1867,13 @@ namespace Farm2Shelf.UI
                 ipRect.sizeDelta = new Vector2(310f, 75f);
 
                 string inStockFmt = LocalizationManager.L("Seed_InStockFmt", "(Stokta: {0})", "(In Stock: {0})");
-                Text titleText = CreateTextInPanel(infoPanel.transform, new Vector2(0f, 18f), new Vector2(310f, 24f), $"<b>{def.LocalizedName}</b>  <color=#00E676>{string.Format(inStockFmt, ownedCount)}</color>", 16, canBuy ? Color.white : Color.gray);
+                Text titleText = CreateTextInPanel(infoPanel.transform, new Vector2(0f, 18f), new Vector2(310f, 24f), $"<b>{def.LocalizedName}</b>  <color=#00E676>{string.Format(inStockFmt, ownedCount)}</color>", 19, canBuy ? Color.white : Color.gray);
                 titleText.fontStyle = FontStyle.Bold;
                 titleText.alignment = TextAnchor.MiddleLeft;
 
                 string statusFmt = LocalizationManager.L("Seed_StatusFmt", "• Büyüme: {0} Gün • Seviye: {1} • 10'lu Paket: {2:N0}C", "• Growth: {0} Days • Level: {1} • 10-Pack: {2:N0}C");
                 string statusDetails = string.Format(statusFmt, def.growthDays, def.requiredLevel, def.packPrice);
-                Text descText = CreateTextInPanel(infoPanel.transform, new Vector2(0f, -6f), new Vector2(310f, 22f), statusDetails, 14, canBuy ? new Color(0.85f, 0.90f, 0.95f) : Color.gray);
+                Text descText = CreateTextInPanel(infoPanel.transform, new Vector2(0f, -6f), new Vector2(310f, 22f), statusDetails, 16, canBuy ? new Color(0.85f, 0.90f, 0.95f) : Color.gray);
                 descText.alignment = TextAnchor.MiddleLeft;
 
                 string seasonName = (TimeManager.Instance != null) ? TimeManager.Instance.GetLocalizedSeasonName(def.season) : def.season.ToString();
@@ -1856,7 +1881,7 @@ namespace Farm2Shelf.UI
                 string seasonOutFmt = LocalizationManager.L("Seed_SeasonOut", "🔒 Mevsim Dışı ({0})", "🔒 Out of Season ({0})");
                 string seasonBadgeStr = isMatchingSeason ? string.Format(seasonInFmt, seasonName) : string.Format(seasonOutFmt, seasonName);
                 Color seasonBadgeCol = isMatchingSeason ? new Color(0.35f, 0.85f, 0.45f) : new Color(0.95f, 0.45f, 0.35f);
-                Text badgeText = CreateTextInPanel(infoPanel.transform, new Vector2(0f, -24f), new Vector2(310f, 20f), seasonBadgeStr, 13, seasonBadgeCol);
+                Text badgeText = CreateTextInPanel(infoPanel.transform, new Vector2(0f, -24f), new Vector2(310f, 20f), seasonBadgeStr, 15, seasonBadgeCol);
                 badgeText.alignment = TextAnchor.MiddleLeft;
 
                 // 3. Sağ Kontrol Alanı (Sepete Ekle / - 1 + / Kilitli)
@@ -1885,7 +1910,7 @@ namespace Farm2Shelf.UI
                         }, 20);
 
                         // Adet Göstergesi (Paket)
-                        Text countTxt = CreateTextInPanel(ctrlPanel.transform, new Vector2(0f, 0f), new Vector2(30f, 32f), inCartCount.ToString(), 17, Color.white);
+                        Text countTxt = CreateTextInPanel(ctrlPanel.transform, new Vector2(0f, 0f), new Vector2(30f, 32f), inCartCount.ToString(), 20, Color.white);
                         countTxt.fontStyle = FontStyle.Bold;
                         countTxt.alignment = TextAnchor.MiddleCenter;
 
@@ -1905,7 +1930,7 @@ namespace Farm2Shelf.UI
                             seedCart[targetSeedId] = 1;
                             RenderSeedProductList();
                             UpdateCartSummary();
-                        });
+                        }, 16);
                     }
                 }
                 else
@@ -1913,7 +1938,7 @@ namespace Farm2Shelf.UI
                     string outSeasonStr = LocalizationManager.L("Btn_OutOfSeason", "🔒 Mevsim Dışı", "🔒 Off-Season");
                     string reqLvlFmt = LocalizationManager.L("Btn_ReqLevel", "🔒 Seviye {0}", "🔒 Level {0}");
                     string lockTxt = !isMatchingSeason ? outSeasonStr : string.Format(reqLvlFmt, def.requiredLevel);
-                    GameObject lockBtn = CreateButtonInPanel(ctrlPanel.transform, new Vector2(0f, 0f), new Vector2(105f, 34f), lockTxt, new Color(0.35f, 0.35f, 0.40f), null);
+                    GameObject lockBtn = CreateButtonInPanel(ctrlPanel.transform, new Vector2(0f, 0f), new Vector2(105f, 34f), lockTxt, new Color(0.35f, 0.35f, 0.40f), null, 15);
                 }
             }
             UpdateCartSummary();
@@ -1961,7 +1986,7 @@ namespace Farm2Shelf.UI
                 RenderShoppingCategoryContent();
             });
 
-            Text wTxt = CreateTextInPanel(wallTabBtn.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Sub_Walls", "🎨 Duvarlar", "🎨 Walls"), 15, isWallActive ? Color.white : new Color(0.75f, 0.80f, 0.85f));
+            Text wTxt = CreateTextInPanel(wallTabBtn.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Sub_Walls", "🎨 Duvarlar", "🎨 Walls"), 18, isWallActive ? Color.white : new Color(0.75f, 0.80f, 0.85f));
             wTxt.alignment = TextAnchor.MiddleCenter;
 
             // ZEMİN SEKMESİ (Sub-Tab 1)
@@ -1983,7 +2008,7 @@ namespace Farm2Shelf.UI
                 RenderShoppingCategoryContent();
             });
 
-            Text fTxt = CreateTextInPanel(floorTabBtn.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Sub_Floors", "🧱 Zemin", "🧱 Floors"), 15, isFloorActive ? Color.white : new Color(0.75f, 0.80f, 0.85f));
+            Text fTxt = CreateTextInPanel(floorTabBtn.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Sub_Floors", "🧱 Zemin", "🧱 Floors"), 18, isFloorActive ? Color.white : new Color(0.75f, 0.80f, 0.85f));
             fTxt.alignment = TextAnchor.MiddleCenter;
 
             // 2. ÜRÜN LİSTESİ HESAPLAMA
@@ -2043,11 +2068,11 @@ namespace Farm2Shelf.UI
                 infoVlg.childAlignment = TextAnchor.MiddleLeft;
                 infoVlg.childControlWidth = true;
 
-                Text nameText = CreateTextInPanel(infoObj.transform, Vector2.zero, Vector2.one, def.Name, 16, Color.white);
+                Text nameText = CreateTextInPanel(infoObj.transform, Vector2.zero, Vector2.one, def.Name, 19, Color.white);
                 nameText.fontStyle = FontStyle.Bold;
 
                 string lvlFmt = LocalizationManager.L("Renov_ReqLvl", "Seviye {0} Gerektirir", "Requires Level {0}");
-                Text lvlText = CreateTextInPanel(infoObj.transform, Vector2.zero, Vector2.one, string.Format(lvlFmt, def.requiredLevel), 13, isUnlocked ? new Color(0.40f, 0.90f, 0.50f) : new Color(0.95f, 0.40f, 0.40f));
+                Text lvlText = CreateTextInPanel(infoObj.transform, Vector2.zero, Vector2.one, string.Format(lvlFmt, def.requiredLevel), 15, isUnlocked ? new Color(0.40f, 0.90f, 0.50f) : new Color(0.95f, 0.40f, 0.40f));
 
                 // SAĞ KISIM: FİYAT VE "KULLAN" BUTONU (180x50)
                 GameObject ctrlObj = new GameObject("ControlPanel");
@@ -2061,7 +2086,7 @@ namespace Farm2Shelf.UI
                 ctrlHlg.childControlWidth = false;
                 ctrlHlg.childControlHeight = false;
 
-                Text priceText = CreateTextInPanel(ctrlObj.transform, Vector2.zero, Vector2.one, $"<b>{def.price:N0}C</b>", 16, new Color(0.30f, 0.90f, 1.0f));
+                Text priceText = CreateTextInPanel(ctrlObj.transform, Vector2.zero, Vector2.one, $"<b>{def.price:N0}C</b>", 18, new Color(0.30f, 0.90f, 1.0f));
                 priceText.alignment = TextAnchor.MiddleRight;
                 RectTransform prRt = priceText.GetComponent<RectTransform>();
                 prRt.sizeDelta = new Vector2(55f, 35f);
@@ -2071,12 +2096,12 @@ namespace Farm2Shelf.UI
                     string useTxt = LocalizationManager.L("Btn_ApplyRenovation", "KULLAN", "APPLY");
                     GameObject applyBtnObj = CreateButtonInPanel(ctrlObj.transform, Vector2.zero, new Vector2(110f, 38f), useTxt, new Color(0.18f, 0.75f, 0.35f), () => {
                         ApplyRenovationItem(def);
-                    });
+                    }, 16);
                 }
                 else
                 {
                     string lockTxt = string.Format(LocalizationManager.L("Btn_LockedFmt", "🔒 Lv.{0}", "🔒 Lv.{0}"), def.requiredLevel);
-                    GameObject lockBtnObj = CreateButtonInPanel(ctrlObj.transform, Vector2.zero, new Vector2(110f, 38f), lockTxt, new Color(0.35f, 0.35f, 0.40f), null);
+                    GameObject lockBtnObj = CreateButtonInPanel(ctrlObj.transform, Vector2.zero, new Vector2(110f, 38f), lockTxt, new Color(0.35f, 0.35f, 0.40f), null, 15);
                 }
             }
         }
@@ -2170,7 +2195,7 @@ namespace Farm2Shelf.UI
                 el.minHeight = 120f;
                 el.preferredHeight = 120f;
 
-                Text emptyTxt = CreateTextInPanel(emptyMsgObj.transform, Vector2.zero, Vector2.one, $"🔍 '{currentShoppingSearchQuery}' araması için {catTitle} sekmesinde ürün bulunamadı.", 15, Color.gray);
+                Text emptyTxt = CreateTextInPanel(emptyMsgObj.transform, Vector2.zero, Vector2.one, $"🔍 '{currentShoppingSearchQuery}' araması için {catTitle} sekmesinde ürün bulunamadı.", 17, Color.gray);
                 emptyTxt.alignment = TextAnchor.MiddleCenter;
                 UpdateCartSummary();
                 return;
@@ -2209,7 +2234,7 @@ namespace Farm2Shelf.UI
                 ipRect.anchoredPosition = new Vector2(-30f, 0f);
                 ipRect.sizeDelta = new Vector2(300f, 60f);
 
-                Text titleText = CreateTextInPanel(infoPanel.transform, new Vector2(0f, 15f), new Vector2(300f, 24f), $"{def.iconEmoji} {def.LocalizedName} ({def.price:N0} Cr)", 16, Color.white);
+                Text titleText = CreateTextInPanel(infoPanel.transform, new Vector2(0f, 15f), new Vector2(300f, 24f), $"{def.iconEmoji} {def.LocalizedName} ({def.price:N0} Cr)", 19, Color.white);
                 titleText.fontStyle = FontStyle.Bold;
                 titleText.alignment = TextAnchor.MiddleLeft;
 
@@ -2218,7 +2243,7 @@ namespace Farm2Shelf.UI
                 string badgeText = isUnlocked ? string.Format(badgeUnlockedFmt, def.requiredLevel, def.GetZoneText()) : string.Format(badgeLockedFmt, def.requiredLevel, def.GetZoneText());
                 Color badgeColor = isUnlocked ? new Color(0.30f, 0.85f, 0.45f) : new Color(0.95f, 0.45f, 0.35f);
 
-                Text subText = CreateTextInPanel(infoPanel.transform, new Vector2(0f, -12f), new Vector2(300f, 22f), badgeText, 14, badgeColor);
+                Text subText = CreateTextInPanel(infoPanel.transform, new Vector2(0f, -12f), new Vector2(300f, 22f), badgeText, 16, badgeColor);
                 subText.alignment = TextAnchor.MiddleLeft;
 
                 // Sağ Kontrol Alanı (Sepete Ekle / Adet / Kilitli)
@@ -2257,7 +2282,7 @@ namespace Farm2Shelf.UI
                     }, 20);
 
                     // Adet Göstergesi
-                    Text countTxt = CreateTextInPanel(ctrlParent, new Vector2(0f, 0f), new Vector2(30f, 32f), inCartCount.ToString(), 17, Color.white);
+                    Text countTxt = CreateTextInPanel(ctrlParent, new Vector2(0f, 0f), new Vector2(30f, 32f), inCartCount.ToString(), 20, Color.white);
                     countTxt.fontStyle = FontStyle.Bold;
                     countTxt.alignment = TextAnchor.MiddleCenter;
 
@@ -2276,14 +2301,14 @@ namespace Farm2Shelf.UI
                         shoppingCart[def.type] = 1;
                         UpdateFurnitureCardControls(ctrlParent, def, isUnlocked);
                         UpdateCartSummary();
-                    });
+                    }, 16);
                 }
             }
             else
             {
                 // Kilitli Buton
                 string lockItemStr = LocalizationManager.L("Btn_LockedItem", "🔒 Kilitli", "🔒 Locked");
-                GameObject lockBtn = CreateButtonInPanel(ctrlParent, new Vector2(0f, 0f), new Vector2(100f, 34f), lockItemStr, new Color(0.35f, 0.35f, 0.40f), null);
+                GameObject lockBtn = CreateButtonInPanel(ctrlParent, new Vector2(0f, 0f), new Vector2(100f, 34f), lockItemStr, new Color(0.35f, 0.35f, 0.40f), null, 15);
             }
         }
 
@@ -2524,18 +2549,19 @@ namespace Farm2Shelf.UI
             boxBg.sprite = UIStyleUtility.CreateOutlinePillSprite(650, 480, 18, 2, new Color(0.95f, 0.40f, 0.55f), new Color(0.12f, 0.15f, 0.20f, 0.98f));
 
             // Başlık
-            Text tText = CreateTextInPanel(boxObj.transform, new Vector2(0f, 205f), new Vector2(580f, 40f), LocalizationManager.L("Cart_ModalTitle", "🛒 EKT SHOPPING SEPETİM VE ÖDEME", "🛒 EKT SHOPPING MY CART & CHECKOUT"), 24, new Color(0.95f, 0.45f, 0.60f));
+            Text tText = CreateTextInPanel(boxObj.transform, new Vector2(0f, 205f), new Vector2(580f, 40f), LocalizationManager.L("Cart_ModalTitle", "🛒 EKT SHOPPING SEPETİM VE ÖDEME", "🛒 EKT SHOPPING MY CART & CHECKOUT"), 28, new Color(0.95f, 0.45f, 0.60f));
             tText.alignment = TextAnchor.MiddleCenter;
 
             // Kapat (X) Butonu
-            GameObject closeBtn = CreateButtonInPanel(boxObj.transform, new Vector2(285f, 205f), new Vector2(36f, 36f), "X", new Color(0.85f, 0.25f, 0.25f), () => {
+            GameObject closeBtn = CreateButtonInPanel(boxObj.transform, new Vector2(295f, 205f), new Vector2(40f, 40f), "✖", new Color(0.92f, 0.18f, 0.20f), () => {
                 Destroy(canvasObj);
-            });
+            }, 22);
+            closeBtn.transform.SetAsLastSibling();
 
             // Bakiye ve Bilgi Paneli
             int currentBalance = (FinanceManager.Instance != null) ? FinanceManager.Instance.CurrentBalance : 500000;
             string balFmt = LocalizationManager.L("Cart_BalanceFmt", "💰 Mevcut Bakiyeniz: {0:N0}C", "💰 Current Balance: {0:N0}C");
-            Text balText = CreateTextInPanel(boxObj.transform, new Vector2(0f, 165f), new Vector2(580f, 30f), string.Format(balFmt, currentBalance), 16, new Color(0.30f, 0.85f, 0.50f));
+            Text balText = CreateTextInPanel(boxObj.transform, new Vector2(0f, 165f), new Vector2(580f, 30f), string.Format(balFmt, currentBalance), 19, new Color(0.30f, 0.85f, 0.50f));
             balText.alignment = TextAnchor.MiddleCenter;
 
             // İçerik ScrollView
@@ -2556,7 +2582,7 @@ namespace Farm2Shelf.UI
                 el.minHeight = 120f;
                 el.preferredHeight = 120f;
 
-                Text emptyTxt = CreateTextInPanel(emptyObj.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Cart_EmptyMsg", "🛒 Sepetiniz şu anda boş!\nKatalogdan ürün seçerek sepete ekleyebilirsiniz.", "🛒 Your cart is currently empty!\nYou can add items from the catalog."), 16, Color.gray);
+                Text emptyTxt = CreateTextInPanel(emptyObj.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Cart_EmptyMsg", "🛒 Sepetiniz şu anda boş!\nKatalogdan ürün seçerek sepete ekleyebilirsiniz.", "🛒 Your cart is currently empty!\nYou can add items from the catalog."), 18, Color.gray);
                 emptyTxt.alignment = TextAnchor.MiddleCenter;
             }
             else
@@ -2583,10 +2609,10 @@ namespace Farm2Shelf.UI
                     Image rBg = itemRow.AddComponent<Image>();
                     rBg.sprite = UIStyleUtility.CreateRoundedPillSprite(580, 54, 10, new Color(0.18f, 0.22f, 0.30f));
 
-                    Text nameTxt = CreateTextInPanel(itemRow.transform, new Vector2(-155f, 0f), new Vector2(230f, 40f), $"{def.iconEmoji} {def.LocalizedName}", 16, Color.white);
+                    Text nameTxt = CreateTextInPanel(itemRow.transform, new Vector2(-155f, 0f), new Vector2(230f, 40f), $"{def.iconEmoji} {def.LocalizedName}", 18, Color.white);
                     nameTxt.alignment = TextAnchor.MiddleLeft;
 
-                    Text priceTxt = CreateTextInPanel(itemRow.transform, new Vector2(20f, 0f), new Vector2(150f, 40f), $"{count} x {def.price:N0} = {itemTotalCost:N0} Cr", 15, new Color(0.95f, 0.80f, 0.30f));
+                    Text priceTxt = CreateTextInPanel(itemRow.transform, new Vector2(20f, 0f), new Vector2(150f, 40f), $"{count} x {def.price:N0} = {itemTotalCost:N0} Cr", 17, new Color(0.95f, 0.80f, 0.30f));
                     priceTxt.alignment = TextAnchor.MiddleCenter;
 
                     CreateButtonInPanel(itemRow.transform, new Vector2(142f, 0f), new Vector2(30f, 30f), "-", new Color(0.85f, 0.30f, 0.30f), () => {
@@ -2597,7 +2623,7 @@ namespace Farm2Shelf.UI
                         OpenCartModal();
                     }, 20);
 
-                    Text countLabel = CreateTextInPanel(itemRow.transform, new Vector2(174f, 0f), new Vector2(24f, 30f), count.ToString(), 16, Color.white);
+                    Text countLabel = CreateTextInPanel(itemRow.transform, new Vector2(174f, 0f), new Vector2(24f, 30f), count.ToString(), 18, Color.white);
                     countLabel.fontStyle = FontStyle.Bold;
                     countLabel.alignment = TextAnchor.MiddleCenter;
 
@@ -2640,10 +2666,10 @@ namespace Farm2Shelf.UI
                     rBg.sprite = UIStyleUtility.CreateRoundedPillSprite(580, 54, 10, new Color(0.25f, 0.18f, 0.15f));
 
                     string pack50Label = LocalizationManager.L("Cart_Pack50", "50'li Koli", "Pack of 50");
-                    Text nameTxt = CreateTextInPanel(itemRow.transform, new Vector2(-155f, 0f), new Vector2(230f, 40f), $"{def.iconEmoji} {def.LocalizedName} ({pack50Label})", 16, Color.white);
+                    Text nameTxt = CreateTextInPanel(itemRow.transform, new Vector2(-155f, 0f), new Vector2(230f, 40f), $"{def.iconEmoji} {def.LocalizedName} ({pack50Label})", 18, Color.white);
                     nameTxt.alignment = TextAnchor.MiddleLeft;
 
-                    Text priceTxt = CreateTextInPanel(itemRow.transform, new Vector2(20f, 0f), new Vector2(150f, 40f), $"{count} Koli = {itemTotalCost:N0} Cr", 15, new Color(0.95f, 0.75f, 0.30f));
+                    Text priceTxt = CreateTextInPanel(itemRow.transform, new Vector2(20f, 0f), new Vector2(150f, 40f), $"{count} Koli = {itemTotalCost:N0} Cr", 17, new Color(0.95f, 0.75f, 0.30f));
                     priceTxt.alignment = TextAnchor.MiddleCenter;
 
                     CreateButtonInPanel(itemRow.transform, new Vector2(142f, 0f), new Vector2(30f, 30f), "-", new Color(0.85f, 0.30f, 0.30f), () => {
@@ -2654,7 +2680,7 @@ namespace Farm2Shelf.UI
                         OpenCartModal();
                     }, 20);
 
-                    Text countLabel = CreateTextInPanel(itemRow.transform, new Vector2(174f, 0f), new Vector2(24f, 30f), count.ToString(), 16, Color.white);
+                    Text countLabel = CreateTextInPanel(itemRow.transform, new Vector2(174f, 0f), new Vector2(24f, 30f), count.ToString(), 18, Color.white);
                     countLabel.fontStyle = FontStyle.Bold;
                     countLabel.alignment = TextAnchor.MiddleCenter;
 
@@ -2697,10 +2723,10 @@ namespace Farm2Shelf.UI
                     rBg.sprite = UIStyleUtility.CreateRoundedPillSprite(580, 54, 10, new Color(0.15f, 0.25f, 0.18f));
 
                     string pack10Label = LocalizationManager.L("Cart_Pack10", "10'lu Paket", "Pack of 10");
-                    Text nameTxt = CreateTextInPanel(itemRow.transform, new Vector2(-155f, 0f), new Vector2(230f, 40f), $"{def.iconEmoji} {def.LocalizedName} ({pack10Label})", 16, Color.white);
+                    Text nameTxt = CreateTextInPanel(itemRow.transform, new Vector2(-155f, 0f), new Vector2(230f, 40f), $"{def.iconEmoji} {def.LocalizedName} ({pack10Label})", 18, Color.white);
                     nameTxt.alignment = TextAnchor.MiddleLeft;
 
-                    Text priceTxt = CreateTextInPanel(itemRow.transform, new Vector2(20f, 0f), new Vector2(150f, 40f), $"{count} Pk = {itemTotalCost:N0} Cr", 15, new Color(0.35f, 0.85f, 0.45f));
+                    Text priceTxt = CreateTextInPanel(itemRow.transform, new Vector2(20f, 0f), new Vector2(150f, 40f), $"{count} Pk = {itemTotalCost:N0} Cr", 17, new Color(0.35f, 0.85f, 0.45f));
                     priceTxt.alignment = TextAnchor.MiddleCenter;
 
                     CreateButtonInPanel(itemRow.transform, new Vector2(142f, 0f), new Vector2(30f, 30f), "-", new Color(0.85f, 0.30f, 0.30f), () => {
@@ -2711,7 +2737,7 @@ namespace Farm2Shelf.UI
                         OpenCartModal();
                     }, 20);
 
-                    Text countLabel = CreateTextInPanel(itemRow.transform, new Vector2(174f, 0f), new Vector2(24f, 30f), count.ToString(), 16, Color.white);
+                    Text countLabel = CreateTextInPanel(itemRow.transform, new Vector2(174f, 0f), new Vector2(24f, 30f), count.ToString(), 18, Color.white);
                     countLabel.fontStyle = FontStyle.Bold;
                     countLabel.alignment = TextAnchor.MiddleCenter;
 
@@ -2740,14 +2766,14 @@ namespace Farm2Shelf.UI
             ftRect.sizeDelta = new Vector2(590f, 50f);
 
             string totalFmt = LocalizationManager.L("Cart_TotalCostFmt", "Toplam Tutar: {0:N0}C", "Total Cost: {0:N0}C");
-            Text totalTxt = CreateTextInPanel(footerObj.transform, new Vector2(-130f, 0f), new Vector2(300f, 40f), string.Format(totalFmt, totalCost), 19, new Color(0.95f, 0.85f, 0.30f));
+            Text totalTxt = CreateTextInPanel(footerObj.transform, new Vector2(-130f, 0f), new Vector2(300f, 40f), string.Format(totalFmt, totalCost), 22, new Color(0.95f, 0.85f, 0.30f));
             totalTxt.alignment = TextAnchor.MiddleLeft;
 
             string payBtnLabel = LocalizationManager.L("Btn_PlaceOrderPay", "💳 ÖDEME YAP VE SİPARİŞ VER", "💳 PLACE ORDER & PAY");
             GameObject payBtn = CreateButtonInPanel(footerObj.transform, new Vector2(165f, 0f), new Vector2(230f, 44f), payBtnLabel, new Color(0.20f, 0.75f, 0.35f), () => {
                 Destroy(canvasObj);
                 CheckoutShoppingCart();
-            });
+            }, 17);
             payBtn.GetComponent<Button>().interactable = (totalItems > 0);
         }
 
@@ -2842,7 +2868,7 @@ namespace Farm2Shelf.UI
                 iText.font = globalFont;
                 string costWord = LocalizationManager.L("Label_Cost", "Ücret", "Cost");
                 iText.text = $"🏢 <b>{stageNames[i]}</b>   |   <b>{costWord}: {cost:N0}C</b>\n{descriptions[i]}";
-                iText.fontSize = 15;
+                iText.fontSize = 17;
                 iText.fontStyle = FontStyle.Normal;
                 iText.alignment = TextAnchor.MiddleLeft;
                 iText.color = isLocked ? new Color(0.60f, 0.65f, 0.72f) : new Color(0.92f, 0.94f, 0.98f);
@@ -2905,7 +2931,7 @@ namespace Farm2Shelf.UI
                 Text btText = btObj.AddComponent<Text>();
                 btText.font = globalFont;
                 btText.text = btnLabelText;
-                btText.fontSize = 14;
+                btText.fontSize = 16;
                 btText.fontStyle = FontStyle.Bold;
                 btText.alignment = TextAnchor.MiddleCenter;
                 btText.color = canUpgradeNow ? Color.white : new Color(0.70f, 0.75f, 0.80f);
@@ -2953,10 +2979,10 @@ namespace Farm2Shelf.UI
 
             string loanSummaryFmt = LocalizationManager.L(
                 "Loans_SummaryHeaderFmt",
-                "🏛️ <b>BANKA KREDİLERİ YÖNETİMİ</b>   |   Aktif Krediler: <b>{0} Adet</b>   |   Kalan Toplam Borç: <color=#FFD54F>{1:N0}C</color>\n<size=12><color=#B0BEC5>Gece yarısında (00:00) günlük taksitler otomatik tahsil edilir. İsterseniz kredilerinizi erken ödeyip kapatabilirsiniz.</color></size>",
-                "🏛️ <b>BANK LOANS MANAGEMENT</b>   |   Active Loans: <b>{0} Active</b>   |   Remaining Total Debt: <color=#FFD54F>{1:N0}C</color>\n<size=12><color=#B0BEC5>Daily installments are automatically collected at midnight (00:00). You can payoff loans early if desired.</color></size>"
+                "🏛️ <b>BANKA KREDİLERİ YÖNETİMİ</b>   |   Aktif Krediler: <b>{0} Adet</b>   |   Kalan Toplam Borç: <color=#FFD54F>{1:N0}C</color>\n<size=14><color=#B0BEC5>Gece yarısında (00:00) günlük taksitler otomatik tahsil edilir. İsterseniz kredilerinizi erken ödeyip kapatabilirsiniz.</color></size>",
+                "🏛️ <b>BANK LOANS MANAGEMENT</b>   |   Active Loans: <b>{0} Active</b>   |   Remaining Total Debt: <color=#FFD54F>{1:N0}C</color>\n<size=14><color=#B0BEC5>Daily installments are automatically collected at midnight (00:00). You can payoff loans early if desired.</color></size>"
             );
-            Text sText = CreateTextInPanel(summaryCard.transform, Vector2.zero, Vector2.one, string.Format(loanSummaryFmt, activeCount, totalDebt), 14, Color.white);
+            Text sText = CreateTextInPanel(summaryCard.transform, Vector2.zero, Vector2.one, string.Format(loanSummaryFmt, activeCount, totalDebt), 17, Color.white);
             sText.alignment = TextAnchor.MiddleCenter;
 
             // 2. AKTİF KREDİLER LİSTESİ (Varsa)
@@ -2966,7 +2992,7 @@ namespace Farm2Shelf.UI
                 activeSectionHeader.transform.SetParent(financeLoansContent, false);
                 RectTransform ahRect = activeSectionHeader.AddComponent<RectTransform>();
                 ahRect.sizeDelta = new Vector2(820f, 25f);
-                Text ahTxt = CreateTextInPanel(activeSectionHeader.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Header_ActiveLoans", "<b>🔴 AKTİF ÖDENMEKTE OLAN KREDİLERİNİZ:</b>", "<b>🔴 YOUR ACTIVE LOANS BEING REPAID:</b>"), 15, new Color(1.0f, 0.80f, 0.30f));
+                Text ahTxt = CreateTextInPanel(activeSectionHeader.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Header_ActiveLoans", "<b>🔴 AKTİF ÖDENMEKTE OLAN KREDİLERİNİZ:</b>", "<b>🔴 YOUR ACTIVE LOANS BEING REPAID:</b>"), 18, new Color(1.0f, 0.80f, 0.30f));
                 ahTxt.alignment = TextAnchor.MiddleLeft;
 
                 foreach (var activeLoan in loanMgr.GetActiveLoans())
@@ -2998,7 +3024,7 @@ namespace Farm2Shelf.UI
                         "💳 <b>{0}</b> ({1})\n  • Principal: <b>{2:N0}C</b>   |   Daily Installment: <b>{3:N0}C</b>\n  • Remaining Term: <b>{4} Days</b>   |   Early Payoff Amount: <color=#00E676><b>{5:N0}C</b></color> {6}"
                     );
                     iTxt.text = string.Format(activeLoanRowFmt, lData.LocalizedTitle, lData.startDateFormatted, lData.principalAmount, lData.dailyInstallment, lData.remainingDays, earlyCost, earlyBadge);
-                    iTxt.fontSize = 14;
+                    iTxt.fontSize = 17;
                     iTxt.alignment = TextAnchor.MiddleLeft;
                     iTxt.color = Color.white;
 
@@ -3032,7 +3058,7 @@ namespace Farm2Shelf.UI
                         }
                     });
 
-                    Text pTxt = CreateTextInPanel(payoffBtn.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Btn_PayoffEarly", "⚡ ERKEN KAPAT", "⚡ PAYOFF EARLY"), 13, Color.white);
+                    Text pTxt = CreateTextInPanel(payoffBtn.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Btn_PayoffEarly", "⚡ ERKEN KAPAT", "⚡ PAYOFF EARLY"), 16, Color.white);
                     pTxt.alignment = TextAnchor.MiddleCenter;
                     pTxt.fontStyle = FontStyle.Bold;
                 }
@@ -3044,7 +3070,7 @@ namespace Farm2Shelf.UI
             RectTransform ohRect = offersHeader.AddComponent<RectTransform>();
             ohRect.sizeDelta = new Vector2(820f, 25f);
             string offersHeaderFmt = LocalizationManager.L("Header_LevelLoansFmt", "<b>🟢 SEVİYE {0} BANKA KREDİ SEÇENEKLERİ:</b>", "<b>🟢 LEVEL {0} BANK LOAN OPTIONS:</b>");
-            Text ohTxt = CreateTextInPanel(offersHeader.transform, Vector2.zero, Vector2.one, string.Format(offersHeaderFmt, storeLevel), 15, new Color(0.25f, 0.85f, 0.45f));
+            Text ohTxt = CreateTextInPanel(offersHeader.transform, Vector2.zero, Vector2.one, string.Format(offersHeaderFmt, storeLevel), 18, new Color(0.25f, 0.85f, 0.45f));
             ohTxt.alignment = TextAnchor.MiddleLeft;
 
             List<BankLoanOffer> offers = loanMgr != null ? loanMgr.GetOffersForStoreLevel(storeLevel) : new List<BankLoanOffer>();
@@ -3072,7 +3098,7 @@ namespace Farm2Shelf.UI
                     "💰 <b>{0}</b>  <color=#A0AAB5>({1})</color>\n  • Net Loan Amount: <color=#00E676><b>{2:N0}C</b></color>   |   Interest: <b>{3:F0}%</b>\n  • Daily Installment: <b>{4:N0}C</b> (10 Days)   |   Total Repayment: <color=#FFD54F><b>{5:N0}C</b></color>"
                 );
                 iTxt.text = string.Format(offerRowFmt, ofr.LocalizedTitle, ofr.LocalizedDescription, ofr.principalAmount, ofr.interestRatePercent, ofr.dailyInstallment, ofr.totalRepayment);
-                iTxt.fontSize = 14;
+                iTxt.fontSize = 17;
                 iTxt.alignment = TextAnchor.MiddleLeft;
                 iTxt.color = Color.white;
 
@@ -3102,7 +3128,7 @@ namespace Farm2Shelf.UI
                     }
                 });
 
-                Text tTxt = CreateTextInPanel(takeBtn.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Btn_TakeLoan", "💵 KREDİ ÇEK", "💵 CLAIM LOAN"), 14, Color.white);
+                Text tTxt = CreateTextInPanel(takeBtn.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Btn_TakeLoan", "💵 KREDİ ÇEK", "💵 CLAIM LOAN"), 17, Color.white);
                 tTxt.alignment = TextAnchor.MiddleCenter;
                 tTxt.fontStyle = FontStyle.Bold;
             }
@@ -3204,7 +3230,7 @@ namespace Farm2Shelf.UI
                 string arrow = stock.PriceChangePercent >= 0 ? "▲" : "▼";
 
                 string priceLabelFmt = LocalizationManager.L("Stock_PriceLabelFmt", "Fiyat: <b>{0:F2}C</b>", "Price: <b>{0:F2}C</b>");
-                Text sbText = CreateTextInPanel(stockBtnObj.transform, Vector2.zero, Vector2.one, $"<b>{stock.tickerSymbol}</b>  |  {stock.LocalizedCompanyName}\n{string.Format(priceLabelFmt, stock.currentPrice)}   <color=#{ColorUtility.ToHtmlStringRGB(changeColor)}>{stock.PriceChangePercent:+0.00;-0.00}% {arrow}</color>", 12, Color.white);
+                Text sbText = CreateTextInPanel(stockBtnObj.transform, Vector2.zero, Vector2.one, $"<b>{stock.tickerSymbol}</b>  |  {stock.LocalizedCompanyName}\n{string.Format(priceLabelFmt, stock.currentPrice)}   <color=#{ColorUtility.ToHtmlStringRGB(changeColor)}>{stock.PriceChangePercent:+0.00;-0.00}% {arrow}</color>", 15, Color.white);
                 sbText.alignment = TextAnchor.MiddleLeft;
                 sbText.rectTransform.offsetMin = new Vector2(10f, 0f);
             }
@@ -3237,8 +3263,8 @@ namespace Farm2Shelf.UI
             Color signColor = targetStock.PriceChangePercent >= 0 ? new Color(0.0f, 0.90f, 0.45f) : new Color(1.0f, 0.32f, 0.32f);
             string signArrow = targetStock.PriceChangePercent >= 0 ? "▲" : "▼";
 
-            string lastPriceFmt = LocalizationManager.L("Stock_LastPriceFmt", "Son Fiyat: <size=15><b>{0:F2}C</b></size>", "Last Price: <size=15><b>{0:F2}C</b></size>");
-            Text hTxt = CreateTextInPanel(headerObj.transform, Vector2.zero, Vector2.one, $"📈 <b>{targetStock.LocalizedCompanyName} ({targetStock.tickerSymbol})</b>\n<size=12><color=#B0BEC5>{targetStock.LocalizedCategory}</color></size>   |   {string.Format(lastPriceFmt, targetStock.currentPrice)}  <color=#{ColorUtility.ToHtmlStringRGB(signColor)}><b>({targetStock.PriceChangePercent:+0.00;-0.00}% {signArrow})</b></color>", 14, Color.white);
+            string lastPriceFmt = LocalizationManager.L("Stock_LastPriceFmt", "Son Fiyat: <size=18><b>{0:F2}C</b></size>", "Last Price: <size=18><b>{0:F2}C</b></size>");
+            Text hTxt = CreateTextInPanel(headerObj.transform, Vector2.zero, Vector2.one, $"📈 <b>{targetStock.LocalizedCompanyName} ({targetStock.tickerSymbol})</b>\n<size=14><color=#B0BEC5>{targetStock.LocalizedCategory}</color></size>   |   {string.Format(lastPriceFmt, targetStock.currentPrice)}  <color=#{ColorUtility.ToHtmlStringRGB(signColor)}><b>({targetStock.PriceChangePercent:+0.00;-0.00}% {signArrow})</b></color>", 17, Color.white);
             hTxt.alignment = TextAnchor.MiddleLeft;
 
             // --- 24 SAATLİK GERÇEKÇİ CANLI ÇİZGİ/BAR GRAFİĞİ (Top: -60f, Yükseklik 140px) ---
@@ -3268,7 +3294,7 @@ namespace Farm2Shelf.UI
 
             Color plColor = targetStock.ProfitLoss >= 0 ? new Color(0.0f, 0.90f, 0.45f) : new Color(1.0f, 0.32f, 0.32f);
 
-            Text pTxt = CreateTextInPanel(portfolioObj.transform, Vector2.zero, Vector2.one, "", 13, Color.white);
+            Text pTxt = CreateTextInPanel(portfolioObj.transform, Vector2.zero, Vector2.one, "", 16, Color.white);
             string portFmt = LocalizationManager.L(
                 "Stock_PortfolioFmt",
                 "💼 <b>PORTFÖYÜNÜZ:</b>   Sahip Olunan: <b>{0:N0} Adet</b>   |   Ort. Alış: <b>{1:F2}C</b>\n  • Toplam Yatırılan: <b>{2:N0}C</b>   |   Güncel Kâr/Zarar: <color=#{3}><b>{4:N0}C ({5:+0.0;-0.0}%)</b></color>",
@@ -3309,20 +3335,20 @@ namespace Farm2Shelf.UI
                     RenderFinanceStockMarket();
                 });
 
-                Text qTxt = CreateTextInPanel(qBtnObj.transform, Vector2.zero, Vector2.one, $"{qtyVal}", 12, Color.white);
+                Text qTxt = CreateTextInPanel(qBtnObj.transform, Vector2.zero, Vector2.one, $"{qtyVal}", 15, Color.white);
                 qTxt.alignment = TextAnchor.MiddleCenter;
                 qTxt.fontStyle = FontStyle.Bold;
             }
 
-            // HİSSE AL (Yeşil) - Çakışmasız Konumlandırma (X = +60f)
+            // HİSSE AL (Yeşil) - Çakışmasız Konumlandırma (X = +55f)
             GameObject buyBtnObj = new GameObject("BuySharesBtn");
             buyBtnObj.transform.SetParent(tradeBarObj.transform, false);
             RectTransform buyRect = buyBtnObj.AddComponent<RectTransform>();
-            buyRect.anchoredPosition = new Vector2(60f, 0f);
-            buyRect.sizeDelta = new Vector2(115f, 36f);
+            buyRect.anchoredPosition = new Vector2(55f, 0f);
+            buyRect.sizeDelta = new Vector2(120f, 36f);
 
             Image buyBg = buyBtnObj.AddComponent<Image>();
-            buyBg.sprite = UIStyleUtility.CreateRoundedPillSprite(115, 36, 18, new Color(0.15f, 0.75f, 0.40f));
+            buyBg.sprite = UIStyleUtility.CreateRoundedPillSprite(120, 36, 18, new Color(0.15f, 0.75f, 0.40f));
             Button buyBtn = buyBtnObj.AddComponent<Button>();
             buyBtn.targetGraphic = buyBg;
             buyBtn.onClick.AddListener(() => {
@@ -3337,19 +3363,20 @@ namespace Farm2Shelf.UI
             });
 
             string buySharesFmt = LocalizationManager.L("Btn_BuyShares", "📈 HİSSE AL ({0})", "📈 BUY SHARES ({0})");
-            Text buyTxt = CreateTextInPanel(buyBtn.transform, Vector2.zero, Vector2.one, string.Format(buySharesFmt, stockTradeQuantity), 12, Color.white);
+            Text buyTxt = CreateTextInPanel(buyBtn.transform, Vector2.zero, Vector2.one, string.Format(buySharesFmt, stockTradeQuantity), 14, Color.white);
             buyTxt.alignment = TextAnchor.MiddleCenter;
             buyTxt.fontStyle = FontStyle.Bold;
+            buyTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
 
             // HİSSE SAT (Kırmızı) - Çakışmasız Konumlandırma (X = +180f)
             GameObject sellBtnObj = new GameObject("SellSharesBtn");
             sellBtnObj.transform.SetParent(tradeBarObj.transform, false);
             RectTransform sellRect = sellBtnObj.AddComponent<RectTransform>();
             sellRect.anchoredPosition = new Vector2(180f, 0f);
-            sellRect.sizeDelta = new Vector2(115f, 36f);
+            sellRect.sizeDelta = new Vector2(120f, 36f);
 
             Image sellBg = sellBtnObj.AddComponent<Image>();
-            sellBg.sprite = UIStyleUtility.CreateRoundedPillSprite(115, 36, 18, new Color(0.90f, 0.30f, 0.25f));
+            sellBg.sprite = UIStyleUtility.CreateRoundedPillSprite(120, 36, 18, new Color(0.90f, 0.30f, 0.25f));
             Button sellBtn = sellBtnObj.AddComponent<Button>();
             sellBtn.targetGraphic = sellBg;
             sellBtn.onClick.AddListener(() => {
@@ -3364,9 +3391,10 @@ namespace Farm2Shelf.UI
             });
 
             string sellSharesFmt = LocalizationManager.L("Btn_SellShares", "📉 HİSSE SAT ({0})", "📉 SELL SHARES ({0})");
-            Text sellTxt = CreateTextInPanel(sellBtn.transform, Vector2.zero, Vector2.one, string.Format(sellSharesFmt, stockTradeQuantity), 12, Color.white);
+            Text sellTxt = CreateTextInPanel(sellBtn.transform, Vector2.zero, Vector2.one, string.Format(sellSharesFmt, stockTradeQuantity), 14, Color.white);
             sellTxt.alignment = TextAnchor.MiddleCenter;
             sellTxt.fontStyle = FontStyle.Bold;
+            sellTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
         }
 
         private void CreateStockPriceChart(Transform parent, List<float> history, Color lineTrendColor)
@@ -3463,8 +3491,8 @@ namespace Farm2Shelf.UI
                 Text iText = infoObj.AddComponent<Text>();
                 iText.font = globalFont;
                 string costPerUnitFmt = LocalizationManager.L("Wholesale_CostPerUnitFmt", "Alış: {0:N0} Cr/Adet", "Cost: {0:N0} Cr/Pcs");
-                iText.text = $"{pDef.iconEmoji} <b>{pDef.LocalizedName}</b>  <color=#FFD700>[Lvl {pDef.requiredLevel}]</color>\n<size=12><color=#8A94A6>{pDef.GetTargetShelfText()}   |   {string.Format(costPerUnitFmt, pDef.wholesaleUnitPrice)}</color></size>";
-                iText.fontSize = 14;
+                iText.text = $"{pDef.iconEmoji} <b>{pDef.LocalizedName}</b>  <color=#FFD700>[Lvl {pDef.requiredLevel}]</color>\n<size=14><color=#8A94A6>{pDef.GetTargetShelfText()}   |   {string.Format(costPerUnitFmt, pDef.wholesaleUnitPrice)}</color></size>";
+                iText.fontSize = 17;
                 iText.fontStyle = FontStyle.Normal;
                 iText.alignment = TextAnchor.MiddleLeft;
                 iText.color = Color.white;
@@ -3482,16 +3510,16 @@ namespace Farm2Shelf.UI
                 sbBadgeText.font = globalFont;
                 if (overpriced)
                 {
-                    sbBadgeText.text = LocalizationManager.L("Badge_Overpriced", "⚠️ Tepki Çeker!\n<size=11><color=#FF6666>(Yüksek Fiyat)</color></size>", "⚠️ Overpriced!\n<size=11><color=#FF6666>(High Price)</color></size>");
+                    sbBadgeText.text = LocalizationManager.L("Badge_Overpriced", "⚠️ Tepki Çeker!\n<size=13><color=#FF6666>(Yüksek Fiyat)</color></size>", "⚠️ Overpriced!\n<size=13><color=#FF6666>(High Price)</color></size>");
                     sbBadgeText.color = new Color(1.0f, 0.35f, 0.25f);
                 }
                 else
                 {
-                    string fairFmt = LocalizationManager.L("Badge_FairPrice", "✅ Makul Fiyat\n<size=11><color=#50E678>(%{0:F0} Kâr Marjı)</color></size>", "✅ Fair Price\n<size=11><color=#50E678>(+{0:F0}% Profit Margin)</color></size>");
+                    string fairFmt = LocalizationManager.L("Badge_FairPrice", "✅ Makul Fiyat\n<size=13><color=#50E678>(%{0:F0} Kâr Marjı)</color></size>", "✅ Fair Price\n<size=13><color=#50E678>(+{0:F0}% Profit Margin)</color></size>");
                     sbBadgeText.text = string.Format(fairFmt, margin);
                     sbBadgeText.color = new Color(0.35f, 0.90f, 0.50f);
                 }
-                sbBadgeText.fontSize = 12;
+                sbBadgeText.fontSize = 14;
                 sbBadgeText.fontStyle = FontStyle.Bold;
                 sbBadgeText.alignment = TextAnchor.MiddleCenter;
                 sbBadgeText.raycastTarget = false;
@@ -3523,7 +3551,7 @@ namespace Farm2Shelf.UI
                 Text ptText = priceTxtObj.AddComponent<Text>();
                 ptText.font = globalFont;
                 ptText.text = $"{currentSalePrice:N0}C";
-                ptText.fontSize = 16;
+                ptText.fontSize = 20;
                 ptText.fontStyle = FontStyle.Bold;
                 ptText.alignment = TextAnchor.MiddleCenter;
                 ptText.color = new Color(1.0f, 0.88f, 0.35f);
@@ -3589,7 +3617,7 @@ namespace Farm2Shelf.UI
                 "☀️ <b>DAILY FINANCE SUMMARY (TODAY):</b>\n  • Revenue: +{0:N0}C   |   Expense: -{1:N0}C   |   <b>Daily Net Profit: {2:N0}C</b>\n\n📅 <b>MONTHLY (SEASONAL) PERFORMANCE:</b>\n  • Monthly Revenue: +{3:N0}C   |   Monthly Expense: -{4:N0}C   |   <b>Monthly Net Profit: {5:N0}C</b>"
             );
             iText.text = string.Format(finDetailsFmt, fin.DailyRevenue, fin.DailyExpenses, fin.DailyNetProfit, fin.MonthlyRevenue, fin.MonthlyExpenses, fin.MonthlyNetProfit);
-            iText.fontSize = 15;
+            iText.fontSize = 18;
             iText.fontStyle = FontStyle.Normal;
             iText.alignment = TextAnchor.MiddleLeft;
             iText.color = new Color(0.90f, 0.94f, 0.98f);
@@ -3616,7 +3644,7 @@ namespace Farm2Shelf.UI
             mText.font = globalFont;
             string marginFmt = LocalizationManager.L("Fin_MarginFormat", "📊 <b>İŞLETME KÂR MARJI & VERİMLİLİK ORANI:</b>   %{0:F1}", "📊 <b>BUSINESS PROFIT MARGIN & EFFICIENCY RATE:</b>   %{0:F1}");
             mText.text = string.Format(marginFmt, fin.ProfitMargin);
-            mText.fontSize = 17;
+            mText.fontSize = 20;
             mText.fontStyle = FontStyle.Bold;
             mText.alignment = TextAnchor.MiddleCenter;
             mText.color = new Color(0.85f, 0.60f, 1.0f);
@@ -3641,7 +3669,7 @@ namespace Farm2Shelf.UI
             Text tText = titleObj.AddComponent<Text>();
             tText.font = globalFont;
             tText.text = title;
-            tText.fontSize = 14;
+            tText.fontSize = 17;
             tText.fontStyle = FontStyle.Bold;
             tText.alignment = TextAnchor.MiddleCenter;
             tText.color = accentColor;
@@ -3656,7 +3684,7 @@ namespace Farm2Shelf.UI
             Text vText = valObj.AddComponent<Text>();
             vText.font = globalFont;
             vText.text = value;
-            vText.fontSize = 22;
+            vText.fontSize = 26;
             vText.fontStyle = FontStyle.Bold;
             vText.alignment = TextAnchor.MiddleCenter;
             vText.color = Color.white;
@@ -3685,7 +3713,7 @@ namespace Farm2Shelf.UI
                 Text eText = emptyObj.AddComponent<Text>();
                 eText.font = globalFont;
                 eText.text = LocalizationManager.L("Msg_EmptyHistory", "ℹ️ Henüz kaydedilmiş işlem dökümü bulunmuyor.", "ℹ️ No transaction history recorded yet.");
-                eText.fontSize = 18;
+                eText.fontSize = 20;
                 eText.fontStyle = FontStyle.Bold;
                 eText.alignment = TextAnchor.MiddleCenter;
                 eText.color = new Color(0.80f, 0.85f, 0.90f);
@@ -3760,7 +3788,7 @@ namespace Farm2Shelf.UI
                     .Replace("Pasif Satış", LocalizationManager.L("Label_PassiveSale", "Pasif Satış", "Passive Sale"));
 
                 iText.text = $"🕒 <color=#A0A8B5>{timeStampLoc}</color>  |  <b>[{categoryLoc}]</b>  {descLoc}   ➜   <b><color={(trx.isIncome ? "#32E664" : "#F54848")}>{sign}{trx.amount:N0}C</color></b>";
-                iText.fontSize = 14;
+                iText.fontSize = 17;
                 iText.fontStyle = FontStyle.Normal;
                 iText.alignment = TextAnchor.MiddleLeft;
                 iText.color = new Color(0.92f, 0.94f, 0.96f);
@@ -3800,7 +3828,7 @@ namespace Farm2Shelf.UI
                 LayoutElement eElem = emptyObj.AddComponent<LayoutElement>();
                 eElem.minHeight = 100f;
 
-                Text eText = CreateTextInPanel(emptyObj.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Msg_NoStaffHired", "Henüz işe alınmış personeliniz bulunmuyor.\n'➕ İşe Alım' sekmesinden personel ekleyebilirsiniz.", "No active staff members yet.\nYou can recruit staff from the '➕ Hire Staff' tab."), 15, Color.gray);
+                Text eText = CreateTextInPanel(emptyObj.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Msg_NoStaffHired", "Henüz işe alınmış personeliniz bulunmuyor.\n'➕ İşe Alım' sekmesinden personel ekleyebilirsiniz.", "No active staff members yet.\nYou can recruit staff from the '➕ Hire Staff' tab."), 17, Color.gray);
                 eText.alignment = TextAnchor.MiddleCenter;
                 return;
             }
@@ -3825,7 +3853,7 @@ namespace Farm2Shelf.UI
                 hBg.sprite = UIStyleUtility.CreateRoundedPillSprite(820, 32, 8, roleCategoryColors[r] * 0.35f);
                 hBg.raycastTarget = false;
 
-                Text hText = CreateTextInPanel(headerObj.transform, new Vector2(10f, 0f), new Vector2(800f, 30f), $"<b>{GetRoleCategoryName(r)} ({roleStaff.Count} Kişi)</b>", 14, roleCategoryColors[r]);
+                Text hText = CreateTextInPanel(headerObj.transform, new Vector2(10f, 0f), new Vector2(800f, 30f), $"<b>{GetRoleCategoryName(r)} ({roleStaff.Count} Kişi)</b>", 16, roleCategoryColors[r]);
                 hText.alignment = TextAnchor.MiddleLeft;
 
                 foreach (var staff in roleStaff)
@@ -3859,7 +3887,7 @@ namespace Farm2Shelf.UI
                         "👤 {0}   |   ⏰ Shift: {1}   |   💰 Salary: {2}C/Day"
                     );
                     iText.text = string.Format(staffCardInfoFmt, staff.name, GetLocalizedShiftHours(staff.shiftHours), staff.dailySalary);
-                    iText.fontSize = 14;
+                    iText.fontSize = 16;
                     iText.fontStyle = FontStyle.Bold;
                     iText.alignment = TextAnchor.MiddleLeft;
                     iText.color = Color.white;
@@ -3893,7 +3921,7 @@ namespace Farm2Shelf.UI
                     Text ftText = ftObj.AddComponent<Text>();
                     ftText.font = globalFont;
                     ftText.text = LocalizationManager.L("Btn_FireStaff", "🚫 İşten Çıkar", "🚫 Dismiss");
-                    ftText.fontSize = 12;
+                    ftText.fontSize = 14;
                     ftText.fontStyle = FontStyle.Bold;
                     ftText.alignment = TextAnchor.MiddleCenter;
                     ftText.color = Color.white;
@@ -3941,8 +3969,8 @@ namespace Farm2Shelf.UI
 
                 Text iText = infoObj.AddComponent<Text>();
                 iText.font = globalFont;
-                iText.text = $"<b>{GetRoleCategoryName(r)}</b>\n<size=12><color=#A0B0C0>{roleDescriptions[r]}</color></size>\n\n<color=#4CD964>💰 Günlük Maaş: {salary} Credit</color>";
-                iText.fontSize = 14;
+                iText.text = $"<b>{GetRoleCategoryName(r)}</b>\n<size=14><color=#A0B0C0>{roleDescriptions[r]}</color></size>\n\n<color=#4CD964>💰 Günlük Maaş: {salary} Credit</color>";
+                iText.fontSize = 16;
                 iText.alignment = TextAnchor.MiddleCenter;
                 iText.color = Color.white;
                 iText.raycastTarget = false;
@@ -3996,7 +4024,7 @@ namespace Farm2Shelf.UI
                 Text htText = htObj.AddComponent<Text>();
                 htText.font = globalFont;
                 htText.text = LocalizationManager.L("Btn_HireStaff", "➕ İŞE AL", "➕ HIRE STAFF");
-                htText.fontSize = 14;
+                htText.fontSize = 16;
                 htText.fontStyle = FontStyle.Bold;
                 htText.alignment = TextAnchor.MiddleCenter;
                 htText.color = Color.white;
@@ -4023,7 +4051,7 @@ namespace Farm2Shelf.UI
                 LayoutElement eElem = emptyObj.AddComponent<LayoutElement>();
                 eElem.minHeight = 100f;
 
-                Text eText = CreateTextInPanel(emptyObj.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Msg_NoShiftStaff", "Vardiyası ayarlanacak personel bulunmuyor.\nLütfen önce '➕ İşe Alım' sekmesinden personel ekleyin.", "No active staff members to manage shifts.\nPlease recruit staff from the '➕ Hire Staff' tab first."), 15, Color.gray);
+                Text eText = CreateTextInPanel(emptyObj.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Msg_NoShiftStaff", "Vardiyası ayarlanacak personel bulunmuyor.\nLütfen önce '➕ İşe Alım' sekmesinden personel ekleyin.", "No active staff members to manage shifts.\nPlease recruit staff from the '➕ Hire Staff' tab first."), 17, Color.gray);
                 eText.alignment = TextAnchor.MiddleCenter;
                 return;
             }
@@ -4048,7 +4076,7 @@ namespace Farm2Shelf.UI
                 hBg.sprite = UIStyleUtility.CreateRoundedPillSprite(820, 32, 8, roleCategoryColors[r] * 0.35f);
                 hBg.raycastTarget = false;
 
-                Text hText = CreateTextInPanel(headerObj.transform, new Vector2(10f, 0f), new Vector2(800f, 30f), $"<b>{GetRoleCategoryName(r)} Vardiya Düzeni ({roleStaff.Count} Kişi)</b>", 14, roleCategoryColors[r]);
+                Text hText = CreateTextInPanel(headerObj.transform, new Vector2(10f, 0f), new Vector2(800f, 30f), $"<b>{GetRoleCategoryName(r)} Vardiya Düzeni ({roleStaff.Count} Kişi)</b>", 16, roleCategoryColors[r]);
                 hText.alignment = TextAnchor.MiddleLeft;
 
                 foreach (var staff in roleStaff)
@@ -4077,7 +4105,7 @@ namespace Farm2Shelf.UI
                     Text nText = nameObj.AddComponent<Text>();
                     nText.font = globalFont;
                     nText.text = $"👤 {staff.name}\n⏰ {GetLocalizedShiftHours(staff.shiftHours)}";
-                    nText.fontSize = 14;
+                    nText.fontSize = 16;
                     nText.fontStyle = FontStyle.Bold;
                     nText.alignment = TextAnchor.MiddleLeft;
                     nText.color = Color.white;
@@ -4126,7 +4154,7 @@ namespace Farm2Shelf.UI
 
             Text txt = textObj.AddComponent<Text>();
             txt.font = globalFont;
-            txt.fontSize = 12;
+            txt.fontSize = 14;
             txt.fontStyle = FontStyle.Bold;
             txt.alignment = TextAnchor.MiddleCenter;
 
@@ -4251,7 +4279,7 @@ namespace Farm2Shelf.UI
                 Text btnText = textObj.AddComponent<Text>();
                 btnText.font = globalFont;
                 btnText.text = shiftNames[i];
-                btnText.fontSize = 13;
+                btnText.fontSize = 15;
                 btnText.fontStyle = FontStyle.Bold;
                 btnText.alignment = TextAnchor.MiddleCenter;
                 btnText.color = isCurrentShift ? Color.white : new Color(0.75f, 0.80f, 0.85f);
@@ -4301,7 +4329,7 @@ namespace Farm2Shelf.UI
             Text bText = bTextObj.AddComponent<Text>();
             bText.font = globalFont;
             bText.text = LocalizationManager.L("Btn_HomeScreen", "← Ana Ekran", "← Home Screen");
-            bText.fontSize = 15;
+            bText.fontSize = 18;
             bText.fontStyle = FontStyle.Bold;
             bText.alignment = TextAnchor.MiddleCenter;
             bText.color = new Color(0.35f, 0.85f, 1.0f);
@@ -4316,7 +4344,7 @@ namespace Farm2Shelf.UI
             Text tText = titleObj.AddComponent<Text>();
             tText.font = globalFont;
             tText.text = LocalizationManager.L("App_FarmHeader", "🌾 ÇİFTLİK YÖNETİMİ & TARIM", "🌾 FARM MANAGEMENT & AGRICULTURE");
-            tText.fontSize = 20;
+            tText.fontSize = 24;
             tText.fontStyle = FontStyle.Bold;
             tText.alignment = TextAnchor.MiddleCenter;
             tText.color = new Color(0.25f, 0.85f, 0.40f);
@@ -4402,7 +4430,7 @@ namespace Farm2Shelf.UI
                 Text tabText = textObj.AddComponent<Text>();
                 tabText.font = globalFont;
                 tabText.text = tabs[i];
-                tabText.fontSize = 15;
+                tabText.fontSize = 18;
                 tabText.fontStyle = FontStyle.Bold;
                 tabText.alignment = TextAnchor.MiddleCenter;
                 tabText.raycastTarget = false;
@@ -4462,7 +4490,7 @@ namespace Farm2Shelf.UI
             return txt;
         }
 
-        private GameObject CreateButtonInPanel(Transform parent, Vector2 pos, Vector2 size, string text, Color bgColor, UnityEngine.Events.UnityAction onClick, int fontSize = 13)
+        private GameObject CreateButtonInPanel(Transform parent, Vector2 pos, Vector2 size, string text, Color bgColor, UnityEngine.Events.UnityAction onClick, int fontSize = 16)
         {
             GameObject btnObj = new GameObject("Btn_" + text);
             btnObj.transform.SetParent(parent, false);
@@ -4514,7 +4542,7 @@ namespace Farm2Shelf.UI
                 "• Est. Daily Yield: 450 KG Wheat / Tomatoes / Corn / Sunflowers\n" +
                 "• Est. Daily Ag. Income: 12,500C / Day | Watering Efficiency: 100%"
             );
-            Text cardText = CreateTextInPanel(cardObj.transform, Vector2.zero, Vector2.one, farmReportText, 15, Color.white);
+            Text cardText = CreateTextInPanel(cardObj.transform, Vector2.zero, Vector2.one, farmReportText, 17, Color.white);
             cardText.alignment = TextAnchor.MiddleLeft;
 
             // 2. 3 AŞAMALI AHIR KAPASİTE GELİŞTİRME KARTLARI
@@ -4551,10 +4579,10 @@ namespace Farm2Shelf.UI
                 Color outlineColor = isUnlocked ? new Color(0.20f, 0.75f, 0.35f) : (isNextToBuy ? new Color(0.95f, 0.65f, 0.15f) : Color.gray);
                 uBg.sprite = UIStyleUtility.CreateOutlinePillSprite(830, 85, 14, 2, outlineColor, new Color(0.14f, 0.18f, 0.22f, 0.90f));
 
-                Text tTitle = CreateTextInPanel(upgCard.transform, new Vector2(-120f, 18f), new Vector2(520f, 30f), upgradeTitles[i], 16, isUnlocked ? new Color(0.40f, 0.95f, 0.60f) : Color.white);
+                Text tTitle = CreateTextInPanel(upgCard.transform, new Vector2(-120f, 18f), new Vector2(520f, 30f), upgradeTitles[i], 19, isUnlocked ? new Color(0.40f, 0.95f, 0.60f) : Color.white);
                 tTitle.alignment = TextAnchor.MiddleLeft;
 
-                Text tDesc = CreateTextInPanel(upgCard.transform, new Vector2(-120f, -15f), new Vector2(520f, 35f), upgradeDescs[i], 14, new Color(0.80f, 0.85f, 0.90f));
+                Text tDesc = CreateTextInPanel(upgCard.transform, new Vector2(-120f, -15f), new Vector2(520f, 35f), upgradeDescs[i], 16, new Color(0.80f, 0.85f, 0.90f));
                 tDesc.alignment = TextAnchor.MiddleLeft;
 
                 // Satın Al Butonu
@@ -4592,7 +4620,7 @@ namespace Farm2Shelf.UI
                 string upgradeFmt = LocalizationManager.L("Btn_UpgradeCostFmt", "GELİŞTİR\n{0:N0}C", "UPGRADE\n{0:N0}C");
                 string lockedText = LocalizationManager.L("Btn_Locked", "🔒 KİLİTLİ", "🔒 LOCKED");
                 string btnTextStr = isUnlocked ? activeText : (isNextToBuy ? string.Format(upgradeFmt, upgradeCosts[i]) : lockedText);
-                Text bText = CreateTextInPanel(buyBtnObj.transform, Vector2.zero, Vector2.one, btnTextStr, 13, Color.white);
+                Text bText = CreateTextInPanel(buyBtnObj.transform, Vector2.zero, Vector2.one, btnTextStr, 16, Color.white);
                 bText.alignment = TextAnchor.MiddleCenter;
             }
         }
@@ -4620,8 +4648,8 @@ namespace Farm2Shelf.UI
 
             Text iText = infoObj.AddComponent<Text>();
             iText.font = globalFont;
-            iText.text = LocalizationManager.L("FarmWorker_CardInfo", "🌾 Çiftlik İşçisi\n<size=13>Sulama, çapa & ürün hasadı\n(Erkek / Kadın Rastgele Aday)</size>\n💰 Maaş: 250 Cr/Gün (Gece 12'de)", "🌾 Farm Worker\n<size=13>Watering, hoeing & crop harvesting\n(Random Male / Female Candidate)</size>\n💰 Salary: 250 Cr/Day (At Midnight)");
-            iText.fontSize = 16;
+            iText.text = LocalizationManager.L("FarmWorker_CardInfo", "🌾 Çiftlik İşçisi\n<size=14>Sulama, çapa & ürün hasadı\n(Erkek / Kadın Rastgele Aday)</size>\n💰 Maaş: 250 Cr/Gün (Gece 12'de)", "🌾 Farm Worker\n<size=14>Watering, hoeing & crop harvesting\n(Random Male / Female Candidate)</size>\n💰 Salary: 250 Cr/Day (At Midnight)");
+            iText.fontSize = 18;
             iText.fontStyle = FontStyle.Bold;
             iText.alignment = TextAnchor.MiddleCenter;
             iText.color = new Color(0.40f, 0.95f, 0.55f);
@@ -4679,7 +4707,7 @@ namespace Farm2Shelf.UI
             Text htText = htObj.AddComponent<Text>();
             htText.font = globalFont;
             htText.text = LocalizationManager.L("Btn_HireStaff", "➕ İŞE AL", "➕ HIRE STAFF");
-            htText.fontSize = 15;
+            htText.fontSize = 18;
             htText.fontStyle = FontStyle.Bold;
             htText.alignment = TextAnchor.MiddleCenter;
             htText.color = Color.white;
@@ -4700,7 +4728,7 @@ namespace Farm2Shelf.UI
                 LayoutElement eElem = emptyObj.AddComponent<LayoutElement>();
                 eElem.minHeight = 100f;
 
-                Text eText = CreateTextInPanel(emptyObj.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Msg_NoFarmStaff", "👨‍🌾 Çiftlikte çalışan henüz işçi bulunmuyor.\n'2. İşçi İşe Al' sekmesinden yeni çiftçi ekleyebilirsiniz.", "👨‍🌾 No farm workers currently hired.\nYou can hire new farmers from the '2. Hire Staff' tab."), 15, Color.gray);
+                Text eText = CreateTextInPanel(emptyObj.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Msg_NoFarmStaff", "👨‍🌾 Çiftlikte çalışan henüz işçi bulunmuyor.\n'2. İşçi İşe Al' sekmesinden yeni çiftçi ekleyebilirsiniz.", "👨‍🌾 No farm workers currently hired.\nYou can hire new farmers from the '2. Hire Staff' tab."), 17, Color.gray);
                 eText.alignment = TextAnchor.MiddleCenter;
                 return;
             }
@@ -4719,7 +4747,7 @@ namespace Farm2Shelf.UI
                 bg.raycastTarget = false;
 
                 string rowFmt = LocalizationManager.L("FarmStaff_RowFmt", "👨‍🌾 {0}   |   ⏰ Vardiya: {1}   |   💰 Maaş: {2}C/Gün (Gece 12)", "👨‍🌾 {0}   |   ⏰ Shift: {1}   |   💰 Salary: {2}C/Day (Midnight)");
-                Text nText = CreateTextInPanel(sCard.transform, new Vector2(-60f, 0f), new Vector2(520f, 45f), string.Format(rowFmt, staff.name, GetLocalizedShiftHours(staff.shiftHours), staff.dailySalary), 14, Color.white);
+                Text nText = CreateTextInPanel(sCard.transform, new Vector2(-60f, 0f), new Vector2(520f, 45f), string.Format(rowFmt, staff.name, GetLocalizedShiftHours(staff.shiftHours), staff.dailySalary), 17, Color.white);
                 nText.alignment = TextAnchor.MiddleLeft;
 
                 // ❌ İŞTEN ÇIKAR (KOV) BUTONU
@@ -4750,7 +4778,7 @@ namespace Farm2Shelf.UI
                 Text ftText = ftObj.AddComponent<Text>();
                 ftText.font = globalFont;
                 ftText.text = LocalizationManager.L("Btn_FireStaff", "❌ İŞTEN ÇIKAR", "❌ FIRE STAFF");
-                ftText.fontSize = 13;
+                ftText.fontSize = 16;
                 ftText.fontStyle = FontStyle.Bold;
                 ftText.alignment = TextAnchor.MiddleCenter;
                 ftText.color = Color.white;
@@ -4773,7 +4801,7 @@ namespace Farm2Shelf.UI
                 LayoutElement eElem = emptyObj.AddComponent<LayoutElement>();
                 eElem.minHeight = 100f;
 
-                Text eText = CreateTextInPanel(emptyObj.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Msg_NoFarmShiftStaff", "🌾 Vardiyası ayarlanacak çiftlik işçisi bulunmuyor.\nLütfen önce '2. İşçi İşe Al' sekmesinden çiftçi ekleyin.", "🌾 No active farm workers to manage shifts.\nPlease hire farmers from the '2. Hire Staff' tab first."), 15, Color.gray);
+                Text eText = CreateTextInPanel(emptyObj.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Msg_NoFarmShiftStaff", "🌾 Vardiyası ayarlanacak çiftlik işçisi bulunmuyor.\nLütfen önce '2. İşçi İşe Al' sekmesinden çiftçi ekleyin.", "🌾 No active farm workers to manage shifts.\nPlease hire farmers from the '2. Hire Staff' tab first."), 17, Color.gray);
                 eText.alignment = TextAnchor.MiddleCenter;
                 return;
             }
@@ -4803,7 +4831,7 @@ namespace Farm2Shelf.UI
                 bg.sprite = UIStyleUtility.CreateRoundedPillSprite(820, 52, 12, new Color(0.14f, 0.18f, 0.24f, 0.90f));
                 bg.raycastTarget = false;
 
-                Text nText = CreateTextInPanel(sCard.transform, new Vector2(-285f, 0f), new Vector2(210f, 45f), $"👤 {staff.name}\n⏰ {GetLocalizedShiftHours(staff.shiftHours)}", 14, Color.white);
+                Text nText = CreateTextInPanel(sCard.transform, new Vector2(-285f, 0f), new Vector2(210f, 45f), $"👤 {staff.name}\n⏰ {GetLocalizedShiftHours(staff.shiftHours)}", 17, Color.white);
                 nText.alignment = TextAnchor.MiddleLeft;
 
                 CreateEarlyCallButton(sCard.transform, staff);
@@ -4867,7 +4895,7 @@ namespace Farm2Shelf.UI
                         }
                     });
 
-                    Text btnText = CreateTextInPanel(btnObj.transform, Vector2.zero, Vector2.one, shiftNames[shiftIdx], 13, isCurrentShift ? Color.white : new Color(0.70f, 0.78f, 0.88f));
+                    Text btnText = CreateTextInPanel(btnObj.transform, Vector2.zero, Vector2.one, shiftNames[shiftIdx], 16, isCurrentShift ? Color.white : new Color(0.70f, 0.78f, 0.88f));
                     btnText.fontStyle = FontStyle.Bold;
                     btnText.alignment = TextAnchor.MiddleCenter;
                     btnText.raycastTarget = false;
@@ -5091,34 +5119,35 @@ namespace Farm2Shelf.UI
             headerObj.transform.SetParent(viewObj.transform, false);
 
             RectTransform hRect = headerObj.AddComponent<RectTransform>();
-            hRect.anchoredPosition = new Vector2(0f, 210f);
-            hRect.sizeDelta = new Vector2(850f, 40f);
+            hRect.anchoredPosition = new Vector2(0f, 212f);
+            hRect.sizeDelta = new Vector2(850f, 36f);
 
             GameObject backBtnObj = new GameObject("BackBtn");
             backBtnObj.transform.SetParent(headerObj.transform, false);
             RectTransform bRect = backBtnObj.AddComponent<RectTransform>();
-            bRect.anchoredPosition = new Vector2(-400f, 0f);
-            bRect.sizeDelta = new Vector2(34f, 34f);
+            bRect.anchoredPosition = new Vector2(-360f, 0f);
+            bRect.sizeDelta = new Vector2(130f, 34f);
 
             Image bBg = backBtnObj.AddComponent<Image>();
-            bBg.sprite = UIStyleUtility.CreateRoundedPillSprite(34, 34, 17, new Color(0.20f, 0.25f, 0.35f));
+            bBg.sprite = UIStyleUtility.CreateRoundedPillSprite(130, 34, 17, new Color(0.20f, 0.25f, 0.32f, 0.90f));
             Button bBtn = backBtnObj.AddComponent<Button>();
             bBtn.targetGraphic = bBg;
             bBtn.onClick.AddListener(ShowHomeScreen);
 
-            Text bTxt = CreateTextInPanel(backBtnObj.transform, Vector2.zero, Vector2.one, "◀", 16, Color.white);
+            Text bTxt = CreateTextInPanel(backBtnObj.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Btn_HomeScreen", "← Ana Ekran", "← Home Screen"), 16, new Color(0.35f, 0.85f, 1.0f));
             bTxt.alignment = TextAnchor.MiddleCenter;
+            bTxt.fontStyle = FontStyle.Bold;
 
             GameObject titleObj = new GameObject("Title");
             titleObj.transform.SetParent(headerObj.transform, false);
             RectTransform tRect = titleObj.AddComponent<RectTransform>();
             tRect.anchoredPosition = new Vector2(0f, 0f);
-            tRect.sizeDelta = new Vector2(400f, 40f);
+            tRect.sizeDelta = new Vector2(400f, 36f);
 
             Text tText = titleObj.AddComponent<Text>();
             tText.font = globalFont;
             tText.text = LocalizationManager.L("App_SocialHeader", "CHIRPER / SOSYAL MEDYA", "CHIRPER / SOCIAL MEDIA");
-            tText.fontSize = 24;
+            tText.fontSize = 22;
             tText.fontStyle = FontStyle.Bold;
             tText.alignment = TextAnchor.MiddleCenter;
             tText.color = new Color(0.12f, 0.70f, 0.95f);
@@ -5129,15 +5158,15 @@ namespace Farm2Shelf.UI
             composeBtnObj.transform.SetParent(headerObj.transform, false);
             RectTransform cRect = composeBtnObj.AddComponent<RectTransform>();
             cRect.anchoredPosition = new Vector2(350f, 0f);
-            cRect.sizeDelta = new Vector2(140f, 38f);
+            cRect.sizeDelta = new Vector2(140f, 36f);
 
             Image cBg = composeBtnObj.AddComponent<Image>();
-            cBg.sprite = UIStyleUtility.CreateRoundedPillSprite(140, 38, 19, new Color(0.12f, 0.65f, 0.95f));
+            cBg.sprite = UIStyleUtility.CreateRoundedPillSprite(140, 36, 18, new Color(0.12f, 0.65f, 0.95f));
             Button cBtn = composeBtnObj.AddComponent<Button>();
             cBtn.targetGraphic = cBg;
             cBtn.onClick.AddListener(ShowComposeTweetModal);
 
-            Text cTxt = CreateTextInPanel(composeBtnObj.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Btn_PostTweet", "TWEET AT", "POST TWEET"), 15, Color.white);
+            Text cTxt = CreateTextInPanel(composeBtnObj.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Btn_PostTweet", "✍️ TWEET AT", "✍️ POST TWEET"), 16, Color.white);
             cTxt.alignment = TextAnchor.MiddleCenter;
             cTxt.fontStyle = FontStyle.Bold;
 
@@ -5152,11 +5181,11 @@ namespace Farm2Shelf.UI
             GameObject profileCard = new GameObject("ProfileCard");
             profileCard.transform.SetParent(leftPanel.transform, false);
             RectTransform pcRect = profileCard.AddComponent<RectTransform>();
-            pcRect.anchoredPosition = new Vector2(0f, 85f);
-            pcRect.sizeDelta = new Vector2(260f, 190f);
+            pcRect.anchoredPosition = new Vector2(0f, 88f);
+            pcRect.sizeDelta = new Vector2(260f, 184f);
 
             Image pcBg = profileCard.AddComponent<Image>();
-            pcBg.sprite = UIStyleUtility.CreateOutlinePillSprite(260, 190, 16, 2, new Color(0.12f, 0.65f, 0.95f), new Color(0.12f, 0.16f, 0.22f, 0.95f));
+            pcBg.sprite = UIStyleUtility.CreateOutlinePillSprite(260, 184, 16, 2, new Color(0.12f, 0.65f, 0.95f), new Color(0.12f, 0.16f, 0.22f, 0.95f));
             Button pcBtn = profileCard.AddComponent<Button>();
             pcBtn.targetGraphic = pcBg;
             pcBtn.onClick.AddListener(() => {
@@ -5172,37 +5201,37 @@ namespace Farm2Shelf.UI
             Text pcTxt = CreateTextInPanel(profileCard.transform, Vector2.zero, Vector2.one, "", 14, Color.white);
             string profileFmt = LocalizationManager.L(
                 "Social_ProfileCardFmt",
-                "<b>{0}</b>\n<size=13><color=#80B0FF>{1}</color></size>\n\n<color=#00E676><b>@{2}</b></color>\n<b>{3:N0}</b> Takipçi  •  <b>4.9</b> Puan\n<size=12><color=#A0AAB5>\"Tarladan rafa taptaze mahsuller!\"</color></size>\n\n<size=13><color=#00E676><b>Profile Gitmek İçin Dokun</b></color></size>",
-                "<b>{0}</b>\n<size=13><color=#80B0FF>{1}</color></size>\n\n<color=#00E676><b>@{2}</b></color>\n<b>{3:N0}</b> Followers  •  <b>4.9</b> Rating\n<size=12><color=#A0AAB5>\"Fresh farm crops to your shelves!\"</color></size>\n\n<size=13><color=#00E676><b>Tap to View Profile</b></color></size>"
+                "<b><size=17>{0}</size></b>\n<size=13><color=#80B0FF>{1}</color></size>\n\n<color=#00E676><b>@{2}</b></color>\n<b><size=14>{3:N0}</size></b> Takipçi  •  <b>4.9</b> Puan\n<size=12><color=#A0AAB5>\"Tarladan rafa taptaze mahsuller!\"</color></size>\n\n<size=13><color=#00E676><b>Profile Gitmek İçin Dokun</b></color></size>",
+                "<b><size=17>{0}</size></b>\n<size=13><color=#80B0FF>{1}</color></size>\n\n<color=#00E676><b>@{2}</b></color>\n<b><size=14>{3:N0}</size></b> Followers  •  <b>4.9</b> Rating\n<size=12><color=#A0AAB5>\"Fresh farm crops to your shelves!\"</color></size>\n\n<size=13><color=#00E676><b>Tap to View Profile</b></color></size>"
             );
             pcTxt.text = string.Format(profileFmt, pName, pHandle, sName.Replace(" ", ""), followers);
             pcTxt.alignment = TextAnchor.MiddleCenter;
 
-            // Trendler Kartı (Alt Yarım) - Buton içinde kusursuz ortalanmış ve okunaklı
+            // Trendler Kartı (Alt Yarım)
             GameObject trendCard = new GameObject("TrendCard");
             trendCard.transform.SetParent(leftPanel.transform, false);
             RectTransform tcRect = trendCard.AddComponent<RectTransform>();
-            tcRect.anchoredPosition = new Vector2(0f, -90f);
-            tcRect.sizeDelta = new Vector2(260f, 175f);
+            tcRect.anchoredPosition = new Vector2(0f, -92f);
+            tcRect.sizeDelta = new Vector2(260f, 170f);
 
             Image tcBg = trendCard.AddComponent<Image>();
-            tcBg.sprite = UIStyleUtility.CreateOutlinePillSprite(260, 175, 16, 1, new Color(0.25f, 0.35f, 0.45f), new Color(0.10f, 0.14f, 0.20f, 0.95f));
+            tcBg.sprite = UIStyleUtility.CreateOutlinePillSprite(260, 170, 16, 1, new Color(0.25f, 0.35f, 0.45f), new Color(0.10f, 0.14f, 0.20f, 0.95f));
 
             Text tcTxt = CreateTextInPanel(trendCard.transform, Vector2.zero, Vector2.one, "", 13, Color.white);
             RectTransform tcTxtRect = tcTxt.GetComponent<RectTransform>();
-            tcTxtRect.offsetMin = new Vector2(16f, 10f);
-            tcTxtRect.offsetMax = new Vector2(-16f, -10f);
+            tcTxtRect.offsetMin = new Vector2(16f, 8f);
+            tcTxtRect.offsetMax = new Vector2(-16f, -8f);
 
             string trendFmt = LocalizationManager.L(
                 "Social_TrendFmt",
-                "<size=14><color=#40C4FF><b>GÜNDEMDEKİ BAŞLIKLAR</b></color></size>\n\n" +
+                "<size=15><color=#40C4FF><b>🔥 GÜNDEMDEKİ BAŞLIKLAR</b></color></size>\n\n" +
                 "<b>1.</b> #FreshShelfMarket <color=#80A0C0>(14.2B)</color>\n" +
                 "<b>2.</b> #HizliKasa <color=#80A0C0>(9.8B)</color>\n" +
                 "<b>3.</b> #TazeHasat <color=#80A0C0>(6.5B)</color>\n" +
                 "<b>4.</b> #MarketSirasi <color=#80A0C0>(4.1B)</color>\n" +
                 "<b>5.</b> #Farm2Shelf <color=#80A0C0>(2.9B)</color>",
 
-                "<size=14><color=#40C4FF><b>TRENDING TOPICS</b></color></size>\n\n" +
+                "<size=15><color=#40C4FF><b>🔥 TRENDING TOPICS</b></color></size>\n\n" +
                 "<b>1.</b> #FreshShelfMarket <color=#80A0C0>(14.2K)</color>\n" +
                 "<b>2.</b> #FastCheckout <color=#80A0C0>(9.8K)</color>\n" +
                 "<b>3.</b> #FreshHarvest <color=#80A0C0>(5.2K)</color>\n" +
@@ -5238,12 +5267,12 @@ namespace Farm2Shelf.UI
                 GameObject tBtnObj = new GameObject("Tab_" + t);
                 tBtnObj.transform.SetParent(tabsBar.transform, false);
                 RectTransform tabRect = tBtnObj.AddComponent<RectTransform>();
-                tabRect.anchoredPosition = new Vector2(-180f + t * 180f, 0f);
-                tabRect.sizeDelta = new Vector2(175f, 36f);
+                tabRect.anchoredPosition = new Vector2(-182f + t * 182f, 0f);
+                tabRect.sizeDelta = new Vector2(178f, 36f);
 
                 bool isSel = (activeSocialTab == tabIdx);
                 Image tBg = tBtnObj.AddComponent<Image>();
-                tBg.sprite = UIStyleUtility.CreateRoundedPillSprite(175, 36, 18, isSel ? new Color(0.12f, 0.65f, 0.95f) : new Color(0.18f, 0.22f, 0.30f));
+                tBg.sprite = UIStyleUtility.CreateRoundedPillSprite(178, 36, 18, isSel ? new Color(0.12f, 0.65f, 0.95f) : new Color(0.18f, 0.22f, 0.30f));
                 socialTabBtnImgs[t] = tBg;
 
                 Button tBtn = tBtnObj.AddComponent<Button>();
@@ -5253,9 +5282,10 @@ namespace Farm2Shelf.UI
                     RefreshSocialMediaViews();
                 });
 
-                Text tTxt = CreateTextInPanel(tBtnObj.transform, Vector2.zero, Vector2.one, tabNames[t], 15, Color.white);
+                Text tTxt = CreateTextInPanel(tBtnObj.transform, Vector2.zero, Vector2.one, tabNames[t], 16, Color.white);
                 tTxt.alignment = TextAnchor.MiddleCenter;
                 tTxt.fontStyle = FontStyle.Bold;
+                tTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
             }
 
             // Scrollable Feed Area
@@ -5318,7 +5348,7 @@ namespace Farm2Shelf.UI
                 {
                     if (socialTabBtnImgs[t] != null)
                     {
-                        socialTabBtnImgs[t].sprite = UIStyleUtility.CreateRoundedPillSprite(175, 36, 18, (activeSocialTab == t) ? new Color(0.12f, 0.65f, 0.95f) : new Color(0.18f, 0.22f, 0.30f));
+                        socialTabBtnImgs[t].sprite = UIStyleUtility.CreateRoundedPillSprite(178, 36, 18, (activeSocialTab == t) ? new Color(0.12f, 0.65f, 0.95f) : new Color(0.18f, 0.22f, 0.30f));
                     }
                 }
             }
@@ -5351,8 +5381,8 @@ namespace Farm2Shelf.UI
                 GameObject infoObj = new GameObject("Info");
                 infoObj.transform.SetParent(cardObj.transform, false);
                 RectTransform iRect = infoObj.AddComponent<RectTransform>();
-                iRect.anchoredPosition = new Vector2(-55f, 0f);
-                iRect.sizeDelta = new Vector2(410f, 80f);
+                iRect.anchoredPosition = new Vector2(-60f, 0f);
+                iRect.sizeDelta = new Vector2(395f, 80f);
 
                 Text iTxt = infoObj.AddComponent<Text>();
                 iTxt.font = globalFont;
@@ -5379,18 +5409,18 @@ namespace Farm2Shelf.UI
                 GameObject actionsObj = new GameObject("Actions");
                 actionsObj.transform.SetParent(cardObj.transform, false);
                 RectTransform aRect = actionsObj.AddComponent<RectTransform>();
-                aRect.anchoredPosition = new Vector2(215f, -14f);
-                aRect.sizeDelta = new Vector2(100f, 32f);
+                aRect.anchoredPosition = new Vector2(212f, 0f);
+                aRect.sizeDelta = new Vector2(118f, 34f);
 
                 // Heart Button
                 GameObject heartBtnObj = new GameObject("HeartBtn");
                 heartBtnObj.transform.SetParent(actionsObj.transform, false);
                 RectTransform hRect = heartBtnObj.AddComponent<RectTransform>();
-                hRect.anchoredPosition = new Vector2(-26f, 0f);
-                hRect.sizeDelta = new Vector2(46f, 28f);
+                hRect.anchoredPosition = new Vector2(-30f, 0f);
+                hRect.sizeDelta = new Vector2(54f, 30f);
 
                 Image hBg = heartBtnObj.AddComponent<Image>();
-                hBg.sprite = UIStyleUtility.CreateRoundedPillSprite(46, 28, 12, tweet.isLikedByPlayer ? new Color(0.90f, 0.25f, 0.35f) : new Color(0.20f, 0.25f, 0.32f));
+                hBg.sprite = UIStyleUtility.CreateRoundedPillSprite(54, 30, 12, tweet.isLikedByPlayer ? new Color(0.90f, 0.25f, 0.35f) : new Color(0.20f, 0.25f, 0.32f));
                 Button hBtn = heartBtnObj.AddComponent<Button>();
                 hBtn.targetGraphic = hBg;
                 hBtn.onClick.AddListener(() => {
@@ -5398,7 +5428,7 @@ namespace Farm2Shelf.UI
                     RefreshSocialMediaViews();
                 });
 
-                Text hTxt = CreateTextInPanel(heartBtnObj.transform, Vector2.zero, Vector2.one, $"Beğen {tweet.likesCount}", 11, Color.white);
+                Text hTxt = CreateTextInPanel(heartBtnObj.transform, Vector2.zero, Vector2.one, $"❤️ {tweet.likesCount}", 13, Color.white);
                 hTxt.alignment = TextAnchor.MiddleCenter;
                 hTxt.fontStyle = FontStyle.Bold;
 
@@ -5406,11 +5436,11 @@ namespace Farm2Shelf.UI
                 GameObject rtBtnObj = new GameObject("RTBtn");
                 rtBtnObj.transform.SetParent(actionsObj.transform, false);
                 RectTransform rRect = rtBtnObj.AddComponent<RectTransform>();
-                rRect.anchoredPosition = new Vector2(26f, 0f);
-                rRect.sizeDelta = new Vector2(46f, 28f);
+                rRect.anchoredPosition = new Vector2(30f, 0f);
+                rRect.sizeDelta = new Vector2(54f, 30f);
 
                 Image rBg = rtBtnObj.AddComponent<Image>();
-                rBg.sprite = UIStyleUtility.CreateRoundedPillSprite(46, 28, 12, tweet.isRetweetedByPlayer ? new Color(0.20f, 0.75f, 0.40f) : new Color(0.20f, 0.25f, 0.32f));
+                rBg.sprite = UIStyleUtility.CreateRoundedPillSprite(54, 30, 12, tweet.isRetweetedByPlayer ? new Color(0.20f, 0.75f, 0.40f) : new Color(0.20f, 0.25f, 0.32f));
                 Button rBtn = rtBtnObj.AddComponent<Button>();
                 rBtn.targetGraphic = rBg;
                 rBtn.onClick.AddListener(() => {
@@ -5418,7 +5448,7 @@ namespace Farm2Shelf.UI
                     RefreshSocialMediaViews();
                 });
 
-                Text rTxt = CreateTextInPanel(rtBtnObj.transform, Vector2.zero, Vector2.one, $"RT {tweet.retweetsCount}", 11, Color.white);
+                Text rTxt = CreateTextInPanel(rtBtnObj.transform, Vector2.zero, Vector2.one, $"🔄 {tweet.retweetsCount}", 13, Color.white);
                 rTxt.alignment = TextAnchor.MiddleCenter;
                 rTxt.fontStyle = FontStyle.Bold;
             }
@@ -5472,7 +5502,7 @@ namespace Farm2Shelf.UI
             Text tTxt = titleObj.AddComponent<Text>();
             tTxt.font = globalFont;
             tTxt.text = LocalizationManager.L("Compose_Header", "RESMİ DUYURU TWİTİ SEÇİNİZ (10 SEÇENEK)", "SELECT OFFICIAL TWEET ANNOUNCEMENT (10 OPTIONS)");
-            tTxt.fontSize = 22;
+            tTxt.fontSize = 26;
             tTxt.fontStyle = FontStyle.Bold;
             tTxt.alignment = TextAnchor.MiddleCenter;
             tTxt.color = new Color(0.30f, 0.85f, 1.0f);
@@ -5482,15 +5512,15 @@ namespace Farm2Shelf.UI
             closeBtnObj.transform.SetParent(boxObj.transform, false);
             RectTransform cRect = closeBtnObj.AddComponent<RectTransform>();
             cRect.anchoredPosition = new Vector2(355f, 245f);
-            cRect.sizeDelta = new Vector2(34f, 34f);
+            cRect.sizeDelta = new Vector2(40f, 40f);
 
             Image cBg = closeBtnObj.AddComponent<Image>();
-            cBg.sprite = UIStyleUtility.CreateRoundedPillSprite(34, 34, 17, new Color(0.85f, 0.25f, 0.25f));
+            cBg.sprite = UIStyleUtility.CreateRoundedPillSprite(40, 40, 20, new Color(0.92f, 0.18f, 0.20f, 1f));
             Button cBtn = closeBtnObj.AddComponent<Button>();
             cBtn.targetGraphic = cBg;
             cBtn.onClick.AddListener(() => Destroy(canvasObj));
 
-            Text cTxt = CreateTextInPanel(closeBtnObj.transform, Vector2.zero, Vector2.one, "✕", 18, Color.white);
+            Text cTxt = CreateTextInPanel(closeBtnObj.transform, Vector2.zero, Vector2.one, "✖", 24, Color.white);
             cTxt.alignment = TextAnchor.MiddleCenter;
 
             // Scroll Area for 10 Tweets
@@ -5577,8 +5607,8 @@ namespace Farm2Shelf.UI
                 itemTxt.font = globalFont;
                 string optTitle = LocalizationManager.L("OptTitle_" + i, opt.titleTr, opt.titleEn);
                 string optBody = LocalizationManager.L("OptBody_" + i, opt.textTr, opt.textEn);
-                itemTxt.text = $"<b><color=#40C4FF>{optTitle}</color></b>\n<size=14>{optBody}</size>";
-                itemTxt.fontSize = 14;
+                itemTxt.text = $"<b><color=#40C4FF>{optTitle}</color></b>\n<size=15>{optBody}</size>";
+                itemTxt.fontSize = 16;
                 itemTxt.alignment = TextAnchor.MiddleLeft;
                 itemTxt.color = Color.white;
 
@@ -5606,10 +5636,12 @@ namespace Farm2Shelf.UI
                     RefreshSocialMediaViews();
                 });
 
-                Text pTxt = CreateTextInPanel(postBtnObj.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Btn_PostShort", "PAYLAŞ", "POST"), 14, Color.white);
+                Text pTxt = CreateTextInPanel(postBtnObj.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Btn_PostShort", "PAYLAŞ", "POST"), 17, Color.white);
                 pTxt.alignment = TextAnchor.MiddleCenter;
                 pTxt.fontStyle = FontStyle.Bold;
             }
+
+            closeBtnObj.transform.SetAsLastSibling();
         }
 
         private void OnDestroy()

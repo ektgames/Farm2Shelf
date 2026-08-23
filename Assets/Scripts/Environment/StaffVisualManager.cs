@@ -167,34 +167,33 @@ namespace Farm2Shelf.Environment
 
             int activeCustCount = (CustomerShoppingManager.Instance != null) ? CustomerShoppingManager.Instance.ActiveCustomerCount : 0;
 
-            // Dükkan açıkken VEYA mağazada/kasada halen müşteri varken personeller sahnede aktif kalmaya devam eder!
-            if (isStoreOpen || activeCustCount > 0)
+            // Dükkan açıkken VEYA mağazada/kasada halen müşteri varken veya personel elindeki koliyi/işi bırakırken sahnede aktif kalmaya devam eder!
+            if (activeStaffList != null)
             {
-                if (activeStaffList != null)
+                foreach (var s in activeStaffList)
                 {
-                    foreach (var s in activeStaffList)
-                    {
-                        if (s == null || !s.isActive) continue;
+                    if (s == null || !s.isActive) continue;
 
-                        bool isEligible = StaffTaskController.IsStaffShiftActive(s, currentHour, currentMinute, out _);
-                        if (isEligible)
-                        {
-                            eligibleStaffIds.Add(s.id);
-                        }
+                    bool isCarrying = (StaffTaskController.Instance != null && StaffTaskController.Instance.IsStaffCarryingInHandTask(s.id));
+                    bool isEligible = (isStoreOpen || activeCustCount > 0) && StaffTaskController.IsStaffShiftActive(s, currentHour, currentMinute, out _);
+                    if (isEligible || isCarrying)
+                    {
+                        eligibleStaffIds.Add(s.id);
                     }
                 }
+            }
 
-                if (farmStaffList != null)
+            if (farmStaffList != null)
+            {
+                foreach (var s in farmStaffList)
                 {
-                    foreach (var s in farmStaffList)
-                    {
-                        if (s == null || !s.isActive) continue;
+                    if (s == null || !s.isActive) continue;
 
-                        bool isEligible = StaffTaskController.IsStaffShiftActive(s, currentHour, currentMinute, out _);
-                        if (isEligible)
-                        {
-                            eligibleStaffIds.Add(s.id);
-                        }
+                    bool isCarrying = (StaffTaskController.Instance != null && StaffTaskController.Instance.IsStaffCarryingInHandTask(s.id));
+                    bool isEligible = (isStoreOpen || activeCustCount > 0) && StaffTaskController.IsStaffShiftActive(s, currentHour, currentMinute, out _);
+                    if (isEligible || isCarrying)
+                    {
+                        eligibleStaffIds.Add(s.id);
                     }
                 }
             }

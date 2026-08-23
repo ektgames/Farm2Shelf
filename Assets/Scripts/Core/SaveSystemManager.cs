@@ -643,7 +643,8 @@ namespace Farm2Shelf.Core
             if ((saveData.gameHour >= 24 || (saveData.gameHour == 0 && !saveData.isStoreOpen)) && !saveData.isStoreOpen)
             {
                 int activeCustomers = (CustomerShoppingManager.Instance != null) ? CustomerShoppingManager.Instance.ActiveCustomerCount : 0;
-                if (activeCustomers == 0 && EndOfDayReportModalUI.Instance != null)
+                bool hasStaffInHandTasks = (StaffTaskController.Instance != null && StaffTaskController.Instance.HasActiveInHandTasks());
+                if (activeCustomers == 0 && !hasStaffInHandTasks && EndOfDayReportModalUI.Instance != null)
                 {
                     EndOfDayReportModalUI.Instance.ShowReport();
                 }

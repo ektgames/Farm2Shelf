@@ -140,6 +140,42 @@ namespace Farm2Shelf.UI
             {
                 BuildActiveCropContent(boxObj.transform, font, plot, sDef);
             }
+
+            // 4. Kapat (X) Butonu
+            GameObject closeBtnObj = new GameObject("CloseButton_X");
+            closeBtnObj.transform.SetParent(boxObj.transform, false);
+            RectTransform cRect = closeBtnObj.AddComponent<RectTransform>();
+            cRect.anchoredPosition = new Vector2(275f, 235f);
+            cRect.sizeDelta = new Vector2(46f, 46f);
+
+            Image cBg = closeBtnObj.AddComponent<Image>();
+            cBg.sprite = UIStyleUtility.CreateRoundedPillSprite(46, 46, 23, new Color(0.92f, 0.18f, 0.20f, 1f));
+            cBg.raycastTarget = true;
+
+            Button cBtn = closeBtnObj.AddComponent<Button>();
+            cBtn.targetGraphic = cBg;
+            cBtn.onClick.AddListener(CloseModal);
+
+            GameObject cxObj = new GameObject("X");
+            cxObj.transform.SetParent(closeBtnObj.transform, false);
+            RectTransform cxRect = cxObj.AddComponent<RectTransform>();
+            cxRect.anchorMin = Vector2.zero;
+            cxRect.anchorMax = Vector2.one;
+
+            Text cxText = cxObj.AddComponent<Text>();
+            cxText.font = font;
+            cxText.text = "✖";
+            cxText.fontSize = 26;
+            cxText.fontStyle = FontStyle.Bold;
+            cxText.alignment = TextAnchor.MiddleCenter;
+            cxText.color = Color.white;
+            cxText.raycastTarget = false;
+
+            Outline cxOutline = cxObj.AddComponent<Outline>();
+            cxOutline.effectColor = new Color(0f, 0f, 0f, 0.85f);
+            cxOutline.effectDistance = new Vector2(1.5f, -1.5f);
+
+            closeBtnObj.transform.SetAsLastSibling();
         }
 
         private static void BuildEmptyPlotContent(Transform parent, Font font, FieldPlotController plot)

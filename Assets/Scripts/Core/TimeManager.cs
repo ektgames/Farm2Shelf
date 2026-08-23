@@ -27,7 +27,8 @@ namespace Farm2Shelf.Core
         public enum Season { İlkbahar, Yaz, Sonbahar, Kış }
 
         public event Action<int, int> OnTimeUpdated; // (Hour, Minute)
-        public event Action<Season, int, int> OnDateUpdated; // (Season, Day, Year)
+        public event Action<Season, int, int> OnDateUpdated; // (Season, Day, Year) - Takvim UI & Mevsim rozetleri
+        public event Action<Season, int, int> OnNewDayStarted; // (Season, Day, Year) - Yalnızca gün atlandığında tetiklenir (Tarla/mahsul simülasyonu için)
         [Header("Duraklatma State")]
         [SerializeField] private bool isTimePaused = true;
         [SerializeField] private bool isDayActive = false;
@@ -175,6 +176,7 @@ namespace Farm2Shelf.Core
             }
 
             OnDateUpdated?.Invoke(currentSeason, currentDay, currentYear);
+            OnNewDayStarted?.Invoke(currentSeason, currentDay, currentYear);
         }
 
         private void AdvanceSeason()

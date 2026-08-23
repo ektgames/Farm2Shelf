@@ -111,6 +111,37 @@ namespace Farm2Shelf.Environment
             return false;
         }
 
+        public bool HasActiveInHandTasks()
+        {
+            if (staffTaskList == null || staffTaskList.Count == 0) return false;
+            for (int i = 0; i < staffTaskList.Count; i++)
+            {
+                var data = staffTaskList[i];
+                if (data == null || data.staffObj == null) continue;
+                if (data.isCarryingBoxes || data.carriedAmount1 > 0 || data.carriedAmount2 > 0 ||
+                    data.carriedProduct1 != null || data.carriedProduct2 != null ||
+                    data.isFetchingFromStorage || data.isFetchingFromTruck || data.isUnloadingTruck ||
+                    data.targetShelf1 != null || data.targetShelf2 != null || data.targetStorageShelfForDeposit != null ||
+                    (data.targetTrashObj != null && data.taskTimer > 0f))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public bool IsStaffCarryingInHandTask(string staffId)
+        {
+            if (staffTaskList == null || staffTaskList.Count == 0) return false;
+            StaffTaskData data = staffTaskList.Find(s => s.staffMember != null && s.staffMember.id == staffId);
+            if (data == null || data.staffObj == null) return false;
+            return data.isCarryingBoxes || data.carriedAmount1 > 0 || data.carriedAmount2 > 0 ||
+                   data.carriedProduct1 != null || data.carriedProduct2 != null ||
+                   data.isFetchingFromStorage || data.isFetchingFromTruck || data.isUnloadingTruck ||
+                   data.targetShelf1 != null || data.targetShelf2 != null || data.targetStorageShelfForDeposit != null ||
+                   (data.targetTrashObj != null && data.taskTimer > 0f);
+        }
+
         public static bool IsCashierWorkingAt(PlacedFurnitureController cashier)
         {
             if (Instance == null || Instance.staffTaskList == null || cashier == null) return false;
@@ -368,8 +399,41 @@ namespace Farm2Shelf.Environment
             // Oturanları yeniden eşle
             for (int i = 0; i < existingOccupants.Count && i < activeSofaSeats.Count; i++)
             {
-                activeSofaSeats[i].currentOccupant = existingOccupants[i];
-                existingOccupants[i].assignedSofaSeatIndex = i;
+                var occ = existingOccupants[i];
+                if (occ != null && occ.staffObj != null && staffTaskList.Contains(occ) && !occ.isLeavingShift)
+                {
+                    activeSofaSeats[i].currentOccupant = occ;
+                    occ.assignedSofaSeatIndex = i;
+                }
+            }
+        }
+
+        private void CleanupStaleSofaOccupants()
+        {
+            for (int i = 0; i < activeSofaSeats.Count; i++)
+            {
+                var seat = activeSofaSeats[i];
+                if (seat.currentOccupant != null)
+                {
+                    var occ = seat.currentOccupant;
+                    if (occ.staffObj == null ||
+                        !staffTaskList.Contains(occ) ||
+                        occ.isLeavingShift ||
+                        occ.currentState == StaffAIState.WalkingToLeftExit ||
+                        occ.currentState == StaffAIState.Despawned ||
+                        occ.assignedSofaSeatIndex != seat.seatIndex ||
+                        (occ.currentState != StaffAIState.WaitingInBreakRoom &&
+                         occ.currentState != StaffAIState.WaitingAtLocker &&
+                         !occ.isSitting))
+                    {
+                        if (occ.assignedSofaSeatIndex == seat.seatIndex)
+                        {
+                            occ.assignedSofaSeatIndex = -1;
+                            occ.isSitting = false;
+                        }
+                        seat.currentOccupant = null;
+                    }
+                }
             }
         }
 
@@ -377,6 +441,7 @@ namespace Farm2Shelf.Environment
         {
             if (data == null) return false;
             RefreshSofaSeatsForCurrentLevel();
+            CleanupStaleSofaOccupants();
 
             // Zaten koltukta oturuyorsa/atanmışsa devam et
             if (data.assignedSofaSeatIndex >= 0 && data.assignedSofaSeatIndex < activeSofaSeats.Count)
@@ -386,8 +451,9 @@ namespace Farm2Shelf.Environment
             }
 
             // Boş koltuk ara:
-            foreach (var seat in activeSofaSeats)
+            for (int i = 0; i < activeSofaSeats.Count; i++)
             {
+                var seat = activeSofaSeats[i];
                 if (seat.currentOccupant == null)
                 {
                     seat.currentOccupant = data;
@@ -411,6 +477,14 @@ namespace Farm2Shelf.Environment
                 if (seat.currentOccupant == data)
                 {
                     seat.currentOccupant = null;
+                }
+            }
+
+            for (int i = 0; i < activeSofaSeats.Count; i++)
+            {
+                if (activeSofaSeats[i].currentOccupant == data)
+                {
+                    activeSofaSeats[i].currentOccupant = null;
                 }
             }
 
@@ -584,6 +658,10 @@ namespace Farm2Shelf.Environment
             StaffTaskData data = staffTaskList.Find(s => s.staffMember != null && s.staffMember.id == staffId);
             if (data != null && data.currentState != StaffAIState.WalkingToLeftExit)
             {
+                if (data.isCarryingBoxes || data.carriedAmount1 > 0 || data.carriedAmount2 > 0 || data.carriedProduct1 != null || data.carriedProduct2 != null)
+                {
+                    return; // Elindeki kolileri raflara yerleştirmeyi bitirene kadar çıkışa geçme
+                }
                 StartExitRoute(data);
             }
         }
@@ -605,7 +683,12 @@ namespace Farm2Shelf.Environment
 
                 bool isEligible = IsStaffShiftActive(data.staffMember, currentHour, currentMinute, out bool isEarlyArrival);
 
-                if (!isEligible && data.currentState != StaffAIState.WalkingToLeftExit && data.currentState != StaffAIState.HandingOverShift && !data.isLeavingShift)
+                bool hasInHandTask = data.isCarryingBoxes || data.carriedAmount1 > 0 || data.carriedAmount2 > 0 ||
+                                     data.carriedProduct1 != null || data.carriedProduct2 != null ||
+                                     data.isFetchingFromStorage || data.isFetchingFromTruck || data.isUnloadingTruck ||
+                                     (data.targetTrashObj != null && data.taskTimer > 0f);
+
+                if (!isEligible && !hasInHandTask && data.currentState != StaffAIState.WalkingToLeftExit && data.currentState != StaffAIState.HandingOverShift && !data.isLeavingShift)
                 {
                     bool isFarmer = (data.staffMember != null && (data.staffMember.role == StaffRole.Çiftçi || data.staffMember.role == StaffRole.DeneyimliÇiftçi || data.staffMember.role == StaffRole.UstaÇiftlikSorumlusu || data.staffMember.role == StaffRole.TarımOtomasyonUzmanı));
                     if (isFarmer)
@@ -737,6 +820,7 @@ namespace Farm2Shelf.Environment
 
                 case StaffAIState.WalkingToLeftExit:
                     FollowWaypoints(data, deltaTime, onComplete: () => {
+                        FreeSofaSeat(data);
                         data.currentState = StaffAIState.Despawned;
                         if (data.staffObj != null) Destroy(data.staffObj);
                         staffTaskList.Remove(data);
@@ -1078,6 +1162,25 @@ namespace Farm2Shelf.Environment
             }
         }
 
+        private static FieldPlotController GetNearestPlot(Vector3 fromPos, List<FieldPlotController> plotList)
+        {
+            if (plotList == null || plotList.Count == 0) return null;
+            FieldPlotController nearest = null;
+            float minDist = float.MaxValue;
+            for (int i = 0; i < plotList.Count; i++)
+            {
+                var p = plotList[i];
+                if (p == null) continue;
+                float d = Vector3.Distance(fromPos, p.transform.position);
+                if (d < minDist)
+                {
+                    minDist = d;
+                    nearest = p;
+                }
+            }
+            return nearest ?? plotList[0];
+        }
+
         private void ExecuteFarmerTask(StaffTaskData data, float deltaTime)
         {
             if (data == null || data.staffObj == null) return;
@@ -1089,29 +1192,80 @@ namespace Farm2Shelf.Environment
                 return;
             }
 
+            if (data.taskTimer > 0f)
+            {
+                data.taskTimer -= deltaTime;
+                ResetLimbsToRest(data);
+                return;
+            }
+
             if (data.waypoints == null || data.waypoints.Count == 0 || data.currentWaypointIndex >= data.waypoints.Count)
             {
-                FieldPlotController targetPlot = plots[Random.Range(0, plots.Count)];
-                Vector3 plotTargetPos = targetPlot.transform.position;
+                // Çiftçi Akıllı Parsel Arama & Öncelik Sıralaması:
+                // 1. Öncelik: Çürümüş Ekinler (Temizlenip yeni ekilebilir alana dönüştürülmeli)
+                // 2. Öncelik: Olgunlaşmış ve Hasada Hazır Ekinler
+                // 3. Öncelik: Sulanması Gereken Ekinler
+                // 4. Öncelik: Büyüyen Diğer Ekinler
+                // 5. Rastgele Parsel
+                List<FieldPlotController> spoiledPlots = new List<FieldPlotController>();
+                List<FieldPlotController> ripePlots = new List<FieldPlotController>();
+                List<FieldPlotController> needWaterPlots = new List<FieldPlotController>();
+                List<FieldPlotController> growingPlots = new List<FieldPlotController>();
 
-                data.waypoints = new List<Vector3>
+                for (int i = 0; i < plots.Count; i++)
                 {
-                    data.staffObj.transform.position,
-                    plotTargetPos
-                };
-                data.currentWaypointIndex = 1;
+                    var p = plots[i];
+                    if (p == null) continue;
+                    if (p.State == PlotState.SpoiledTrash) spoiledPlots.Add(p);
+                    else if (p.State == PlotState.RipeReadyToHarvest) ripePlots.Add(p);
+                    else if ((p.State == PlotState.PlantedSprout || p.State == PlotState.Growing) && (p.NeedsWater || !p.WateredToday)) needWaterPlots.Add(p);
+                    else if (p.State == PlotState.PlantedSprout || p.State == PlotState.Growing) growingPlots.Add(p);
+                }
+
+                FieldPlotController targetPlot = null;
+                if (spoiledPlots.Count > 0)
+                {
+                    targetPlot = GetNearestPlot(data.staffObj.transform.position, spoiledPlots);
+                }
+                else if (ripePlots.Count > 0)
+                {
+                    targetPlot = GetNearestPlot(data.staffObj.transform.position, ripePlots);
+                }
+                else if (needWaterPlots.Count > 0)
+                {
+                    targetPlot = GetNearestPlot(data.staffObj.transform.position, needWaterPlots);
+                }
+                else if (growingPlots.Count > 0)
+                {
+                    targetPlot = GetNearestPlot(data.staffObj.transform.position, growingPlots);
+                }
+                else
+                {
+                    targetPlot = plots[Random.Range(0, plots.Count)];
+                }
+
+                if (targetPlot != null)
+                {
+                    Vector3 plotTargetPos = targetPlot.transform.position;
+                    data.waypoints = new List<Vector3>
+                    {
+                        data.staffObj.transform.position,
+                        plotTargetPos
+                    };
+                    data.currentWaypointIndex = 1;
+                }
             }
 
             Vector3 currentPos = data.staffObj.transform.position;
-            Vector3 targetPos = data.waypoints[data.currentWaypointIndex];
+            Vector3 targetPos = (data.waypoints != null && data.currentWaypointIndex < data.waypoints.Count) ? data.waypoints[data.currentWaypointIndex] : currentPos;
             Vector3 toTarget = targetPos - currentPos;
             float dist = toTarget.magnitude;
 
             if (dist < 0.6f)
             {
-                // Tarlaya ulaşıldı: Sula veya Hasat et!
+                // Tarlaya ulaşıldı: Çürümüşse temizle, olgunsa hasat et, susuzsa sula!
                 FieldPlotController nearestPlot = null;
-                float minDist = 2.0f;
+                float minDist = 2.5f;
                 foreach (var p in plots)
                 {
                     if (p == null) continue;
@@ -1124,9 +1278,9 @@ namespace Farm2Shelf.Environment
                     nearestPlot.AdvanceGrowthByFarmerBonus(1.3f);
                 }
 
-                data.waypoints.Clear();
+                if (data.waypoints != null) data.waypoints.Clear();
                 data.currentWaypointIndex = 0;
-                data.taskTimer = Random.Range(2.0f, 4.5f);
+                data.taskTimer = Random.Range(1.8f, 3.5f);
                 ResetLimbsToRest(data);
                 return;
             }
@@ -1534,7 +1688,9 @@ namespace Farm2Shelf.Environment
                                 GreenTruckDeliveryManager.Instance.PendingTruckPackages != null &&
                                 GreenTruckDeliveryManager.Instance.PendingTruckPackages.Count > 0);
 
-                            if (stillHasPackages)
+                            bool isStoreClosedOrNight = (StoreStatusManager.Instance != null && !StoreStatusManager.Instance.IsOpen) || (TimeManager.Instance != null && TimeManager.Instance.Hour >= 24);
+
+                            if (stillHasPackages && !isStoreClosedOrNight)
                             {
                                 data.isFetchingFromTruck = true;
                                 Vector3 truckDockPos = new Vector3(13.0f, 0.05f, 2.0f);
@@ -1733,6 +1889,13 @@ namespace Farm2Shelf.Environment
                             data.currentWaypointIndex = 1;
                             return;
                         }
+                        else
+                        {
+                            data.targetShelf2 = null;
+                            data.targetRowId2 = -1;
+                            data.carriedAmount2 = 0;
+                            ClearCarriedBoxesOnStaff(data);
+                        }
                     }
                     else if (data.targetShelf2 != null)
                     {
@@ -1766,6 +1929,23 @@ namespace Farm2Shelf.Environment
             }
 
             // ==================== 3. GÖREV ARAMA & ATAMA ====================
+            bool isStoreClosedNight = (StoreStatusManager.Instance != null && !StoreStatusManager.Instance.IsOpen) || (TimeManager.Instance != null && TimeManager.Instance.Hour >= 24);
+            if (isStoreClosedNight)
+            {
+                // Dükkan kapalı veya gece: eller boşsa yeni koli çekme görevi arama, dinlenme odasında bekle
+                ClearCarriedBoxesOnStaff(data);
+                Vector3 restSpotNight = GetBreakRoomTargetPosition(data);
+
+                if (Vector3.Distance(data.staffObj.transform.position, restSpotNight) > 1.8f && (data.waypoints == null || data.currentWaypointIndex >= data.waypoints.Count))
+                {
+                    data.waypoints = BuildStructuredStaffWaypoints(data.staffObj.transform.position, restSpotNight);
+                    data.currentWaypointIndex = 1;
+                    return;
+                }
+
+                ExecuteBreakRoomRestAndSeating(data, deltaTime);
+                return;
+            }
             var shelves = PlacedFurnitureController.AllPlacedFurniture;
 
             bool isTruckWaitingToUnload = (WholesaleTruckManager.Instance != null &&
@@ -1964,6 +2144,21 @@ namespace Farm2Shelf.Environment
                     }
                     data.targetTrashObj = null;
                 }
+                return;
+            }
+
+            bool isStoreClosedNightCleaner = (StoreStatusManager.Instance != null && !StoreStatusManager.Instance.IsOpen) || (TimeManager.Instance != null && TimeManager.Instance.Hour >= 24);
+            if (isStoreClosedNightCleaner)
+            {
+                Vector3 restSpotNight = GetBreakRoomTargetPosition(data);
+                if (Vector3.Distance(data.staffObj.transform.position, restSpotNight) > 1.8f && (data.waypoints == null || data.currentWaypointIndex >= data.waypoints.Count))
+                {
+                    data.waypoints = BuildStructuredStaffWaypoints(data.staffObj.transform.position, restSpotNight);
+                    data.currentWaypointIndex = 1;
+                    return;
+                }
+
+                ExecuteBreakRoomRestAndSeating(data, deltaTime);
                 return;
             }
 
@@ -2228,6 +2423,7 @@ namespace Farm2Shelf.Environment
 
         private void StartExitRoute(StaffTaskData data)
         {
+            FreeSofaSeat(data);
             Vector3 startPos = data.staffObj != null ? data.staffObj.transform.position : new Vector3(25.0f, 0.05f, 32.5f);
             List<Vector3> doorExitRoute = new List<Vector3> { startPos };
 

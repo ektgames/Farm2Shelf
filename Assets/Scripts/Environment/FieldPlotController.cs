@@ -36,11 +36,22 @@ namespace Farm2Shelf.Environment
         private void OnEnable()
         {
             if (!AllPlots.Contains(this)) AllPlots.Add(this);
+
+            if (TimeManager.Instance != null)
+            {
+                TimeManager.Instance.OnNewDayStarted -= HandleDateUpdated;
+                TimeManager.Instance.OnNewDayStarted += HandleDateUpdated;
+            }
         }
 
         private void OnDisable()
         {
             AllPlots.Remove(this);
+
+            if (TimeManager.Instance != null)
+            {
+                TimeManager.Instance.OnNewDayStarted -= HandleDateUpdated;
+            }
         }
 
         private void Start()
@@ -56,7 +67,8 @@ namespace Farm2Shelf.Environment
 
             if (TimeManager.Instance != null)
             {
-                TimeManager.Instance.OnDateUpdated += HandleDateUpdated;
+                TimeManager.Instance.OnNewDayStarted -= HandleDateUpdated;
+                TimeManager.Instance.OnNewDayStarted += HandleDateUpdated;
             }
 
             UpdateVisuals();
@@ -81,7 +93,7 @@ namespace Farm2Shelf.Environment
             AllPlots.Remove(this);
             if (TimeManager.Instance != null)
             {
-                TimeManager.Instance.OnDateUpdated -= HandleDateUpdated;
+                TimeManager.Instance.OnNewDayStarted -= HandleDateUpdated;
             }
         }
 
@@ -217,6 +229,10 @@ namespace Farm2Shelf.Environment
             else if (State == PlotState.RipeReadyToHarvest)
             {
                 HarvestCrop(); // Çiftçi otomatik biçer
+            }
+            else if (State == PlotState.SpoiledTrash)
+            {
+                ClearSpoiledPlot(); // Çiftçi çürüyen ekini temizler ve ekilebilir alana dönüştürür
             }
         }
 

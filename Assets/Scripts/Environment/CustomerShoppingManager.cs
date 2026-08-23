@@ -325,6 +325,81 @@ namespace Farm2Shelf.Environment
             }
         }
 
+        public static int GetCustomerTier(CustomerType type)
+        {
+            string name = type.ToString();
+            if (name.StartsWith("L3_")) return 3;
+            if (name.StartsWith("L2_")) return 2;
+            return 1;
+        }
+
+        public static int GetProductLevel(string productName)
+        {
+            if (string.IsNullOrEmpty(productName) || productName == "Boş" || productName.StartsWith("Ürün"))
+                return 1;
+
+            // 1. Toptan Ürün Veritabanı Kontrolü
+            var prodList = WholesaleDatabase.GetAllProducts();
+            if (prodList != null)
+            {
+                for (int i = 0; i < prodList.Count; i++)
+                {
+                    var p = prodList[i];
+                    if (p == null) continue;
+                    if (string.Equals(p.name, productName, System.StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(p.nameEn, productName, System.StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(p.id, productName, System.StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(p.LocalizedName, productName, System.StringComparison.OrdinalIgnoreCase) ||
+                        productName.IndexOf(p.name, System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        p.name.IndexOf(productName, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        return p.requiredLevel;
+                    }
+                }
+            }
+
+            // 2. Çiftlik / Hasat Mahsulleri Veritabanı Kontrolü
+            var seedList = GardenSeedDatabase.GetAllSeeds();
+            if (seedList != null)
+            {
+                for (int i = 0; i < seedList.Count; i++)
+                {
+                    var s = seedList[i];
+                    if (s == null) continue;
+                    string cropName = s.name.Replace(" Tohumu", "").Replace(" Seeds", "").Trim();
+                    if (string.Equals(s.name, productName, System.StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(s.nameEn, productName, System.StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(cropName, productName, System.StringComparison.OrdinalIgnoreCase) ||
+                        productName.IndexOf(cropName, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        return s.requiredLevel;
+                    }
+                }
+            }
+
+            return 1;
+        }
+
+        public static bool IsProductMatchingCustomerTier(string productName, int customerTier)
+        {
+            int productLevel = GetProductLevel(productName);
+            if (customerTier == 1)
+            {
+                // 1. Seviye müşterisi SADECE 1. seviye ürünleri talep eder ve alır
+                return productLevel == 1;
+            }
+            else if (customerTier == 2)
+            {
+                // 2. Seviye müşteri grubu 2. seviye ürünleri (ve 1. seviyeyi) talep eder
+                return productLevel <= 2;
+            }
+            else // Tier 3
+            {
+                // 3. Seviye müşteri grubu 3. seviye ürünleri (ve 1-2'yi) talep eder
+                return productLevel <= 3;
+            }
+        }
+
         private CustomerType GetNextUniqueCustomerType(int currentLevel)
         {
             if (customerDeck.Count == 0)
@@ -337,7 +412,10 @@ namespace Farm2Shelf.Environment
                     CustomerType.L1_GrandpaDede,
                     CustomerType.L1_FarmerUncle,
                     CustomerType.L1_GrandmaTeyze,
-                    CustomerType.L1_SportsMan
+                    CustomerType.L1_SportsMan,
+                    CustomerType.L1_BakeryCustomer,
+                    CustomerType.L1_Workman,
+                    CustomerType.L1_VillageGirl
                 };
 
                 if (currentLevel >= 2)
@@ -347,6 +425,11 @@ namespace Farm2Shelf.Environment
                     available.Add(CustomerType.L2_GymBro);
                     available.Add(CustomerType.L2_DoctorWoman);
                     available.Add(CustomerType.L2_FashionWoman);
+                    available.Add(CustomerType.L2_DeliveryCourier);
+                    available.Add(CustomerType.L2_BusinessWoman);
+                    available.Add(CustomerType.L2_ArtistGirl);
+                    available.Add(CustomerType.L2_TechNerd);
+                    available.Add(CustomerType.L2_TouristGuy);
                 }
 
                 if (currentLevel >= 3)
@@ -354,6 +437,13 @@ namespace Farm2Shelf.Environment
                     available.Add(CustomerType.L3_CEO_Executive);
                     available.Add(CustomerType.L3_VIP_Influencer);
                     available.Add(CustomerType.L3_RichGentleman);
+                    available.Add(CustomerType.L3_BoutiqueLady);
+                    available.Add(CustomerType.L3_GamerPro);
+                    available.Add(CustomerType.L3_CelebrityActor);
+                    available.Add(CustomerType.L3_PilotMan);
+                    available.Add(CustomerType.L3_GoldChainRapper);
+                    available.Add(CustomerType.L3_JewelryLady);
+                    available.Add(CustomerType.L3_BillionaireYacht);
                 }
 
                 while (available.Count > 0)
@@ -403,7 +493,7 @@ namespace Farm2Shelf.Environment
 
         private void SpawnPedestrianCustomer(CustomerType selectedType)
         {
-            List<Vector3> route = BuildCustomerShoppingRoute(out bool willVisitDesk, out bool hasCartStand);
+            List<Vector3> route = BuildCustomerShoppingRoute(out bool willVisitDesk, out bool hasCartStand, selectedType);
             if (route == null || route.Count < 2) return;
 
             GameObject custObj = ProceduralCustomerModelBuilder.CreateCustomerModel(selectedType, out List<Transform> leftLimbs, out List<Transform> rightLimbs);
@@ -445,8 +535,10 @@ namespace Farm2Shelf.Environment
             if (TimeManager.Instance != null && TimeManager.Instance.Hour < 8) return;
             if (StoreStatusManager.Instance == null || !StoreStatusManager.Instance.IsOpen) return;
 
-            CustomerType selectedType = (CustomerType)Random.Range(0, 5);
-            List<Vector3> route = BuildBusPassengerShoppingRoute(disembarkPos, out bool willVisitDesk, out bool hasCartStand);
+            int currentLevel = (EnvironmentBuilder.Instance != null) ? EnvironmentBuilder.Instance.CurrentUpgradeLevel : 1;
+            CustomerType selectedType = GetNextUniqueCustomerType(currentLevel);
+
+            List<Vector3> route = BuildBusPassengerShoppingRoute(disembarkPos, out bool willVisitDesk, out bool hasCartStand, selectedType);
             if (route == null || route.Count < 2) return;
 
             GameObject custObj = ProceduralCustomerModelBuilder.CreateCustomerModel(selectedType, out List<Transform> leftLimbs, out List<Transform> rightLimbs);
@@ -480,7 +572,7 @@ namespace Farm2Shelf.Environment
             activeCustomers.Add(cData);
         }
 
-        private bool IsShelfStocked(PlacedFurnitureController f)
+        private bool IsShelfStockedForCustomer(PlacedFurnitureController f, int customerTier)
         {
             if (f == null || f.rows == null) return false;
             bool isStoreShelf = (f.FurnitureType == FurnitureType.Shelf || f.FurnitureType == FurnitureType.Fridge || f.FurnitureType == FurnitureType.Freezer || f.FurnitureType == FurnitureType.BakeryCounter || f.FurnitureType == FurnitureType.ProduceShelf || f.FurnitureType == FurnitureType.CosmeticShelf || f.FurnitureType == FurnitureType.ElectronicsShelf || f.FurnitureType == FurnitureType.ButcherCounter);
@@ -490,13 +582,64 @@ namespace Farm2Shelf.Environment
             {
                 if (r != null && !r.IsUnassigned && !string.IsNullOrEmpty(r.productName) && r.currentStock > 0)
                 {
+                    if (IsProductMatchingCustomerTier(r.productName, customerTier))
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        private bool HasAnyStockedShelfForCustomer(int customerTier)
+        {
+            var allFurniture = PlacedFurnitureController.AllPlacedFurniture;
+            int count = allFurniture.Count;
+            for (int i = 0; i < count; i++)
+            {
+                var f = allFurniture[i];
+                if (f != null && IsShelfStockedForCustomer(f, customerTier))
+                {
                     return true;
                 }
             }
             return false;
         }
 
-        private void AddRandomShelfWaypoints(List<Vector3> route, IList<PlacedFurnitureController> shelves)
+        private int GetMaxProductLevelOnShelf(PlacedFurnitureController shelf)
+        {
+            if (shelf == null || shelf.rows == null) return 1;
+            int maxLvl = 1;
+            foreach (var r in shelf.rows)
+            {
+                if (r != null && !r.IsEmpty && r.currentStock > 0)
+                {
+                    int lvl = GetProductLevel(r.productName);
+                    if (lvl > maxLvl) maxLvl = lvl;
+                }
+            }
+            return maxLvl;
+        }
+
+        private PlacedFurnitureController FindAlternateStockedShelfForCustomer(ActiveCustomerData cData, int customerTier)
+        {
+            var allFurniture = PlacedFurnitureController.AllPlacedFurniture;
+            int count = allFurniture.Count;
+            for (int i = 0; i < count; i++)
+            {
+                var f = allFurniture[i];
+                if (f != null && IsShelfStockedForCustomer(f, customerTier))
+                {
+                    if (cData.visitedShelvesSet == null || !cData.visitedShelvesSet.Contains(f))
+                    {
+                        return f;
+                    }
+                }
+            }
+            return null;
+        }
+
+        private void AddRandomShelfWaypoints(List<Vector3> route, IList<PlacedFurnitureController> shelves, int customerTier)
         {
             List<PlacedFurnitureController> validShelves = new List<PlacedFurnitureController>();
             if (shelves != null)
@@ -505,7 +648,7 @@ namespace Farm2Shelf.Environment
                 for (int i = 0; i < sCount; i++)
                 {
                     var s = shelves[i];
-                    if (s != null && IsShelfStocked(s))
+                    if (s != null && IsShelfStockedForCustomer(s, customerTier))
                     {
                         validShelves.Add(s);
                     }
@@ -514,7 +657,17 @@ namespace Farm2Shelf.Environment
 
             if (validShelves.Count > 0)
             {
-                // Karıştır (Fisher-Yates Shuffle)
+                // Seviyeye öncelik ver (Müşterinin kendi seviyesindeki ürün raflarını başa al)
+                validShelves.Sort((a, b) =>
+                {
+                    int aMaxLvl = GetMaxProductLevelOnShelf(a);
+                    int bMaxLvl = GetMaxProductLevelOnShelf(b);
+                    int aScore = (aMaxLvl == customerTier) ? 10 : (aMaxLvl < customerTier ? aMaxLvl : 0);
+                    int bScore = (bMaxLvl == customerTier) ? 10 : (bMaxLvl < customerTier ? bMaxLvl : 0);
+                    return bScore.CompareTo(aScore);
+                });
+
+                // Kendi seviyesi içinde karıştır (Fisher-Yates Shuffle)
                 for (int i = 0; i < validShelves.Count; i++)
                 {
                     var temp = validShelves[i];
@@ -524,16 +677,12 @@ namespace Farm2Shelf.Environment
                 }
 
                 // Oyundaki Yoğunluk Saatlerine Göre Mantıklı Ürün Alışveriş Adet Dağılımı:
-                // - Sakin Saatler (08:00 - 10:59 & 21:00 - 22:00): 1 - 4 Parça Ürün
-                // - Normal Saatler (11:00 - 15:59): 3 - 6 Parça Ürün
-                // - Zirve / Yoğun Akşam Saatleri (16:00 - 20:59): 5 - 9 Parça Ürün (Geniş Dolu Sepetler!)
                 int currentHour = (TimeManager.Instance != null) ? TimeManager.Instance.Hour : 14;
                 int targetCount = 1;
                 float roll = Random.value;
 
                 if (currentHour >= 16 && currentHour <= 20)
                 {
-                    // Yoğun İş Çıkışı / Akşam (5, 6, 7, 8, 9 Ürün)
                     if (roll < 0.15f) targetCount = 5;
                     else if (roll < 0.35f) targetCount = 6;
                     else if (roll < 0.60f) targetCount = 7;
@@ -542,7 +691,6 @@ namespace Farm2Shelf.Environment
                 }
                 else if (currentHour >= 11 && currentHour < 16)
                 {
-                    // Normal Gündüz / Öğle (3, 4, 5, 6 Ürün)
                     if (roll < 0.25f) targetCount = 3;
                     else if (roll < 0.60f) targetCount = 4;
                     else if (roll < 0.85f) targetCount = 5;
@@ -550,7 +698,6 @@ namespace Farm2Shelf.Environment
                 }
                 else
                 {
-                    // Sakin Sabah / Gece (1, 2, 3, 4 Ürün)
                     if (roll < 0.30f) targetCount = 1;
                     else if (roll < 0.65f) targetCount = 2;
                     else if (roll < 0.90f) targetCount = 3;
@@ -567,9 +714,10 @@ namespace Farm2Shelf.Environment
             }
         }
 
-        private List<Vector3> BuildCustomerShoppingRoute(out bool willVisitServiceDesk, out bool hasCartStand)
+        private List<Vector3> BuildCustomerShoppingRoute(out bool willVisitServiceDesk, out bool hasCartStand, CustomerType selectedType)
         {
             List<Vector3> route = new List<Vector3>();
+            int customerTier = GetCustomerTier(selectedType);
 
             // Yaya Giriş Rotası: Sağ Doğu Kaldırımı Spawn Noktası (X=45.0f, Z=-5.0f) -> Cam Kapı Önü Dış Kaldırım (-5.0, -5.0) -> Kapıdan Geçiş (-5.0, -2.5) -> Ana Fuaye (-5.0, -0.5)
             route.Add(new Vector3(45.0f, 0.05f, -5.0f));
@@ -617,10 +765,10 @@ namespace Farm2Shelf.Environment
                 route.Add(serviceDesk.GetFrontInteractionPosition(1.0f));
             }
 
-            // Müşteri Mağazadaki Raflara SADECE Stokta Ürün Varsa Uğrar:
-            if (HasAnyStockedShelfInStore())
+            // Müşteri Mağazadaki Raflara SADECE Kendi Seviyesine Uygun Stokta Ürün Varsa Uğrar:
+            if (HasAnyStockedShelfForCustomer(customerTier))
             {
-                AddRandomShelfWaypoints(route, shelves);
+                AddRandomShelfWaypoints(route, shelves, customerTier);
 
                 Vector3 checkoutPos = new Vector3(-6.5f, 0.05f, 1.5f);
                 for (int i = 0; i < shCount; i++)
@@ -646,9 +794,10 @@ namespace Farm2Shelf.Environment
             return route;
         }
 
-        private List<Vector3> BuildBusPassengerShoppingRoute(Vector3 disembarkPos, out bool willVisitServiceDesk, out bool hasCartStand)
+        private List<Vector3> BuildBusPassengerShoppingRoute(Vector3 disembarkPos, out bool willVisitServiceDesk, out bool hasCartStand, CustomerType selectedType)
         {
             List<Vector3> route = new List<Vector3>();
+            int customerTier = GetCustomerTier(selectedType);
 
             // 1. Geliş Rotası: Otobüsten İn (4.5, -5.0) -> Dış Kaldırım (-5.0, -5.0) -> Kapıdan Geçiş (-5.0, -2.5) -> Ana Fuaye (-5.0, -0.5)
             route.Add(disembarkPos);
@@ -695,9 +844,9 @@ namespace Farm2Shelf.Environment
                 route.Add(serviceDesk.GetFrontInteractionPosition(1.0f));
             }
 
-            if (HasAnyStockedShelfInStore())
+            if (HasAnyStockedShelfForCustomer(customerTier))
             {
-                AddRandomShelfWaypoints(route, shelves);
+                AddRandomShelfWaypoints(route, shelves, customerTier);
 
                 Vector3 checkoutPos = new Vector3(-6.5f, 0.05f, 1.5f);
                 for (int i = 0; i < busShCount; i++)
@@ -971,17 +1120,7 @@ namespace Farm2Shelf.Environment
 
         private bool HasAnyStockedShelfInStore()
         {
-            var allFurniture = PlacedFurnitureController.AllPlacedFurniture;
-            int count = allFurniture.Count;
-            for (int i = 0; i < count; i++)
-            {
-                var f = allFurniture[i];
-                if (f != null && IsShelfStocked(f))
-                {
-                    return true;
-                }
-            }
-            return false;
+            return HasAnyStockedShelfForCustomer(3);
         }
 
         private List<Vector3> BuildDirectExitRoute(ActiveCustomerData cData)
@@ -1188,12 +1327,12 @@ namespace Farm2Shelf.Environment
 
         private List<Vector3> BuildCustomerShoppingRoute(out bool willVisitServiceDesk)
         {
-            return BuildCustomerShoppingRoute(out willVisitServiceDesk, out _);
+            return BuildCustomerShoppingRoute(out willVisitServiceDesk, out _, CustomerType.L1_CasualBoy);
         }
 
         private List<Vector3> BuildCustomerShoppingRoute()
         {
-            return BuildCustomerShoppingRoute(out _);
+            return BuildCustomerShoppingRoute(out _, out _, CustomerType.L1_CasualBoy);
         }
 
         private void UpdateActiveCustomers(float deltaTime)
@@ -1228,9 +1367,10 @@ namespace Farm2Shelf.Environment
             }
         }
 
-        private List<Vector3> BuildVehicleCustomerWalkingRoute(Vector3 slotPos, int slotIndex, out bool willVisitServiceDesk, out bool hasCartStand)
+        private List<Vector3> BuildVehicleCustomerWalkingRoute(Vector3 slotPos, int slotIndex, out bool willVisitServiceDesk, out bool hasCartStand, CustomerType selectedType)
         {
             List<Vector3> route = new List<Vector3>();
+            int customerTier = GetCustomerTier(selectedType);
 
             int level = (EnvironmentBuilder.Instance != null) ? EnvironmentBuilder.Instance.CurrentUpgradeLevel : 1;
             int slotsPerRow = ((level == 1) ? 10 : ((level == 2) ? 16 : 22)) / 2;
@@ -1291,9 +1431,9 @@ namespace Farm2Shelf.Environment
                 route.Add(serviceDesk.GetFrontInteractionPosition(1.0f));
             }
 
-            if (HasAnyStockedShelfInStore())
+            if (HasAnyStockedShelfForCustomer(customerTier))
             {
-                AddRandomShelfWaypoints(route, shelves);
+                AddRandomShelfWaypoints(route, shelves, customerTier);
 
                 Vector3 checkoutPos = new Vector3(-6.5f, 0.05f, 1.5f);
                 foreach (var s in shelves)
@@ -1415,7 +1555,7 @@ namespace Farm2Shelf.Environment
                             cData.customerObj.SetActive(true);
                         }
 
-                        cData.waypoints = BuildVehicleCustomerWalkingRoute(cData.parkedSlotPos, cData.parkingSlotIndex, out cData.isVisitingCustomerService, out cData.hasCartStand);
+                        cData.waypoints = BuildVehicleCustomerWalkingRoute(cData.parkedSlotPos, cData.parkingSlotIndex, out cData.isVisitingCustomerService, out cData.hasCartStand, cData.type);
                         cData.currentWaypointIndex = 1;
                         cData.drivePhase = VehicleDrivePhase.EngineOffShoppingOnFoot;
                     }
@@ -1930,10 +2070,11 @@ namespace Farm2Shelf.Environment
                         // 1. TAM OLARAK SEPET STANTININ ÖNÜNE ULAŞILDIĞINDA:
                         if (!cData.grabbedCartFromStand && isAtCartStand)
                         {
-                            bool hasStockedShelves = HasAnyStockedShelfInStore();
+                            int customerTier = GetCustomerTier(cData.type);
+                            bool hasStockedShelves = HasAnyStockedShelfForCustomer(customerTier);
                             if (!hasStockedShelves)
                             {
-                                // ❌ DÜKKANDA HİÇ ÜRÜN YOK!
+                                // ❌ DÜKKANDA MÜŞTERİNİN SEVİYESİNE AİT HİÇ ÜRÜN YOK!
                                 ShowNoProductsWarning(cData);
                                 ClearCarriedCartOnCustomer(cData);
                                 cData.grabbedCartFromStand = false;
@@ -1997,6 +2138,15 @@ namespace Farm2Shelf.Environment
                             {
                                 if (cData.totalItemsBought <= 0)
                                 {
+                                    int customerTier = GetCustomerTier(cData.type);
+                                    PlacedFurnitureController backupShelf = FindAlternateStockedShelfForCustomer(cData, customerTier);
+                                    if (backupShelf != null)
+                                    {
+                                        Vector3 backupPos = backupShelf.GetFrontInteractionPosition(0.75f);
+                                        cData.waypoints.Insert(cData.currentWaypointIndex, backupPos);
+                                        return;
+                                    }
+
                                     // ❌ Raflarda ürün bulunamadı! Sepeti bırak, uyarı göster ve dükkanı terk et:
                                     ShowNoProductsWarning(cData);
                                     ClearCarriedCartOnCustomer(cData);
@@ -2211,25 +2361,30 @@ namespace Farm2Shelf.Environment
         {
             if (cData == null || cData.customerObj == null || shelf == null || shelf.rows == null) return;
 
+            int customerTier = GetCustomerTier(cData.type);
             List<ShelfRowData> populatedRows = new List<ShelfRowData>();
             foreach (var r in shelf.rows)
             {
                 if (r != null && !r.IsEmpty && r.currentStock > 0)
                 {
-                    populatedRows.Add(r);
+                    if (IsProductMatchingCustomerTier(r.productName, customerTier))
+                    {
+                        populatedRows.Add(r);
+                    }
                 }
             }
 
             if (populatedRows.Count == 0) return;
 
-            // Raftaki ürün sıralarını karıştır (Fisher-Yates Shuffle) - Tüm ürünlerin (1., 2., 3., 4. raf) eşit satılmasını sağla
-            for (int i = 0; i < populatedRows.Count; i++)
+            // Kendi seviyesindeki ürünlere öncelik ver (ör. Tier 2 müşterisi 2. seviye ürünleri öncelikli talep etsin)
+            populatedRows.Sort((a, b) =>
             {
-                var temp = populatedRows[i];
-                int randIdx = Random.Range(i, populatedRows.Count);
-                populatedRows[i] = populatedRows[randIdx];
-                populatedRows[randIdx] = temp;
-            }
+                int aLvl = GetProductLevel(a.productName);
+                int bLvl = GetProductLevel(b.productName);
+                int aScore = (aLvl == customerTier) ? 10 : aLvl;
+                int bScore = (bLvl == customerTier) ? 10 : bLvl;
+                return bScore.CompareTo(aScore);
+            });
 
             int rowsToPick = Mathf.Min(Random.Range(1, 3), populatedRows.Count);
             for (int i = 0; i < rowsToPick; i++)

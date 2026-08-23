@@ -24,9 +24,8 @@ namespace Farm2Shelf.UI
         private Image avatarBgImage;
         private Image avatarPhotoImg;
 
-        public bool IsModalOpen => modalContainer != null && modalContainer.activeSelf;
-
         private CustomerProfileData currentCustomerProfile;
+        private Transform closeButtonTransform;
 
         private void OnEnable()
         {
@@ -179,18 +178,18 @@ namespace Farm2Shelf.UI
             closeRect.anchorMax = new Vector2(1f, 1f);
             closeRect.pivot = new Vector2(1f, 1f);
             closeRect.anchoredPosition = new Vector2(-10f, -10f);
-            closeRect.sizeDelta = new Vector2(44f, 44f);
+            closeRect.sizeDelta = new Vector2(46f, 46f);
 
             Image closeImg = closeBtnObj.AddComponent<Image>();
-            closeImg.color = new Color(0.90f, 0.20f, 0.22f, 1f);
+            closeImg.sprite = UIStyleUtility.CreateRoundedPillSprite(46, 46, 23, new Color(0.92f, 0.18f, 0.20f, 1f));
             closeImg.raycastTarget = true;
 
             Button closeBtn = closeBtnObj.AddComponent<Button>();
             closeBtn.targetGraphic = closeImg;
             ColorBlock cb = closeBtn.colors;
-            cb.normalColor = new Color(0.90f, 0.20f, 0.22f, 1f);
-            cb.highlightedColor = new Color(1.0f, 0.32f, 0.34f, 1f);
-            cb.pressedColor = new Color(0.70f, 0.12f, 0.14f, 1f);
+            cb.normalColor = Color.white;
+            cb.highlightedColor = new Color(1.0f, 0.85f, 0.85f, 1f);
+            cb.pressedColor = new Color(0.80f, 0.70f, 0.70f, 1f);
             cb.selectedColor = cb.normalColor;
             closeBtn.colors = cb;
             closeBtn.onClick.AddListener(HideModal);
@@ -202,7 +201,7 @@ namespace Farm2Shelf.UI
             cTxtRect.anchorMax = Vector2.one;
             Text cTxt = closeTxtObj.AddComponent<Text>();
             cTxt.font = UIStyleUtility.GetGlobalFont(26);
-            cTxt.text = "✕";
+            cTxt.text = "✖";
             cTxt.fontSize = 26;
             cTxt.fontStyle = FontStyle.Bold;
             cTxt.alignment = TextAnchor.MiddleCenter;
@@ -213,7 +212,7 @@ namespace Farm2Shelf.UI
             cOutline.effectColor = new Color(0f, 0f, 0f, 0.85f);
             cOutline.effectDistance = new Vector2(1.5f, -1.5f);
 
-            closeBtnObj.transform.SetAsLastSibling();
+            closeButtonTransform = closeBtnObj.transform;
 
             // 1. PROFİL FOTOĞRAFI KUTUSU (Realistic Portrait Avatar Box)
             GameObject avatarBox = new GameObject("AvatarBox");
@@ -416,6 +415,7 @@ namespace Farm2Shelf.UI
             bcTxt.color = Color.white;
             bcTxt.raycastTarget = false;
 
+            if (closeButtonTransform != null) closeButtonTransform.SetAsLastSibling();
             modalContainer.SetActive(false);
         }
 
@@ -457,6 +457,7 @@ namespace Farm2Shelf.UI
                 StaffProfileModalUI.Instance.HideModal();
             }
 
+            if (closeButtonTransform != null) closeButtonTransform.SetAsLastSibling();
             modalContainer.SetActive(true);
             ModalManager.SetModalOpen(true);
 
@@ -497,6 +498,8 @@ namespace Farm2Shelf.UI
             string occLabel = LocalizationManager.L("Label_Occupation", "Meslek", "Occupation");
             if (occupationText != null) occupationText.text = $"{occLabel}: {profile.LocalizedOccupationText}";
         }
+
+        public bool IsModalOpen => modalContainer != null && modalContainer.activeSelf;
 
         public void HideModal()
         {
