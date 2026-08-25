@@ -127,7 +127,7 @@ namespace Farm2Shelf.Core
         public List<ActiveLoanData> bankLoans = new List<ActiveLoanData>();
 
         // Sosyal Medya
-        public int socialFollowerCount = 1420;
+        public int socialFollowerCount = 500;
         public List<SocialTweetData> socialFeed = new List<SocialTweetData>();
 
         // Tohum Envanteri & Ahır Deposu

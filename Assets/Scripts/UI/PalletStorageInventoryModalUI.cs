@@ -473,8 +473,7 @@ namespace Farm2Shelf.UI
 
             Text infoTxt = infoObj.AddComponent<Text>();
             infoTxt.font = globalFont;
-
-            string zoneColorHex = (def.zone == FurnitureZone.StorageOnly) ? "#FFB03A" : "#54D6FF";
+            string zoneColorHex = (def.zone == FurnitureZone.StorageOnly) ? "#FFB03A" : ((def.zone == FurnitureZone.StoreAndStorage) ? "#50E3C2" : "#54D6FF");
             string zoneTag = $"<color={zoneColorHex}><b>[{def.GetZoneText()}]</b></color>";
             string qtyTag = (quantity > 1) ? $" <color=#FFD700><b>(x{quantity} Adet)</b></color>" : "";
 

@@ -186,9 +186,11 @@ namespace Farm2Shelf.Environment
 
             bool isStoreOpen = StoreStatusManager.Instance != null && StoreStatusManager.Instance.IsOpen;
             int activeCustCount = CustomerShoppingManager.Instance != null ? CustomerShoppingManager.Instance.ActiveCustomerCount : 0;
+            bool isTruckWaiting = (WholesaleTruckManager.Instance != null && WholesaleTruckManager.Instance.IsTruckAtDockWaitingForUnload) ||
+                                  (GreenTruckDeliveryManager.Instance != null && GreenTruckDeliveryManager.Instance.IsTruckAtDockWaitingForUnload);
 
-            // Dükkan kapalıysa VE dükkanda/kasada müşteri kalmamışsa personellerin vardiyası biter
-            if (!isStoreOpen && activeCustCount == 0) return false;
+            // Dükkan kapalıysa VE dükkanda/kasada müşteri kalmamışsa VE bekleyen teslimat kamyonu yoksa personellerin vardiyası biter
+            if (!isStoreOpen && activeCustCount == 0 && !isTruckWaiting) return false;
 
             string shift = staff.shiftHours ?? "";
 
@@ -766,9 +768,14 @@ namespace Farm2Shelf.Environment
                     int curMinute = (TimeManager.Instance != null) ? TimeManager.Instance.Minute : 0;
                     bool dispatchEarlyFromRest = (data.staffMember.role == StaffRole.Kasiyer && curMinute >= 55);
 
-                    if (!isEarlyArrival || dispatchEarlyFromRest)
+                    bool isTruckWaitingForRestocker = (data.staffMember.role == StaffRole.Reyoncu) &&
+                        ((WholesaleTruckManager.Instance != null && WholesaleTruckManager.Instance.IsTruckAtDockWaitingForUnload && WholesaleTruckManager.Instance.PendingTruckPackages != null && WholesaleTruckManager.Instance.PendingTruckPackages.Count > 0) ||
+                         (GreenTruckDeliveryManager.Instance != null && GreenTruckDeliveryManager.Instance.IsTruckAtDockWaitingForUnload && GreenTruckDeliveryManager.Instance.PendingTruckPackages != null && GreenTruckDeliveryManager.Instance.PendingTruckPackages.Count > 0));
+
+                    if (!isEarlyArrival || dispatchEarlyFromRest || isTruckWaitingForRestocker)
                     {
                         FreeSofaSeat(data);
+                        data.isSitting = false;
                         AssignStaffToTaskPosition(data);
                     }
                     else
@@ -1688,9 +1695,7 @@ namespace Farm2Shelf.Environment
                                 GreenTruckDeliveryManager.Instance.PendingTruckPackages != null &&
                                 GreenTruckDeliveryManager.Instance.PendingTruckPackages.Count > 0);
 
-                            bool isStoreClosedOrNight = (StoreStatusManager.Instance != null && !StoreStatusManager.Instance.IsOpen) || (TimeManager.Instance != null && TimeManager.Instance.Hour >= 24);
-
-                            if (stillHasPackages && !isStoreClosedOrNight)
+                            if (stillHasPackages)
                             {
                                 data.isFetchingFromTruck = true;
                                 Vector3 truckDockPos = new Vector3(13.0f, 0.05f, 2.0f);
@@ -1929,23 +1934,6 @@ namespace Farm2Shelf.Environment
             }
 
             // ==================== 3. GÖREV ARAMA & ATAMA ====================
-            bool isStoreClosedNight = (StoreStatusManager.Instance != null && !StoreStatusManager.Instance.IsOpen) || (TimeManager.Instance != null && TimeManager.Instance.Hour >= 24);
-            if (isStoreClosedNight)
-            {
-                // Dükkan kapalı veya gece: eller boşsa yeni koli çekme görevi arama, dinlenme odasında bekle
-                ClearCarriedBoxesOnStaff(data);
-                Vector3 restSpotNight = GetBreakRoomTargetPosition(data);
-
-                if (Vector3.Distance(data.staffObj.transform.position, restSpotNight) > 1.8f && (data.waypoints == null || data.currentWaypointIndex >= data.waypoints.Count))
-                {
-                    data.waypoints = BuildStructuredStaffWaypoints(data.staffObj.transform.position, restSpotNight);
-                    data.currentWaypointIndex = 1;
-                    return;
-                }
-
-                ExecuteBreakRoomRestAndSeating(data, deltaTime);
-                return;
-            }
             var shelves = PlacedFurnitureController.AllPlacedFurniture;
 
             bool isTruckWaitingToUnload = (WholesaleTruckManager.Instance != null &&
@@ -1958,7 +1946,7 @@ namespace Farm2Shelf.Environment
                 GreenTruckDeliveryManager.Instance.PendingTruckPackages != null &&
                 GreenTruckDeliveryManager.Instance.PendingTruckPackages.Count > 0);
 
-            // GÖREV 1: Kamyondan Depoya Koli Taşıma
+            // GÖREV 1: Kamyondan Depoya Koli Taşıma (DÜKKAN KAPALI OLSA DAHİ EN YÜKSEK ÖNCELİK!)
             if (isTruckWaitingToUnload)
             {
                 PlacedFurnitureController storageShelf = null;
@@ -1992,6 +1980,25 @@ namespace Farm2Shelf.Environment
 
                 data.waypoints = BuildStructuredStaffWaypoints(data.staffObj.transform.position, truckDockPos);
                 data.currentWaypointIndex = 1;
+                return;
+            }
+
+            // GÖREV 2: Depo Rafından Mağaza Raflarına Koli Taşıma
+            // (Erken çağrılan veya vardiyada olan reyoncu, dükkan kapalı olsa bile sabah hazırlığı için rafları doldurur; sadece gece 24:00 sonrası zorunlu dinlenmeye geçer)
+            bool isStoreClosedNight = (TimeManager.Instance != null && TimeManager.Instance.Hour >= 24);
+            if (isStoreClosedNight)
+            {
+                ClearCarriedBoxesOnStaff(data);
+                Vector3 restSpotNight = GetBreakRoomTargetPosition(data);
+
+                if (Vector3.Distance(data.staffObj.transform.position, restSpotNight) > 1.8f && (data.waypoints == null || data.currentWaypointIndex >= data.waypoints.Count))
+                {
+                    data.waypoints = BuildStructuredStaffWaypoints(data.staffObj.transform.position, restSpotNight);
+                    data.currentWaypointIndex = 1;
+                    return;
+                }
+
+                ExecuteBreakRoomRestAndSeating(data, deltaTime);
                 return;
             }
 

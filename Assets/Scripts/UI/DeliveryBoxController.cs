@@ -133,7 +133,7 @@ namespace Farm2Shelf.UI
 
             Text subText = subObj.AddComponent<Text>();
             subText.font = titleText.font;
-            subText.text = LocalizationManager.L("Box_ClickToOpenInventory", "👆 Tıkla: Palet Deposunu Aç", "👆 Click: Open Pallet Storage");
+            subText.text = LocalizationManager.L("Box_ClickToOpenPallet", "👆 Tıkla: Palet Envanterini Aç", "👆 Click: Open Pallet Storage");
             subText.fontSize = 18;
             subText.resizeTextForBestFit = true;
             subText.resizeTextMinSize = 11;

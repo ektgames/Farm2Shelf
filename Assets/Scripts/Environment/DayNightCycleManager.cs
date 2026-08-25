@@ -23,6 +23,7 @@ namespace Farm2Shelf.Environment
         private readonly List<Light> vehicleHeadlights = new List<Light>();
         private readonly List<Renderer> headlightRenderers = new List<Renderer>();
         private readonly List<Renderer> buildingWindows = new List<Renderer>();
+        private readonly List<VehicleHeadlightController> vehicleHeadlightControllers = new List<VehicleHeadlightController>();
 
         [Header("Materyaller")]
         private Material bulbOnMat;
@@ -31,6 +32,10 @@ namespace Farm2Shelf.Environment
         private Material windowGlowOffMat;
         private Material headlightOnMat;
         private Material headlightOffMat;
+
+        public static Material HeadlightOnMaterial => Instance != null ? Instance.headlightOnMat : null;
+        public static Material HeadlightOffMaterial => Instance != null ? Instance.headlightOffMat : null;
+        public bool IsNight => isNight;
 
         private bool isNight = false;
 
@@ -129,6 +134,15 @@ namespace Farm2Shelf.Environment
             {
                 storeInteriorLights.Add(iLight);
                 iLight.enabled = isNight;
+            }
+        }
+
+        public void RegisterVehicleHeadlightController(VehicleHeadlightController ctrl)
+        {
+            if (ctrl != null && !vehicleHeadlightControllers.Contains(ctrl))
+            {
+                vehicleHeadlightControllers.Add(ctrl);
+                ctrl.UpdateHeadlights();
             }
         }
 
@@ -303,6 +317,12 @@ namespace Farm2Shelf.Environment
             }
 
             // D) Araç Farları ve Ön Işık Huzmeleri
+            vehicleHeadlightControllers.RemoveAll(c => c == null);
+            foreach (var ctrl in vehicleHeadlightControllers)
+            {
+                if (ctrl != null) ctrl.UpdateHeadlights();
+            }
+
             foreach (var vLight in vehicleHeadlights)
             {
                 if (vLight != null) vLight.enabled = turnOn;

@@ -2595,8 +2595,8 @@ namespace Farm2Shelf.Environment
                     BoxCollider pCol = plot.GetComponent<BoxCollider>();
                     if (pCol != null)
                     {
-                        pCol.center = new Vector3(0f, 2.5f, 0f);
-                        pCol.size = new Vector3(1.0f, 6.0f, 1.0f);
+                        pCol.center = new Vector3(0f, 20.0f, 0f);
+                        pCol.size = new Vector3(1.0f, 40.0f, 1.0f);
                     }
 
                     plot.AddComponent<FieldPlotController>();

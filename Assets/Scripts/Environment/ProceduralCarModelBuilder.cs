@@ -315,10 +315,21 @@ namespace Farm2Shelf.Environment
             spotR.spotAngle = 55f;
             spotR.enabled = false;
 
+            VehicleHeadlightController ctrl = parent.GetComponentInParent<VehicleHeadlightController>();
+            if (ctrl == null) ctrl = parent.GetComponent<VehicleHeadlightController>();
+            if (ctrl == null) ctrl = parent.gameObject.AddComponent<VehicleHeadlightController>();
+
+            if (spotL != null && !ctrl.spotLights.Contains(spotL)) ctrl.spotLights.Add(spotL);
+            if (spotR != null && !ctrl.spotLights.Contains(spotR)) ctrl.spotLights.Add(spotR);
+
+            Renderer rL = hlL.GetComponent<Renderer>();
+            Renderer rR = hlR.GetComponent<Renderer>();
+            if (rL != null && !ctrl.headlightRenderers.Contains(rL)) ctrl.headlightRenderers.Add(rL);
+            if (rR != null && !ctrl.headlightRenderers.Contains(rR)) ctrl.headlightRenderers.Add(rR);
+
             if (DayNightCycleManager.Instance != null)
             {
-                DayNightCycleManager.Instance.RegisterVehicleHeadlight(spotL, hlL);
-                DayNightCycleManager.Instance.RegisterVehicleHeadlight(spotR, hlR);
+                DayNightCycleManager.Instance.RegisterVehicleHeadlightController(ctrl);
             }
         }
 

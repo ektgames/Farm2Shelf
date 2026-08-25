@@ -30,6 +30,8 @@ namespace Farm2Shelf.UI
         private Transform socialMediaAppView;
         private Transform socialMediaFeedContent;
         private int activeSocialTab = 0; // 0: Sana Özel (For You), 1: Yorumlar (Reviews), 2: Profilim (My Tweets)
+        private Text socialProfileCardTxt;
+        private Text socialTrendCardTxt;
 
         // Shopping App Content & Category Transform'ları
         private Transform shoppingCategoryContent;
@@ -197,6 +199,12 @@ namespace Farm2Shelf.UI
                 LocalizationManager.Instance.OnLanguageChanged -= RefreshAllPhoneDisplays;
                 LocalizationManager.Instance.OnLanguageChanged += RefreshAllPhoneDisplays;
             }
+
+            if (SocialMediaManager.Instance != null)
+            {
+                SocialMediaManager.Instance.OnFeedUpdated -= RefreshSocialMediaViews;
+                SocialMediaManager.Instance.OnFeedUpdated += RefreshSocialMediaViews;
+            }
         }
 
         private void RefreshAllPhoneDisplays(GameLanguage lang = GameLanguage.Turkish)
@@ -270,14 +278,28 @@ namespace Farm2Shelf.UI
         {
             if (phoneButtonObj != null) Destroy(phoneButtonObj);
 
-            if (parentCanvas == null)
+            if (parentCanvas == null || parentCanvas.gameObject == null)
             {
                 GameObject hudCanvas = GameObject.Find("Farm2Shelf_HUD_Canvas");
-                if (hudCanvas != null) parentCanvas = hudCanvas.transform;
+                if (hudCanvas != null)
+                {
+                    parentCanvas = hudCanvas.transform;
+                }
                 else
                 {
-                    Canvas mainCanvas = Object.FindFirstObjectByType<Canvas>();
-                    if (mainCanvas != null) parentCanvas = mainCanvas.transform;
+                    Canvas[] allCanvases = Object.FindObjectsByType<Canvas>(FindObjectsSortMode.None);
+                    foreach (var c in allCanvases)
+                    {
+                        if (c != null && (c.name.Contains("HUD") || c.sortingOrder == 100))
+                        {
+                            parentCanvas = c.transform;
+                            break;
+                        }
+                    }
+                    if (parentCanvas == null && allCanvases.Length > 0)
+                    {
+                        parentCanvas = allCanvases[0].transform;
+                    }
                 }
             }
 
@@ -323,7 +345,12 @@ namespace Farm2Shelf.UI
         private void OnPhoneTabButtonClicked()
         {
             if (isAnimating) return;
-            if (ModalManager.IsModalOpen && !IsTabletOpen)
+            if (IsTabletOpen)
+            {
+                ClosePhoneTablet();
+                return;
+            }
+            if (ModalManager.IsModalOpen)
             {
                 if (!ModalManager.IsAnyModalCanvasActive())
                 {
@@ -331,7 +358,7 @@ namespace Farm2Shelf.UI
                 }
                 else
                 {
-                    return;
+                    ModalManager.CloseModal();
                 }
             }
             OpenPhoneTablet();
@@ -1629,7 +1656,7 @@ namespace Farm2Shelf.UI
 
                 if (shoppingCategoryHeaderSub != null) shoppingCategoryHeaderSub.gameObject.SetActive(false);
                 if (furnitureViewportObj != null) furnitureViewportObj.gameObject.SetActive(true);
-                if (shoppingCartSummaryPanelObj != null) shoppingCartSummaryPanelObj.SetActive(activeShoppingCategory == 2);
+                if (shoppingCartSummaryPanelObj != null) shoppingCartSummaryPanelObj.SetActive(activeShoppingCategory != 4);
 
                 if (activeShoppingCategory == 4)
                 {
@@ -1736,63 +1763,72 @@ namespace Farm2Shelf.UI
                 Text subText = CreateTextInPanel(infoPanel.transform, new Vector2(0f, -20f), new Vector2(300f, 20f), badgeText, 15, badgeColor);
                 subText.alignment = TextAnchor.MiddleLeft;
 
-                // Sağ Kontrol Alanı (Koli Ekle / Adet / Kilitli)
+                // Sağ Kontrol Alanı
                 GameObject ctrlPanel = new GameObject("CtrlPanel");
                 ctrlPanel.transform.SetParent(cardObj.transform, false);
                 RectTransform cpRect = ctrlPanel.AddComponent<RectTransform>();
                 cpRect.anchoredPosition = new Vector2(190f, 0f);
                 cpRect.sizeDelta = new Vector2(110f, 50f);
 
-                string targetProdId = def.id;
-
-                if (isUnlocked)
-                {
-                    if (inCartCount > 0)
-                    {
-                        // "-" Butonu
-                        GameObject minusBtn = CreateButtonInPanel(ctrlPanel.transform, new Vector2(-35f, 0f), new Vector2(32f, 32f), "-", new Color(0.85f, 0.30f, 0.30f), () => {
-                            if (wholesaleCart.ContainsKey(targetProdId))
-                            {
-                                wholesaleCart[targetProdId]--;
-                                if (wholesaleCart[targetProdId] <= 0) wholesaleCart.Remove(targetProdId);
-                            }
-                            RenderWholesaleProductList();
-                            UpdateCartSummary();
-                        }, 20);
-
-                        // Adet Göstergesi
-                        Text countTxt = CreateTextInPanel(ctrlPanel.transform, new Vector2(0f, 0f), new Vector2(30f, 32f), inCartCount.ToString(), 20, Color.white);
-                        countTxt.fontStyle = FontStyle.Bold;
-                        countTxt.alignment = TextAnchor.MiddleCenter;
-
-                        // "+" Butonu
-                        GameObject plusBtn = CreateButtonInPanel(ctrlPanel.transform, new Vector2(35f, 0f), new Vector2(32f, 32f), "+", new Color(0.30f, 0.75f, 0.40f), () => {
-                            if (!wholesaleCart.ContainsKey(targetProdId)) wholesaleCart[targetProdId] = 0;
-                            wholesaleCart[targetProdId]++;
-                            RenderWholesaleProductList();
-                            UpdateCartSummary();
-                        }, 20);
-                    }
-                    else
-                    {
-                        // "+ Koli Ekle" Butonu
-                        string btnAddPackLabel = LocalizationManager.L("Btn_AddPack", "+ Koli Ekle", "+ Add Pack");
-                        GameObject addBtn = CreateButtonInPanel(ctrlPanel.transform, new Vector2(0f, 0f), new Vector2(100f, 34f), btnAddPackLabel, new Color(0.95f, 0.55f, 0.20f), () => {
-                            wholesaleCart[targetProdId] = 1;
-                            RenderWholesaleProductList();
-                            UpdateCartSummary();
-                        }, 16);
-                    }
-                }
-                else
-                {
-                    // Kilitli Buton
-                    string lockTextStr = LocalizationManager.L("Btn_LockedItem", "🔒 Kilitli", "🔒 Locked");
-                    GameObject lockBtn = CreateButtonInPanel(ctrlPanel.transform, new Vector2(0f, 0f), new Vector2(100f, 34f), lockTextStr, new Color(0.35f, 0.35f, 0.40f), null, 15);
-                }
+                UpdateWholesaleCardControls(ctrlPanel.transform, def, isUnlocked);
             }
 
             UpdateCartSummary();
+        }
+
+        private void UpdateWholesaleCardControls(Transform ctrlParent, WholesaleProductDef def, bool isUnlocked)
+        {
+            if (ctrlParent == null || def == null) return;
+            foreach (Transform child in ctrlParent) Destroy(child.gameObject);
+
+            string targetProdId = def.id;
+            int inCartCount = wholesaleCart.ContainsKey(targetProdId) ? wholesaleCart[targetProdId] : 0;
+
+            if (isUnlocked)
+            {
+                if (inCartCount > 0)
+                {
+                    // "-" Butonu
+                    GameObject minusBtn = CreateButtonInPanel(ctrlParent, new Vector2(-35f, 0f), new Vector2(32f, 32f), "-", new Color(0.85f, 0.30f, 0.30f), () => {
+                        if (wholesaleCart.ContainsKey(targetProdId))
+                        {
+                            wholesaleCart[targetProdId]--;
+                            if (wholesaleCart[targetProdId] <= 0) wholesaleCart.Remove(targetProdId);
+                        }
+                        UpdateWholesaleCardControls(ctrlParent, def, isUnlocked);
+                        UpdateCartSummary();
+                    }, 20);
+
+                    // Adet Göstergesi
+                    Text countTxt = CreateTextInPanel(ctrlParent, new Vector2(0f, 0f), new Vector2(30f, 32f), inCartCount.ToString(), 20, Color.white);
+                    countTxt.fontStyle = FontStyle.Bold;
+                    countTxt.alignment = TextAnchor.MiddleCenter;
+
+                    // "+" Butonu
+                    GameObject plusBtn = CreateButtonInPanel(ctrlParent, new Vector2(35f, 0f), new Vector2(32f, 32f), "+", new Color(0.30f, 0.75f, 0.40f), () => {
+                        if (!wholesaleCart.ContainsKey(targetProdId)) wholesaleCart[targetProdId] = 0;
+                        wholesaleCart[targetProdId]++;
+                        UpdateWholesaleCardControls(ctrlParent, def, isUnlocked);
+                        UpdateCartSummary();
+                    }, 20);
+                }
+                else
+                {
+                    // "+ Koli Ekle" Butonu
+                    string btnAddPackLabel = LocalizationManager.L("Btn_AddPack", "+ Koli Ekle", "+ Add Pack");
+                    GameObject addBtn = CreateButtonInPanel(ctrlParent, new Vector2(0f, 0f), new Vector2(100f, 34f), btnAddPackLabel, new Color(0.95f, 0.55f, 0.20f), () => {
+                        wholesaleCart[targetProdId] = 1;
+                        UpdateWholesaleCardControls(ctrlParent, def, isUnlocked);
+                        UpdateCartSummary();
+                    }, 16);
+                }
+            }
+            else
+            {
+                // Kilitli Buton
+                string lockTextStr = LocalizationManager.L("Btn_LockedItem", "🔒 Kilitli", "🔒 Locked");
+                GameObject lockBtn = CreateButtonInPanel(ctrlParent, new Vector2(0f, 0f), new Vector2(100f, 34f), lockTextStr, new Color(0.35f, 0.35f, 0.40f), null, 15);
+            }
         }
 
         private void RenderSeedProductList()
@@ -1891,57 +1927,67 @@ namespace Farm2Shelf.UI
                 cpRect.anchoredPosition = new Vector2(190f, 0f);
                 cpRect.sizeDelta = new Vector2(110f, 40f);
 
-                if (canBuy)
+                UpdateSeedCardControls(ctrlPanel.transform, def, canBuy);
+            }
+            UpdateCartSummary();
+        }
+
+        private void UpdateSeedCardControls(Transform ctrlParent, GardenSeedDef def, bool canBuy)
+        {
+            if (ctrlParent == null || def == null) return;
+            foreach (Transform child in ctrlParent) Destroy(child.gameObject);
+
+            if (canBuy)
+            {
+                int inCartCount = seedCart.ContainsKey(def.id) ? seedCart[def.id] : 0;
+                string targetSeedId = def.id;
+
+                if (inCartCount > 0)
                 {
-                    int inCartCount = seedCart.ContainsKey(def.id) ? seedCart[def.id] : 0;
-                    string targetSeedId = def.id;
+                    // "-" Butonu
+                    GameObject minusBtn = CreateButtonInPanel(ctrlParent, new Vector2(-35f, 0f), new Vector2(32f, 32f), "-", new Color(0.85f, 0.25f, 0.25f), () => {
+                        if (seedCart.ContainsKey(targetSeedId))
+                        {
+                            seedCart[targetSeedId]--;
+                            if (seedCart[targetSeedId] <= 0) seedCart.Remove(targetSeedId);
+                        }
+                        UpdateSeedCardControls(ctrlParent, def, canBuy);
+                        UpdateCartSummary();
+                    }, 20);
 
-                    if (inCartCount > 0)
-                    {
-                        // "-" Butonu
-                        GameObject minusBtn = CreateButtonInPanel(ctrlPanel.transform, new Vector2(-35f, 0f), new Vector2(32f, 32f), "-", new Color(0.85f, 0.25f, 0.25f), () => {
-                            if (seedCart.ContainsKey(targetSeedId))
-                            {
-                                seedCart[targetSeedId]--;
-                                if (seedCart[targetSeedId] <= 0) seedCart.Remove(targetSeedId);
-                            }
-                            RenderSeedProductList();
-                            UpdateCartSummary();
-                        }, 20);
+                    // Adet Göstergesi (Paket)
+                    Text countTxt = CreateTextInPanel(ctrlParent, new Vector2(0f, 0f), new Vector2(30f, 32f), inCartCount.ToString(), 20, Color.white);
+                    countTxt.fontStyle = FontStyle.Bold;
+                    countTxt.alignment = TextAnchor.MiddleCenter;
 
-                        // Adet Göstergesi (Paket)
-                        Text countTxt = CreateTextInPanel(ctrlPanel.transform, new Vector2(0f, 0f), new Vector2(30f, 32f), inCartCount.ToString(), 20, Color.white);
-                        countTxt.fontStyle = FontStyle.Bold;
-                        countTxt.alignment = TextAnchor.MiddleCenter;
-
-                        // "+" Butonu
-                        GameObject plusBtn = CreateButtonInPanel(ctrlPanel.transform, new Vector2(35f, 0f), new Vector2(32f, 32f), "+", new Color(0.30f, 0.75f, 0.40f), () => {
-                            if (!seedCart.ContainsKey(targetSeedId)) seedCart[targetSeedId] = 0;
-                            seedCart[targetSeedId]++;
-                            RenderSeedProductList();
-                            UpdateCartSummary();
-                        }, 20);
-                    }
-                    else
-                    {
-                        // "+ Sepete Ekle" Butonu
-                        string btnAddSeedLabel = LocalizationManager.L("Btn_AddToCart", "+ Sepete Ekle", "+ Add to Cart");
-                        GameObject addBtn = CreateButtonInPanel(ctrlPanel.transform, new Vector2(0f, 0f), new Vector2(105f, 34f), btnAddSeedLabel, new Color(0.20f, 0.75f, 0.35f), () => {
-                            seedCart[targetSeedId] = 1;
-                            RenderSeedProductList();
-                            UpdateCartSummary();
-                        }, 16);
-                    }
+                    // "+" Butonu
+                    GameObject plusBtn = CreateButtonInPanel(ctrlParent, new Vector2(35f, 0f), new Vector2(32f, 32f), "+", new Color(0.30f, 0.75f, 0.40f), () => {
+                        if (!seedCart.ContainsKey(targetSeedId)) seedCart[targetSeedId] = 0;
+                        seedCart[targetSeedId]++;
+                        UpdateSeedCardControls(ctrlParent, def, canBuy);
+                        UpdateCartSummary();
+                    }, 20);
                 }
                 else
                 {
-                    string outSeasonStr = LocalizationManager.L("Btn_OutOfSeason", "🔒 Mevsim Dışı", "🔒 Off-Season");
-                    string reqLvlFmt = LocalizationManager.L("Btn_ReqLevel", "🔒 Seviye {0}", "🔒 Level {0}");
-                    string lockTxt = !isMatchingSeason ? outSeasonStr : string.Format(reqLvlFmt, def.requiredLevel);
-                    GameObject lockBtn = CreateButtonInPanel(ctrlPanel.transform, new Vector2(0f, 0f), new Vector2(105f, 34f), lockTxt, new Color(0.35f, 0.35f, 0.40f), null, 15);
+                    // "+ Sepete Ekle" Butonu
+                    string btnAddSeedLabel = LocalizationManager.L("Btn_AddToCart", "+ Sepete Ekle", "+ Add to Cart");
+                    GameObject addBtn = CreateButtonInPanel(ctrlParent, new Vector2(0f, 0f), new Vector2(105f, 34f), btnAddSeedLabel, new Color(0.20f, 0.75f, 0.35f), () => {
+                        seedCart[targetSeedId] = 1;
+                        UpdateSeedCardControls(ctrlParent, def, canBuy);
+                        UpdateCartSummary();
+                    }, 16);
                 }
             }
-            UpdateCartSummary();
+            else
+            {
+                TimeManager.Season currentSeason = (TimeManager.Instance != null) ? TimeManager.Instance.CurrentSeason : TimeManager.Season.İlkbahar;
+                bool isMatchingSeason = (def.season == currentSeason);
+                string outSeasonStr = LocalizationManager.L("Btn_OutOfSeason", "🔒 Mevsim Dışı", "🔒 Off-Season");
+                string reqLvlFmt = LocalizationManager.L("Btn_ReqLevel", "🔒 Seviye {0}", "🔒 Level {0}");
+                string lockTxt = !isMatchingSeason ? outSeasonStr : string.Format(reqLvlFmt, def.requiredLevel);
+                GameObject lockBtn = CreateButtonInPanel(ctrlParent, new Vector2(0f, 0f), new Vector2(105f, 34f), lockTxt, new Color(0.35f, 0.35f, 0.40f), null, 15);
+            }
         }
 
         private void RenderRenovationList()
@@ -2571,6 +2617,31 @@ namespace Farm2Shelf.UI
             vLayout.childControlWidth = true;
             vLayout.childControlHeight = false;
 
+            // Alt Ödeme Alanı (Footer)
+            GameObject footerObj = new GameObject("Cart_Footer");
+            footerObj.transform.SetParent(boxObj.transform, false);
+            RectTransform ftRect = footerObj.AddComponent<RectTransform>();
+            ftRect.anchoredPosition = new Vector2(0f, -195f);
+            ftRect.sizeDelta = new Vector2(590f, 50f);
+
+            Text totalTxt = CreateTextInPanel(footerObj.transform, new Vector2(-130f, 0f), new Vector2(300f, 40f), "", 22, new Color(0.95f, 0.85f, 0.30f));
+            totalTxt.alignment = TextAnchor.MiddleLeft;
+
+            string payBtnLabel = LocalizationManager.L("Btn_PlaceOrderPay", "💳 ÖDEME YAP VE SİPARİŞ VER", "💳 PLACE ORDER & PAY");
+            GameObject payBtnObj = CreateButtonInPanel(footerObj.transform, new Vector2(165f, 0f), new Vector2(230f, 44f), payBtnLabel, new Color(0.20f, 0.75f, 0.35f), () => {
+                Destroy(canvasObj);
+                CheckoutShoppingCart();
+            }, 17);
+            Button payBtn = payBtnObj.GetComponent<Button>();
+
+            RenderCartModalItems(cartContent, totalTxt, payBtn);
+        }
+
+        private void RenderCartModalItems(Transform cartContent, Text totalTxt, Button payBtn)
+        {
+            if (cartContent == null) return;
+            foreach (Transform child in cartContent) Destroy(child.gameObject);
+
             int totalItems = 0;
             int totalCost = 0;
 
@@ -2620,7 +2691,7 @@ namespace Farm2Shelf.UI
                         if (shoppingCart[fType] <= 0) shoppingCart.Remove(fType);
                         UpdateCartSummary();
                         RenderShoppingCategoryContent();
-                        OpenCartModal();
+                        RenderCartModalItems(cartContent, totalTxt, payBtn);
                     }, 20);
 
                     Text countLabel = CreateTextInPanel(itemRow.transform, new Vector2(174f, 0f), new Vector2(24f, 30f), count.ToString(), 18, Color.white);
@@ -2631,7 +2702,7 @@ namespace Farm2Shelf.UI
                         shoppingCart[fType]++;
                         UpdateCartSummary();
                         RenderShoppingCategoryContent();
-                        OpenCartModal();
+                        RenderCartModalItems(cartContent, totalTxt, payBtn);
                     }, 20);
 
                     // Ürünü Sepetten Tamamen Çıkarma Butonu (X)
@@ -2639,7 +2710,7 @@ namespace Farm2Shelf.UI
                         shoppingCart.Remove(fType);
                         UpdateCartSummary();
                         RenderShoppingCategoryContent();
-                        OpenCartModal();
+                        RenderCartModalItems(cartContent, totalTxt, payBtn);
                     }, 17);
                 }
 
@@ -2677,7 +2748,7 @@ namespace Farm2Shelf.UI
                         if (wholesaleCart[pId] <= 0) wholesaleCart.Remove(pId);
                         UpdateCartSummary();
                         RenderShoppingCategoryContent();
-                        OpenCartModal();
+                        RenderCartModalItems(cartContent, totalTxt, payBtn);
                     }, 20);
 
                     Text countLabel = CreateTextInPanel(itemRow.transform, new Vector2(174f, 0f), new Vector2(24f, 30f), count.ToString(), 18, Color.white);
@@ -2688,7 +2759,7 @@ namespace Farm2Shelf.UI
                         wholesaleCart[pId]++;
                         UpdateCartSummary();
                         RenderShoppingCategoryContent();
-                        OpenCartModal();
+                        RenderCartModalItems(cartContent, totalTxt, payBtn);
                     }, 20);
 
                     // Ürünü Sepetten Tamamen Çıkarma Butonu (X)
@@ -2696,7 +2767,7 @@ namespace Farm2Shelf.UI
                         wholesaleCart.Remove(pId);
                         UpdateCartSummary();
                         RenderShoppingCategoryContent();
-                        OpenCartModal();
+                        RenderCartModalItems(cartContent, totalTxt, payBtn);
                     }, 17);
                 }
 
@@ -2734,7 +2805,7 @@ namespace Farm2Shelf.UI
                         if (seedCart[sId] <= 0) seedCart.Remove(sId);
                         UpdateCartSummary();
                         RenderShoppingCategoryContent();
-                        OpenCartModal();
+                        RenderCartModalItems(cartContent, totalTxt, payBtn);
                     }, 20);
 
                     Text countLabel = CreateTextInPanel(itemRow.transform, new Vector2(174f, 0f), new Vector2(24f, 30f), count.ToString(), 18, Color.white);
@@ -2745,7 +2816,7 @@ namespace Farm2Shelf.UI
                         seedCart[sId]++;
                         UpdateCartSummary();
                         RenderShoppingCategoryContent();
-                        OpenCartModal();
+                        RenderCartModalItems(cartContent, totalTxt, payBtn);
                     }, 20);
 
                     // Ürünü Sepetten Tamamen Çıkarma Butonu (X)
@@ -2753,28 +2824,14 @@ namespace Farm2Shelf.UI
                         seedCart.Remove(sId);
                         UpdateCartSummary();
                         RenderShoppingCategoryContent();
-                        OpenCartModal();
+                        RenderCartModalItems(cartContent, totalTxt, payBtn);
                     }, 17);
                 }
             }
 
-            // Alt Ödeme Alanı (Footer)
-            GameObject footerObj = new GameObject("Cart_Footer");
-            footerObj.transform.SetParent(boxObj.transform, false);
-            RectTransform ftRect = footerObj.AddComponent<RectTransform>();
-            ftRect.anchoredPosition = new Vector2(0f, -195f);
-            ftRect.sizeDelta = new Vector2(590f, 50f);
-
             string totalFmt = LocalizationManager.L("Cart_TotalCostFmt", "Toplam Tutar: {0:N0}C", "Total Cost: {0:N0}C");
-            Text totalTxt = CreateTextInPanel(footerObj.transform, new Vector2(-130f, 0f), new Vector2(300f, 40f), string.Format(totalFmt, totalCost), 22, new Color(0.95f, 0.85f, 0.30f));
-            totalTxt.alignment = TextAnchor.MiddleLeft;
-
-            string payBtnLabel = LocalizationManager.L("Btn_PlaceOrderPay", "💳 ÖDEME YAP VE SİPARİŞ VER", "💳 PLACE ORDER & PAY");
-            GameObject payBtn = CreateButtonInPanel(footerObj.transform, new Vector2(165f, 0f), new Vector2(230f, 44f), payBtnLabel, new Color(0.20f, 0.75f, 0.35f), () => {
-                Destroy(canvasObj);
-                CheckoutShoppingCart();
-            }, 17);
-            payBtn.GetComponent<Button>().interactable = (totalItems > 0);
+            if (totalTxt != null) totalTxt.text = string.Format(totalFmt, totalCost);
+            if (payBtn != null) payBtn.interactable = (totalItems > 0);
         }
 
         private void RefreshFarmViews()
@@ -5166,7 +5223,7 @@ namespace Farm2Shelf.UI
             cBtn.targetGraphic = cBg;
             cBtn.onClick.AddListener(ShowComposeTweetModal);
 
-            Text cTxt = CreateTextInPanel(composeBtnObj.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Btn_PostTweet", "✍️ TWEET AT", "✍️ POST TWEET"), 16, Color.white);
+            Text cTxt = CreateTextInPanel(composeBtnObj.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Btn_PostTweet", "✍️ GÖNDERİ PAYLAŞ", "✍️ NEW POST"), 15, Color.white);
             cTxt.alignment = TextAnchor.MiddleCenter;
             cTxt.fontStyle = FontStyle.Bold;
 
@@ -5198,14 +5255,17 @@ namespace Farm2Shelf.UI
             string sName = SocialMediaManager.Instance != null ? SocialMediaManager.Instance.GetStoreName() : "Fresh Shelf Market";
             int followers = SocialMediaManager.Instance != null ? SocialMediaManager.Instance.FollowerCount : 1420;
 
-            Text pcTxt = CreateTextInPanel(profileCard.transform, Vector2.zero, Vector2.one, "", 14, Color.white);
+            Text pcTxt = CreateTextInPanel(profileCard.transform, Vector2.zero, Vector2.one, "", 15, Color.white);
             string profileFmt = LocalizationManager.L(
                 "Social_ProfileCardFmt",
-                "<b><size=17>{0}</size></b>\n<size=13><color=#80B0FF>{1}</color></size>\n\n<color=#00E676><b>@{2}</b></color>\n<b><size=14>{3:N0}</size></b> Takipçi  •  <b>4.9</b> Puan\n<size=12><color=#A0AAB5>\"Tarladan rafa taptaze mahsuller!\"</color></size>\n\n<size=13><color=#00E676><b>Profile Gitmek İçin Dokun</b></color></size>",
-                "<b><size=17>{0}</size></b>\n<size=13><color=#80B0FF>{1}</color></size>\n\n<color=#00E676><b>@{2}</b></color>\n<b><size=14>{3:N0}</size></b> Followers  •  <b>4.9</b> Rating\n<size=12><color=#A0AAB5>\"Fresh farm crops to your shelves!\"</color></size>\n\n<size=13><color=#00E676><b>Tap to View Profile</b></color></size>"
+                "<b><size=18>{0}</size></b>\n<size=13><color=#80B0FF>{1}</color></size>\n\n<color=#00E676><b>@{2}</b></color>\n<b><size=15>{3:N0}</size></b> Takipçi  •  <b><color=#FFD700>4.9 ★</color></b>\n<size=12><color=#A0AAB5>\"Tarladan rafa taptaze mahsuller!\"</color></size>\n\n<size=13><color=#00E676><b>Profile Gitmek İçin Dokun</b></color></size>",
+                "<b><size=18>{0}</size></b>\n<size=13><color=#80B0FF>{1}</color></size>\n\n<color=#00E676><b>@{2}</b></color>\n<b><size=15>{3:N0}</size></b> Followers  •  <b><color=#FFD700>4.9 ★</color></b>\n<size=12><color=#A0AAB5>\"Fresh farm crops to your shelves!\"</color></size>\n\n<size=13><color=#00E676><b>Tap to View Profile</b></color></size>"
             );
             pcTxt.text = string.Format(profileFmt, pName, pHandle, sName.Replace(" ", ""), followers);
             pcTxt.alignment = TextAnchor.MiddleCenter;
+            pcTxt.lineSpacing = 1.1f;
+
+            socialProfileCardTxt = pcTxt;
 
             // Trendler Kartı (Alt Yarım)
             GameObject trendCard = new GameObject("TrendCard");
@@ -5217,29 +5277,15 @@ namespace Farm2Shelf.UI
             Image tcBg = trendCard.AddComponent<Image>();
             tcBg.sprite = UIStyleUtility.CreateOutlinePillSprite(260, 170, 16, 1, new Color(0.25f, 0.35f, 0.45f), new Color(0.10f, 0.14f, 0.20f, 0.95f));
 
-            Text tcTxt = CreateTextInPanel(trendCard.transform, Vector2.zero, Vector2.one, "", 13, Color.white);
+            Text tcTxt = CreateTextInPanel(trendCard.transform, Vector2.zero, Vector2.one, "", 14, Color.white);
             RectTransform tcTxtRect = tcTxt.GetComponent<RectTransform>();
-            tcTxtRect.offsetMin = new Vector2(16f, 8f);
-            tcTxtRect.offsetMax = new Vector2(-16f, -8f);
+            tcTxtRect.offsetMin = new Vector2(14f, 8f);
+            tcTxtRect.offsetMax = new Vector2(-14f, -8f);
 
-            string trendFmt = LocalizationManager.L(
-                "Social_TrendFmt",
-                "<size=15><color=#40C4FF><b>🔥 GÜNDEMDEKİ BAŞLIKLAR</b></color></size>\n\n" +
-                "<b>1.</b> #FreshShelfMarket <color=#80A0C0>(14.2B)</color>\n" +
-                "<b>2.</b> #HizliKasa <color=#80A0C0>(9.8B)</color>\n" +
-                "<b>3.</b> #TazeHasat <color=#80A0C0>(6.5B)</color>\n" +
-                "<b>4.</b> #MarketSirasi <color=#80A0C0>(4.1B)</color>\n" +
-                "<b>5.</b> #Farm2Shelf <color=#80A0C0>(2.9B)</color>",
-
-                "<size=15><color=#40C4FF><b>🔥 TRENDING TOPICS</b></color></size>\n\n" +
-                "<b>1.</b> #FreshShelfMarket <color=#80A0C0>(14.2K)</color>\n" +
-                "<b>2.</b> #FastCheckout <color=#80A0C0>(9.8K)</color>\n" +
-                "<b>3.</b> #FreshHarvest <color=#80A0C0>(5.2K)</color>\n" +
-                "<b>4.</b> #StoreQueue <color=#80A0C0>(4.1K)</color>\n" +
-                "<b>5.</b> #Farm2Shelf <color=#80A0C0>(2.9K)</color>"
-            );
-            tcTxt.text = trendFmt;
+            tcTxt.text = SocialMediaManager.Instance != null ? SocialMediaManager.Instance.GetDailyTrendsFormatted() : "";
             tcTxt.alignment = TextAnchor.MiddleCenter;
+            tcTxt.lineSpacing = 1.12f;
+            socialTrendCardTxt = tcTxt;
 
             // 3. SAĞ PANEL (SEKMELER & AKIŞ)
             GameObject rightPanel = new GameObject("RightFeedPanel");
@@ -5258,7 +5304,7 @@ namespace Farm2Shelf.UI
             string[] tabNames = new string[] {
                 LocalizationManager.L("SocialTab_ForYou", "1. Sana Özel", "1. For You"),
                 LocalizationManager.L("SocialTab_Reviews", "2. Yorumlar", "2. Reviews"),
-                LocalizationManager.L("SocialTab_MyTweets", "3. Twitlerim", "3. My Tweets")
+                LocalizationManager.L("SocialTab_MyTweets", "3. Gönderilerim", "3. My Posts")
             };
 
             for (int t = 0; t < 3; t++)
@@ -5272,7 +5318,7 @@ namespace Farm2Shelf.UI
 
                 bool isSel = (activeSocialTab == tabIdx);
                 Image tBg = tBtnObj.AddComponent<Image>();
-                tBg.sprite = UIStyleUtility.CreateRoundedPillSprite(178, 36, 18, isSel ? new Color(0.12f, 0.65f, 0.95f) : new Color(0.18f, 0.22f, 0.30f));
+                tBg.sprite = UIStyleUtility.CreateRoundedPillSprite(178, 36, 12, isSel ? new Color(0.12f, 0.65f, 0.95f) : new Color(0.15f, 0.20f, 0.28f));
                 socialTabBtnImgs[t] = tBg;
 
                 Button tBtn = tBtnObj.AddComponent<Button>();
@@ -5282,7 +5328,7 @@ namespace Farm2Shelf.UI
                     RefreshSocialMediaViews();
                 });
 
-                Text tTxt = CreateTextInPanel(tBtnObj.transform, Vector2.zero, Vector2.one, tabNames[t], 16, Color.white);
+                Text tTxt = CreateTextInPanel(tBtnObj.transform, Vector2.zero, Vector2.one, tabNames[t], 15, isSel ? Color.white : new Color(0.70f, 0.78f, 0.88f));
                 tTxt.alignment = TextAnchor.MiddleCenter;
                 tTxt.fontStyle = FontStyle.Bold;
                 tTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
@@ -5348,9 +5394,32 @@ namespace Farm2Shelf.UI
                 {
                     if (socialTabBtnImgs[t] != null)
                     {
-                        socialTabBtnImgs[t].sprite = UIStyleUtility.CreateRoundedPillSprite(178, 36, 18, (activeSocialTab == t) ? new Color(0.12f, 0.65f, 0.95f) : new Color(0.18f, 0.22f, 0.30f));
+                        bool isSel = (activeSocialTab == t);
+                        socialTabBtnImgs[t].sprite = UIStyleUtility.CreateRoundedPillSprite(178, 36, 12, isSel ? new Color(0.12f, 0.65f, 0.95f) : new Color(0.15f, 0.20f, 0.28f));
                     }
                 }
+            }
+
+            // Sol Panel Profil ve Gündem Kartlarını Canlı Güncelle
+            if (socialProfileCardTxt != null && SocialMediaManager.Instance != null)
+            {
+                string pName = SocialMediaManager.Instance.GetPlayerFullName();
+                string pHandle = SocialMediaManager.Instance.GetPlayerHandle();
+                string sName = SocialMediaManager.Instance.GetStoreName();
+                int followers = SocialMediaManager.Instance.FollowerCount;
+                float rating = SocialMediaManager.Instance.GetStoreRating();
+
+                string profileFmt = LocalizationManager.L(
+                    "Social_ProfileCardFmt",
+                    "<b><size=18>{0}</size></b>\n<size=13><color=#80B0FF>{1}</color></size>\n\n<color=#00E676><b>@{2}</b></color>\n<b><size=15>{3:N0}</size></b> Takipçi  •  <b><color=#FFD700>{4:F1} ★</color></b>\n<size=12><color=#A0AAB5>\"Tarladan rafa taptaze mahsuller!\"</color></size>\n\n<size=13><color=#00E676><b>Profile Gitmek İçin Dokun</b></color></size>",
+                    "<b><size=18>{0}</size></b>\n<size=13><color=#80B0FF>{1}</color></size>\n\n<color=#00E676><b>@{2}</b></color>\n<b><size=15>{3:N0}</size></b> Followers  •  <b><color=#FFD700>{4:F1} ★</color></b>\n<size=12><color=#A0AAB5>\"Fresh farm crops to your shelves!\"</color></size>\n\n<size=13><color=#00E676><b>Tap to View Profile</b></color></size>"
+                );
+                socialProfileCardTxt.text = string.Format(profileFmt, pName, pHandle, sName.Replace(" ", ""), followers, rating);
+            }
+
+            if (socialTrendCardTxt != null && SocialMediaManager.Instance != null)
+            {
+                socialTrendCardTxt.text = SocialMediaManager.Instance.GetDailyTrendsFormatted();
             }
 
             if (socialMediaFeedContent == null) return;
@@ -5358,31 +5427,115 @@ namespace Farm2Shelf.UI
 
             if (SocialMediaManager.Instance == null) return;
 
+            // 3. Gönderilerim sekmesinde üstte Yeni Gönderi Butonu
+            if (activeSocialTab == 2)
+            {
+                GameObject newTweetBanner = new GameObject("NewTweetBanner");
+                newTweetBanner.transform.SetParent(socialMediaFeedContent, false);
+                RectTransform bRect = newTweetBanner.AddComponent<RectTransform>();
+                bRect.sizeDelta = new Vector2(550f, 46f);
+                LayoutElement bLe = newTweetBanner.AddComponent<LayoutElement>();
+                bLe.minHeight = 46f;
+                bLe.preferredHeight = 46f;
+                bLe.flexibleWidth = 1f;
+
+                Image bImg = newTweetBanner.AddComponent<Image>();
+                bImg.sprite = UIStyleUtility.CreateRoundedPillSprite(550, 46, 23, new Color(0.12f, 0.65f, 0.95f));
+                Button bBtn = newTweetBanner.AddComponent<Button>();
+                bBtn.targetGraphic = bImg;
+                bBtn.onClick.AddListener(ShowComposeTweetModal);
+
+                Text bTxt = CreateTextInPanel(newTweetBanner.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Btn_ComposeBanner", "✍️ YENİ GÖNDERİ PAYLAŞ (+Takipçi Kazan)", "✍️ POST NEW UPDATE (+Gain Followers)"), 16, Color.white);
+                bTxt.alignment = TextAnchor.MiddleCenter;
+                bTxt.fontStyle = FontStyle.Bold;
+            }
+
             List<SocialTweetData> tweets = SocialMediaManager.Instance.GetFeed(activeSocialTab);
+
+            // Eğer sekme boşsa bilgilendirme kartı göster
+            if (tweets.Count == 0)
+            {
+                GameObject emptyObj = new GameObject("EmptyTabNotice");
+                emptyObj.transform.SetParent(socialMediaFeedContent, false);
+                RectTransform eRect = emptyObj.AddComponent<RectTransform>();
+                eRect.sizeDelta = new Vector2(550f, 100f);
+                LayoutElement eLe = emptyObj.AddComponent<LayoutElement>();
+                eLe.minHeight = 100f;
+                eLe.preferredHeight = 100f;
+
+                Image eBg = emptyObj.AddComponent<Image>();
+                eBg.sprite = UIStyleUtility.CreateOutlinePillSprite(550, 100, 14, 1, new Color(0.20f, 0.35f, 0.50f), new Color(0.10f, 0.14f, 0.20f, 0.95f));
+
+                string emptyMsg = (activeSocialTab == 1)
+                    ? LocalizationManager.L("Social_NoCommentsYet", "Henüz yayınlanmış bir duyuru veya müşteri yorumu bulunmuyor.\nTwitlerim sekmesinden yeni bir duyuru paylaşabilirsiniz! 📢", "No announcements or customer comments found yet.\nYou can post an announcement from My Tweets! 📢")
+                    : LocalizationManager.L("Social_NoTweetsYet", "Henüz bir twit paylaşmadınız.\nYukarıdaki butona tıklayarak ilk duyurunuzu yapın! ✍️", "You haven't posted any tweets yet.\nTap the button above to post your first tweet! ✍️");
+
+                Text eTxt = CreateTextInPanel(emptyObj.transform, Vector2.zero, Vector2.one, emptyMsg, 15, new Color(0.70f, 0.85f, 1.0f));
+                eTxt.alignment = TextAnchor.MiddleCenter;
+                return;
+            }
+
             foreach (var tweetData in tweets)
             {
                 SocialTweetData tweet = tweetData;
+                bool isReviewTab = (activeSocialTab == 1);
+                bool hasComments = isReviewTab && (tweet.comments != null && tweet.comments.Count > 0);
+                int commentCount = (tweet.comments != null) ? tweet.comments.Count : 0;
+
+                float cardHeight = isReviewTab
+                    ? (108f + (commentCount * 56f) + 12f)
+                    : 106f;
+
                 GameObject cardObj = new GameObject("TweetCard_" + tweet.tweetId);
                 cardObj.transform.SetParent(socialMediaFeedContent, false);
 
                 RectTransform cRect = cardObj.AddComponent<RectTransform>();
-                cRect.sizeDelta = new Vector2(550f, 96f);
+                cRect.sizeDelta = new Vector2(550f, cardHeight);
 
                 LayoutElement le = cardObj.AddComponent<LayoutElement>();
-                le.minHeight = 96f;
-                le.preferredHeight = 96f;
+                le.minHeight = cardHeight;
+                le.preferredHeight = cardHeight;
                 le.flexibleWidth = 1f;
 
-                Color borderColor = tweet.isPlayerTweet ? new Color(0.12f, 0.65f, 0.95f) : (tweet.sentiment == TweetSentiment.Complaint ? new Color(0.90f, 0.35f, 0.25f) : new Color(0.25f, 0.75f, 0.40f));
+                Color borderColor = tweet.isPlayerTweet ? new Color(0.12f, 0.65f, 0.95f) : (tweet.sentiment == TweetSentiment.Complaint ? new Color(0.90f, 0.35f, 0.25f) : (tweet.sentiment == TweetSentiment.Praise ? new Color(0.25f, 0.75f, 0.40f) : new Color(0.25f, 0.35f, 0.45f)));
                 Image cBg = cardObj.AddComponent<Image>();
-                cBg.sprite = UIStyleUtility.CreateOutlinePillSprite(550, 96, 14, 1, borderColor, new Color(0.12f, 0.16f, 0.22f, 0.96f));
+                cBg.sprite = UIStyleUtility.CreateOutlinePillSprite(550, (int)cardHeight, 14, 1, borderColor, new Color(0.12f, 0.16f, 0.22f, 0.96f));
 
-                // Metin Kutusu
+                // 1. SOL AVATAR İKONU
+                GameObject avatarObj = new GameObject("Avatar");
+                avatarObj.transform.SetParent(cardObj.transform, false);
+                RectTransform avRect = avatarObj.AddComponent<RectTransform>();
+                avRect.anchorMin = new Vector2(0f, isReviewTab ? 1f : 0.5f);
+                avRect.anchorMax = new Vector2(0f, isReviewTab ? 1f : 0.5f);
+                avRect.pivot = new Vector2(0.5f, 0.5f);
+                avRect.anchoredPosition = new Vector2(34f, isReviewTab ? -48f : 0f);
+                avRect.sizeDelta = new Vector2(46f, 46f);
+
+                Image avBg = avatarObj.AddComponent<Image>();
+                avBg.sprite = UIStyleUtility.CreateRoundedPillSprite(46, 46, 23, tweet.avatarBgColor);
+
+                Text avTxt = CreateTextInPanel(avatarObj.transform, Vector2.zero, Vector2.one, string.IsNullOrEmpty(tweet.avatarEmoji) ? "👤" : tweet.avatarEmoji, 24, Color.white);
+                avTxt.alignment = TextAnchor.MiddleCenter;
+
+                // 2. ORTA METİN ALANI
                 GameObject infoObj = new GameObject("Info");
                 infoObj.transform.SetParent(cardObj.transform, false);
                 RectTransform iRect = infoObj.AddComponent<RectTransform>();
-                iRect.anchoredPosition = new Vector2(-60f, 0f);
-                iRect.sizeDelta = new Vector2(395f, 80f);
+                if (isReviewTab)
+                {
+                    iRect.anchorMin = new Vector2(0f, 1f);
+                    iRect.anchorMax = new Vector2(1f, 1f);
+                    iRect.pivot = new Vector2(0f, 1f);
+                    iRect.anchoredPosition = new Vector2(66f, -6f);
+                    iRect.sizeDelta = new Vector2(-205f, 88f);
+                }
+                else
+                {
+                    iRect.anchorMin = Vector2.zero;
+                    iRect.anchorMax = Vector2.one;
+                    iRect.offsetMin = new Vector2(66f, 8f);
+                    iRect.offsetMax = new Vector2(-140f, -8f);
+                }
 
                 Text iTxt = infoObj.AddComponent<Text>();
                 iTxt.font = globalFont;
@@ -5390,37 +5543,41 @@ namespace Farm2Shelf.UI
                 string verifiedMark = tweet.isVerified ? "<color=#00E676><b>[ONAYLI]</b></color>" : "";
                 string sentimentBadge = tweet.sentiment == TweetSentiment.Official
                     ? "<color=#00E676><b>[DUYURU]</b></color>"
-                    : (tweet.sentiment == TweetSentiment.Complaint ? "<color=#FF5252><b>[ŞİKAYET]</b></color>" : "<color=#40C4FF><b>[MÜŞTERİ]</b></color>");
+                    : (tweet.sentiment == TweetSentiment.Complaint ? "<color=#FF5252><b>[ŞİKAYET]</b></color>" : (tweet.sentiment == TweetSentiment.Praise ? "<color=#40C4FF><b>[MÜŞTERİ]</b></color>" : "<color=#FFD54F><b>[GÜNDEM]</b></color>"));
 
                 if (LocalizationManager.Instance != null && LocalizationManager.Instance.IsEnglish)
                 {
                     verifiedMark = tweet.isVerified ? "<color=#00E676><b>[VERIFIED]</b></color>" : "";
                     sentimentBadge = tweet.sentiment == TweetSentiment.Official
                         ? "<color=#00E676><b>[OFFICIAL]</b></color>"
-                        : (tweet.sentiment == TweetSentiment.Complaint ? "<color=#FF5252><b>[COMPLAINT]</b></color>" : "<color=#40C4FF><b>[REVIEW]</b></color>");
+                        : (tweet.sentiment == TweetSentiment.Complaint ? "<color=#FF5252><b>[COMPLAINT]</b></color>" : (tweet.sentiment == TweetSentiment.Praise ? "<color=#40C4FF><b>[REVIEW]</b></color>" : "<color=#FFD54F><b>[TREND]</b></color>"));
                 }
 
-                iTxt.text = $"<b>{tweet.authorName}</b> {verifiedMark} <color=#80A0C0>({tweet.authorHandle} • {tweet.LocalizedTime})</color>  {sentimentBadge}\n<size=14>{tweet.LocalizedText}</size>";
+                iTxt.text = $"<b><size=15>{tweet.authorName}</size></b> {verifiedMark} <color=#80B0FF><size=12>({tweet.authorHandle} • {tweet.LocalizedTime})</size></color>  {sentimentBadge}\n<size=14><color=#F0F6FC>{tweet.LocalizedText}</color></size>";
                 iTxt.fontSize = 14;
+                iTxt.lineSpacing = 1.15f;
                 iTxt.alignment = TextAnchor.MiddleLeft;
                 iTxt.color = Color.white;
 
-                // Beğen & Repost Butonları (Sağ Taraf)
+                // 3. SAĞ ETKİLEŞİM BUTONLARI (BEĞENİ & RETWEET)
                 GameObject actionsObj = new GameObject("Actions");
                 actionsObj.transform.SetParent(cardObj.transform, false);
                 RectTransform aRect = actionsObj.AddComponent<RectTransform>();
-                aRect.anchoredPosition = new Vector2(212f, 0f);
-                aRect.sizeDelta = new Vector2(118f, 34f);
+                aRect.anchorMin = new Vector2(1f, isReviewTab ? 1f : 0.5f);
+                aRect.anchorMax = new Vector2(1f, isReviewTab ? 1f : 0.5f);
+                aRect.pivot = new Vector2(1f, 0.5f);
+                aRect.anchoredPosition = new Vector2(-12f, isReviewTab ? -48f : 0f);
+                aRect.sizeDelta = new Vector2(120f, 40f);
 
                 // Heart Button
                 GameObject heartBtnObj = new GameObject("HeartBtn");
                 heartBtnObj.transform.SetParent(actionsObj.transform, false);
                 RectTransform hRect = heartBtnObj.AddComponent<RectTransform>();
-                hRect.anchoredPosition = new Vector2(-30f, 0f);
-                hRect.sizeDelta = new Vector2(54f, 30f);
+                hRect.anchoredPosition = new Vector2(-32f, 0f);
+                hRect.sizeDelta = new Vector2(56f, 34f);
 
                 Image hBg = heartBtnObj.AddComponent<Image>();
-                hBg.sprite = UIStyleUtility.CreateRoundedPillSprite(54, 30, 12, tweet.isLikedByPlayer ? new Color(0.90f, 0.25f, 0.35f) : new Color(0.20f, 0.25f, 0.32f));
+                hBg.sprite = UIStyleUtility.CreateRoundedPillSprite(56, 34, 14, tweet.isLikedByPlayer ? new Color(0.90f, 0.25f, 0.35f) : new Color(0.20f, 0.25f, 0.32f));
                 Button hBtn = heartBtnObj.AddComponent<Button>();
                 hBtn.targetGraphic = hBg;
                 hBtn.onClick.AddListener(() => {
@@ -5436,11 +5593,11 @@ namespace Farm2Shelf.UI
                 GameObject rtBtnObj = new GameObject("RTBtn");
                 rtBtnObj.transform.SetParent(actionsObj.transform, false);
                 RectTransform rRect = rtBtnObj.AddComponent<RectTransform>();
-                rRect.anchoredPosition = new Vector2(30f, 0f);
-                rRect.sizeDelta = new Vector2(54f, 30f);
+                rRect.anchoredPosition = new Vector2(32f, 0f);
+                rRect.sizeDelta = new Vector2(56f, 34f);
 
                 Image rBg = rtBtnObj.AddComponent<Image>();
-                rBg.sprite = UIStyleUtility.CreateRoundedPillSprite(54, 30, 12, tweet.isRetweetedByPlayer ? new Color(0.20f, 0.75f, 0.40f) : new Color(0.20f, 0.25f, 0.32f));
+                rBg.sprite = UIStyleUtility.CreateRoundedPillSprite(56, 34, 14, tweet.isRetweetedByPlayer ? new Color(0.20f, 0.75f, 0.40f) : new Color(0.20f, 0.25f, 0.32f));
                 Button rBtn = rtBtnObj.AddComponent<Button>();
                 rBtn.targetGraphic = rBg;
                 rBtn.onClick.AddListener(() => {
@@ -5451,6 +5608,79 @@ namespace Farm2Shelf.UI
                 Text rTxt = CreateTextInPanel(rtBtnObj.transform, Vector2.zero, Vector2.one, $"🔄 {tweet.retweetsCount}", 13, Color.white);
                 rTxt.alignment = TextAnchor.MiddleCenter;
                 rTxt.fontStyle = FontStyle.Bold;
+
+                // 4. SADECE 2. YORUMLAR SEKMESİNDE: MÜŞTERİ YORUMLARI LİSTESİ
+                if (hasComments)
+                {
+                    GameObject commentsGroup = new GameObject("CommentsGroup");
+                    commentsGroup.transform.SetParent(cardObj.transform, false);
+                    RectTransform cgRect = commentsGroup.AddComponent<RectTransform>();
+                    cgRect.anchorMin = new Vector2(0f, 0f);
+                    cgRect.anchorMax = new Vector2(1f, 0f);
+                    cgRect.pivot = new Vector2(0.5f, 0f);
+                    cgRect.anchoredPosition = new Vector2(0f, 8f);
+                    cgRect.sizeDelta = new Vector2(530f, commentCount * 56f);
+
+                    for (int c = 0; c < tweet.comments.Count; c++)
+                    {
+                        var cmt = tweet.comments[c];
+                        GameObject cmtObj = new GameObject("Comment_" + c);
+                        cmtObj.transform.SetParent(commentsGroup.transform, false);
+                        RectTransform cmtRect = cmtObj.AddComponent<RectTransform>();
+                        cmtRect.anchorMin = new Vector2(0.5f, 1f);
+                        cmtRect.anchorMax = new Vector2(0.5f, 1f);
+                        cmtRect.pivot = new Vector2(0.5f, 1f);
+                        cmtRect.anchoredPosition = new Vector2(0f, -c * 56f);
+                        cmtRect.sizeDelta = new Vector2(530f, 50f);
+
+                        Image cmtBg = cmtObj.AddComponent<Image>();
+                        cmtBg.sprite = UIStyleUtility.CreateOutlinePillSprite(530, 50, 10, 1, new Color(0.25f, 0.45f, 0.65f, 0.70f), new Color(0.08f, 0.12f, 0.18f, 0.95f));
+
+                        // Yorum Avatarı
+                        GameObject cmtAvObj = new GameObject("CmtAvatar");
+                        cmtAvObj.transform.SetParent(cmtObj.transform, false);
+                        RectTransform cmtAvRect = cmtAvObj.AddComponent<RectTransform>();
+                        cmtAvRect.anchorMin = new Vector2(0f, 0.5f);
+                        cmtAvRect.anchorMax = new Vector2(0f, 0.5f);
+                        cmtAvRect.pivot = new Vector2(0.5f, 0.5f);
+                        cmtAvRect.anchoredPosition = new Vector2(24f, 0f);
+                        cmtAvRect.sizeDelta = new Vector2(34f, 34f);
+                        Image cmtAvBg = cmtAvObj.AddComponent<Image>();
+                        cmtAvBg.sprite = UIStyleUtility.CreateRoundedPillSprite(34, 34, 17, cmt.avatarBgColor);
+                        Text cmtAvTxt = CreateTextInPanel(cmtAvObj.transform, Vector2.zero, Vector2.one, cmt.avatarEmoji, 18, Color.white);
+                        cmtAvTxt.alignment = TextAnchor.MiddleCenter;
+
+                        // Yorum Metin Kutusu
+                        GameObject cmtInfoObj = new GameObject("CmtInfo");
+                        cmtInfoObj.transform.SetParent(cmtObj.transform, false);
+                        RectTransform cmtInfoRect = cmtInfoObj.AddComponent<RectTransform>();
+                        cmtInfoRect.anchorMin = Vector2.zero;
+                        cmtInfoRect.anchorMax = Vector2.one;
+                        cmtInfoRect.offsetMin = new Vector2(48f, 2f);
+                        cmtInfoRect.offsetMax = new Vector2(-65f, -2f);
+
+                        Text cmtTxt = cmtInfoObj.AddComponent<Text>();
+                        cmtTxt.font = globalFont;
+                        cmtTxt.text = $"<b><size=13>{cmt.authorName}</size></b> <color=#80B0FF><size=11>({cmt.authorHandle} • {cmt.LocalizedTime})</size></color>\n<size=13><color=#E0F0FF>{cmt.LocalizedText}</color></size>";
+                        cmtTxt.fontSize = 13;
+                        cmtTxt.lineSpacing = 1.1f;
+                        cmtTxt.alignment = TextAnchor.MiddleLeft;
+                        cmtTxt.color = Color.white;
+
+                        // Yorum Beğeni Rozeti (Sağ)
+                        GameObject cmtLikeObj = new GameObject("CmtLike");
+                        cmtLikeObj.transform.SetParent(cmtObj.transform, false);
+                        RectTransform cmtLikeRect = cmtLikeObj.AddComponent<RectTransform>();
+                        cmtLikeRect.anchorMin = new Vector2(1f, 0.5f);
+                        cmtLikeRect.anchorMax = new Vector2(1f, 0.5f);
+                        cmtLikeRect.pivot = new Vector2(1f, 0.5f);
+                        cmtLikeRect.anchoredPosition = new Vector2(-8f, 0f);
+                        cmtLikeRect.sizeDelta = new Vector2(54f, 26f);
+                        Text cmtLikeTxt = CreateTextInPanel(cmtLikeObj.transform, Vector2.zero, Vector2.one, $"<color=#FF8080>❤️ {cmt.likesCount}</color>", 12, Color.white);
+                        cmtLikeTxt.alignment = TextAnchor.MiddleCenter;
+                        cmtLikeTxt.fontStyle = FontStyle.Bold;
+                    }
+                }
             }
         }
 
@@ -5501,8 +5731,8 @@ namespace Farm2Shelf.UI
 
             Text tTxt = titleObj.AddComponent<Text>();
             tTxt.font = globalFont;
-            tTxt.text = LocalizationManager.L("Compose_Header", "RESMİ DUYURU TWİTİ SEÇİNİZ (10 SEÇENEK)", "SELECT OFFICIAL TWEET ANNOUNCEMENT (10 OPTIONS)");
-            tTxt.fontSize = 26;
+            tTxt.text = LocalizationManager.L("Compose_Header", "GÖNDERİ PAYLAŞ (30 SEÇENEK)", "CREATE POST (30 OPTIONS)");
+            tTxt.fontSize = 25;
             tTxt.fontStyle = FontStyle.Bold;
             tTxt.alignment = TextAnchor.MiddleCenter;
             tTxt.color = new Color(0.30f, 0.85f, 1.0f);
@@ -5523,7 +5753,7 @@ namespace Farm2Shelf.UI
             Text cTxt = CreateTextInPanel(closeBtnObj.transform, Vector2.zero, Vector2.one, "✖", 24, Color.white);
             cTxt.alignment = TextAnchor.MiddleCenter;
 
-            // Scroll Area for 10 Tweets
+            // Scroll Area for 30 Tweets
             GameObject scrollObj = new GameObject("TweetListScroll");
             scrollObj.transform.SetParent(boxObj.transform, false);
             RectTransform sRect = scrollObj.AddComponent<RectTransform>();
@@ -5570,16 +5800,36 @@ namespace Farm2Shelf.UI
 
             (string titleTr, string titleEn, string textTr, string textEn)[] tweetOptions = new (string, string, string, string)[]
             {
-                ("Mağaza Açılışı", "Grand Opening", $"Taptaze çiftlik mahsullerimizle dükkanımız hizmetinizde! Hepinizi @{sName} bekliyoruz!", $"Grand opening! Fresh farm crops and wide variety of products ready for you at @{sName}!"),
-                ("%20 İndirim Kampanyası", "20% Discount Sale", $"TÜM ÜRÜNLERDE %20 İNDİRİM! Tarladan rafa taze sebze ve meyveler @{sName} dükkanında özel fiyatla!", $"20% OFF ALL PRODUCTS! Fresh vegetables and fruits direct from farm to shelf at @{sName}!"),
-                ("Hızlı Kasa & Kesintisiz Hizmet", "Fast Checkout & Zero Wait", $"Ekstra kasalarımız açıldı! Sıra beklemeden taze ve hızlı alışverişin tadını çıkarın! @{sName}", $"Extra checkout lines open! Enjoy lightning fast shopping with zero queue wait times at @{sName}!"),
-                ("%100 Organik Taze Hasat", "100% Organic Fresh Harvest", $"Çiftliğimizden bu sabah toplanan %100 organik domates, çilek ve yeşillikler raflarda! @{sName}", $"100% organic tomatoes, strawberries and greens harvested this morning are now stocked at @{sName}!"),
-                ("Yeni Reyonlar & Genişletme", "Supermarket Expansion", $"Mağazamızı büyüttük! Soğuk içecekler, fırın ürünleri ve kozmetik reyonlarımız açıldı! @{sName}", $"Store expanded! Introducing our brand new cold beverage, bakery and cosmetics aisles at @{sName}!"),
-                ("Gece İndirimi & Kapanış Fırsatları", "Late Night Clearance Deal", $"Gece alışverişi fırsatı! Kapanış öncesi şarküteri ve unlu mamullerde özel indirimler! @{sName}", $"Late night clearance deal! Special discounts on deli and bakery products before closing at @{sName}!"),
-                ("VIP Müşteri Sadakat Ödülleri", "VIP Customer Appreciation", $"Sadık müşterilerimize özel sürpriz hediye çekleri ve bonus puan kampanyamız başladı! @{sName}", $"VIP customer appreciation day! Earn bonus points and voucher gifts with every order at @{sName}!"),
-                ("Taze Süt & Şarküteri Reyonu", "Fresh Dairy & Cold Deli", $"Günlük taze süt, organik peynir ve tereyağları soğutucu dolaplarımızda sizleri bekliyor! @{sName}", $"Daily fresh milk, artisan cheese and organic butter now stocked in refrigerated displays at @{sName}!"),
-                ("Hijyen & Temizlik Garantisi", "Sanitation & Cleanliness", $"Dükkanımızda hijyen ve temizlik standartlarımız %100! Güvenle alışveriş yapabilirsiniz. @{sName}", $"Top tier store cleanliness and sanitation standards guaranteed for your safe shopping at @{sName}!"),
-                ("Hafta Sonu Tarım Festivali", "Weekend Harvest Festival", $"Hafta sonuna özel Çiftlikten Rafa Tarım Festivali başladı! Sürpriz indirimleri kaçırmayın! @{sName}", $"Weekend Farm-to-Shelf Harvest Festival is live! Don't miss out on special surprise deals at @{sName}!")
+                ("🚀 Mağaza Açılışı", "Grand Opening", $"Taptaze çiftlik mahsullerimizle dükkanımız hizmetinizde! Hepinizi @{sName} bekliyoruz! 🌾🛒", $"Grand opening! Fresh farm crops and wide variety of products ready for you at @{sName}! 🌾🛒"),
+                ("🔥 %20 İndirim Kampanyası", "20% Discount Sale", $"TÜM ÜRÜNLERDE %20 İNDİRİM! Tarladan rafa taze sebze ve meyveler @{sName} dükkanında özel fiyatla! 🏷️🎉", $"20% OFF ALL PRODUCTS! Fresh vegetables and fruits direct from farm to shelf at @{sName}! 🏷️🎉"),
+                ("⚡ Hızlı Kasa & Kesintisiz Hizmet", "Fast Checkout & Zero Wait", $"Ekstra kasalarımız açıldı! Sıra beklemeden taze ve hızlı alışverişin tadını çıkarın! @{sName} ⚡😊", $"Extra checkout lines open! Enjoy lightning fast shopping with zero queue wait times at @{sName}! ⚡😊"),
+                ("🌱 %100 Organik Taze Hasat", "100% Organic Fresh Harvest", $"Çiftliğimizden bu sabah toplanan %100 organik domates, çilek ve yeşillikler raflarda! @{sName} 🍅🍓", $"100% organic tomatoes, strawberries and greens harvested this morning are now stocked at @{sName}! 🍅🍓"),
+                ("🏢 Yeni Reyonlar & Genişletme", "Supermarket Expansion", $"Mağazamızı büyüttük! Soğuk içecekler, fırın ürünleri ve yeni reyonlarımız açıldı! @{sName} 🥖🥤", $"Store expanded! Introducing our brand new cold beverage, bakery and fresh aisles at @{sName}! 🥖🥤"),
+                ("🌙 Gece İndirimi & Fırsatlar", "Late Night Clearance Deal", $"Gece alışverişi fırsatı! Kapanış öncesi şarküteri ve unlu mamullerde özel indirimler! @{sName} 🌙✨", $"Late night clearance deal! Special discounts on deli and bakery products before closing at @{sName}! 🌙✨"),
+                ("👑 VIP Müşteri Sadakat Ödülleri", "VIP Customer Appreciation", $"Sadık müşterilerimize özel sürpriz hediye çekleri ve bonus puan kampanyamız başladı! @{sName} 🎁🌟", $"VIP customer appreciation day! Earn bonus points and voucher gifts with every order at @{sName}! 🎁🌟"),
+                ("🧀 Taze Süt & Şarküteri Reyonu", "Fresh Dairy & Cold Deli", $"Günlük taze süt, organik peynir ve tereyağları soğutucu dolaplarımızda sizleri bekliyor! @{sName} 🥛🧀", $"Daily fresh milk, artisan cheese and organic butter now stocked in refrigerated displays at @{sName}! 🥛🧀"),
+                ("✨ Hijyen & Temizlik Garantisi", "Sanitation & Cleanliness", $"Dükkanımızda hijyen ve temizlik standartlarımız %100! Güvenle alışveriş yapabilirsiniz. @{sName} ✨🧹", $"Top tier store cleanliness and sanitation standards guaranteed for your safe shopping at @{sName}! ✨🧹"),
+                ("🌾 Hafta Sonu Tarım Festivali", "Weekend Harvest Festival", $"Hafta sonuna özel Çiftlikten Rafa Tarım Festivali başladı! Sürpriz indirimleri kaçırmayın! @{sName} 🎪🌾", $"Weekend Farm-to-Shelf Harvest Festival is live! Don't miss out on special surprise deals at @{sName}! 🎪🌾"),
+                ("🥒 Salatalık Krizi Çözüldü (Esprili)", "Cucumber Crisis Solved", $"Saksıda yetiştirmeye gerek kalmadı; en çıtır salatalıklar tarla fiyatına @{sName} reyonlarında! 🥒😂", $"No need to plant a greenhouse at home; crispiest cucumbers are at @{sName} at farm prices! 🥒😂"),
+                ("🏎️ Drift Yapmayan Arabalar", "Smooth Shopping Carts", $"Tüm market arabalarımızın tekerlekleri yağlandı! Artık Formula 1 gibi değil, ipek gibi kayıyor @{sName} 🏎️🛒", $"All shopping cart wheels just got oiled! Glide smoothly through the aisles at @{sName} 🏎️🛒"),
+                ("🥖 Sıcak Ekmek & Diyet Alarmı", "Warm Bread vs Diet", $"Fırınımızdan çıkan sıcacık ekmek kokusu diyet bozdurabilir, sorumluluk kabul etmiyoruz! @{sName} 🥖🤤", $"Fresh baked warm bread scent may break your diet, we take zero responsibility! @{sName} 🥖🤤"),
+                ("🍉 Karpuz Vurma Uzmanları", "Watermelon Tapping Masters", $"Gözü kapalı en tatlı karpuzu seçebilen dedeler ve uzmanlar manav reyonumuza davetlidir! @{sName} 🍉👂", $"National watermelon tapping experts are invited to our fruit section to find the sweetest ones! @{sName} 🍉👂"),
+                ("🧊 Gece 02:00 Buzdolabı Nöbeti", "2 AM Fridge Club", $"Gece dolabı açıp boş boş bakanlar için rafları en leziz gece atıştırmalıklarıyla doldurduk! @{sName} 🧊👀", $"For everyone staring at empty fridges at 2 AM, our shelves are stocked with midnight snacks! @{sName} 🧊👀"),
+                ("⚡ Pit Stop Hızında Kasiyerler", "Pit Stop Cashiers", $"Kasiyerlerimiz ürünleri öyle hızlı okutuyor ki poşeti açmaya zamanınız kalmayabilir! @{sName} ⚡🛍️", $"Our cashiers scan items at supersonic speed, you better have your grocery bags ready! @{sName} ⚡🛍️"),
+                ("🪙 1 Kuruş Arama Çilesine Son", "Exact Change No More", $"Cebinizde arkeolojik kazı yapmanıza gerek yok, temassız ödeyin geçin! @{sName} 💳🪙", $"No need to dig for pocket change, tap your contactless card and breeze through! @{sName} 💳🪙"),
+                ("🥑 Kusursuz Olgun Avokado", "Perfect Ripe Avocado", $"15 dakika dedektiflik yapmaya son! Tam kıvamında yumuşacık organik avokadolar raflarda! @{sName} 🥑🥑", $"No more 15-minute detective work; perfectly ripe organic avocados are ready at @{sName}! 🥑🥑"),
+                ("☕ ASMR Kahve Molası", "ASMR Coffee Break", $"Kahve otomatımızın taze çekirdek öğütme sesi eşliğinde reyonları gezmeye bekleriz! @{sName} ☕🎶", $"Enjoy browsing aisles with the soothing ASMR sound of freshly ground bean coffee at @{sName}! ☕🎶"),
+                ("🍓 Çilek Reçeli Sevdalıları", "Strawberry Jam Lovers", $"Evde 5 kavanoz reçeliniz olsa bile bu çileklerin kokusuna dayanamayıp bir tane daha alacaksınız! @{sName} 🍓🤤", $"Even if you have 5 jam jars at home, the aroma of our farm strawberries will make you buy one more! @{sName} 🍓🤤"),
+                ("🐠 Akvaryum Önü Terapi Seansı", "Aquarium Therapy Session", $"Girişteki devasa akvaryumumuzda balıkları izlerken günün tüm stresini unutun! @{sName} 🐠🌿", $"Unwind and leave daily stress behind while admiring exotic fish in our store aquarium at @{sName}! 🐠🌿"),
+                ("🍦 Dondurma Dolabı Acil Durum", "Ice Cream Freezer SOS", $"Çikolatalı mı vanilyalı mı karar veremeyenler için ikisini de indirimli yaptık! @{sName} 🍦🍨", $"Can't decide between chocolate or vanilla? We put both on special discount at @{sName}! 🍦🍨"),
+                ("📝 Unutulan Alışveriş Listeleri", "Forgotten Grocery Lists", $"Alışveriş listesini evde unutanlar üzülmesin, reyon düzenimiz size ne alacağınızı hatırlatır! @{sName} 📝🧠", $"Forgot your shopping list at home? Our organized aisles will remind you of everything! @{sName} 📝🧠"),
+                ("🚗 Park Yeri Arama Derdine Son", "Effortless Parking", $"Genişletilmiş çift turnikeli otoparkımızda yeriniz her zaman hazır! Park edin, rahatça alışveriş yapın @{sName} 🚗🅿️", $"Spacious parking lot always has a spot waiting for you! Park and shop with peace of mind at @{sName} 🚗🅿️"),
+                ("🍋 C Vitamini Patlaması", "Vitamin C Surge", $"Taze sıkılmış narenciye reyonumuzdan geçerken bile enerjinizin yükseldiğini hissedeceksiniz! @{sName} 🍊🍋", $"Feel an instant natural energy surge just passing by our freshly squeezed citrus stand at @{sName}! 🍊🍋"),
+                ("📦 Koli Açma Terapisi", "Box Unboxing Therapy", $"Bugün çiftliğimizden gelen onlarca taze koli reyonlara dizildi, tazelik kokusu dükkanı sardı! @{sName} 📦🌾", $"Dozens of fresh crop crates straight from the farm stocked on shelves today! @{sName} 📦🌾"),
+                ("💛 Sarı Etiket Avcıları", "Yellow Tag Hunters", $"Günün en tatlı sarı indirim etiketleri reyonlara asıldı, acele eden kazanır! @{sName} 🏷️💛", $"Bright yellow discount tags just placed across aisles, early birds get the best deals at @{sName}! 🏷️💛"),
+                ("🌻 Ayçiçeği Tarlalarından", "From Sunflower Fields", $"Doğal güneşle olgunlaşan en taze tarla mahsulleri doğrudan raflarımızda! @{sName} 🌻🌾", $"Farm crops ripened under natural sunshine delivered straight to our shelves at @{sName}! 🌻🌾"),
+                ("🍫 Gizli Çikolata Kaçamağı", "Secret Chocolate Day", $"Brokoli alırken yanına minik bir çikolata ekleyenler... Sizi anlıyoruz ve destekliyoruz! @{sName} 🥦🍫", $"To everyone secretly slipping a chocolate bar next to their healthy broccoli... We salute you! @{sName} 🥦🍫"),
+                ("⭐ Mahallenin Yıldız Marketi", "Neighborhood 5-Star Market", $"Tarladan rafa tazelik ve güler yüzlü hizmetle sizlerleyiz. Bizi tercih ettiğiniz için teşekkürler! @{sName} ⭐💖", $"Farm-to-shelf freshness with friendly neighborhood service. Thank you for choosing @{sName}! ⭐💖")
             };
 
             for (int i = 0; i < tweetOptions.Length; i++)
@@ -5589,26 +5839,27 @@ namespace Farm2Shelf.UI
                 itemObj.transform.SetParent(contentObj.transform, false);
 
                 LayoutElement le = itemObj.AddComponent<LayoutElement>();
-                le.minHeight = 82f;
-                le.preferredHeight = 82f;
+                le.minHeight = 84f;
+                le.preferredHeight = 84f;
                 le.flexibleWidth = 1f;
 
                 Image itemBg = itemObj.AddComponent<Image>();
-                itemBg.sprite = UIStyleUtility.CreateOutlinePillSprite(700, 82, 12, 1, new Color(0.15f, 0.55f, 0.85f), new Color(0.12f, 0.16f, 0.22f, 0.95f));
+                itemBg.sprite = UIStyleUtility.CreateOutlinePillSprite(700, 84, 12, 1, new Color(0.15f, 0.55f, 0.85f), new Color(0.12f, 0.16f, 0.22f, 0.95f));
 
                 // Text
                 GameObject txtObj = new GameObject("Text");
                 txtObj.transform.SetParent(itemObj.transform, false);
                 RectTransform tItemRect = txtObj.AddComponent<RectTransform>();
                 tItemRect.anchoredPosition = new Vector2(-60f, 0f);
-                tItemRect.sizeDelta = new Vector2(530f, 70f);
+                tItemRect.sizeDelta = new Vector2(535f, 74f);
 
                 Text itemTxt = txtObj.AddComponent<Text>();
                 itemTxt.font = globalFont;
                 string optTitle = LocalizationManager.L("OptTitle_" + i, opt.titleTr, opt.titleEn);
                 string optBody = LocalizationManager.L("OptBody_" + i, opt.textTr, opt.textEn);
-                itemTxt.text = $"<b><color=#40C4FF>{optTitle}</color></b>\n<size=15>{optBody}</size>";
-                itemTxt.fontSize = 16;
+                itemTxt.text = $"<b><color=#40C4FF>{optTitle}</color></b>\n<size=14><color=#F0F6FC>{optBody}</color></size>";
+                itemTxt.fontSize = 15;
+                itemTxt.lineSpacing = 1.15f;
                 itemTxt.alignment = TextAnchor.MiddleLeft;
                 itemTxt.color = Color.white;
 
@@ -5616,11 +5867,11 @@ namespace Farm2Shelf.UI
                 GameObject postBtnObj = new GameObject("PostBtn");
                 postBtnObj.transform.SetParent(itemObj.transform, false);
                 RectTransform pBtnRect = postBtnObj.AddComponent<RectTransform>();
-                pBtnRect.anchoredPosition = new Vector2(275f, 0f);
-                pBtnRect.sizeDelta = new Vector2(105f, 38f);
+                pBtnRect.anchoredPosition = new Vector2(280f, 0f);
+                pBtnRect.sizeDelta = new Vector2(100f, 38f);
 
                 Image pBg = postBtnObj.AddComponent<Image>();
-                pBg.sprite = UIStyleUtility.CreateRoundedPillSprite(105, 38, 14, new Color(0.12f, 0.65f, 0.95f));
+                pBg.sprite = UIStyleUtility.CreateRoundedPillSprite(100, 38, 14, new Color(0.12f, 0.65f, 0.95f));
                 Button pBtn = postBtnObj.AddComponent<Button>();
                 pBtn.targetGraphic = pBg;
 
@@ -5636,7 +5887,7 @@ namespace Farm2Shelf.UI
                     RefreshSocialMediaViews();
                 });
 
-                Text pTxt = CreateTextInPanel(postBtnObj.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Btn_PostShort", "PAYLAŞ", "POST"), 17, Color.white);
+                Text pTxt = CreateTextInPanel(postBtnObj.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Btn_PostShort", "PAYLAŞ", "POST"), 15, Color.white);
                 pTxt.alignment = TextAnchor.MiddleCenter;
                 pTxt.fontStyle = FontStyle.Bold;
             }

@@ -47,6 +47,7 @@ namespace Farm2Shelf.UI
             if (FurnitureInfoModalUI.IsFurnitureModalOpen) return true;
             if (CalendarPopupUI.IsCalendarModalOpen) return true;
             if (FieldPlotDetailModalUI.IsDetailOpen) return true;
+            if (TutorialPromptModalUI.IsPromptOpen) return true;
 
             // Eğer yukarıdaki gerçek modalların hiçbiri sahnede aktif değilse, modalState bayrağını da otomatik sıfırla!
             modalState = false;

@@ -216,40 +216,6 @@ namespace Farm2Shelf.Core
             {
                 seasonWarningCanvasObj.transform.rotation = Camera.main.transform.rotation;
             }
-
-            if (TouchInputHelper.IsCleanTapThisFrame(out Vector2 pointerPos))
-            {
-                if (ModalManager.IsModalOpen) return;
-                if (EKTPhoneManager.IsTabletOpen) return;
-                if (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing) return;
-
-                Camera mainCam = Camera.main;
-                if (mainCam == null) return;
-
-                Ray ray = mainCam.ScreenPointToRay(pointerPos);
-
-                RaycastHit[] hits = Physics.RaycastAll(ray, 150f);
-                if (hits != null && hits.Length > 0)
-                {
-                    System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-                    foreach (var h in hits)
-                    {
-                        if (h.collider == null) continue;
-                        PlacedFurnitureController ctrl = h.collider.GetComponentInParent<PlacedFurnitureController>();
-                        if (ctrl == null) ctrl = h.collider.GetComponent<PlacedFurnitureController>();
-
-                        if (ctrl == this)
-                        {
-                            if (Time.time - lastGlobalClickTime >= 0.15f)
-                            {
-                                lastGlobalClickTime = Time.time;
-                                OnClickDetected();
-                            }
-                            break;
-                        }
-                    }
-                }
-            }
         }
 
         private Vector2 GetPointerPosition()
@@ -292,7 +258,7 @@ namespace Farm2Shelf.Core
 
             try
             {
-                if (Input.GetMouseButtonDown(0) || (Input.touchCount > 0 && Input.GetTouch(0).phase == TouchPhase.Began))
+                if (Input.GetMouseButtonDown(0) || (Input.touchCount > 0 && Input.GetTouch(0).phase == UnityEngine.TouchPhase.Began))
                     return true;
             }
             catch {}

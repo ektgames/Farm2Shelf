@@ -17,7 +17,7 @@ namespace Farm2Shelf.Environment
         SpoiledTrash         // Çöp (1 gün biçilmeyince)
     }
 
-    public class FieldPlotController : MonoBehaviour
+    public class FieldPlotController : MonoBehaviour, IPointerClickHandler
     {
         public static readonly List<FieldPlotController> AllPlots = new List<FieldPlotController>();
 
@@ -58,12 +58,10 @@ namespace Farm2Shelf.Environment
         {
             if (!AllPlots.Contains(this)) AllPlots.Add(this);
 
-            if (GetComponent<Collider>() == null)
-            {
-                BoxCollider col = gameObject.AddComponent<BoxCollider>();
-                col.center = new Vector3(0f, 0.2f, 0f);
-                col.size = new Vector3(2.2f, 0.4f, 2.2f);
-            }
+            BoxCollider col = GetComponent<BoxCollider>();
+            if (col == null) col = gameObject.AddComponent<BoxCollider>();
+            col.center = new Vector3(0f, 20f, 0f);
+            col.size = new Vector3(1f, 40f, 1f);
 
             if (TimeManager.Instance != null)
             {
@@ -99,47 +97,19 @@ namespace Farm2Shelf.Environment
 
         private void Update()
         {
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || IsRadialMenuOpen || FieldPlotDetailModalUI.IsDetailOpen)
-            {
-                // UI açıkken tarlaya tıklamayı engelle
-            }
-            else if (WasPointerPressedThisFrame() || Farm2Shelf.Utils.TouchInputHelper.IsCleanTapThisFrame(out _))
-            {
-                if (!IsPointerOverUIButton())
-                {
-                    Camera mainCam = Camera.main;
-                    if (mainCam != null)
-                    {
-                        Vector2 pointerPos = GetPointerPosition();
-                        if (pointerPos != Vector2.zero)
-                        {
-                            Ray ray = mainCam.ScreenPointToRay(pointerPos);
-                            RaycastHit[] hits = Physics.RaycastAll(ray, 150f);
-                            if (hits != null && hits.Length > 0)
-                            {
-                                System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-                                foreach (var h in hits)
-                                {
-                                    if (h.collider == null) continue;
-                                    FieldPlotController plot = h.collider.GetComponentInParent<FieldPlotController>();
-                                    if (plot == null) plot = h.collider.GetComponent<FieldPlotController>();
-
-                                    if (plot == this)
-                                    {
-                                        plot.OnPlotClicked();
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            // Tıklama ve etkileşimler TouchInputHelper merkezi sistemi üzerinden yönetilir
         }
 
         public void OnPlotClicked()
         {
             FieldPlotDetailModalUI.ShowDetail(this);
+        }
+
+        public void OnPointerClick(PointerEventData eventData)
+        {
+            if (eventData != null && eventData.dragging) return;
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen) return;
+            OnPlotClicked();
         }
 
         public void WaterCrop()

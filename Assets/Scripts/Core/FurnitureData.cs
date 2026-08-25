@@ -64,8 +64,9 @@ namespace Farm2Shelf.Core
 
     public enum FurnitureZone
     {
-        StoreOnly,   // Sadece Mağaza Kısmı
-        StorageOnly  // Sadece Depo Kısmı
+        StoreAndStorage, // Mağaza ve Depo (Hem dükkan içine hem depoya kurulabilir)
+        StoreOnly,       // Sadece Mağaza Kısmı
+        StorageOnly      // Sadece Depo Kısmı
     }
 
     [System.Serializable]
@@ -109,9 +110,17 @@ namespace Farm2Shelf.Core
 
         public string GetZoneText()
         {
-            return zone == FurnitureZone.StoreOnly ?
-                LocalizationManager.L("Zone_StoreOnly", "📍 Sadece Mağaza", "📍 Store Only") :
-                LocalizationManager.L("Zone_StorageOnly", "📦 Sadece Depo", "📦 Storage Only");
+            switch (zone)
+            {
+                case FurnitureZone.StoreAndStorage:
+                    return LocalizationManager.L("Zone_StoreAndStorage", "📍 Mağaza & Depo", "📍 Store & Storage");
+                case FurnitureZone.StoreOnly:
+                    return LocalizationManager.L("Zone_StoreOnly", "📍 Mağaza", "📍 Store Only");
+                case FurnitureZone.StorageOnly:
+                    return LocalizationManager.L("Zone_StorageOnly", "📦 Depo", "📦 Storage Only");
+                default:
+                    return LocalizationManager.L("Zone_StoreAndStorage", "📍 Mağaza & Depo", "📍 Store & Storage");
+            }
         }
     }
 
@@ -122,7 +131,7 @@ namespace Farm2Shelf.Core
             // ==================== MOBİLYALAR ====================
             {
                 FurnitureType.Shelf,
-                new FurnitureItemDef(FurnitureType.Shelf, "Raf", "Shelf", "Mağaza içi standart 4 katlı ahşap-metal teşhir rafı.", "Standard 4-tier wooden-metal display shelf for store.", FurnitureZone.StoreOnly, FurnitureCategory.Furniture, 1, 500, "🗄️", 0)
+                new FurnitureItemDef(FurnitureType.Shelf, "Raf", "Shelf", "Mağaza içi için standart 4 katlı ahşap-metal teşhir rafı.", "Standard 4-tier wooden-metal display shelf for store interior.", FurnitureZone.StoreOnly, FurnitureCategory.Furniture, 1, 500, "🗄️", 0)
             },
             {
                 FurnitureType.ProduceShelf,
@@ -134,7 +143,7 @@ namespace Farm2Shelf.Core
             },
             {
                 FurnitureType.StorageShelf,
-                new FurnitureItemDef(FurnitureType.StorageShelf, "Depo Rafı", "Storage Rack", "Depo alanı için 200 koli kapasiteli dayanıklı turuncu endüstriyel raf.", "Heavy-duty orange industrial rack with 200 box capacity for storage area.", FurnitureZone.StorageOnly, FurnitureCategory.Furniture, 1, 450, "📦", 0)
+                new FurnitureItemDef(FurnitureType.StorageShelf, "Depo Rafı", "Storage Rack", "Sadece depo kısmı için 200 koli kapasiteli dayanıklı turuncu endüstriyel raf.", "Heavy-duty orange industrial rack with 200 box capacity strictly for warehouse storage.", FurnitureZone.StorageOnly, FurnitureCategory.Furniture, 1, 450, "📦", 0)
             },
             {
                 FurnitureType.Cashier,

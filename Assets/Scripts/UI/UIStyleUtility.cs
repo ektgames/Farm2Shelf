@@ -151,9 +151,10 @@ namespace Farm2Shelf.UI
             }
 
             tex.SetPixels(pixels);
+            tex.filterMode = FilterMode.Bilinear;
             tex.Apply();
 
-            Sprite sprite = Sprite.Create(tex, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(cornerRadius, cornerRadius, cornerRadius, cornerRadius));
+            Sprite sprite = Sprite.Create(tex, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), 100f);
             pillSpriteCache[cacheKey] = sprite;
             return sprite;
         }
@@ -195,23 +196,23 @@ namespace Farm2Shelf.UI
                     }
                     else
                     {
-                        bool isBorder = (x < borderWidth || x > w - borderWidth || y < borderWidth || y > h - borderWidth);
+                        bool isBorder = (x < borderWidth || x >= w - borderWidth || y < borderWidth || y >= h - borderWidth);
                         if (x < r || x > w - r || y < r || y > h - r)
                         {
                             float dist = Mathf.Sqrt(distSq);
                             if (dist > r - borderWidth) isBorder = true;
                         }
 
-                        Color pixelColor = isBorder ? strokeColor : fillColor;
-                        pixels[y * width + x] = pixelColor;
+                        pixels[y * width + x] = isBorder ? strokeColor : fillColor;
                     }
                 }
             }
 
             tex.SetPixels(pixels);
+            tex.filterMode = FilterMode.Bilinear;
             tex.Apply();
 
-            Sprite sprite = Sprite.Create(tex, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f));
+            Sprite sprite = Sprite.Create(tex, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), 100f);
             outlineSpriteCache[cacheKey] = sprite;
             return sprite;
         }

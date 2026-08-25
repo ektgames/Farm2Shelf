@@ -1,14 +1,11 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 using Farm2Shelf.Core;
 using Farm2Shelf.UI;
 
 namespace Farm2Shelf.Environment
 {
-    /// <summary>
-    /// Personel 3D modeline eklenen tıklama ve dokunma algılayıcı bileşen.
-    /// Hem PC (Fare Tıklaması) hem de Mobil (Dokunma) ile sorunsuzca çalışır.
-    /// </summary>
-    public class StaffClickableTarget : MonoBehaviour
+    public class StaffClickableTarget : MonoBehaviour, IPointerClickHandler
     {
         public StaffMember staffMember;
         public StaffTaskController.StaffTaskData taskData;
@@ -28,41 +25,17 @@ namespace Farm2Shelf.Environment
 
         private void Update()
         {
-            if (EKTPhoneManager.IsTabletOpen || ModalManager.IsModalOpen) return;
-
-            if (WasPointerPressedThisFrame() || Farm2Shelf.Utils.TouchInputHelper.IsCleanTapThisFrame(out _))
-            {
-                if (IsPointerOverUIButton()) return;
-
-                Camera mainCam = Camera.main;
-                if (mainCam == null) return;
-
-                Vector2 pointerPos = GetPointerPosition();
-                if (pointerPos == Vector2.zero) return;
-
-                Ray ray = mainCam.ScreenPointToRay(pointerPos);
-                RaycastHit[] hits = Physics.RaycastAll(ray, 100f);
-
-                if (hits != null && hits.Length > 0)
-                {
-                    System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-                    foreach (var h in hits)
-                    {
-                        if (h.collider == null) continue;
-                        StaffClickableTarget target = h.collider.GetComponentInParent<StaffClickableTarget>();
-                        if (target == null) target = h.collider.GetComponent<StaffClickableTarget>();
-
-                        if (target == this)
-                        {
-                            OnStaffClicked();
-                            break;
-                        }
-                    }
-                }
-            }
+            // Tıklama ve etkileşimler TouchInputHelper merkezi sistemi üzerinden yönetilir
         }
 
-        private void OnStaffClicked()
+        public void OnPointerClick(PointerEventData eventData)
+        {
+            if (eventData != null && eventData.dragging) return;
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen) return;
+            OnStaffClicked();
+        }
+
+        public void OnStaffClicked()
         {
             if (staffMember == null && taskData != null && taskData.staffMember != null)
             {
@@ -143,7 +116,7 @@ namespace Farm2Shelf.Environment
 
             try
             {
-                if (Input.GetMouseButtonDown(0) || (Input.touchCount > 0 && Input.GetTouch(0).phase == TouchPhase.Began))
+                if (Input.GetMouseButtonDown(0) || (Input.touchCount > 0 && Input.GetTouch(0).phase == UnityEngine.TouchPhase.Began))
                     return true;
             }
             catch {}

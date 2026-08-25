@@ -9,7 +9,7 @@ namespace Farm2Shelf.Environment
     /// Çiftlik alanında duran 3D Ahır binasını tıklanabilir hale getiren bileşen.
     /// Tıklandığında Ahır Envanteri modal penceresini açar.
     /// </summary>
-    public class BarnController : MonoBehaviour
+    public class BarnController : MonoBehaviour, IPointerClickHandler
     {
         private void Start()
         {
@@ -24,41 +24,10 @@ namespace Farm2Shelf.Environment
 
         private void Update()
         {
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen) return;
-
-            if (WasPointerPressedThisFrame() || Farm2Shelf.Utils.TouchInputHelper.IsCleanTapThisFrame(out _))
-            {
-                if (IsPointerOverUIButton()) return;
-
-                Camera mainCam = Camera.main;
-                if (mainCam == null) return;
-
-                Vector2 pointerPos = GetPointerPosition();
-                if (pointerPos == Vector2.zero) return;
-
-                Ray ray = mainCam.ScreenPointToRay(pointerPos);
-
-                RaycastHit[] hits = Physics.RaycastAll(ray, 150f);
-                if (hits != null && hits.Length > 0)
-                {
-                    System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-                    foreach (var h in hits)
-                    {
-                        if (h.collider == null) continue;
-                        BarnController barn = h.collider.GetComponentInParent<BarnController>();
-                        if (barn == null) barn = h.collider.GetComponent<BarnController>();
-
-                        if (barn != null)
-                        {
-                            barn.OnBarnClicked();
-                            break;
-                        }
-                    }
-                }
-            }
+            // Tıklama ve etkileşimler TouchInputHelper merkezi sistemi üzerinden yönetilir
         }
 
-        private void OnBarnClicked()
+        public void OnBarnClicked()
         {
             if (BarnInventoryModalUI.Instance == null)
             {
@@ -71,6 +40,13 @@ namespace Farm2Shelf.Environment
             {
                 BarnInventoryModalUI.Instance.ShowModal();
             }
+        }
+
+        public void OnPointerClick(PointerEventData eventData)
+        {
+            if (eventData != null && eventData.dragging) return;
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen) return;
+            OnBarnClicked();
         }
 
         private bool WasPointerPressedThisFrame()

@@ -107,15 +107,20 @@ namespace Farm2Shelf.CameraSystem
             ApplyCameraTransformInstant();
         }
 
+        private Vector2 lastMousePanPos;
+        private bool isMousePanning = false;
+
         private void Update()
         {
-            // Ekranda Modal/Pencere/Tablet açıkken veya Kutu/Mobilya taşınırken harita hareketini engelle
+            // Ekranda Modal/Pencere/Tablet açıkken harita hareketini engelle
             if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen) return;
-            if (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing) return;
 
-            HandleTouchInputs();
+            bool isPlacing = (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing);
+
+            HandleTouchInputs(isPlacing);
             HandleMouseScrollZoom();
-            HandleKeyboardInput();
+            HandleMousePan(isPlacing);
+            HandleKeyboardInput(isPlacing);
         }
 
         private void LateUpdate()
@@ -124,27 +129,37 @@ namespace Farm2Shelf.CameraSystem
             SmoothUpdateCameraTransform();
         }
 
-        private void HandleTouchInputs()
+        private void HandleTouchInputs(bool isPlacing)
         {
-#if !UNITY_EDITOR && (UNITY_ANDROID || UNITY_IOS)
 #if ENABLE_INPUT_SYSTEM
             var activeTouches = Touch.activeTouches;
             int touchCount = activeTouches.Count;
-            if (touchCount == 1)
+            if (touchCount == 0)
             {
-                var touch = activeTouches[0];
-                if (touch.phase == UnityEngine.InputSystem.TouchPhase.Moved)
+                lastPinchDistance = 0f;
+                lastPinchAngle = 0f;
+            }
+            else if (touchCount == 1)
+            {
+                lastPinchDistance = 0f;
+                lastPinchAngle = 0f;
+
+                if (!isPlacing)
                 {
-                    Vector2 delta = touch.delta;
-                    Quaternion yawRot = Quaternion.Euler(0f, yawAngle, 0f);
-                    Vector3 moveDir = yawRot * new Vector3(-delta.x, 0f, -delta.y);
-
-                    targetPosition += moveDir * panSensitivity * (orthographicSize / 14f);
-                    ClampTargetPosition();
-
-                    if (TutorialManager.Instance != null)
+                    var touch = activeTouches[0];
+                    if (touch.phase == UnityEngine.InputSystem.TouchPhase.Moved)
                     {
-                        TutorialManager.Instance.NotifyCameraPan();
+                        Vector2 delta = touch.delta;
+                        Quaternion yawRot = Quaternion.Euler(0f, yawAngle, 0f);
+                        Vector3 moveDir = yawRot * new Vector3(-delta.x, 0f, -delta.y);
+
+                        targetPosition += moveDir * panSensitivity * (orthographicSize / 14f);
+                        ClampTargetPosition();
+
+                        if (TutorialManager.Instance != null)
+                        {
+                            TutorialManager.Instance.NotifyCameraPan();
+                        }
                     }
                 }
             }
@@ -159,18 +174,20 @@ namespace Farm2Shelf.CameraSystem
                 float currentPinchDist = Vector2.Distance(pos0, pos1);
                 float currentPinchAngle = Mathf.Atan2(pos1.y - pos0.y, pos1.x - pos0.x) * Mathf.Rad2Deg;
 
-                if (touch0.phase == UnityEngine.InputSystem.TouchPhase.Began || touch1.phase == UnityEngine.InputSystem.TouchPhase.Began)
+                if (lastPinchDistance <= 0.01f || touch0.phase == UnityEngine.InputSystem.TouchPhase.Began || touch1.phase == UnityEngine.InputSystem.TouchPhase.Began)
                 {
                     lastPinchDistance = currentPinchDist;
                     lastPinchAngle = currentPinchAngle;
+                    return;
                 }
-                else if (touch0.phase == UnityEngine.InputSystem.TouchPhase.Moved || touch1.phase == UnityEngine.InputSystem.TouchPhase.Moved)
+
+                if (touch0.phase == UnityEngine.InputSystem.TouchPhase.Moved || touch1.phase == UnityEngine.InputSystem.TouchPhase.Moved)
                 {
                     // 1. Zoom (Pinch)
                     float deltaDist = currentPinchDist - lastPinchDistance;
-                    if (Mathf.Abs(deltaDist) > 0.5f)
+                    if (Mathf.Abs(deltaDist) > 1.0f)
                     {
-                        float zoomDelta = -deltaDist * pinchSensitivity * 0.35f;
+                        float zoomDelta = -deltaDist * pinchSensitivity * 0.25f;
                         orthographicSize = Mathf.Clamp(orthographicSize + zoomDelta, minZoom, maxZoom);
                         distance = Mathf.Clamp(distance + (zoomDelta * 1.5f), 6f, 60f);
 
@@ -184,7 +201,7 @@ namespace Farm2Shelf.CameraSystem
 
                     // 2. Rotate (Twist)
                     float deltaAngle = Mathf.DeltaAngle(lastPinchAngle, currentPinchAngle);
-                    if (Mathf.Abs(deltaAngle) > 0.05f)
+                    if (Mathf.Abs(deltaAngle) > 0.1f)
                     {
                         yawAngle += deltaAngle * rotateSensitivity * 1.2f;
                         lastPinchAngle = currentPinchAngle;
@@ -194,27 +211,50 @@ namespace Farm2Shelf.CameraSystem
                             TutorialManager.Instance.NotifyCameraRotate();
                         }
                     }
+
+                    // 3. Two-Finger Pan (İki parmakla kaydırma)
+                    Vector2 delta0 = touch0.delta;
+                    Vector2 delta1 = touch1.delta;
+                    Vector2 avgDelta = (delta0 + delta1) * 0.5f;
+                    if (avgDelta.sqrMagnitude > 0.2f)
+                    {
+                        Quaternion yawRot = Quaternion.Euler(0f, yawAngle, 0f);
+                        Vector3 moveDir = yawRot * new Vector3(-avgDelta.x, 0f, -avgDelta.y);
+                        targetPosition += moveDir * panSensitivity * (orthographicSize / 14f);
+                        ClampTargetPosition();
+                    }
                 }
             }
 #else
             try
             {
                 int touchCount = Input.touchCount;
-                if (touchCount == 1)
+                if (touchCount == 0)
                 {
-                    UnityEngine.Touch touch = Input.GetTouch(0);
-                    if (touch.phase == UnityEngine.TouchPhase.Moved)
+                    lastPinchDistance = 0f;
+                    lastPinchAngle = 0f;
+                }
+                else if (touchCount == 1)
+                {
+                    lastPinchDistance = 0f;
+                    lastPinchAngle = 0f;
+
+                    if (!isPlacing)
                     {
-                        Vector2 delta = touch.deltaPosition;
-                        Quaternion yawRot = Quaternion.Euler(0f, yawAngle, 0f);
-                        Vector3 moveDir = yawRot * new Vector3(-delta.x, 0f, -delta.y);
-
-                        targetPosition += moveDir * panSensitivity * (orthographicSize / 14f);
-                        ClampTargetPosition();
-
-                        if (TutorialManager.Instance != null)
+                        UnityEngine.Touch touch = Input.GetTouch(0);
+                        if (touch.phase == UnityEngine.TouchPhase.Moved)
                         {
-                            TutorialManager.Instance.NotifyCameraPan();
+                            Vector2 delta = touch.deltaPosition;
+                            Quaternion yawRot = Quaternion.Euler(0f, yawAngle, 0f);
+                            Vector3 moveDir = yawRot * new Vector3(-delta.x, 0f, -delta.y);
+
+                            targetPosition += moveDir * panSensitivity * (orthographicSize / 14f);
+                            ClampTargetPosition();
+
+                            if (TutorialManager.Instance != null)
+                            {
+                                TutorialManager.Instance.NotifyCameraPan();
+                            }
                         }
                     }
                 }
@@ -229,18 +269,20 @@ namespace Farm2Shelf.CameraSystem
                     float currentPinchDist = Vector2.Distance(pos0, pos1);
                     float currentPinchAngle = Mathf.Atan2(pos1.y - pos0.y, pos1.x - pos0.x) * Mathf.Rad2Deg;
 
-                    if (touch0.phase == UnityEngine.TouchPhase.Began || touch1.phase == UnityEngine.TouchPhase.Began)
+                    if (lastPinchDistance <= 0.01f || touch0.phase == UnityEngine.TouchPhase.Began || touch1.phase == UnityEngine.TouchPhase.Began)
                     {
                         lastPinchDistance = currentPinchDist;
                         lastPinchAngle = currentPinchAngle;
+                        return;
                     }
-                    else if (touch0.phase == UnityEngine.TouchPhase.Moved || touch1.phase == UnityEngine.TouchPhase.Moved)
+
+                    if (touch0.phase == UnityEngine.TouchPhase.Moved || touch1.phase == UnityEngine.TouchPhase.Moved)
                     {
                         // 1. Zoom (Pinch)
                         float deltaDist = currentPinchDist - lastPinchDistance;
-                        if (Mathf.Abs(deltaDist) > 0.5f)
+                        if (Mathf.Abs(deltaDist) > 1.0f)
                         {
-                            float zoomDelta = -deltaDist * pinchSensitivity * 0.35f;
+                            float zoomDelta = -deltaDist * pinchSensitivity * 0.25f;
                             orthographicSize = Mathf.Clamp(orthographicSize + zoomDelta, minZoom, maxZoom);
                             distance = Mathf.Clamp(distance + (zoomDelta * 1.5f), 6f, 60f);
 
@@ -254,7 +296,7 @@ namespace Farm2Shelf.CameraSystem
 
                         // 2. Rotate (Twist)
                         float deltaAngle = Mathf.DeltaAngle(lastPinchAngle, currentPinchAngle);
-                        if (Mathf.Abs(deltaAngle) > 0.05f)
+                        if (Mathf.Abs(deltaAngle) > 0.1f)
                         {
                             yawAngle += deltaAngle * rotateSensitivity * 1.2f;
                             lastPinchAngle = currentPinchAngle;
@@ -264,12 +306,80 @@ namespace Farm2Shelf.CameraSystem
                                 TutorialManager.Instance.NotifyCameraRotate();
                             }
                         }
+
+                        // 3. Two-Finger Pan
+                        Vector2 avgDelta = (touch0.deltaPosition + touch1.deltaPosition) * 0.5f;
+                        if (avgDelta.sqrMagnitude > 0.2f)
+                        {
+                            Quaternion yawRot = Quaternion.Euler(0f, yawAngle, 0f);
+                            Vector3 moveDir = yawRot * new Vector3(-avgDelta.x, 0f, -avgDelta.y);
+                            targetPosition += moveDir * panSensitivity * (orthographicSize / 14f);
+                            ClampTargetPosition();
+                        }
                     }
                 }
             }
             catch (System.InvalidOperationException) {}
 #endif
+        }
+
+        private void HandleMousePan(bool isPlacing)
+        {
+            bool isPanDown = false;
+
+#if ENABLE_INPUT_SYSTEM
+            if (Mouse.current != null)
+            {
+                isPanDown = Mouse.current.rightButton.isPressed || Mouse.current.middleButton.isPressed;
+                if (!isPlacing) isPanDown |= Mouse.current.leftButton.isPressed;
+            }
+#else
+            try
+            {
+                isPanDown = Input.GetMouseButton(1) || Input.GetMouseButton(2);
+                if (!isPlacing) isPanDown |= Input.GetMouseButton(0);
+            }
+            catch {}
 #endif
+
+            Vector2 curMouse = Vector2.zero;
+#if ENABLE_INPUT_SYSTEM
+            if (Mouse.current != null) curMouse = Mouse.current.position.ReadValue();
+#else
+            try { curMouse = (Vector2)Input.mousePosition; } catch {}
+#endif
+
+            if (isPanDown)
+            {
+                if (!isMousePanning)
+                {
+                    isMousePanning = true;
+                    lastMousePanPos = curMouse;
+                }
+                else
+                {
+                    Vector2 delta = curMouse - lastMousePanPos;
+                    lastMousePanPos = curMouse;
+
+                    if (delta.sqrMagnitude > 0.01f)
+                    {
+                        Quaternion yawRot = Quaternion.Euler(0f, yawAngle, 0f);
+                        Vector3 moveDir = yawRot * new Vector3(-delta.x, 0f, -delta.y);
+
+                        targetPosition += moveDir * panSensitivity * (orthographicSize / 14f);
+                        ClampTargetPosition();
+
+                        if (TutorialManager.Instance != null)
+                        {
+                            TutorialManager.Instance.NotifyCameraPan();
+                        }
+                    }
+                }
+            }
+            else
+            {
+                isMousePanning = false;
+            }
         }
 
         private void HandleMouseScrollZoom()
@@ -292,11 +402,10 @@ namespace Farm2Shelf.CameraSystem
                 catch {}
             }
 
-            if (Mathf.Abs(scrollY) > 0.001f)
+            if (Mathf.Abs(scrollY) > 0.01f)
             {
                 float scrollDir = Mathf.Sign(scrollY);
-                float step = Mathf.Max(Mathf.Abs(scrollY) * 0.06f, 2.5f);
-                float zoomDelta = -scrollDir * step;
+                float zoomDelta = -scrollDir * 1.5f;
 
                 orthographicSize = Mathf.Clamp(orthographicSize + zoomDelta, minZoom, maxZoom);
                 distance = Mathf.Clamp(distance + (zoomDelta * 1.4f), 5f, 60f);
@@ -308,7 +417,7 @@ namespace Farm2Shelf.CameraSystem
             }
         }
 
-        private void HandleKeyboardInput()
+        private void HandleKeyboardInput(bool isPlacing = false)
         {
             float dt = Time.deltaTime;
             Vector3 inputDir = Vector3.zero;
@@ -319,10 +428,13 @@ namespace Farm2Shelf.CameraSystem
             var keyboard = Keyboard.current;
             if (keyboard != null)
             {
-                if (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed) inputDir.z += 1f;
-                if (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed) inputDir.z -= 1f;
-                if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed) inputDir.x -= 1f;
-                if (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed) inputDir.x += 1f;
+                if (!isPlacing)
+                {
+                    if (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed) inputDir.z += 1f;
+                    if (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed) inputDir.z -= 1f;
+                    if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed) inputDir.x -= 1f;
+                    if (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed) inputDir.x += 1f;
+                }
 
                 if (keyboard.qKey.isPressed) qPressed = true;
                 if (keyboard.eKey.isPressed) ePressed = true;
@@ -341,10 +453,13 @@ namespace Farm2Shelf.CameraSystem
 #else
             try
             {
-                if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow)) inputDir.z += 1f;
-                if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow)) inputDir.z -= 1f;
-                if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow)) inputDir.x -= 1f;
-                if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow)) inputDir.x += 1f;
+                if (!isPlacing)
+                {
+                    if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow)) inputDir.z += 1f;
+                    if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow)) inputDir.z -= 1f;
+                    if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow)) inputDir.x -= 1f;
+                    if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow)) inputDir.x += 1f;
+                }
 
                 if (Input.GetKey(KeyCode.Q)) qPressed = true;
                 if (Input.GetKey(KeyCode.E)) ePressed = true;

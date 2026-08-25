@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using Farm2Shelf.UI;
 using Farm2Shelf.Environment;
 
@@ -11,6 +12,16 @@ using UnityEngine.InputSystem;
 
 namespace Farm2Shelf.Core
 {
+    public class DeliveryPalletClickable : MonoBehaviour, IPointerClickHandler
+    {
+        public void OnPointerClick(PointerEventData eventData)
+        {
+            if (eventData != null && eventData.dragging) return;
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen) return;
+            PalletStorageInventoryModalUI.ShowModal();
+        }
+    }
+
     /// <summary>
     /// Haritada Mal Kabul Kapısı yanında sabit Ahşap Teslimat Paletini (Delivery Pallet) oluşturan ve
     /// TrendyShop'tan alınan siparişlerin koli (DeliveryBox) olarak palet üstünde birikmesini sağlayan yönetici.
@@ -28,6 +39,9 @@ namespace Farm2Shelf.Core
         private Transform boxContainer;
         private readonly List<DeliveryBoxController> activeBoxes = new List<DeliveryBoxController>();
         private DeliveryBoxController currentHoveredBox = null;
+        private GameObject palletFloatingBadgeObj;
+        private Text palletBadgeTitleText;
+        private Text palletBadgeSubText;
 
         public List<string> GetActiveBoxTypes()
         {
@@ -60,6 +74,7 @@ namespace Farm2Shelf.Core
                     }
                 }
             }
+            UpdatePalletBadge();
         }
 
         private Material palletWoodMat;
@@ -76,12 +91,19 @@ namespace Farm2Shelf.Core
         {
             InitMaterials();
             CreateDeliveryPallet();
+            UpdatePalletBadge();
         }
 
         private void Update()
         {
+            // Floating badge her zaman kameraya baksın
+            if (palletFloatingBadgeObj != null && Camera.main != null)
+            {
+                palletFloatingBadgeObj.transform.rotation = Camera.main.transform.rotation;
+            }
+
             if (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing) return;
-            if (IsPointerOverUI())
+            if (IsPointerOverUI() || ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen)
             {
                 ClearHoveredBox();
                 return;
@@ -91,43 +113,34 @@ namespace Farm2Shelf.Core
             if (mainCam == null) return;
 
             Vector2 pointerPos = GetPointerPosition();
-            Ray ray = mainCam.ScreenPointToRay(pointerPos);
+            if (pointerPos == Vector2.zero)
+            {
+                ClearHoveredBox();
+                return;
+            }
 
+            Ray ray = mainCam.ScreenPointToRay(pointerPos);
             RaycastHit[] hits = Physics.RaycastAll(ray, 100f);
             if (hits != null && hits.Length > 0)
             {
                 System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
 
                 DeliveryBoxController box = null;
-                bool hitPallet = false;
-
                 foreach (var h in hits)
                 {
                     if (h.collider == null) continue;
                     box = h.collider.GetComponentInParent<DeliveryBoxController>();
                     if (box == null) box = h.collider.GetComponent<DeliveryBoxController>();
                     if (box != null) break;
-
-                    if (palletObj != null && (h.collider.gameObject == palletObj || h.collider.transform.IsChildOf(palletObj.transform)))
-                    {
-                        hitPallet = true;
-                        break;
-                    }
                 }
 
-                if (box != null || hitPallet)
+                if (box != null)
                 {
-                    if (box != null && currentHoveredBox != box)
+                    if (currentHoveredBox != box)
                     {
                         ClearHoveredBox();
                         currentHoveredBox = box;
                         currentHoveredBox.ShowHover(true);
-                    }
-
-                    if (WasPointerPressed() || Farm2Shelf.Utils.TouchInputHelper.IsCleanTapThisFrame(out _))
-                    {
-                        ClearHoveredBox();
-                        PalletStorageInventoryModalUI.ShowModal();
                     }
                     return;
                 }
@@ -189,7 +202,7 @@ namespace Farm2Shelf.Core
 #else
             try
             {
-                if (Input.touchCount > 0 && (Input.GetTouch(0).phase == TouchPhase.Began || Input.GetTouch(0).phase == TouchPhase.Ended)) return true;
+                if (Input.touchCount > 0 && (Input.GetTouch(0).phase == UnityEngine.TouchPhase.Began || Input.GetTouch(0).phase == UnityEngine.TouchPhase.Ended)) return true;
                 if (Input.GetMouseButtonDown(0) || Input.GetMouseButtonUp(0)) return true;
             }
             catch {}
@@ -230,6 +243,8 @@ namespace Farm2Shelf.Core
             BoxCollider pCol = palletObj.AddComponent<BoxCollider>();
             pCol.center = new Vector3(0f, 0.9f, 0f);
             pCol.size = new Vector3(3.2f, 2.2f, 3.2f); // Geniş dokunmatik/tıklama alanı
+
+            palletObj.AddComponent<DeliveryPalletClickable>();
 
             GameObject palletBase = GameObject.CreatePrimitive(PrimitiveType.Cube);
             palletBase.name = "EuroPallet_Base";
@@ -365,6 +380,87 @@ namespace Farm2Shelf.Core
                 Vector3 targetLocalPos = gridOffsets[gridIdx] + new Vector3(0f, baseOffsetY + (layerIdx * boxHeight), 0f);
                 activeBoxes[i].transform.localPosition = targetLocalPos;
                 activeBoxes[i].transform.localRotation = Quaternion.identity;
+            }
+            UpdatePalletBadge();
+        }
+
+        private void CreatePalletFloatingBadge()
+        {
+            if (palletFloatingBadgeObj != null || palletObj == null) return;
+
+            palletFloatingBadgeObj = new GameObject("Pallet_Floating_Badge");
+            palletFloatingBadgeObj.transform.SetParent(palletObj.transform, false);
+            palletFloatingBadgeObj.transform.localPosition = new Vector3(0f, 2.3f, 0f);
+            palletFloatingBadgeObj.transform.localRotation = Quaternion.identity;
+
+            Canvas canvas = palletFloatingBadgeObj.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.WorldSpace;
+            canvas.sortingOrder = 60;
+
+            RectTransform rect = palletFloatingBadgeObj.GetComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(340f, 90f);
+            rect.localScale = new Vector3(0.005f, 0.005f, 0.005f);
+
+            GameObject bgObj = new GameObject("Badge_Bg");
+            bgObj.transform.SetParent(palletFloatingBadgeObj.transform, false);
+            RectTransform bgRect = bgObj.AddComponent<RectTransform>();
+            bgRect.anchorMin = Vector2.zero;
+            bgRect.anchorMax = Vector2.one;
+            bgRect.sizeDelta = Vector2.zero;
+
+            Image bgImg = bgObj.AddComponent<Image>();
+            bgImg.sprite = UIStyleUtility.CreateOutlinePillSprite(340, 90, 16, 2, new Color(0.95f, 0.70f, 0.20f), new Color(0.10f, 0.13f, 0.18f, 0.95f));
+            bgImg.raycastTarget = false;
+
+            GameObject titleObj = new GameObject("Badge_Title");
+            titleObj.transform.SetParent(bgObj.transform, false);
+            RectTransform tRect = titleObj.AddComponent<RectTransform>();
+            tRect.anchoredPosition = new Vector2(0f, 16f);
+            tRect.sizeDelta = new Vector2(320f, 36f);
+
+            palletBadgeTitleText = titleObj.AddComponent<Text>();
+            palletBadgeTitleText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            palletBadgeTitleText.fontSize = 22;
+            palletBadgeTitleText.fontStyle = FontStyle.Bold;
+            palletBadgeTitleText.alignment = TextAnchor.MiddleCenter;
+            palletBadgeTitleText.color = new Color(1.0f, 0.85f, 0.30f);
+            palletBadgeTitleText.raycastTarget = false;
+
+            GameObject subObj = new GameObject("Badge_Sub");
+            subObj.transform.SetParent(bgObj.transform, false);
+            RectTransform sRect = subObj.AddComponent<RectTransform>();
+            sRect.anchoredPosition = new Vector2(0f, -18f);
+            sRect.sizeDelta = new Vector2(320f, 30f);
+
+            palletBadgeSubText = subObj.AddComponent<Text>();
+            palletBadgeSubText.font = palletBadgeTitleText.font;
+            palletBadgeSubText.fontSize = 16;
+            palletBadgeSubText.alignment = TextAnchor.MiddleCenter;
+            palletBadgeSubText.color = new Color(0.85f, 0.90f, 0.95f);
+            palletBadgeSubText.raycastTarget = false;
+        }
+
+        public void UpdatePalletBadge()
+        {
+            if (palletFloatingBadgeObj == null)
+            {
+                CreatePalletFloatingBadge();
+            }
+
+            if (palletFloatingBadgeObj == null) return;
+
+            int count = activeBoxes.Count;
+            if (count > 0)
+            {
+                palletFloatingBadgeObj.SetActive(true);
+                string titleFmt = LocalizationManager.L("Pallet_BadgeTitleFmt", "📦 TESLİMAT PALETİ ({0} Koli)", "📦 DELIVERY PALLET ({0} Boxes)");
+                string subFmt = LocalizationManager.L("Pallet_BadgeSub", "👆 Dokun: Depo Listesini Aç", "👆 Tap: Open Storage List");
+                if (palletBadgeTitleText != null) palletBadgeTitleText.text = string.Format(titleFmt, count);
+                if (palletBadgeSubText != null) palletBadgeSubText.text = subFmt;
+            }
+            else
+            {
+                palletFloatingBadgeObj.SetActive(false);
             }
         }
 

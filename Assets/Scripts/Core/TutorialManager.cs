@@ -73,6 +73,10 @@ namespace Farm2Shelf.Core
         public event Action<TutorialStep> OnTutorialStepChanged;
         public event Action OnTutorialProgressUpdated;
 
+        private float checkTimer = 0f;
+        private float autoAdvanceTimer = 0f;
+        private bool didShowCompletionModal = false;
+
         private void Awake()
         {
             if (Instance == null)
@@ -99,6 +103,32 @@ namespace Farm2Shelf.Core
             if (StoreStatusManager.Instance != null)
             {
                 StoreStatusManager.Instance.OnStoreStatusChanged -= HandleStoreStatusChanged;
+            }
+        }
+
+        private void Update()
+        {
+            if (!IsTutorialActive) return;
+
+            checkTimer += Time.unscaledDeltaTime;
+            if (checkTimer >= 0.35f)
+            {
+                checkTimer = 0f;
+
+                if (IsCurrentStepComplete())
+                {
+                    autoAdvanceTimer += 0.35f;
+                    // Tüm alt hedefler bittiğinde 1.2 saniye sonra otomatik geçiş
+                    if (autoAdvanceTimer >= 1.2f)
+                    {
+                        autoAdvanceTimer = 0f;
+                        AdvanceToNextStep();
+                    }
+                }
+                else
+                {
+                    autoAdvanceTimer = 0f;
+                }
             }
         }
 
@@ -131,6 +161,7 @@ namespace Farm2Shelf.Core
 
         public void SkipTutorial()
         {
+            didShowCompletionModal = true;
             CurrentStep = TutorialStep.Completed;
             TutorialQuestTrackerUI.HideTracker();
             OnTutorialStepChanged?.Invoke(CurrentStep);
@@ -139,19 +170,39 @@ namespace Farm2Shelf.Core
 
         public void SetStep(TutorialStep step)
         {
+            TutorialStep prevStep = CurrentStep;
             CurrentStep = step;
+            autoAdvanceTimer = 0f;
             OnTutorialStepChanged?.Invoke(CurrentStep);
             OnTutorialProgressUpdated?.Invoke();
-            TutorialQuestTrackerUI.RefreshDisplay();
 
             if (step == TutorialStep.Completed)
             {
-                ShowCompletionModal();
+                TutorialQuestTrackerUI.HideTracker();
+                // Sadece Step 10'u fiilen tamamlayarak bitişe ulaşıldıysa tebrikler modalını göster
+                if (prevStep == TutorialStep.Step10_PlantSeedsAndOpenStore && !didShowCompletionModal)
+                {
+                    didShowCompletionModal = true;
+                    ShowCompletionModal();
+                }
+            }
+            else if (step == TutorialStep.None)
+            {
+                TutorialQuestTrackerUI.HideTracker();
+            }
+            else
+            {
+                TutorialQuestTrackerUI.ShowTracker();
+                TutorialQuestTrackerUI.RefreshDisplay();
+                // Eğer bu adıma girildiğinde şartlar zaten sağlanmışsa hemen doğrula
+                CheckCurrentStepCompletion(false);
             }
         }
 
         public void AdvanceToNextStep()
         {
+            if (!IsTutorialActive) return;
+
             if (CurrentStep >= TutorialStep.Step10_PlantSeedsAndOpenStore)
             {
                 SetStep(TutorialStep.Completed);
@@ -182,6 +233,92 @@ namespace Farm2Shelf.Core
             DidBuyLettuceSeed = false;
             CropsPlantedInTutorial = 0;
             DidOpenStoreInTutorial = false;
+            autoAdvanceTimer = 0f;
+            didShowCompletionModal = false;
+        }
+
+        // ==================== MERKEZİ DOĞRULAMA (STEP EVALUATION) ====================
+
+        public bool IsCurrentStepComplete()
+        {
+            return IsStepComplete(CurrentStep);
+        }
+
+        public bool IsStepComplete(TutorialStep step)
+        {
+            switch (step)
+            {
+                case TutorialStep.Step1_CameraControls:
+                    return DidPanCamera && DidZoomCamera && DidRotateCamera;
+
+                case TutorialStep.Step2_ExploreTabletApps:
+                    return ExploredAppsCount >= 5;
+
+                case TutorialStep.Step3_HireStoreStaffAndCallEarly:
+                    return GetStoreRoleCount(StaffRole.Kasiyer) >= 2 &&
+                           GetStoreRoleCount(StaffRole.Reyoncu) >= 2 &&
+                           DidCallRestockerEarly;
+
+                case TutorialStep.Step4_AssignStoreShifts:
+                    bool shMorn = HasStoreShift("Sabah") || HasStoreShift("08:00") || HasStoreShift("Gündüz") || HasStoreShift("06:00") || HasStoreShift("Morning");
+                    bool shEve = HasStoreShift("Akşam") || HasStoreShift("16:00") || HasStoreShift("14:00") || HasStoreShift("Gece") || HasStoreShift("22:00") || HasStoreShift("Evening");
+                    return shMorn && shEve;
+
+                case TutorialStep.Step5_BuyInitialFurniture:
+                    int sh = GetBoughtCount(FurnitureType.Shelf);
+                    int cs = GetBoughtCount(FurnitureType.ShoppingCart);
+                    int st = GetBoughtCount(FurnitureType.StorageShelf);
+                    int ca = GetBoughtCount(FurnitureType.Cashier);
+                    int fr = GetBoughtCount(FurnitureType.Fridge);
+                    bool targetBought = (sh >= 3 && cs >= 1 && st >= 3 && ca >= 1 && fr >= 2);
+                    bool hasPlacedOrCheckedOut = DidCheckoutFurniture || (PlacedFurnitureController.AllPlacedFurniture != null && PlacedFurnitureController.AllPlacedFurniture.Count >= 8);
+                    return targetBought || hasPlacedOrCheckedOut;
+
+                case TutorialStep.Step6_UnpackAndPlaceFurniture:
+                    return TotalFurniturePlacedInTutorial >= 8 ||
+                           (PlacedFurnitureController.AllPlacedFurniture != null && PlacedFurnitureController.AllPlacedFurniture.Count >= 8);
+
+                case TutorialStep.Step7_PlaceWholesaleBulkOrder:
+                    return DidPlaceBulkOrder &&
+                           GetMaxAssignedRowsOnAnyShelf() >= 4 &&
+                           GetMaxAssignedRowsOnAnyFridge() >= 4;
+
+                case TutorialStep.Step8_HireFarmStaffAndShifts:
+                    int farmers = GetFarmRoleCount(StaffRole.Çiftçi);
+                    bool fMorn = HasFarmShift("Sabah") || HasFarmShift("08:00") || HasFarmShift("Gündüz") || HasFarmShift("06:00") || HasFarmShift("Morning");
+                    bool fEve = HasFarmShift("Akşam") || HasFarmShift("16:00") || HasFarmShift("14:00") || HasFarmShift("Gece") || HasFarmShift("22:00") || HasFarmShift("Evening");
+                    return farmers >= 2 && fMorn && fEve;
+
+                case TutorialStep.Step9_BuyStartingSeeds:
+                    bool hasTomato = DidBuyTomatoSeed || (GardenSeedInventoryManager.Instance != null && GardenSeedInventoryManager.Instance.GetSeedCount("tomato") > 0);
+                    bool hasCucumber = DidBuyCucumberSeed || (GardenSeedInventoryManager.Instance != null && GardenSeedInventoryManager.Instance.GetSeedCount("cucumber") > 0);
+                    bool hasLettuce = DidBuyLettuceSeed || (GardenSeedInventoryManager.Instance != null && GardenSeedInventoryManager.Instance.GetSeedCount("lettuce") > 0);
+                    return hasTomato && hasCucumber && hasLettuce;
+
+                case TutorialStep.Step10_PlantSeedsAndOpenStore:
+                    bool hasPlanted = CropsPlantedInTutorial >= 1 || (FieldPlotController.AllPlots != null && FieldPlotController.AllPlots.Exists(p => p != null && p.State != PlotState.Empty));
+                    bool isStoreOpen = DidOpenStoreInTutorial || (StoreStatusManager.Instance != null && StoreStatusManager.Instance.IsOpen);
+                    return hasPlanted && isStoreOpen;
+
+                case TutorialStep.Completed:
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        public void CheckCurrentStepCompletion(bool allowImmediateAdvance = true)
+        {
+            if (!IsTutorialActive) return;
+
+            OnTutorialProgressUpdated?.Invoke();
+            TutorialQuestTrackerUI.RefreshDisplay();
+
+            if (allowImmediateAdvance && IsCurrentStepComplete())
+            {
+                AdvanceToNextStep();
+            }
         }
 
         // ==================== AKSİYON TETİKLEYİCİLERİ ====================
@@ -190,40 +327,28 @@ namespace Farm2Shelf.Core
         {
             if (CurrentStep != TutorialStep.Step1_CameraControls) return;
             DidPanCamera = true;
-            CheckStep1Completion();
+            CheckCurrentStepCompletion(false);
         }
 
         public void NotifyCameraZoom()
         {
             if (CurrentStep != TutorialStep.Step1_CameraControls) return;
             DidZoomCamera = true;
-            CheckStep1Completion();
+            CheckCurrentStepCompletion(false);
         }
 
         public void NotifyCameraRotate()
         {
             if (CurrentStep != TutorialStep.Step1_CameraControls) return;
             DidRotateCamera = true;
-            CheckStep1Completion();
-        }
-
-        private void CheckStep1Completion()
-        {
-            OnTutorialProgressUpdated?.Invoke();
-            TutorialQuestTrackerUI.RefreshDisplay();
+            CheckCurrentStepCompletion(false);
         }
 
         public void NotifyAppOpened(int appIndex)
         {
             if (CurrentStep != TutorialStep.Step2_ExploreTabletApps) return;
             exploredApps.Add(appIndex);
-            OnTutorialProgressUpdated?.Invoke();
-            TutorialQuestTrackerUI.RefreshDisplay();
-
-            if (exploredApps.Count >= 5)
-            {
-                // 5 uygulama da ziyaret edildi
-            }
+            CheckCurrentStepCompletion(false);
         }
 
         public bool IsAppExplored(int appIndex) => exploredApps.Contains(appIndex);
@@ -231,26 +356,8 @@ namespace Farm2Shelf.Core
 
         public void NotifyStaffHired(StaffRole role)
         {
-            OnTutorialProgressUpdated?.Invoke();
-            TutorialQuestTrackerUI.RefreshDisplay();
-
-            if (CurrentStep == TutorialStep.Step3_HireStoreStaffAndCallEarly)
-            {
-                int cashiers = GetStoreRoleCount(StaffRole.Kasiyer);
-                int restockers = GetStoreRoleCount(StaffRole.Reyoncu);
-                if (cashiers >= 2 && restockers >= 2 && DidCallRestockerEarly)
-                {
-                    AdvanceToNextStep();
-                }
-            }
-            else if (CurrentStep == TutorialStep.Step8_HireFarmStaffAndShifts)
-            {
-                int farmers = GetFarmRoleCount(StaffRole.Çiftçi);
-                if (farmers >= 3)
-                {
-                    CheckFarmStaffCompletion();
-                }
-            }
+            if (CurrentStep != TutorialStep.Step3_HireStoreStaffAndCallEarly && CurrentStep != TutorialStep.Step8_HireFarmStaffAndShifts) return;
+            CheckCurrentStepCompletion(true);
         }
 
         public void NotifyStaffCalledEarly()
@@ -258,60 +365,14 @@ namespace Farm2Shelf.Core
             if (CurrentStep == TutorialStep.Step3_HireStoreStaffAndCallEarly)
             {
                 DidCallRestockerEarly = true;
-                OnTutorialProgressUpdated?.Invoke();
-                TutorialQuestTrackerUI.RefreshDisplay();
-
-                int cashiers = GetStoreRoleCount(StaffRole.Kasiyer);
-                int restockers = GetStoreRoleCount(StaffRole.Reyoncu);
-                if (cashiers >= 2 && restockers >= 2)
-                {
-                    AdvanceToNextStep();
-                }
+                CheckCurrentStepCompletion(true);
             }
         }
 
         public void NotifyStaffShiftChanged()
         {
-            if (CurrentStep == TutorialStep.Step4_AssignStoreShifts)
-            {
-                CheckStep4Completion();
-            }
-            else if (CurrentStep == TutorialStep.Step8_HireFarmStaffAndShifts)
-            {
-                CheckFarmStaffCompletion();
-            }
-        }
-
-        private void CheckStep4Completion()
-        {
-            if (StaffManager.Instance == null) return;
-            var staff = StaffManager.Instance.GetActiveStaff();
-            if (staff == null || staff.Count < 4) return;
-
-            bool hasMorning = staff.Exists(s => s.shiftHours.Contains("08:00") || s.shiftHours.Contains("Sabah") || s.shiftHours.Contains("Gündüz") || s.shiftHours.Contains("06:00"));
-            bool hasEvening = staff.Exists(s => s.shiftHours.Contains("16:00") || s.shiftHours.Contains("Akşam") || s.shiftHours.Contains("14:00") || s.shiftHours.Contains("Gece") || s.shiftHours.Contains("22:00"));
-
-            if (hasMorning && hasEvening)
-            {
-                AdvanceToNextStep();
-            }
-        }
-
-        private void CheckFarmStaffCompletion()
-        {
-            if (StaffManager.Instance == null) return;
-            int farmers = GetFarmRoleCount(StaffRole.Çiftçi);
-            var farmStaff = StaffManager.Instance.GetFarmStaffList();
-            if (farmers >= 3 && farmStaff != null && farmStaff.Count >= 3)
-            {
-                bool hasMorning = farmStaff.Exists(s => s.shiftHours.Contains("08:00") || s.shiftHours.Contains("Sabah") || s.shiftHours.Contains("Gündüz") || s.shiftHours.Contains("06:00"));
-                bool hasEvening = farmStaff.Exists(s => s.shiftHours.Contains("16:00") || s.shiftHours.Contains("Akşam") || s.shiftHours.Contains("14:00") || s.shiftHours.Contains("Gece") || s.shiftHours.Contains("22:00"));
-
-                if (hasMorning && hasEvening)
-                {
-                    AdvanceToNextStep();
-                }
-            }
+            if (CurrentStep != TutorialStep.Step4_AssignStoreShifts && CurrentStep != TutorialStep.Step8_HireFarmStaffAndShifts) return;
+            CheckCurrentStepCompletion(true);
         }
 
         public void NotifyFurnitureItemPurchased(FurnitureType type, int count)
@@ -328,13 +389,7 @@ namespace Farm2Shelf.Core
             }
 
             DidCheckoutFurniture = true;
-            OnTutorialProgressUpdated?.Invoke();
-            TutorialQuestTrackerUI.RefreshDisplay();
-
-            if (boughtShelves >= 3 && boughtCartStands >= 1 && boughtStorageShelves >= 3 && boughtCashiers >= 1 && boughtFridges >= 2)
-            {
-                AdvanceToNextStep();
-            }
+            CheckCurrentStepCompletion(true);
         }
 
         public void NotifyFurniturePlaced(FurnitureType type)
@@ -342,13 +397,7 @@ namespace Farm2Shelf.Core
             if (CurrentStep != TutorialStep.Step6_UnpackAndPlaceFurniture) return;
 
             TotalFurniturePlacedInTutorial++;
-            OnTutorialProgressUpdated?.Invoke();
-            TutorialQuestTrackerUI.RefreshDisplay();
-
-            if (TotalFurniturePlacedInTutorial >= 8)
-            {
-                AdvanceToNextStep();
-            }
+            CheckCurrentStepCompletion(true);
         }
 
         public void NotifyBulkOrderPlaced()
@@ -356,28 +405,14 @@ namespace Farm2Shelf.Core
             if (CurrentStep != TutorialStep.Step7_PlaceWholesaleBulkOrder) return;
 
             DidPlaceBulkOrder = true;
-            OnTutorialProgressUpdated?.Invoke();
-            TutorialQuestTrackerUI.RefreshDisplay();
-
-            CheckStep7Completion();
+            CheckCurrentStepCompletion(true);
         }
 
         public void NotifyProductAssignedToShelf()
         {
             if (CurrentStep != TutorialStep.Step7_PlaceWholesaleBulkOrder) return;
 
-            OnTutorialProgressUpdated?.Invoke();
-            TutorialQuestTrackerUI.RefreshDisplay();
-
-            CheckStep7Completion();
-        }
-
-        private void CheckStep7Completion()
-        {
-            if (DidPlaceBulkOrder && GetMaxAssignedRowsOnAnyShelf() >= 4 && GetMaxAssignedRowsOnAnyFridge() >= 4)
-            {
-                AdvanceToNextStep();
-            }
+            CheckCurrentStepCompletion(true);
         }
 
         public int GetMaxAssignedRowsOnAnyShelf()
@@ -432,13 +467,7 @@ namespace Farm2Shelf.Core
             if (seedId.Contains("cucumber")) DidBuyCucumberSeed = true;
             if (seedId.Contains("lettuce")) DidBuyLettuceSeed = true;
 
-            OnTutorialProgressUpdated?.Invoke();
-            TutorialQuestTrackerUI.RefreshDisplay();
-
-            if (DidBuyTomatoSeed && DidBuyCucumberSeed && DidBuyLettuceSeed)
-            {
-                AdvanceToNextStep();
-            }
+            CheckCurrentStepCompletion(true);
         }
 
         public void NotifyCropPlanted(string seedId)
@@ -446,13 +475,7 @@ namespace Farm2Shelf.Core
             if (CurrentStep != TutorialStep.Step10_PlantSeedsAndOpenStore) return;
 
             CropsPlantedInTutorial++;
-            OnTutorialProgressUpdated?.Invoke();
-            TutorialQuestTrackerUI.RefreshDisplay();
-
-            if (CropsPlantedInTutorial >= 3 && DidOpenStoreInTutorial)
-            {
-                SetStep(TutorialStep.Completed);
-            }
+            CheckCurrentStepCompletion(true);
         }
 
         private void HandleStoreStatusChanged(bool isOpen)
@@ -460,13 +483,7 @@ namespace Farm2Shelf.Core
             if (isOpen && CurrentStep == TutorialStep.Step10_PlantSeedsAndOpenStore)
             {
                 DidOpenStoreInTutorial = true;
-                OnTutorialProgressUpdated?.Invoke();
-                TutorialQuestTrackerUI.RefreshDisplay();
-
-                if (CropsPlantedInTutorial >= 1)
-                {
-                    SetStep(TutorialStep.Completed);
-                }
+                CheckCurrentStepCompletion(true);
             }
         }
 
@@ -492,16 +509,16 @@ namespace Farm2Shelf.Core
         {
             if (StaffManager.Instance == null) return false;
             var staff = StaffManager.Instance.GetActiveStaff();
-            if (staff == null) return false;
-            return staff.Exists(s => s != null && s.shiftHours != null && s.shiftHours.Contains(keyword));
+            if (staff == null || staff.Count == 0) return false;
+            return staff.Exists(s => s != null && s.shiftHours != null && s.shiftHours.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0);
         }
 
         public bool HasFarmShift(string keyword)
         {
             if (StaffManager.Instance == null) return false;
             var staff = StaffManager.Instance.GetFarmStaffList();
-            if (staff == null) return false;
-            return staff.Exists(s => s != null && s.shiftHours != null && s.shiftHours.Contains(keyword));
+            if (staff == null || staff.Count == 0) return false;
+            return staff.Exists(s => s != null && s.shiftHours != null && s.shiftHours.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0);
         }
 
         public int GetBoughtCount(FurnitureType type)
@@ -545,6 +562,11 @@ namespace Farm2Shelf.Core
         public void RestoreTutorialStep(TutorialStep step)
         {
             CurrentStep = step;
+            if (CurrentStep == TutorialStep.Completed)
+            {
+                didShowCompletionModal = true;
+            }
+
             if (CurrentStep == TutorialStep.None || CurrentStep == TutorialStep.Completed)
             {
                 TutorialQuestTrackerUI.HideTracker();

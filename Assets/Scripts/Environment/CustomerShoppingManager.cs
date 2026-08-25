@@ -1547,6 +1547,13 @@ namespace Farm2Shelf.Environment
                         cData.vehicleObj.transform.position = cData.parkedSlotPos;
                         cData.vehicleObj.transform.rotation = Quaternion.Euler(0f, targetAngle, 0f);
 
+                        // Müşteri aracını otoparka park etti: Farları otomatik KAPAT!
+                        if (cData.vehicleObj != null)
+                        {
+                            VehicleHeadlightController hCtrl = cData.vehicleObj.GetComponent<VehicleHeadlightController>();
+                            if (hCtrl != null) hCtrl.SetHeadlightsActive(false);
+                        }
+
                         // Sürücü Araçtan İner (Sol otopark için sağa x=-33.5m, Sağ otopark için sola x=-20.5m otopark orta yolu tarafına):
                         Vector3 driverDoorPos = cData.parkedSlotPos + (isLeftSlot ? Vector3.right * 1.5f : Vector3.left * 1.5f);
                         if (cData.customerObj != null)
@@ -1569,6 +1576,14 @@ namespace Farm2Shelf.Environment
                     {
                         // Sürücü Arabaya Biner (Yalnızca ödemesini yapıp arabasına ulaştığında):
                         if (cData.customerObj != null) cData.customerObj.SetActive(false);
+
+                        // Müşteri arabasına bindi ve kontağı çalıştırdı: Farları otomatik YAK!
+                        if (cData.vehicleObj != null)
+                        {
+                            VehicleHeadlightController hCtrl = cData.vehicleObj.GetComponent<VehicleHeadlightController>();
+                            if (hCtrl != null) hCtrl.SetHeadlightsActive(true);
+                        }
+
                         cData.drivePhase = VehicleDrivePhase.ReversingOutSlot;
                     }
                     break;
@@ -2184,20 +2199,20 @@ namespace Farm2Shelf.Environment
                     DequeueCustomerFromCashier(cData);
                     ClearCarriedCartOnCustomer(cData);
 
-                    if (SocialMediaManager.Instance != null && Random.value < 0.35f && cData.totalItemsBought > 0)
+                    if (SocialMediaManager.Instance != null && Random.value < 0.40f)
                     {
                         string cName = cData.profileData != null ? cData.profileData.fullName : "Deniz Yıldız";
                         string cEmoji = cData.profileData != null ? cData.profileData.avatarEmoji : "🛒";
                         Color cColor = cData.profileData != null ? cData.profileData.avatarBgColor : new Color(0.20f, 0.60f, 0.85f);
                         bool isVIP = (cData.type.ToString().Contains("VIP") || cData.type.ToString().Contains("Fashion"));
-
                         string sName = SocialMediaManager.Instance.GetStoreName();
+
                         if (cData.totalItemsBought > 4)
                         {
+                            var (tr, en) = SocialMediaManager.Instance.GenerateMegaPraiseTweet(sName, cData.totalItemsBought);
                             SocialMediaManager.Instance.AddCustomerTweet(
                                 cName, cEmoji, cColor, isVIP, TweetSentiment.Praise,
-                                $"Bugün @{sName} dükkanından tam {cData.totalItemsBought} parça harika ürün aldım! Taptaze 🛒🌾",
-                                $"Just bought {cData.totalItemsBought} fresh items from @{sName}! Absolutely loving it 🛒🌾"
+                                tr, en
                             );
 
                             if (StoreQualityManager.Instance != null)
@@ -2205,18 +2220,27 @@ namespace Farm2Shelf.Environment
                                 StoreQualityManager.Instance.AddQualityScore(15, cData.customerObj.transform.position, "Sosyal Medya Övgüsü!");
                             }
                         }
-                        else
+                        else if (cData.totalItemsBought > 0)
                         {
+                            var (tr, en) = SocialMediaManager.Instance.GenerateStandardPraiseTweet(sName, cData.totalItemsBought);
                             SocialMediaManager.Instance.AddCustomerTweet(
                                 cName, cEmoji, cColor, isVIP, TweetSentiment.Praise,
-                                $"@{sName} dükkanına uğradım, reyonlar ve fiyatlar harika görünüyordu! 🌿👍",
-                                $"Stopped by @{sName}, shelves and prices were great! 🌿👍"
+                                tr, en
                             );
 
                             if (StoreQualityManager.Instance != null)
                             {
                                 StoreQualityManager.Instance.AddQualityScore(10, cData.customerObj.transform.position, "Müşteri Memnuniyeti!");
                             }
+                        }
+                        else
+                        {
+                            // Hiçbir şey alamayan veya eli boş çıkan müşteri şikayet twiti atsın (Kötü Yorum)
+                            var (tr, en) = SocialMediaManager.Instance.GenerateComplaintTweet(sName);
+                            SocialMediaManager.Instance.AddCustomerTweet(
+                                cName, cEmoji, cColor, isVIP, TweetSentiment.Complaint,
+                                tr, en
+                            );
                         }
                     }
 

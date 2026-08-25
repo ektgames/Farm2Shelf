@@ -48,7 +48,57 @@ namespace Farm2Shelf.Environment
             frontDoor = CreatePrimitive(busRoot, "Bus_Door_Front", PrimitiveType.Cube, new Vector3(1.16f, 1.3f, 2.6f), new Vector3(0.05f, 1.8f, 0.90f), chromeMat);
             rearDoor = CreatePrimitive(busRoot, "Bus_Door_Middle", PrimitiveType.Cube, new Vector3(1.16f, 1.3f, -1.2f), new Vector3(0.05f, 1.8f, 0.90f), chromeMat);
 
-            // 7. Otobüs Tekerlekleri (4 Adet Ağır Vasıta Tekerleği)
+            // 7. Ön Farlar ve Arka Stop Lambaları
+            Material hlMat = CreateMat(shader, new Color(1.0f, 0.98f, 0.85f), 0.0f, 0.9f);
+            Material tlMat = CreateMat(shader, new Color(0.90f, 0.15f, 0.15f), 0.0f, 0.8f);
+
+            GameObject hlL = CreatePrimitive(busRoot, "Headlight_L", PrimitiveType.Cube, new Vector3(-0.85f, 0.65f, 3.82f), new Vector3(0.38f, 0.22f, 0.06f), hlMat);
+            GameObject hlR = CreatePrimitive(busRoot, "Headlight_R", PrimitiveType.Cube, new Vector3(0.85f, 0.65f, 3.82f), new Vector3(0.38f, 0.22f, 0.06f), hlMat);
+
+            CreatePrimitive(busRoot, "Taillight_L", PrimitiveType.Cube, new Vector3(-0.85f, 0.65f, -3.82f), new Vector3(0.38f, 0.22f, 0.06f), tlMat);
+            CreatePrimitive(busRoot, "Taillight_R", PrimitiveType.Cube, new Vector3(0.85f, 0.65f, -3.82f), new Vector3(0.38f, 0.22f, 0.06f), tlMat);
+
+            // Gece Yanan Ön Far Işık Hüzmesi (Front SpotLights)
+            GameObject spotLObj = new GameObject("Bus_SpotLight_L");
+            spotLObj.transform.SetParent(busRoot.transform, false);
+            spotLObj.transform.localPosition = new Vector3(-0.85f, 0.65f, 3.9f);
+            spotLObj.transform.localRotation = Quaternion.Euler(10f, -4f, 0f);
+
+            Light spotL = spotLObj.AddComponent<Light>();
+            spotL.type = LightType.Spot;
+            spotL.color = new Color(1.0f, 0.96f, 0.82f);
+            spotL.intensity = 4.0f;
+            spotL.range = 18.0f;
+            spotL.spotAngle = 60f;
+            spotL.enabled = false;
+
+            GameObject spotRObj = new GameObject("Bus_SpotLight_R");
+            spotRObj.transform.SetParent(busRoot.transform, false);
+            spotRObj.transform.localPosition = new Vector3(0.85f, 0.65f, 3.9f);
+            spotRObj.transform.localRotation = Quaternion.Euler(10f, 4f, 0f);
+
+            Light spotR = spotRObj.AddComponent<Light>();
+            spotR.type = LightType.Spot;
+            spotR.color = new Color(1.0f, 0.96f, 0.82f);
+            spotR.intensity = 4.0f;
+            spotR.range = 18.0f;
+            spotR.spotAngle = 60f;
+            spotR.enabled = false;
+
+            VehicleHeadlightController ctrl = busRoot.AddComponent<VehicleHeadlightController>();
+            ctrl.spotLights.Add(spotL);
+            ctrl.spotLights.Add(spotR);
+            Renderer rL = hlL.GetComponent<Renderer>();
+            Renderer rR = hlR.GetComponent<Renderer>();
+            if (rL != null) ctrl.headlightRenderers.Add(rL);
+            if (rR != null) ctrl.headlightRenderers.Add(rR);
+
+            if (DayNightCycleManager.Instance != null)
+            {
+                DayNightCycleManager.Instance.RegisterVehicleHeadlightController(ctrl);
+            }
+
+            // 8. Otobüs Tekerlekleri (4 Adet Ağır Vasıta Tekerleği)
             Vector3[] wheelPositions = new Vector3[]
             {
                 new Vector3(-1.05f, 0.45f,  2.2f),

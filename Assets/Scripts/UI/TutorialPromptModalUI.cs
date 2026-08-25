@@ -13,6 +13,7 @@ namespace Farm2Shelf.UI
     public class TutorialPromptModalUI : MonoBehaviour
     {
         private static GameObject modalInstance;
+        public static bool IsPromptOpen => modalInstance != null && modalInstance.activeInHierarchy;
         private static Action onAcceptCallback;
         private static Action onDeclineCallback;
 

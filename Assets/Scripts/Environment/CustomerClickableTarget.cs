@@ -1,14 +1,10 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 using Farm2Shelf.UI;
 
 namespace Farm2Shelf.Environment
 {
-    /// <summary>
-    /// Müşteri 3D modellerine eklenen tıklama algılayıcı bileşen.
-    /// PC (Fare Tıklaması) ve Mobil (Dokunma) ile sorunsuzca çalışır.
-    /// Tıklandığında ekranın sol alt kısmında Müşteri Profil Kartı açılır.
-    /// </summary>
-    public class CustomerClickableTarget : MonoBehaviour
+    public class CustomerClickableTarget : MonoBehaviour, IPointerClickHandler
     {
         public CustomerProfileData profileData;
 
@@ -27,41 +23,17 @@ namespace Farm2Shelf.Environment
 
         private void Update()
         {
-            if (EKTPhoneManager.IsTabletOpen || ModalManager.IsModalOpen) return;
-
-            if (WasPointerPressedThisFrame() || Farm2Shelf.Utils.TouchInputHelper.IsCleanTapThisFrame(out _))
-            {
-                if (IsPointerOverUIButton()) return;
-
-                Camera mainCam = Camera.main;
-                if (mainCam == null) return;
-
-                Vector2 pointerPos = GetPointerPosition();
-                if (pointerPos == Vector2.zero) return;
-
-                Ray ray = mainCam.ScreenPointToRay(pointerPos);
-                RaycastHit[] hits = Physics.RaycastAll(ray, 100f);
-
-                if (hits != null && hits.Length > 0)
-                {
-                    System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-                    foreach (var h in hits)
-                    {
-                        if (h.collider == null) continue;
-                        CustomerClickableTarget target = h.collider.GetComponentInParent<CustomerClickableTarget>();
-                        if (target == null) target = h.collider.GetComponent<CustomerClickableTarget>();
-
-                        if (target == this)
-                        {
-                            OnCustomerClicked();
-                            break;
-                        }
-                    }
-                }
-            }
+            // Tıklama ve etkileşimler TouchInputHelper merkezi sistemi üzerinden yönetilir
         }
 
-        private void OnCustomerClicked()
+        public void OnPointerClick(PointerEventData eventData)
+        {
+            if (eventData != null && eventData.dragging) return;
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen) return;
+            OnCustomerClicked();
+        }
+
+        public void OnCustomerClicked()
         {
             if (profileData == null) return;
 

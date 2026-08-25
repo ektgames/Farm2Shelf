@@ -198,12 +198,44 @@ namespace Farm2Shelf.Core
             {
                 if (isValid)
                 {
-                    infoStatusText.text = $"🛠️ {def.name} Taşınıyor (Konum UYGUN ✅)\nEkrana dokunarak taşıyın | Paneldeki [✅ Kur] butonuna basın";
+                    string okMsg = LocalizationManager.L(
+                        "HUD_PosOK",
+                        $"🛠️ {def.LocalizedName} (Konum UYGUN ✅)\nEkrana dokunarak taşıyın | Paneldeki [✅ Kur] butonuna basın",
+                        $"🛠️ {def.LocalizedName} (Position VALID ✅)\nDrag on screen | Tap [✅ Assemble] to place"
+                    );
+                    infoStatusText.text = okMsg;
                     infoStatusText.color = Color.white;
+                }
+                else if (!isZoneValid)
+                {
+                    if (def.zone == FurnitureZone.StorageOnly)
+                    {
+                        string zoneMsg = LocalizationManager.L(
+                            "HUD_StorageOnlyErr",
+                            "⚠️ GEÇERSİZ BÖLGE! (Depo Rafı SADECE DEPO kısmına kurulabilir!)",
+                            "⚠️ INVALID ZONE! (Storage Shelf can ONLY be placed inside the WAREHOUSE!)"
+                        );
+                        infoStatusText.text = zoneMsg;
+                    }
+                    else
+                    {
+                        string zoneMsg = LocalizationManager.L(
+                            "HUD_StoreOnlyErr",
+                            "⚠️ GEÇERSİZ BÖLGE! (Bu mobilya SADECE DÜKKAN İÇİNE kurulabilir!)",
+                            "⚠️ INVALID ZONE! (This item can ONLY be placed inside the STORE INTERIOR!)"
+                        );
+                        infoStatusText.text = zoneMsg;
+                    }
+                    infoStatusText.color = new Color(1.0f, 0.45f, 0.45f);
                 }
                 else
                 {
-                    infoStatusText.text = $"⚠️ GEÇERSİZ KONUM! (Çakışma var!)\nBoş bir alana taşıyın | [🔄 Döndür] ile yön değiştirin";
+                    string overlapMsg = LocalizationManager.L(
+                        "HUD_OverlapErr",
+                        "⚠️ GEÇERSİZ KONUM! (Nesne veya duvarla çakışma var!)\n[🔄 Döndür] ile yön değiştirin veya boş alana taşıyın",
+                        "⚠️ INVALID POSITION! (Overlapping with object or wall!)\nTap [🔄 Rotate] or drag to clear space"
+                    );
+                    infoStatusText.text = overlapMsg;
                     infoStatusText.color = new Color(1.0f, 0.45f, 0.45f);
                 }
             }
@@ -220,7 +252,7 @@ namespace Farm2Shelf.Core
             {
                 ConfirmCurrentPlacement();
             }
-            else if (WasRightClicked() || WasCancelPressed())
+            else if (WasCancelPressed())
             {
                 CancelPlacement();
             }
@@ -233,8 +265,21 @@ namespace Farm2Shelf.Core
             isTouch = false;
 
 #if ENABLE_INPUT_SYSTEM
+            if (UnityEngine.InputSystem.EnhancedTouch.Touch.activeTouches.Count >= 2)
+            {
+                return false;
+            }
+
             if (UnityEngine.InputSystem.Touchscreen.current != null)
             {
+                var touches = UnityEngine.InputSystem.Touchscreen.current.touches;
+                int activeCount = 0;
+                for (int i = 0; i < touches.Count; i++)
+                {
+                    if (touches[i].press.isPressed) activeCount++;
+                }
+                if (activeCount >= 2) return false;
+
                 var touch = UnityEngine.InputSystem.Touchscreen.current.primaryTouch;
                 if (touch.press.isPressed)
                 {
@@ -253,20 +298,11 @@ namespace Farm2Shelf.Core
                     if (pointerPos.sqrMagnitude > 1f) return true;
                 }
             }
-
-            if (UnityEngine.InputSystem.Pointer.current != null)
-            {
-                if (UnityEngine.InputSystem.Pointer.current.press.isPressed)
-                {
-                    pointerPos = UnityEngine.InputSystem.Pointer.current.position.ReadValue();
-                    isTouch = false;
-                    if (pointerPos.sqrMagnitude > 1f) return true;
-                }
-            }
 #else
             try
             {
-                if (Input.touchCount > 0)
+                if (Input.touchCount >= 2) return false;
+                if (Input.touchCount == 1)
                 {
                     pointerPos = Input.GetTouch(0).position;
                     isTouch = true;
@@ -447,20 +483,26 @@ namespace Farm2Shelf.Core
             float storeDepth = (level == 1) ? 18.0f : ((level == 2) ? 27.0f : 36.0f);
             float storageDepth = (level == 1) ? 9.5f : ((level == 2) ? 14.5f : 19.5f);
 
-            if (zone == FurnitureZone.StoreOnly)
-            {
-                bool xValid = pos.x >= -12.5f && pos.x <= 2.5f;
-                bool zValid = pos.z >= -2.5f && pos.z <= (frontWallZ + storeDepth - 0.8f);
-                return xValid && zValid;
-            }
-            else if (zone == FurnitureZone.StorageOnly)
-            {
-                bool xValid = pos.x >= 3.5f && pos.x <= 10.5f;
-                bool zValid = pos.z >= -2.5f && pos.z <= (frontWallZ + storageDepth - 0.8f);
-                return xValid && zValid;
-            }
+            // DÜKKAN İÇİ (STORE): X: [-12.6, 2.6], Z: [-2.6, frontWallZ + storeDepth - 0.6]
+            bool inStoreX = pos.x >= -12.6f && pos.x <= 2.6f;
+            bool inStoreZ = pos.z >= -2.6f && pos.z <= (frontWallZ + storeDepth - 0.6f);
+            bool inStore = inStoreX && inStoreZ;
 
-            return false;
+            // DEPO ALANI (STORAGE): X: [3.4, 10.6], Z: [-2.6, frontWallZ + storageDepth - 0.6]
+            bool inStorageX = pos.x >= 3.4f && pos.x <= 10.6f;
+            bool inStorageZ = pos.z >= -2.6f && pos.z <= (frontWallZ + storageDepth - 0.6f);
+            bool inStorage = inStorageX && inStorageZ;
+
+            if (zone == FurnitureZone.StorageOnly)
+            {
+                // Depo Rafı: SADECE VE SADECE DEPO KISMINA KOYULABİLİR! (Dükkana, personel odasına veya dışarıya KESİNLİKLE koyulamaz)
+                return inStorage;
+            }
+            else
+            {
+                // Diğer Mobilyalar: SADECE VE SADECE DÜKKAN İÇİNE KOYULABİLİR! (Depoya veya personel odasına KESİNLİKLE koyulamaz)
+                return inStore;
+            }
         }
 
         public void RotatePlacement(float deltaAngle = 90f)
@@ -564,15 +606,15 @@ namespace Farm2Shelf.Core
             float width = isRotated ? size.y : size.x;
             float depth = isRotated ? size.x : size.y;
 
-            float halfW = (width / 2f) + 0.05f;
-            float halfD = (depth / 2f) + 0.05f;
+            float halfW = (width / 2f);
+            float halfD = (depth / 2f);
 
             Bounds ghostBounds = new Bounds(
                 new Vector3(pos.x, 0.9f, pos.z),
-                new Vector3(width - 0.04f, 1.8f, depth - 0.04f)
+                new Vector3(Mathf.Max(0.1f, width - 0.10f), 1.8f, Mathf.Max(0.1f, depth - 0.10f))
             );
 
-            // 1. DUVAR VE GEÇİŞ ALANI KONTROLLERİ
+            // 1. DUVAR VE ODA SINIRLARI KONTROLÜ
             EnvironmentBuilder env = EnvironmentBuilder.Instance;
             int level = (env != null) ? env.CurrentUpgradeLevel : 1;
             float frontWallZ = -3.0f;
@@ -581,157 +623,94 @@ namespace Farm2Shelf.Core
             float backWallZ = frontWallZ + storeDepth;
             float storageBackZ = frontWallZ + storageDepth;
 
-            FurnitureItemDef def = FurnitureDatabase.GetDef(type);
-            FurnitureZone zone = (def != null) ? def.zone : FurnitureZone.StoreOnly;
-
-            float minXEdge = pos.x - halfW;
-            float maxXEdge = pos.x + halfW;
-            float minZEdge = pos.z - halfD;
-            float maxZEdge = pos.z + halfD;
-
-            if (zone == FurnitureZone.StoreOnly)
-            {
-                float minX = -12.6f + halfW;
-                float maxX = 2.6f - halfW;
-                float minZ = -2.5f + halfD;
-                float maxZ = (backWallZ - 0.5f) - halfD;
-
-                if (pos.x < minX || pos.x > maxX || pos.z < minZ || pos.z > maxZ)
-                {
-                    return true;
-                }
-
-                // DUVARA YAKINLIK VE SIKIŞMA KONTROLÜ (ZORUNLU GEÇİŞ KORİDORU VEYA SIFIR YASLANMA):
-                // Karakterlerin mobilya ile duvar arasına sıkışmaması için:
-                // - Duvar ile mobilya arasında ya tam sıfır kalmalı (< 0.18m)
-                // - Ya da en az 0.95m yürüme koridoru boşluğu bulunmalıdır!
-                if (!PlacedFurnitureController.IsWalkableFloorDecoration(type))
-                {
-                    // Sol Duvar Sıkışma Kontrolü (x = -12.8f)
-                    float gapLeft = minXEdge - (-12.8f);
-                    if (gapLeft > 0.18f && gapLeft < 0.95f) return true;
-
-                    // Sağ Bölme Duvarı Sıkışma Kontrolü (x = 2.8f)
-                    float gapRight = 2.8f - maxXEdge;
-                    if (gapRight > 0.18f && gapRight < 0.95f) return true;
-
-                    // Arka Duvar Sıkışma Kontrolü (z = backWallZ - 0.2f)
-                    float gapBack = (backWallZ - 0.2f) - maxZEdge;
-                    if (gapBack > 0.18f && gapBack < 0.95f) return true;
-                }
-
-                // Ana Giriş Kapısı Koridoru
-                if (pos.z <= -1.6f && pos.x >= -6.8f && pos.x <= -3.2f)
-                {
-                    return true;
-                }
-            }
-            else if (zone == FurnitureZone.StorageOnly)
-            {
-                float minX = 3.4f + halfW;
-                float maxX = 10.6f - halfW;
-                float minZ = -2.5f + halfD;
-                float maxZ = (storageBackZ - 0.5f) - halfD;
-
-                if (pos.x < minX || pos.x > maxX || pos.z < minZ || pos.z > maxZ)
-                {
-                    return true;
-                }
-
-                if (!PlacedFurnitureController.IsWalkableFloorDecoration(type))
-                {
-                    // Depo Sol Duvar Sıkışma Kontrolü (x = 3.2f)
-                    float gapStorageLeft = minXEdge - 3.2f;
-                    if (gapStorageLeft > 0.18f && gapStorageLeft < 0.95f) return true;
-
-                    // Depo Sağ Duvar Sıkışma Kontrolü (x = 10.8f)
-                    float gapStorageRight = 10.8f - maxXEdge;
-                    if (gapStorageRight > 0.18f && gapStorageRight < 0.95f) return true;
-
-                    // Depo Arka Duvar Sıkışma Kontrolü
-                    float gapStorageBack = (storageBackZ - 0.2f) - maxZEdge;
-                    if (gapStorageBack > 0.18f && gapStorageBack < 0.95f) return true;
-                }
-
-                if (pos.x <= 4.4f && pos.z >= -0.2f && pos.z <= 4.0f)
-                {
-                    return true;
-                }
-            }
-
-            // 2. MEVCUT YERLEŞTİRİLMİŞ TÜM MOBİLYALAR / DEKORASYONLAR İLE ÇAKIŞMA VE DAR SIKIŞMA KORİDORU KONTROLÜ
-            bool isCurrentWalkable = PlacedFurnitureController.IsWalkableFloorDecoration(type);
-            var placedFurniture = PlacedFurnitureController.AllPlacedFurniture;
-            int count = placedFurniture.Count;
-
-            for (int i = 0; i < count; i++)
-            {
-                var f = placedFurniture[i];
-                if (f == null) continue;
-
-                if (isReinstalling && Vector3.Distance(f.transform.position, originalReplacementPos) < 0.2f)
-                {
-                    continue;
-                }
-
-                Vector2 fFootprint = GetFurnitureFootprintSize(f.FurnitureType);
-                float fAngleRad = f.transform.eulerAngles.y * Mathf.Deg2Rad;
-                bool fRotated = (Mathf.Abs(Mathf.Sin(fAngleRad)) > 0.5f);
-                float fW = fRotated ? fFootprint.y : fFootprint.x;
-                float fD = fRotated ? fFootprint.x : fFootprint.y;
-
-                float fMinX = f.transform.position.x - fW / 2f;
-                float fMaxX = f.transform.position.x + fW / 2f;
-                float fMinZ = f.transform.position.z - fD / 2f;
-                float fMaxZ = f.transform.position.z + fD / 2f;
-
-                Bounds existingBounds = new Bounds(
-                    new Vector3(f.transform.position.x, 0.9f, f.transform.position.z),
-                    new Vector3(fW - 0.04f, 1.8f, fD - 0.04f)
-                );
-
-                BoxCollider bCol = f.GetComponent<BoxCollider>();
-                if (bCol != null)
-                {
-                    existingBounds = bCol.bounds;
-                    existingBounds.center = new Vector3(existingBounds.center.x, 0.9f, existingBounds.center.z);
-                    existingBounds.size = new Vector3(existingBounds.size.x - 0.04f, 1.8f, existingBounds.size.z - 0.04f);
-                    fMinX = existingBounds.min.x;
-                    fMaxX = existingBounds.max.x;
-                    fMinZ = existingBounds.min.z;
-                    fMaxZ = existingBounds.max.z;
-                }
-
-                // A. Doğrudan Gövde Çakışması (Overlap) Kontrolü
-                if (ghostBounds.Intersects(existingBounds))
-                {
-                    return true;
-                }
-
-                // B. İki Katı Mobilya Arasındaki Dar Sıkışma Koridoru Kontrolü (0.18m ile 0.88m Arasındaki Dar Boşluklar YASAK!):
-                if (!isCurrentWalkable && !PlacedFurnitureController.IsWalkableFloorDecoration(f.FurnitureType))
-                {
-                    float gapX = Mathf.Max(0f, Mathf.Max(minXEdge - fMaxX, fMinX - maxXEdge));
-                    float gapZ = Mathf.Max(0f, Mathf.Max(minZEdge - fMaxZ, fMinZ - maxZEdge));
-
-                    bool isXAligned = (minZEdge < fMaxZ && maxZEdge > fMinZ);
-                    bool isZAligned = (minXEdge < fMaxX && maxXEdge > fMinX);
-
-                    if (isXAligned && gapX > 0.18f && gapX < 0.88f)
-                    {
-                        return true;
-                    }
-                    if (isZAligned && gapZ > 0.18f && gapZ < 0.88f)
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            // 3. KAPI VEYA OK YÖNÜ KORİDOR GEÇİŞİ TIKALI MI?
-            if (IsFrontOrDoorwayBlocked(pos, rotationY, type))
+            // Ara bölme duvarı (X: 2.85 .. 3.15 arası)
+            if (pos.x + halfW > 2.85f && pos.x - halfW < 3.15f)
             {
                 return true;
+            }
+
+            // Personel odası ara bölme duvarı (Z: storageBackZ - 0.25 .. storageBackZ + 0.25 arası ve X > 3.0)
+            if (pos.x > 3.0f && pos.z + halfD > storageBackZ - 0.25f && pos.z - halfD < storageBackZ + 0.25f)
+            {
+                return true;
+            }
+
+            if (pos.x <= 2.85f)
+            {
+                // MAĞAZA ALANI SINIRLARI
+                float minX = -12.6f + halfW;
+                float maxX = 2.6f - halfW;
+                float minZ = -2.6f + halfD;
+                float maxZ = (backWallZ - 0.4f) - halfD;
+
+                if (pos.x < minX || pos.x > maxX || pos.z < minZ || pos.z > maxZ)
+                {
+                    return true;
+                }
+
+                // Ana Dış Giriş Kapısı Ağzı (Geçişi tıkamamak için: X: -5.8 .. -4.2, Z: <= -1.8)
+                if (pos.z <= -1.8f && pos.x >= -5.8f && pos.x <= -4.2f)
+                {
+                    return true;
+                }
+            }
+            else if (pos.x >= 3.15f)
+            {
+                // DEPO / PERSONEL ALANI SINIRLARI
+                float minX = 3.4f + halfW;
+                float maxX = 10.6f - halfW;
+                float minZ = -2.6f + halfD;
+                float maxZ = (backWallZ - 0.4f) - halfD;
+
+                if (pos.x < minX || pos.x > maxX || pos.z < minZ || pos.z > maxZ)
+                {
+                    return true;
+                }
+
+                // Depo İçi Geçiş Kapısı Ağzı (X: 3.4..4.0, Z: 1.0..3.0)
+                if (pos.x <= 4.0f && pos.z >= 1.0f && pos.z <= 3.0f)
+                {
+                    return true;
+                }
+            }
+            else
+            {
+                return true;
+            }
+
+            // 2. MEVCUT YERLEŞTİRİLMİŞ MOBİLYALARLA ÇAKIŞMA (BOUNDS INTERSECTION)
+            if (!PlacedFurnitureController.IsWalkableFloorDecoration(type))
+            {
+                var placedFurniture = PlacedFurnitureController.AllPlacedFurniture;
+                int count = placedFurniture.Count;
+
+                for (int i = 0; i < count; i++)
+                {
+                    var f = placedFurniture[i];
+                    if (f == null) continue;
+                    if (PlacedFurnitureController.IsWalkableFloorDecoration(f.FurnitureType)) continue;
+
+                    if (isReinstalling && Vector3.Distance(f.transform.position, originalReplacementPos) < 0.2f)
+                    {
+                        continue;
+                    }
+
+                    Vector2 fFootprint = GetFurnitureFootprintSize(f.FurnitureType);
+                    float fAngleRad = f.transform.eulerAngles.y * Mathf.Deg2Rad;
+                    bool fRotated = (Mathf.Abs(Mathf.Sin(fAngleRad)) > 0.5f);
+                    float fW = fRotated ? fFootprint.y : fFootprint.x;
+                    float fD = fRotated ? fFootprint.x : fFootprint.y;
+
+                    Bounds existingBounds = new Bounds(
+                        new Vector3(f.transform.position.x, 0.9f, f.transform.position.z),
+                        new Vector3(Mathf.Max(0.1f, fW - 0.10f), 1.8f, Mathf.Max(0.1f, fD - 0.10f))
+                    );
+
+                    if (ghostBounds.Intersects(existingBounds))
+                    {
+                        return true;
+                    }
+                }
             }
 
             return false;
@@ -739,66 +718,6 @@ namespace Farm2Shelf.Core
 
         public bool IsFrontOrDoorwayBlocked(Vector3 pos, float rotationY, FurnitureType type)
         {
-            if (PlacedFurnitureController.IsWalkableFloorDecoration(type)) return false;
-
-            Vector3 frontDir = Quaternion.Euler(0f, rotationY, 0f) * Vector3.forward;
-            float checkDist = 0.5f; // Ok yönü hafif mesafe kontrolü
-            Vector3 frontCheckPos = pos + frontDir * checkDist;
-
-            // A. Kapı Önleri Geçiş Koridoru (Dükkan Ana Girişi Tam Önü)
-            // Ana Kapı Geçiş Yolu (-6.0f ile -4.0f arası, z <= -1.2f)
-            if (pos.x >= -6.0f && pos.x <= -4.0f && pos.z <= -1.2f)
-            {
-                return true;
-            }
-
-            // B. Depo Kapı Geçiş Yolu (x: 2.2f - 4.2f, z: 0.0f - 3.5f)
-            if (pos.x >= 2.2f && pos.x <= 4.2f && pos.z >= 0.0f && pos.z <= 3.5f)
-            {
-                return true;
-            }
-
-            // C. Diğer Mobilyaların Ön Ok Yönüne / Gövdesine Çakışma Kontrolü
-            var allFurniture = PlacedFurnitureController.AllPlacedFurniture;
-            int fCount = allFurniture.Count;
-            for (int i = 0; i < fCount; i++)
-            {
-                var f = allFurniture[i];
-                if (f == null) continue;
-                if (PlacedFurnitureController.IsWalkableFloorDecoration(f.FurnitureType)) continue;
-
-                if (isReinstalling && Vector3.Distance(f.transform.position, originalReplacementPos) < 0.2f)
-                {
-                    continue;
-                }
-
-                // Sırt Sırta Koyma İstisnası:
-                // Eğer iki raf sırt sırta bakıyorsa (yani bu rafın ön ok yönü diğer rafın arkasına denk gelmiyorsa), sırt sırta koymaya izin verilir.
-                Vector2 fFootprint = GetFurnitureFootprintSize(f.FurnitureType);
-                float fAngleRad = f.transform.eulerAngles.y * Mathf.Deg2Rad;
-                bool fRotated = (Mathf.Abs(Mathf.Sin(fAngleRad)) > 0.5f);
-                float fW = fRotated ? fFootprint.y : fFootprint.x;
-                float fD = fRotated ? fFootprint.x : fFootprint.y;
-
-                Bounds fBodyBounds = new Bounds(
-                    new Vector3(f.transform.position.x, 0.9f, f.transform.position.z),
-                    new Vector3(fW - 0.10f, 1.8f, fD - 0.10f)
-                );
-
-                if (fBodyBounds.Contains(new Vector3(frontCheckPos.x, 0.9f, frontCheckPos.z)))
-                {
-                    // Ok yönü doğrudan diğer rafın gövdesine basıyor ve geçiş koridorunu tıkıyorsa engelle!
-                    Vector3 otherFrontDir = f.transform.forward;
-                    float dotDir = Vector3.Dot(frontDir, otherFrontDir);
-
-                    // Eğer zıt yöne (sırt sırta) bakmıyorlarsa engelle!
-                    if (dotDir > -0.7f)
-                    {
-                        return true;
-                    }
-                }
-            }
-
             return false;
         }
 
@@ -891,6 +810,15 @@ namespace Farm2Shelf.Core
             if (isZoneValid && !isOverlapping)
             {
                 ConfirmPlacement(pos, rot);
+            }
+            else if (!isZoneValid)
+            {
+                string warnTitle = LocalizationManager.L("Modal_InvalidZone_Title", "Geçersiz Bölge! ⚠️", "Invalid Placement Zone! ⚠️");
+                string warnBody = (def != null && def.zone == FurnitureZone.StorageOnly)
+                    ? LocalizationManager.L("Modal_StorageOnly_Body", "Depo rafları SADECE VE SADECE DEPO kısmına yerleştirilebilir!\n\nLütfen mobilyayı depo alanına taşıyın.", "Storage racks can ONLY be placed inside the STORAGE / WAREHOUSE room!\n\nPlease move it inside the storage area.")
+                    : LocalizationManager.L("Modal_StoreOnly_Body", "Bu mobilya SADECE VE SADECE DÜKKAN İÇİNE yerleştirilebilir!\n\nDepoya veya personel odasına yerleştirilemez.", "This furniture can ONLY be placed inside the STORE INTERIOR!\n\nIt cannot be placed in the warehouse or staff room.");
+                string btnOk = LocalizationManager.L("Btn_OK", "Tamam", "OK");
+                ModalManager.ShowModal(warnTitle, warnBody, btnOk);
             }
             else
             {

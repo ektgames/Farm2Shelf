@@ -49,10 +49,30 @@ namespace Farm2Shelf.UI
 
         private void Update()
         {
-            if (IsBarnModalOpen && Input.GetKeyDown(KeyCode.Escape))
+            if (IsBarnModalOpen && WasEscapePressed())
             {
                 HideModal();
             }
+        }
+
+        private bool WasEscapePressed()
+        {
+#if ENABLE_INPUT_SYSTEM
+            if (UnityEngine.InputSystem.Keyboard.current != null && UnityEngine.InputSystem.Keyboard.current.escapeKey.wasPressedThisFrame)
+            {
+                return true;
+            }
+            return false;
+#else
+            try
+            {
+                return Input.GetKeyDown(KeyCode.Escape);
+            }
+            catch
+            {
+                return false;
+            }
+#endif
         }
 
         private void HandleLanguageChanged(GameLanguage lang)

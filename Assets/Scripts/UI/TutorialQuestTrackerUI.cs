@@ -3,6 +3,7 @@ using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
 using Farm2Shelf.Core;
+using Farm2Shelf.Environment;
 
 namespace Farm2Shelf.UI
 {
@@ -260,11 +261,16 @@ namespace Farm2Shelf.UI
             pTxt.color = new Color(0.96f, 0.96f, 0.96f);
 
             // 4. Alt Butonlar (Devam Et & Eğitimi Geç)
-            bool showNextBtn = (step == TutorialStep.Step1_CameraControls || step == TutorialStep.Step2_ExploreTabletApps);
+            bool isStepDone = (TutorialManager.Instance != null && TutorialManager.Instance.IsCurrentStepComplete());
+            bool showNextBtn = isStepDone || (step == TutorialStep.Step1_CameraControls || step == TutorialStep.Step2_ExploreTabletApps);
 
             if (showNextBtn)
             {
-                CreateActionButton(cardObj.transform, new Vector2(-95f, 25f), new Vector2(175f, 40f), "Devam ▶", "Next ▶", new Color(0.20f, 0.80f, 0.45f), font, 15, () => {
+                string nextBtnTr = isStepDone ? "Görevi Tamamla ▶" : "Devam ▶";
+                string nextBtnEn = isStepDone ? "Complete Quest ▶" : "Next ▶";
+                Color nextBtnColor = isStepDone ? new Color(0.12f, 0.85f, 0.45f) : new Color(0.20f, 0.70f, 0.40f);
+
+                CreateActionButton(cardObj.transform, new Vector2(-95f, 25f), new Vector2(175f, 40f), nextBtnTr, nextBtnEn, nextBtnColor, font, 15, () => {
                     TutorialManager.Instance.AdvanceToNextStep();
                 });
             }
@@ -505,8 +511,8 @@ namespace Farm2Shelf.UI
                 case TutorialStep.Step8_HireFarmStaffAndShifts:
                     return LocalizationManager.L(
                         "Tut_S8_Inst",
-                        "Tablette <b>Çiftlik ➔ İşe Alım</b> sekmesinden <b>3 Çiftçi</b> işe al. Ardından <b>Vardiyalar</b> sekmesinden çiftçileri Sabah (08:00 - 16:00) ve Akşam (16:00 - 24:00) vardiyalarına dağıt.",
-                        "In Tablet <b>Farm ➔ Hire Staff</b>, hire <b>3 Farmers</b>. Then in <b>Shifts</b>, assign them across Morning (08:00 - 16:00) and Evening (16:00 - 24:00) shifts."
+                        "Tablette <b>Çiftlik ➔ İşe Alım</b> sekmesinden <b>2 Çiftçi</b> işe al. Ardından <b>Vardiyalar</b> sekmesinden çiftçileri Sabah (08:00 - 16:00) ve Akşam (16:00 - 24:00) vardiyalarına dağıt.",
+                        "In Tablet <b>Farm ➔ Hire Staff</b>, hire <b>2 Farmers</b>. Then in <b>Shifts</b>, assign them across Morning (08:00 - 16:00) and Evening (16:00 - 24:00) shifts."
                     );
 
                 case TutorialStep.Step9_BuyStartingSeeds:
@@ -560,8 +566,8 @@ namespace Farm2Shelf.UI
                     return $"• {cStr}\n• {rStr}\n• {early}";
 
                 case TutorialStep.Step4_AssignStoreShifts:
-                    bool shMorn = tm.HasStoreShift("Sabah") || tm.HasStoreShift("Gündüz") || tm.HasStoreShift("08:00") || tm.HasStoreShift("06:00");
-                    bool shEve = tm.HasStoreShift("Akşam") || tm.HasStoreShift("16:00") || tm.HasStoreShift("14:00");
+                    bool shMorn = tm.HasStoreShift("Sabah") || tm.HasStoreShift("Gündüz") || tm.HasStoreShift("08:00") || tm.HasStoreShift("06:00") || tm.HasStoreShift("Morning");
+                    bool shEve = tm.HasStoreShift("Akşam") || tm.HasStoreShift("16:00") || tm.HasStoreShift("14:00") || tm.HasStoreShift("Gece") || tm.HasStoreShift("22:00") || tm.HasStoreShift("Evening");
                     string sHeader = (shMorn && shEve) 
                         ? "<color=#00FFA3>✅ [✓] Personel Vardiyalarını Ayarla (Tamamlandı)</color>" 
                         : "<color=#FFD700>⏳ [ ] Personellerin Vardiyalarını Ayarla</color>";
@@ -583,8 +589,9 @@ namespace Farm2Shelf.UI
                     return $"• {tSh}  • {tCs}\n• {tSt}  • {tCa}\n• {tFr}";
 
                 case TutorialStep.Step6_UnpackAndPlaceFurniture:
-                    int placed = tm.TotalFurniturePlacedInTutorial;
-                    string plStr = (placed >= 8) ? $"<color=#00FFA3>✅ [✓] Mobilya Kurulumu Tamamlandı! ({placed}/10)</color>" : $"<color=#FFD700>⏳ [ ] Teslimat Paletindeki Mobilyaları Kur ({placed}/10)</color>";
+                    int placedFurnitureCount = PlacedFurnitureController.AllPlacedFurniture != null ? PlacedFurnitureController.AllPlacedFurniture.Count : 0;
+                    int placed = Mathf.Max(tm.TotalFurniturePlacedInTutorial, placedFurnitureCount);
+                    string plStr = (placed >= 8) ? $"<color=#00FFA3>✅ [✓] Mobilya Kurulumu Tamamlandı! ({placed}/8)</color>" : $"<color=#FFD700>⏳ [ ] Teslimat Paletindeki Mobilyaları Kur ({placed}/8)</color>";
                     return $"• {plStr}\n<color=#8EE2FF>Kutulara tıklayıp mağaza içine ve depoya yerleştir.</color>";
 
                 case TutorialStep.Step7_PlaceWholesaleBulkOrder:
@@ -597,22 +604,27 @@ namespace Farm2Shelf.UI
 
                 case TutorialStep.Step8_HireFarmStaffAndShifts:
                     int farm = tm.GetFarmRoleCount(StaffRole.Çiftçi);
-                    string fStr2 = (farm >= 3) ? $"<color=#00FFA3>✅ [✓] 3 Çiftçi İşe Alındı ({farm}/3)</color>" : $"<color=#FFD700>⏳ [ ] 3 Çiftçi İşe Al ({farm}/3)</color>";
-                    bool fMorn = tm.HasFarmShift("Sabah") || tm.HasFarmShift("Gündüz") || tm.HasFarmShift("08:00") || tm.HasFarmShift("06:00");
-                    bool fEve = tm.HasFarmShift("Akşam") || tm.HasFarmShift("16:00") || tm.HasFarmShift("14:00");
+                    string fStr2 = (farm >= 2) ? $"<color=#00FFA3>✅ [✓] 2 Çiftçi İşe Alındı ({farm}/2)</color>" : $"<color=#FFD700>⏳ [ ] 2 Çiftçi İşe Al ({farm}/2)</color>";
+                    bool fMorn = tm.HasFarmShift("Sabah") || tm.HasFarmShift("Gündüz") || tm.HasFarmShift("08:00") || tm.HasFarmShift("06:00") || tm.HasFarmShift("Morning");
+                    bool fEve = tm.HasFarmShift("Akşam") || tm.HasFarmShift("16:00") || tm.HasFarmShift("14:00") || tm.HasFarmShift("Gece") || tm.HasFarmShift("22:00") || tm.HasFarmShift("Evening");
                     string fSh = (fMorn && fEve) ? "<color=#00FFA3>✅ [✓] Çiftlik Vardiyaları Düzenlendi (Sabah 08-16 / Akşam 16-24)</color>" : "<color=#FFD700>⏳ [ ] Çiftçileri Sabah ve Akşam Vardiyalarına Dağıt</color>";
                     return $"• {fStr2}\n• {fSh}";
 
                 case TutorialStep.Step9_BuyStartingSeeds:
-                    string st1 = tm.DidBuyTomatoSeed ? "<color=#00FFA3>✅ [✓] 1x Domates Tohumu 🍅</color>" : "<color=#FFD700>⏳ [ ] 1x Domates Tohumu 🍅</color>";
-                    string st2 = tm.DidBuyCucumberSeed ? "<color=#00FFA3>✅ [✓] 1x Salatalık Tohumu 🥒</color>" : "<color=#FFD700>⏳ [ ] 1x Salatalık Tohumu 🥒</color>";
-                    string st3 = tm.DidBuyLettuceSeed ? "<color=#00FFA3>✅ [✓] 1x Marul Tohumu 🥬</color>" : "<color=#FFD700>⏳ [ ] 1x Marul Tohumu 🥬</color>";
+                    bool hasTomato = tm.DidBuyTomatoSeed || (GardenSeedInventoryManager.Instance != null && GardenSeedInventoryManager.Instance.GetSeedCount("tomato") > 0);
+                    bool hasCucumber = tm.DidBuyCucumberSeed || (GardenSeedInventoryManager.Instance != null && GardenSeedInventoryManager.Instance.GetSeedCount("cucumber") > 0);
+                    bool hasLettuce = tm.DidBuyLettuceSeed || (GardenSeedInventoryManager.Instance != null && GardenSeedInventoryManager.Instance.GetSeedCount("lettuce") > 0);
+                    string st1 = hasTomato ? "<color=#00FFA3>✅ [✓] 1x Domates Tohumu 🍅</color>" : "<color=#FFD700>⏳ [ ] 1x Domates Tohumu 🍅</color>";
+                    string st2 = hasCucumber ? "<color=#00FFA3>✅ [✓] 1x Salatalık Tohumu 🥒</color>" : "<color=#FFD700>⏳ [ ] 1x Salatalık Tohumu 🥒</color>";
+                    string st3 = hasLettuce ? "<color=#00FFA3>✅ [✓] 1x Marul Tohumu 🥬</color>" : "<color=#FFD700>⏳ [ ] 1x Marul Tohumu 🥬</color>";
                     return $"• {st1}\n• {st2}\n• {st3}";
 
                 case TutorialStep.Step10_PlantSeedsAndOpenStore:
-                    int cp = tm.CropsPlantedInTutorial;
-                    string cpStr = (cp >= 3) ? $"<color=#00FFA3>✅ [✓] 3 Tarla Parseline Ekim Yapıldı ({cp}/3)</color>" : $"<color=#FFD700>⏳ [ ] Tarlaya Tohumları Ek ({cp}/3 Parsel)</color>";
-                    string op = tm.DidOpenStoreInTutorial ? "<color=#00FFA3>✅ [✓] Dükkan Müşterilere Açıldı 🟢</color>" : "<color=#FFD700>⏳ [ ] Üstteki DÜKKANI AÇ Butonuna Bas</color>";
+                    int plantedPlots = FieldPlotController.AllPlots != null ? FieldPlotController.AllPlots.FindAll(p => p != null && p.State != PlotState.Empty).Count : 0;
+                    int cp = Mathf.Max(tm.CropsPlantedInTutorial, plantedPlots);
+                    bool isStoreOpen = tm.DidOpenStoreInTutorial || (StoreStatusManager.Instance != null && StoreStatusManager.Instance.IsOpen);
+                    string cpStr = (cp >= 1) ? $"<color=#00FFA3>✅ [✓] Tarla Parseline Ekim Yapıldı ({cp})</color>" : $"<color=#FFD700>⏳ [ ] Tarlaya Tohumları Ek</color>";
+                    string op = isStoreOpen ? "<color=#00FFA3>✅ [✓] Dükkan Müşterilere Açıldı 🟢</color>" : "<color=#FFD700>⏳ [ ] Üstteki DÜKKANI AÇ Butonuna Bas</color>";
                     return $"• {cpStr}\n• {op}";
 
                 default:
