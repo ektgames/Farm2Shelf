@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using Farm2Shelf.Core;
 using Farm2Shelf.Environment;
+using Farm2Shelf.CameraSystem;
 
 namespace Farm2Shelf.UI
 {
@@ -28,6 +29,13 @@ namespace Farm2Shelf.UI
         private Transform farmAppView;
         private Transform shoppingAppView;
         private Transform socialMediaAppView;
+        private Transform workshopsAppView;
+        private Transform workshopUpgradeContent;
+        private Transform workshopManagementViewportObj;
+        private Transform workshopMachinesContent;
+        private Transform workshopMachinesViewportObj;
+        private int activeWorkshopTab = 0; // 0: Atölye Binası (Geliştirme), 1: Makine Yönetimi
+        private float lastWorkshopLiveRefreshTime = 0f;
         private Transform socialMediaFeedContent;
         private int activeSocialTab = 0; // 0: Sana Özel (For You), 1: Yorumlar (Reviews), 2: Profilim (My Tweets)
         private Text socialProfileCardTxt;
@@ -193,6 +201,7 @@ namespace Farm2Shelf.UI
             }
 
             EnvironmentBuilder.OnStoreUpgraded += (lvl) => RefreshStoreManagementViews();
+            WorkshopManager.OnWorkshopUpgraded += (lvl) => RefreshWorkshopsViews();
 
             if (LocalizationManager.Instance != null)
             {
@@ -216,12 +225,14 @@ namespace Farm2Shelf.UI
             else if (shoppingAppView != null && shoppingAppView.gameObject.activeSelf) activeApp = 3;
             else if (financeAppView != null && financeAppView.gameObject.activeSelf) activeApp = 4;
             else if (socialMediaAppView != null && socialMediaAppView.gameObject.activeSelf) activeApp = 5;
+            else if (workshopsAppView != null && workshopsAppView.gameObject.activeSelf) activeApp = 6;
 
             int curFarmTab = activeFarmTab;
             int curStoreTab = activeTab;
             int curFinanceTab = activeFinanceTab;
             int curShoppingCat = activeShoppingCategory;
             int curSocialTab = activeSocialTab;
+            int curWorkshopTab = activeWorkshopTab;
 
             if (tabletPopupRoot != null)
             {
@@ -233,6 +244,9 @@ namespace Farm2Shelf.UI
                 farmAppView = null;
                 shoppingAppView = null;
                 socialMediaAppView = null;
+                workshopsAppView = null;
+                workshopUpgradeContent = null;
+                workshopManagementViewportObj = null;
             }
 
             CreateBottomRightPhoneButtonOnCanvas();
@@ -266,6 +280,11 @@ namespace Farm2Shelf.UI
                         ShowSocialMediaApp();
                         activeSocialTab = curSocialTab;
                         RefreshSocialMediaViews();
+                        break;
+                    case 6:
+                        ShowWorkshopsApp();
+                        activeWorkshopTab = curWorkshopTab;
+                        RefreshWorkshopsViews();
                         break;
                     default:
                         ShowHomeScreen();
@@ -609,6 +628,7 @@ namespace Farm2Shelf.UI
             CreateShoppingAppView(screenObj.transform);
             CreateFinanceAppView(screenObj.transform);
             CreateSocialMediaAppView(screenObj.transform);
+            CreateWorkshopsAppView(screenObj.transform);
 
             // Kırmızı X Kapat Butonunu KESİNLİKLE En Üst Katmana Çıkar
             EnsureCloseButtonOnTop();
@@ -683,18 +703,20 @@ namespace Farm2Shelf.UI
                 LocalizationManager.L("App_Farm", "ÇİFTLİK", "FARM MGMT"),
                 LocalizationManager.L("App_Shopping", "ALIŞVERİŞ", "EKT SHOPPING"),
                 LocalizationManager.L("App_Finance", "FİNANS", "FINANCE"),
-                LocalizationManager.L("App_SocialMedia", "SOSYAL MEDYA", "SOCIAL MEDIA")
+                LocalizationManager.L("App_SocialMedia", "SOSYAL MEDYA", "SOCIAL MEDIA"),
+                LocalizationManager.L("App_Workshops", "ATÖLYELER", "WORKSHOPS")
             };
-            string[] appIcons = new string[] { "🛒", "🌾", "🛍️", "💳", "𝕏" };
+            string[] appIcons = new string[] { "🛒", "🌾", "🛍️", "💳", "𝕏", "🏭" };
             Color[] appColors = new Color[] {
                 new Color(0.20f, 0.70f, 0.95f),
                 new Color(0.25f, 0.85f, 0.40f),
                 new Color(0.95f, 0.40f, 0.55f),
                 new Color(0.75f, 0.35f, 0.95f),
-                new Color(0.12f, 0.65f, 0.95f)
+                new Color(0.12f, 0.65f, 0.95f),
+                new Color(0.95f, 0.60f, 0.15f)
             };
 
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < 6; i++)
             {
                 GameObject appObj = new GameObject("App_" + appNames[i]);
                 appObj.transform.SetParent(appsContainer.transform, false);
@@ -713,6 +735,7 @@ namespace Farm2Shelf.UI
                     else if (appIndex == 2) ShowShoppingApp();
                     else if (appIndex == 3) ShowFinanceApp();
                     else if (appIndex == 4) ShowSocialMediaApp();
+                    else if (appIndex == 5) ShowWorkshopsApp();
                 });
 
                 GameObject iconObj = new GameObject("Icon");
@@ -1510,6 +1533,7 @@ namespace Farm2Shelf.UI
             if (farmAppView != null) farmAppView.gameObject.SetActive(false);
             if (shoppingAppView != null) shoppingAppView.gameObject.SetActive(false);
             if (socialMediaAppView != null) socialMediaAppView.gameObject.SetActive(false);
+            if (workshopsAppView != null) workshopsAppView.gameObject.SetActive(false);
             EnsureCloseButtonOnTop();
         }
 
@@ -1519,6 +1543,8 @@ namespace Farm2Shelf.UI
             if (financeAppView != null) financeAppView.gameObject.SetActive(false);
             if (farmAppView != null) farmAppView.gameObject.SetActive(false);
             if (shoppingAppView != null) shoppingAppView.gameObject.SetActive(false);
+            if (socialMediaAppView != null) socialMediaAppView.gameObject.SetActive(false);
+            if (workshopsAppView != null) workshopsAppView.gameObject.SetActive(false);
             if (storeMgmtAppView != null) storeMgmtAppView.gameObject.SetActive(true);
 
             activeTab = 0;
@@ -1532,6 +1558,8 @@ namespace Farm2Shelf.UI
             if (storeMgmtAppView != null) storeMgmtAppView.gameObject.SetActive(false);
             if (farmAppView != null) farmAppView.gameObject.SetActive(false);
             if (shoppingAppView != null) shoppingAppView.gameObject.SetActive(false);
+            if (socialMediaAppView != null) socialMediaAppView.gameObject.SetActive(false);
+            if (workshopsAppView != null) workshopsAppView.gameObject.SetActive(false);
             if (financeAppView != null) financeAppView.gameObject.SetActive(true);
 
             activeFinanceTab = 0;
@@ -1545,6 +1573,8 @@ namespace Farm2Shelf.UI
             if (storeMgmtAppView != null) storeMgmtAppView.gameObject.SetActive(false);
             if (financeAppView != null) financeAppView.gameObject.SetActive(false);
             if (shoppingAppView != null) shoppingAppView.gameObject.SetActive(false);
+            if (socialMediaAppView != null) socialMediaAppView.gameObject.SetActive(false);
+            if (workshopsAppView != null) workshopsAppView.gameObject.SetActive(false);
             if (farmAppView != null) farmAppView.gameObject.SetActive(true);
 
             activeFarmTab = 0;
@@ -1558,8 +1588,9 @@ namespace Farm2Shelf.UI
             if (storeMgmtAppView != null) storeMgmtAppView.gameObject.SetActive(false);
             if (financeAppView != null) financeAppView.gameObject.SetActive(false);
             if (farmAppView != null) farmAppView.gameObject.SetActive(false);
-            if (shoppingAppView != null) shoppingAppView.gameObject.SetActive(true);
             if (socialMediaAppView != null) socialMediaAppView.gameObject.SetActive(false);
+            if (workshopsAppView != null) workshopsAppView.gameObject.SetActive(false);
+            if (shoppingAppView != null) shoppingAppView.gameObject.SetActive(true);
 
             activeShoppingCategory = 0;
             RefreshShoppingViews();
@@ -1573,11 +1604,648 @@ namespace Farm2Shelf.UI
             if (financeAppView != null) financeAppView.gameObject.SetActive(false);
             if (farmAppView != null) farmAppView.gameObject.SetActive(false);
             if (shoppingAppView != null) shoppingAppView.gameObject.SetActive(false);
+            if (workshopsAppView != null) workshopsAppView.gameObject.SetActive(false);
             if (socialMediaAppView != null) socialMediaAppView.gameObject.SetActive(true);
 
             activeSocialTab = 0;
             RefreshSocialMediaViews();
             EnsureCloseButtonOnTop();
+        }
+
+        private void ShowWorkshopsApp()
+        {
+            if (homeScreenView != null) homeScreenView.gameObject.SetActive(false);
+            if (storeMgmtAppView != null) storeMgmtAppView.gameObject.SetActive(false);
+            if (financeAppView != null) financeAppView.gameObject.SetActive(false);
+            if (farmAppView != null) farmAppView.gameObject.SetActive(false);
+            if (shoppingAppView != null) shoppingAppView.gameObject.SetActive(false);
+            if (socialMediaAppView != null) socialMediaAppView.gameObject.SetActive(false);
+            if (workshopsAppView != null) workshopsAppView.gameObject.SetActive(true);
+
+            activeWorkshopTab = 0;
+            RefreshWorkshopsViews();
+            EnsureCloseButtonOnTop();
+        }
+
+        private void CreateWorkshopsAppView(Transform parent)
+        {
+            GameObject viewObj = new GameObject("WorkshopsAppView");
+            viewObj.transform.SetParent(parent, false);
+
+            RectTransform vRect = viewObj.AddComponent<RectTransform>();
+            vRect.anchorMin = Vector2.zero;
+            vRect.anchorMax = Vector2.one;
+
+            workshopsAppView = viewObj.transform;
+
+            GameObject headerObj = new GameObject("HeaderBar");
+            headerObj.transform.SetParent(viewObj.transform, false);
+
+            RectTransform hRect = headerObj.AddComponent<RectTransform>();
+            hRect.anchoredPosition = new Vector2(0f, 205f);
+            hRect.sizeDelta = new Vector2(850f, 40f);
+
+            GameObject backBtnObj = new GameObject("BackButton");
+            backBtnObj.transform.SetParent(headerObj.transform, false);
+
+            RectTransform bRect = backBtnObj.AddComponent<RectTransform>();
+            bRect.anchoredPosition = new Vector2(-360f, 0f);
+            bRect.sizeDelta = new Vector2(130f, 36f);
+
+            Image bBg = backBtnObj.AddComponent<Image>();
+            bBg.sprite = UIStyleUtility.CreateRoundedPillSprite(130, 36, 18, new Color(0.20f, 0.25f, 0.32f, 0.90f));
+            bBg.raycastTarget = true;
+
+            Button bBtn = backBtnObj.AddComponent<Button>();
+            bBtn.targetGraphic = bBg;
+            bBtn.onClick.AddListener(ShowHomeScreen);
+
+            GameObject bTextObj = new GameObject("Text");
+            bTextObj.transform.SetParent(backBtnObj.transform, false);
+            RectTransform btRect = bTextObj.AddComponent<RectTransform>();
+            btRect.anchorMin = Vector2.zero;
+            btRect.anchorMax = Vector2.one;
+
+            Text bText = bTextObj.AddComponent<Text>();
+            bText.font = globalFont;
+            bText.text = LocalizationManager.L("Btn_HomeScreen", "← Ana Ekran", "← Home Screen");
+            bText.fontSize = 18;
+            bText.fontStyle = FontStyle.Bold;
+            bText.alignment = TextAnchor.MiddleCenter;
+            bText.color = new Color(0.95f, 0.60f, 0.15f);
+            bText.raycastTarget = false;
+
+            GameObject titleObj = new GameObject("TitleText");
+            titleObj.transform.SetParent(headerObj.transform, false);
+            RectTransform tRect = titleObj.AddComponent<RectTransform>();
+            tRect.anchoredPosition = new Vector2(0f, 0f);
+            tRect.sizeDelta = new Vector2(400f, 40f);
+
+            Text tText = titleObj.AddComponent<Text>();
+            tText.font = globalFont;
+            tText.text = LocalizationManager.L("Header_Workshops", "🏭 ATÖLYELER", "🏭 WORKSHOPS");
+            tText.fontSize = 24;
+            tText.fontStyle = FontStyle.Bold;
+            tText.alignment = TextAnchor.MiddleCenter;
+            tText.color = new Color(0.95f, 0.65f, 0.20f);
+            tText.raycastTarget = false;
+
+            CreateWorkshopTabs(viewObj.transform);
+
+            // Tab 0: Atölye Binası Seviye Geliştirmeleri
+            workshopUpgradeContent = CreateScrollableViewContainer(viewObj.transform, "WorkshopUpgradeList", new Vector2(0f, -50f), new Vector2(850f, 350f), out workshopManagementViewportObj);
+
+            VerticalLayoutGroup uLayout = workshopUpgradeContent.gameObject.AddComponent<VerticalLayoutGroup>();
+            uLayout.spacing = 15f;
+            uLayout.childControlWidth = true;
+            uLayout.childControlHeight = false;
+
+            // Tab 1: Makine Yönetimi (Kurulan Tüm Makinelerin Canlı Listesi)
+            workshopMachinesContent = CreateScrollableViewContainer(viewObj.transform, "WorkshopMachinesList", new Vector2(0f, -50f), new Vector2(850f, 350f), out workshopMachinesViewportObj);
+
+            VerticalLayoutGroup mLayout = workshopMachinesContent.gameObject.AddComponent<VerticalLayoutGroup>();
+            mLayout.spacing = 12f;
+            mLayout.childControlWidth = true;
+            mLayout.childControlHeight = false;
+
+            viewObj.SetActive(false);
+        }
+
+        private void CreateWorkshopTabs(Transform parent)
+        {
+            GameObject tabsObj = new GameObject("WorkshopTabs");
+            tabsObj.transform.SetParent(parent, false);
+
+            RectTransform tRect = tabsObj.AddComponent<RectTransform>();
+            tRect.anchoredPosition = new Vector2(0f, 170f);
+            tRect.sizeDelta = new Vector2(850f, 40f);
+
+            HorizontalLayoutGroup layout = tabsObj.AddComponent<HorizontalLayoutGroup>();
+            layout.spacing = 12;
+            layout.childAlignment = TextAnchor.MiddleLeft;
+
+            string[] tabs = new string[] {
+                LocalizationManager.L("Tab_WorkshopBuilding", "🏢 Atölye Binası", "🏢 Workshop Building"),
+                LocalizationManager.L("Tab_WorkshopMachines", "⚙️ Makine Yönetimi", "⚙️ Machine Management")
+            };
+
+            for (int i = 0; i < tabs.Length; i++)
+            {
+                int tabIndex = i;
+                GameObject tabBtn = new GameObject("WorkshopTab_" + i);
+                tabBtn.transform.SetParent(tabsObj.transform, false);
+
+                RectTransform tabRect = tabBtn.AddComponent<RectTransform>();
+                tabRect.sizeDelta = new Vector2(250f, 38f);
+
+                Image tabBg = tabBtn.AddComponent<Image>();
+                tabBg.sprite = UIStyleUtility.CreateOutlinePillSprite(250, 38, 18, 2, new Color(0.95f, 0.60f, 0.15f), new Color(0.12f, 0.16f, 0.22f, 0.85f));
+                tabBg.raycastTarget = true;
+
+                Button btn = tabBtn.AddComponent<Button>();
+                btn.targetGraphic = tabBg;
+                btn.onClick.AddListener(() => {
+                    activeWorkshopTab = tabIndex;
+                    RefreshWorkshopsViews();
+                });
+
+                GameObject textObj = new GameObject("Text");
+                textObj.transform.SetParent(tabBtn.transform, false);
+                RectTransform txtRect = textObj.AddComponent<RectTransform>();
+                txtRect.anchorMin = Vector2.zero;
+                txtRect.anchorMax = Vector2.one;
+
+                Text btnText = textObj.AddComponent<Text>();
+                btnText.font = globalFont;
+                btnText.text = tabs[i];
+                btnText.fontSize = 16;
+                btnText.fontStyle = FontStyle.Bold;
+                btnText.alignment = TextAnchor.MiddleCenter;
+                btnText.color = Color.white;
+                btnText.raycastTarget = false;
+            }
+        }
+
+        private void RefreshWorkshopsViews()
+        {
+            if (workshopsAppView == null) return;
+
+            Transform tabsTransform = workshopsAppView.Find("WorkshopTabs");
+            if (tabsTransform != null)
+            {
+                for (int i = 0; i < tabsTransform.childCount; i++)
+                {
+                    Transform tabBtn = tabsTransform.GetChild(i);
+                    Image img = tabBtn.GetComponent<Image>();
+                    Text txt = tabBtn.GetComponentInChildren<Text>();
+                    if (i == activeWorkshopTab)
+                    {
+                        img.sprite = UIStyleUtility.CreateRoundedPillSprite(250, 38, 18, new Color(0.95f, 0.60f, 0.15f));
+                        txt.color = Color.white;
+                    }
+                    else
+                    {
+                        img.sprite = UIStyleUtility.CreateOutlinePillSprite(250, 38, 18, 2, new Color(0.95f, 0.60f, 0.15f), new Color(0.12f, 0.16f, 0.22f, 0.85f));
+                        txt.color = new Color(0.80f, 0.85f, 0.90f);
+                    }
+                }
+            }
+
+            if (workshopManagementViewportObj != null)
+            {
+                workshopManagementViewportObj.gameObject.SetActive(activeWorkshopTab == 0);
+            }
+            if (workshopMachinesViewportObj != null)
+            {
+                workshopMachinesViewportObj.gameObject.SetActive(activeWorkshopTab == 1);
+            }
+
+            if (activeWorkshopTab == 0)
+            {
+                RenderWorkshopUpgradeList();
+            }
+            else if (activeWorkshopTab == 1)
+            {
+                RenderWorkshopMachinesList();
+            }
+        }
+
+        private void RenderWorkshopUpgradeList()
+        {
+            if (workshopUpgradeContent == null) return;
+
+            foreach (Transform child in workshopUpgradeContent)
+            {
+                Destroy(child.gameObject);
+            }
+
+            int currentLevel = (WorkshopManager.Instance != null) ? WorkshopManager.Instance.CurrentWorkshopLevel : 1;
+
+            string[] stageNames = new string[] {
+                LocalizationManager.L("Workshop_Stage1_Name", "Seviye 1: Başlangıç Atölyesi (18m Derinlik)", "Level 1: Starter Workshop (18m Depth)"),
+                LocalizationManager.L("Workshop_Stage2_Name", "Seviye 2: Genişletilmiş Atölye (27m Derinlik)", "Level 2: Expanded Workshop (27m Depth)"),
+                LocalizationManager.L("Workshop_Stage3_Name", "Seviye 3: Mega Sanayi Kompleksi (43m Tam Derinlik)", "Level 3: Mega Industrial Complex (43m Full Depth)")
+            };
+
+            int[] targetLevels = new int[] { 1, 2, 3 };
+            int[] upgradeCosts = new int[] { 0, 7500, 20000 };
+
+            string[] descriptions = new string[] {
+                LocalizationManager.L("Workshop_Stage1_Desc", "• 25m genişlik x 18m derinlikte temel üretim binası.\n• Otomatik çift kanatlı cam kayar kapı ve modern pencereler.\n• İçi boş, üretime ve tezgahlara hazır epoksi zemin.", "• 25m width x 18m depth base production building.\n• Automatic double sliding glass door & modern windows.\n• Empty interior with epoxy floor ready for crafting."),
+                LocalizationManager.L("Workshop_Stage2_Desc", "• Bina arkaya doğru +9.0m uzatılarak toplam 27m derinliğe ulaşır.\n• Sağ ve sol cepheye ekstra endüstriyel pencereler eklenir.\n• Ekstra tavan aydınlatmaları ve genişletilmiş üretim alanı.", "• Building expands +9.0m backwards reaching 27m depth.\n• Extra industrial windows added to both side walls.\n• Additional ceiling lighting & expanded production area."),
+                LocalizationManager.L("Workshop_Stage3_Desc", "• Bina Kuzey Çevre Yoluna kadar (+16.0m) uzatılarak 43m devasa boyuta ulaşır.\n• Maksimum üretim kapasitesi ve tam boy sanayi binası.\n• Tüm parseli kaplayan birinci sınıf modern fabrika mimarisi.", "• Expands all the way to North Ring Road (+16.0m) reaching 43m.\n• Maximum crafting capacity & full-scale industrial plant.\n• Premium modern factory architecture spanning full plot.")
+            };
+
+            for (int i = 0; i < 3; i++)
+            {
+                int targetLvl = targetLevels[i];
+                int cost = upgradeCosts[i];
+
+                bool isUnlocked = (currentLevel >= targetLvl);
+                bool canUpgradeNow = (currentLevel == targetLvl - 1);
+                bool isLocked = (currentLevel < targetLvl - 1);
+
+                GameObject cardObj = new GameObject("WorkshopCard_" + targetLvl);
+                cardObj.transform.SetParent(workshopUpgradeContent, false);
+
+                RectTransform cRect = cardObj.AddComponent<RectTransform>();
+                cRect.sizeDelta = new Vector2(820f, 105f);
+
+                Color borderColor;
+                if (isUnlocked) borderColor = new Color(0.20f, 0.85f, 0.40f);
+                else if (canUpgradeNow) borderColor = new Color(0.95f, 0.60f, 0.15f);
+                else borderColor = new Color(0.40f, 0.45f, 0.55f);
+
+                Image cardBg = cardObj.AddComponent<Image>();
+                cardBg.sprite = UIStyleUtility.CreateOutlinePillSprite(820, 105, 16, 2, borderColor, new Color(0.12f, 0.16f, 0.22f, 0.95f));
+                cardBg.raycastTarget = false;
+
+                GameObject infoObj = new GameObject("InfoText");
+                infoObj.transform.SetParent(cardObj.transform, false);
+
+                RectTransform iRect = infoObj.AddComponent<RectTransform>();
+                iRect.anchoredPosition = new Vector2(-110f, 0f);
+                iRect.sizeDelta = new Vector2(550f, 95f);
+
+                Text iText = infoObj.AddComponent<Text>();
+                iText.font = globalFont;
+                string costWord = LocalizationManager.L("Label_Cost", "Ücret", "Cost");
+                string costStr = (cost == 0) ? LocalizationManager.L("Label_FreeStart", "Başlangıç Seviyesi", "Starter Level") : $"{cost:N0}C";
+                iText.text = $"🏭 <b>{stageNames[i]}</b>   |   <b>{costWord}: {costStr}</b>\n{descriptions[i]}";
+                iText.fontSize = 16;
+                iText.fontStyle = FontStyle.Normal;
+                iText.alignment = TextAnchor.MiddleLeft;
+                iText.color = isLocked ? new Color(0.60f, 0.65f, 0.72f) : new Color(0.92f, 0.94f, 0.98f);
+                iText.raycastTarget = false;
+
+                GameObject btnObj = new GameObject("UpgradeButton");
+                btnObj.transform.SetParent(cardObj.transform, false);
+
+                RectTransform bRect = btnObj.AddComponent<RectTransform>();
+                bRect.anchoredPosition = new Vector2(270f, 0f);
+                bRect.sizeDelta = new Vector2(210f, 44f);
+
+                Image bBg = btnObj.AddComponent<Image>();
+                Color btnClr;
+                string btnLabelText;
+
+                if (isUnlocked)
+                {
+                    btnClr = new Color(0.20f, 0.50f, 0.30f, 0.70f);
+                    btnLabelText = LocalizationManager.L("Btn_CurrentLevel", "✔ MEVCUT SEVİYE", "✔ CURRENT LEVEL");
+                }
+                else if (canUpgradeNow)
+                {
+                    btnClr = new Color(0.95f, 0.55f, 0.15f, 0.95f);
+                    btnLabelText = LocalizationManager.L("Btn_UpgradeNow", "🚀 GELİŞTİR (GÜNCELLE)", "🚀 UPGRADE NOW");
+                }
+                else
+                {
+                    btnClr = new Color(0.30f, 0.35f, 0.40f, 0.60f);
+                    btnLabelText = LocalizationManager.L("Btn_LockedFmtShort", "🔒 KİLİTLİ", "🔒 LOCKED");
+                }
+
+                bBg.sprite = UIStyleUtility.CreateRoundedPillSprite(210, 44, 12, btnClr);
+                bBg.raycastTarget = true;
+
+                Button btn = btnObj.AddComponent<Button>();
+                btn.targetGraphic = bBg;
+
+                if (canUpgradeNow)
+                {
+                    btn.onClick.AddListener(() => {
+                        int playerMoney = (EconomyManager.Instance != null) ? EconomyManager.Instance.Credits : 0;
+                        if (playerMoney < cost)
+                        {
+                            string lowTitle = LocalizationManager.L("Modal_LowBalance_Title", "Yetersiz Bakiye ⚠️", "Insufficient Balance ⚠️");
+                            string lowBody = string.Format(LocalizationManager.L("Modal_LowBalance_UpgradeBody", "Bu atölye geliştirmesi için {0:N0}C gereklidir!\nMevcut Bakiyeniz: {1:N0}C.", "You need {0:N0}C for this workshop upgrade!\nCurrent Balance: {1:N0}C."), cost, playerMoney);
+                            string btnOk = LocalizationManager.L("Btn_Ok", "Tamam", "OK");
+                            ModalManager.ShowModal(lowTitle, lowBody, btnOk);
+                            return;
+                        }
+
+                        string confirmTitle = LocalizationManager.L("Modal_WorkshopUpgrade_Title", "🏭 Atölye Geliştirme Onayı", "🏭 Workshop Upgrade Confirmation");
+                        string confirmBody = string.Format(LocalizationManager.L("Modal_WorkshopUpgrade_Body", "Atölyenizi **{0}** aşamasına yükseltmek istiyor musunuz?\n\n💰 **İnşaat Maliyeti:** {1:N0}C\n📐 **Yeni Boyut:** 25m Genişlik x {2}m Derinlik\n\nBu işlem onaylandığında atölye binanız harita üzerinde anında genişletilecektir.", "Do you want to upgrade your workshop to **{0}**?\n\n💰 **Construction Cost:** {1:N0}C\n📐 **New Size:** 25m Width x {2}m Depth\n\nYour workshop building will be expanded on the map immediately upon confirmation."), stageNames[targetLvl - 1], cost, (targetLvl == 2) ? 27 : 43);
+                        string btnConfirm = LocalizationManager.L("Btn_ConfirmUpgrade", "Evet, İnşaatı Başlat", "Yes, Start Construction");
+                        string btnCancel = LocalizationManager.L("Btn_Cancel", "Vazgeç", "Cancel");
+
+                        ModalManager.ShowConfirmModal(confirmTitle, confirmBody, () => {
+                            if (WorkshopManager.Instance != null && WorkshopManager.Instance.UpgradeWorkshop(targetLvl))
+                            {
+                                RefreshWorkshopsViews();
+                                string sucTitle = LocalizationManager.L("Modal_WorkshopUpgrade_SuccessTitle", "🎉 Atölye Genişletildi!", "🎉 Workshop Expanded!");
+                                string sucBody = string.Format(LocalizationManager.L("Modal_WorkshopUpgrade_SuccessBody", "Tebrikler! Atölyeniz başarıyla **{0}** seviyesine genişletildi.", "Congratulations! Your workshop has been successfully expanded to **{0}**."), stageNames[targetLvl - 1]);
+                                string sucOk = LocalizationManager.L("Btn_Ok", "Harika!", "Awesome!");
+                                ModalManager.ShowModal(sucTitle, sucBody, sucOk);
+                            }
+                        }, btnConfirm, btnCancel);
+                    });
+                }
+
+                GameObject btnTxtObj = new GameObject("Text");
+                btnTxtObj.transform.SetParent(btnObj.transform, false);
+
+                RectTransform btRect = btnTxtObj.AddComponent<RectTransform>();
+                btRect.anchorMin = Vector2.zero;
+                btRect.anchorMax = Vector2.one;
+
+                Text btnTxt = btnTxtObj.AddComponent<Text>();
+                btnTxt.font = globalFont;
+                btnTxt.text = btnLabelText;
+                btnTxt.fontSize = 15;
+                btnTxt.fontStyle = FontStyle.Bold;
+                btnTxt.alignment = TextAnchor.MiddleCenter;
+                btnTxt.color = isLocked ? new Color(0.60f, 0.65f, 0.70f) : Color.white;
+                btnTxt.raycastTarget = false;
+            }
+        }
+
+        private void RenderWorkshopMachinesList()
+        {
+            if (workshopMachinesContent == null) return;
+
+            foreach (Transform child in workshopMachinesContent)
+            {
+                Destroy(child.gameObject);
+            }
+
+            // Sahnedeki tüm kurulu makineleri topla
+            List<WorkshopMachineController> placedMachines = new List<WorkshopMachineController>();
+            if (WorkshopMachineController.AllPlacedMachines != null)
+            {
+                for (int i = 0; i < WorkshopMachineController.AllPlacedMachines.Count; i++)
+                {
+                    var m = WorkshopMachineController.AllPlacedMachines[i];
+                    if (m != null) placedMachines.Add(m);
+                }
+            }
+
+            // 0 Makine varsa Empty State göster
+            if (placedMachines.Count == 0)
+            {
+                GameObject emptyObj = new GameObject("Empty_State_Panel");
+                emptyObj.transform.SetParent(workshopMachinesContent, false);
+
+                RectTransform emptyRect = emptyObj.AddComponent<RectTransform>();
+                emptyRect.sizeDelta = new Vector2(820f, 260f);
+
+                Image emptyBg = emptyObj.AddComponent<Image>();
+                emptyBg.sprite = UIStyleUtility.CreateOutlinePillSprite(820, 260, 18, 2, new Color(0.35f, 0.45f, 0.60f, 0.65f), new Color(0.10f, 0.13f, 0.18f, 0.95f));
+                emptyBg.raycastTarget = false;
+
+                GameObject iconObj = new GameObject("Icon");
+                iconObj.transform.SetParent(emptyObj.transform, false);
+                RectTransform iRect = iconObj.AddComponent<RectTransform>();
+                iRect.anchoredPosition = new Vector2(0f, 65f);
+                iRect.sizeDelta = new Vector2(100f, 50f);
+                Text iconTxt = iconObj.AddComponent<Text>();
+                iconTxt.font = globalFont;
+                iconTxt.text = "🏭";
+                iconTxt.fontSize = 44;
+                iconTxt.alignment = TextAnchor.MiddleCenter;
+
+                GameObject titleObj = new GameObject("Title");
+                titleObj.transform.SetParent(emptyObj.transform, false);
+                RectTransform tRect = titleObj.AddComponent<RectTransform>();
+                tRect.anchoredPosition = new Vector2(0f, 15f);
+                tRect.sizeDelta = new Vector2(600f, 35f);
+                Text tTxt = titleObj.AddComponent<Text>();
+                tTxt.font = globalFont;
+                tTxt.text = LocalizationManager.L("WS_EmptyMachinesTitle", "Henüz Kurulu Atölye Makinesi Bulunmuyor", "No Workshop Machines Installed Yet");
+                tTxt.fontSize = 18;
+                tTxt.fontStyle = FontStyle.Bold;
+                tTxt.alignment = TextAnchor.MiddleCenter;
+                tTxt.color = new Color(0.95f, 0.70f, 0.20f);
+
+                GameObject descObj = new GameObject("Desc");
+                descObj.transform.SetParent(emptyObj.transform, false);
+                RectTransform dRect = descObj.AddComponent<RectTransform>();
+                dRect.anchoredPosition = new Vector2(0f, -30f);
+                dRect.sizeDelta = new Vector2(650f, 50f);
+                Text dTxt = descObj.AddComponent<Text>();
+                dTxt.font = globalFont;
+                dTxt.text = LocalizationManager.L(
+                    "WS_EmptyMachinesDesc",
+                    "TrendyShop Alışveriş uygulamasından 'Atölye Makineleri' satın alabilir ve Atölye Paletinden istediğiniz konuma kurabilirsiniz.",
+                    "You can purchase 'Workshop Machines' from the TrendyShop and assemble them inside your workshop from the pallet."
+                );
+                dTxt.fontSize = 14;
+                dTxt.alignment = TextAnchor.MiddleCenter;
+                dTxt.color = new Color(0.75f, 0.82f, 0.90f);
+
+                // Alışverişe Git Butonu
+                GameObject shopBtnObj = new GameObject("GoToShopBtn");
+                shopBtnObj.transform.SetParent(emptyObj.transform, false);
+                RectTransform sbRect = shopBtnObj.AddComponent<RectTransform>();
+                sbRect.anchoredPosition = new Vector2(0f, -85f);
+                sbRect.sizeDelta = new Vector2(260f, 42f);
+
+                Image sbBg = shopBtnObj.AddComponent<Image>();
+                sbBg.sprite = UIStyleUtility.CreateRoundedPillSprite(260, 42, 12, new Color(0.95f, 0.55f, 0.15f));
+                sbBg.raycastTarget = true;
+
+                Button sbBtn = shopBtnObj.AddComponent<Button>();
+                sbBtn.targetGraphic = sbBg;
+                sbBtn.onClick.AddListener(() => {
+                    activeShoppingCategory = 11; // Atölye Makineleri Kategorisi
+                    ShowShoppingApp();
+                });
+
+                GameObject sbTxtObj = new GameObject("Text");
+                sbTxtObj.transform.SetParent(shopBtnObj.transform, false);
+                RectTransform sbtRect = sbTxtObj.AddComponent<RectTransform>();
+                sbtRect.anchorMin = Vector2.zero;
+                sbtRect.anchorMax = Vector2.one;
+                Text sbTxt = sbTxtObj.AddComponent<Text>();
+                sbTxt.font = globalFont;
+                sbTxt.text = LocalizationManager.L("WS_Btn_GoToShop", "🛍️ Atölye Makinelerine Git", "🛍️ Go to Workshop Machines");
+                sbTxt.fontSize = 15;
+                sbTxt.fontStyle = FontStyle.Bold;
+                sbTxt.alignment = TextAnchor.MiddleCenter;
+                sbTxt.color = Color.white;
+
+                return;
+            }
+
+            // Kurulu makineleri türlerine göre numaralandır
+            Dictionary<WorkshopMachineType, int> machineSeq = new Dictionary<WorkshopMachineType, int>();
+
+            for (int i = 0; i < placedMachines.Count; i++)
+            {
+                WorkshopMachineController machine = placedMachines[i];
+                if (machine == null) continue;
+
+                int seq = machineSeq.GetValueOrDefault(machine.machineType, 0) + 1;
+                machineSeq[machine.machineType] = seq;
+
+                WorkshopMachineDef mDef = WorkshopMachineDatabase.GetMachineByType(machine.machineType);
+                string mName = (mDef != null) ? mDef.LocalizedName : "Atölye Makinesi";
+
+                GameObject cardObj = new GameObject("MachineCard_" + i);
+                cardObj.transform.SetParent(workshopMachinesContent, false);
+
+                RectTransform cRect = cardObj.AddComponent<RectTransform>();
+                cRect.sizeDelta = new Vector2(820f, 95f);
+
+                Color borderClr;
+                if (machine.isReadyToCollect) borderClr = new Color(0.20f, 0.85f, 0.40f);
+                else if (machine.isProducing) borderClr = new Color(0.95f, 0.60f, 0.15f);
+                else borderClr = new Color(0.35f, 0.45f, 0.58f, 0.85f);
+
+                Image cardBg = cardObj.AddComponent<Image>();
+                cardBg.sprite = UIStyleUtility.CreateOutlinePillSprite(820, 95, 14, 2, borderClr, new Color(0.11f, 0.14f, 0.20f, 0.96f));
+                cardBg.raycastTarget = false;
+
+                // 1. İkon Kutusu
+                GameObject iconBox = new GameObject("Icon_Box");
+                iconBox.transform.SetParent(cardObj.transform, false);
+                RectTransform ibRect = iconBox.AddComponent<RectTransform>();
+                ibRect.anchoredPosition = new Vector2(-360f, 0f);
+                ibRect.sizeDelta = new Vector2(60f, 60f);
+
+                Image ibImg = iconBox.AddComponent<Image>();
+                FurnitureType fType = GetFurnitureTypeForMachine(machine.machineType);
+                ibImg.sprite = UIStyleUtility.CreateFurnitureIconSprite(fType);
+                ibImg.raycastTarget = false;
+
+                // 2. Makine ve Durum Bilgi Paneli
+                GameObject infoObj = new GameObject("Info_Panel");
+                infoObj.transform.SetParent(cardObj.transform, false);
+                RectTransform inRect = infoObj.AddComponent<RectTransform>();
+                inRect.anchoredPosition = new Vector2(-50f, 0f);
+                inRect.sizeDelta = new Vector2(520f, 80f);
+
+                Text infoTxt = infoObj.AddComponent<Text>();
+                infoTxt.font = globalFont;
+                infoTxt.fontSize = 15;
+                infoTxt.alignment = TextAnchor.MiddleLeft;
+                infoTxt.raycastTarget = false;
+
+                if (machine.isReadyToCollect)
+                {
+                    WorkshopRecipeDef rDef = WorkshopMachineDatabase.GetRecipeById(machine.activeRecipeId);
+                    string rName = (rDef != null) ? rDef.LocalizedName : "Ürün";
+                    string rEmoji = (rDef != null) ? rDef.iconEmoji : "✨";
+                    string readyTag = LocalizationManager.L("WS_StatusReadyTag", "HAZIR!", "READY!");
+                    string readySub = LocalizationManager.L("WS_StatusReadySub", "Üretim tamamlandı, doğrudan ahıra aktarabilirsiniz.", "Crafting complete, you can collect it to barn storage.");
+                    infoTxt.text = $"<b>{mName} #{seq}</b>   |   <color=#00E676><b>🎉 {rEmoji} {rName} {readyTag}</b></color>\n<size=13><color=#90CAF9>{readySub}</color></size>";
+                }
+                else if (machine.isProducing)
+                {
+                    WorkshopRecipeDef rDef = WorkshopMachineDatabase.GetRecipeById(machine.activeRecipeId);
+                    string rName = (rDef != null) ? rDef.LocalizedName : "Ürün";
+                    string rEmoji = (rDef != null) ? rDef.iconEmoji : "⏳";
+                    int mins = Mathf.FloorToInt(machine.remainingSeconds / 60f);
+                    int secs = Mathf.FloorToInt(machine.remainingSeconds % 60f);
+                    string craftTag = LocalizationManager.L("WS_StatusCraftingTag", "Üretiliyor:", "Crafting:");
+                    string craftSub = LocalizationManager.L("WS_StatusCraftingSub", "Gerçek zamanlı üretim devam ediyor...", "Real-time production in progress...");
+                    infoTxt.text = $"<b>{mName} #{seq}</b>   |   <color=#FFA726><b>⏳ {rEmoji} {rName} {craftTag}</b></color> <color=#00FFD5><b>{mins:00}:{secs:00}</b></color>\n<size=13><color=#B0BEC5>{craftSub}</color></size>";
+                }
+                else
+                {
+                    string idleTag = LocalizationManager.L("WS_StatusIdleTag", "Boşta (Üretim Bekliyor)", "Idle (Waiting for Crafting)");
+                    string idleSub = LocalizationManager.L("WS_StatusIdleSub", "Hammadde seçip yeni bir gurme üretimi başlatabilirsiniz.", "Select raw material to start crafting.");
+                    infoTxt.text = $"<b>{mName} #{seq}</b>   |   <color=#80D8FF><b>💤 {idleTag}</b></color>\n<size=13><color=#78909C>{idleSub}</color></size>";
+                }
+
+                // 3. Aksiyon Butonu
+                GameObject btnObj = new GameObject("Action_Btn");
+                btnObj.transform.SetParent(cardObj.transform, false);
+                RectTransform bRect = btnObj.AddComponent<RectTransform>();
+                bRect.anchoredPosition = new Vector2(285f, 0f);
+                bRect.sizeDelta = new Vector2(210f, 44f);
+
+                Image bBg = btnObj.AddComponent<Image>();
+                Color btnCol;
+                string btnTextStr;
+
+                var targetMachine = machine;
+                if (machine.isReadyToCollect)
+                {
+                    btnCol = new Color(0.18f, 0.78f, 0.38f);
+                    btnTextStr = LocalizationManager.L("Btn_CollectToBarn", "📦 AHIRA TOPLA", "📦 COLLECT TO BARN");
+                }
+                else if (machine.isProducing)
+                {
+                    btnCol = new Color(0.18f, 0.55f, 0.85f);
+                    btnTextStr = LocalizationManager.L("Btn_FocusMachine", "🔍 MAKİNEYE GİT", "🔍 FOCUS MACHINE");
+                }
+                else
+                {
+                    btnCol = new Color(0.95f, 0.55f, 0.15f);
+                    btnTextStr = LocalizationManager.L("Btn_StartCrafting", "▶️ ÜRETİM BAŞLAT", "▶️ START CRAFT");
+                }
+
+                bBg.sprite = UIStyleUtility.CreateRoundedPillSprite(210, 44, 12, btnCol);
+                bBg.raycastTarget = true;
+
+                Button actionBtn = btnObj.AddComponent<Button>();
+                actionBtn.targetGraphic = bBg;
+
+                if (machine.isReadyToCollect)
+                {
+                    actionBtn.onClick.AddListener(() => {
+                        targetMachine.CollectFinishedProduct();
+                        RefreshWorkshopsViews();
+                    });
+                }
+                else if (machine.isProducing)
+                {
+                    actionBtn.onClick.AddListener(() => {
+                        ClosePhoneTabletInstant();
+                        if (IsometricCameraSetup.Instance != null)
+                        {
+                            IsometricCameraSetup.Instance.FocusOn(targetMachine.transform.position);
+                        }
+                    });
+                }
+                else
+                {
+                    actionBtn.onClick.AddListener(() => {
+                        ClosePhoneTabletInstant();
+                        WorkshopMachineModalUI.ShowModal(targetMachine);
+                    });
+                }
+
+                GameObject btObj = new GameObject("Text");
+                btObj.transform.SetParent(btnObj.transform, false);
+                RectTransform btRect = btObj.AddComponent<RectTransform>();
+                btRect.anchorMin = Vector2.zero;
+                btRect.anchorMax = Vector2.one;
+
+                Text btnTxt = btObj.AddComponent<Text>();
+                btnTxt.font = globalFont;
+                btnTxt.text = btnTextStr;
+                btnTxt.fontSize = 14;
+                btnTxt.fontStyle = FontStyle.Bold;
+                btnTxt.alignment = TextAnchor.MiddleCenter;
+                btnTxt.color = Color.white;
+                btnTxt.raycastTarget = false;
+
+                // 4. Şık Ayraç Çizgisi (Her makine arasında karışıklığı önleyen divider)
+                GameObject divObj = new GameObject("Row_Divider_" + i);
+                divObj.transform.SetParent(workshopMachinesContent, false);
+                RectTransform divRect = divObj.AddComponent<RectTransform>();
+                divRect.sizeDelta = new Vector2(810f, 2f);
+
+                Image divImg = divObj.AddComponent<Image>();
+                divImg.sprite = UIStyleUtility.CreateRoundedPillSprite(810, 2, 1, new Color(0.25f, 0.35f, 0.50f, 0.40f));
+                divImg.raycastTarget = false;
+            }
+        }
+
+        private FurnitureType GetFurnitureTypeForMachine(WorkshopMachineType mType)
+        {
+            switch (mType)
+            {
+                case WorkshopMachineType.JamMaker: return FurnitureType.WorkshopJamMaker;
+                case WorkshopMachineType.JuiceExtractor: return FurnitureType.WorkshopJuicePress;
+                case WorkshopMachineType.Cannery: return FurnitureType.WorkshopCannery;
+                case WorkshopMachineType.Dehydrator: return FurnitureType.WorkshopDehydrator;
+                case WorkshopMachineType.OilPress: return FurnitureType.WorkshopOilPress;
+                case WorkshopMachineType.SaladStation: return FurnitureType.WorkshopSaladStation;
+                default: return FurnitureType.WorkshopJamMaker;
+            }
         }
 
         private void RefreshShoppingViews()
@@ -1639,7 +2307,8 @@ namespace Farm2Shelf.UI
                 LocalizationManager.L("Cat_Decoration", "🎨 Dekorasyonlar", "🎨 Decorations"),
                 LocalizationManager.L("Cat_Wholesale", "📦 Toptancı", "📦 Wholesaler"),
                 LocalizationManager.L("Cat_Seeds", "🌱 Tohumlar", "🌱 Seeds"),
-                LocalizationManager.L("Cat_Renovation", "🔨 Tadilat", "🔨 Renovation")
+                LocalizationManager.L("Cat_Renovation", "🔨 Tadilat", "🔨 Renovation"),
+                LocalizationManager.L("Cat_Workshop", "🏭 Atölye Makineleri", "🏭 Workshop Machines")
             };
         }
 
@@ -1658,7 +2327,11 @@ namespace Farm2Shelf.UI
                 if (furnitureViewportObj != null) furnitureViewportObj.gameObject.SetActive(true);
                 if (shoppingCartSummaryPanelObj != null) shoppingCartSummaryPanelObj.SetActive(activeShoppingCategory != 4);
 
-                if (activeShoppingCategory == 4)
+                if (activeShoppingCategory == 5)
+                {
+                    RenderFurnitureList(FurnitureCategory.Workshop);
+                }
+                else if (activeShoppingCategory == 4)
                 {
                     RenderRenovationList();
                 }
@@ -1687,7 +2360,7 @@ namespace Farm2Shelf.UI
                 ? Farm2Shelf.Environment.EnvironmentBuilder.Instance.CurrentUpgradeLevel
                 : 1;
 
-            List<WholesaleProductDef> items = WholesaleDatabase.GetAllProducts();
+            List<WholesaleProductDef> items = WholesaleDatabase.GetWholesaleOnlyProducts();
 
             // Aktif Sekmedeki Toptancı Ürünlerini Arama Filtresine Göre Süzme
             string query = string.IsNullOrEmpty(currentShoppingSearchQuery) ? "" : currentShoppingSearchQuery.Trim().ToLower(System.Globalization.CultureInfo.GetCultureInfo("tr-TR"));
@@ -1779,6 +2452,11 @@ namespace Farm2Shelf.UI
         private void UpdateWholesaleCardControls(Transform ctrlParent, WholesaleProductDef def, bool isUnlocked)
         {
             if (ctrlParent == null || def == null) return;
+            if (!def.isOrderable || !WholesaleDatabase.IsProductWholesaleOrderable(def.id))
+            {
+                // Çiftlik mahsulleri ve Atölye gurme ürünleri toptancıdan veya market alışverişinden sipariş edilemez!
+                return;
+            }
             foreach (Transform child in ctrlParent) Destroy(child.gameObject);
 
             string targetProdId = def.id;
@@ -2234,7 +2912,7 @@ namespace Farm2Shelf.UI
 
             if (items.Count == 0)
             {
-                string catTitle = (cat == FurnitureCategory.Furniture) ? "Mobilyalar" : "Dekorasyonlar";
+                string catTitle = (cat == FurnitureCategory.Furniture) ? "Mobilyalar" : (cat == FurnitureCategory.Workshop ? "Atölye Makineleri" : "Dekorasyonlar");
                 GameObject emptyMsgObj = new GameObject("SearchEmptyMsg");
                 emptyMsgObj.transform.SetParent(furnitureListContent, false);
                 LayoutElement el = emptyMsgObj.AddComponent<LayoutElement>();
@@ -2443,8 +3121,9 @@ namespace Farm2Shelf.UI
 
             foreach (var kvp in wholesaleCart)
             {
+                if (!WholesaleDatabase.IsProductWholesaleOrderable(kvp.Key)) continue;
                 WholesaleProductDef def = WholesaleDatabase.GetProductById(kvp.Key);
-                if (def != null)
+                if (def != null && def.isOrderable)
                 {
                     totalItems += kvp.Value;
                     totalCost += def.TotalPackCost * kvp.Value;
@@ -2467,10 +3146,15 @@ namespace Farm2Shelf.UI
 
             if (totalItems == 0) return;
 
+            string btnOk = LocalizationManager.L("Btn_Ok", "Tamam", "OK");
+            string btnGreat = LocalizationManager.L("Btn_Great", "Harika!", "Great!");
+
             // Kamyon Yolda Kontrolü (Toptancı ürünleri için)
             if (orderWholesale.Count > 0 && isAnyTruckActive)
             {
-                ModalManager.ShowModal("Teslimat Noktası Dolu! ⚠️", "Şu anda yolda veya teslimat noktasında aktif bir kamyon (Toptancı veya Çiftlik Kamyonu) bulunmaktadır!\n\nKamyon teslimatı tamamlayıp ayrılana kadar yeni toptan sipariş verilemez.", "Tamam");
+                string busyTitle = LocalizationManager.L("Modal_DockBusy_Title", "Teslimat Noktası Dolu! ⚠️", "Delivery Dock Occupied! ⚠️");
+                string busyBody = LocalizationManager.L("Modal_DockBusy_Body", "Şu anda yolda veya teslimat noktasında aktif bir kamyon bulunmaktadır!\n\nKamyon teslimatı tamamlayıp ayrılana kadar yeni toptan sipariş verilemez.", "There is currently an active truck on the way or at the dock!\n\nPlease wait until it leaves.");
+                ModalManager.ShowModal(busyTitle, busyBody, btnOk);
                 return;
             }
 
@@ -2481,7 +3165,9 @@ namespace Farm2Shelf.UI
 
             if (currentBalance < totalCost)
             {
-                ModalManager.ShowModal("Yetersiz Bakiye ⚠️", $"Siparişi tamamlamak için {totalCost:N0}C gereklidir!\nMevcut Bakiyeniz: {currentBalance:N0}C.", "Tamam");
+                string noBalTitle = LocalizationManager.L("Modal_NoBalance_Title", "Yetersiz Bakiye ⚠️", "Insufficient Balance ⚠️");
+                string noBalBodyFmt = LocalizationManager.L("Modal_NoBalance_Body", "Siparişi tamamlamak için {0:N0}C gereklidir!\nMevcut Bakiyeniz: {1:N0}C.", "You need {0:N0}C to complete this order!\nCurrent Balance: {1:N0}C.");
+                ModalManager.ShowModal(noBalTitle, string.Format(noBalBodyFmt, totalCost, currentBalance), btnOk);
                 return;
             }
 
@@ -2499,17 +3185,42 @@ namespace Farm2Shelf.UI
                 FinanceManager.Instance.RecordExpense(catName, string.Format(descFmt, totalItems), totalCost);
             }
 
-            // Mobilya Siparişlerini Palete Gönder
-            if (orderFurniture.Count > 0 && FurnitureDeliveryManager.Instance != null)
+            // Mobilya ve Atölye Makinelerini Ayrıştır
+            List<FurnitureType> storeFurnitureOrders = new List<FurnitureType>();
+            List<FurnitureType> workshopMachineOrders = new List<FurnitureType>();
+
+            foreach (var fType in orderFurniture)
             {
-                FurnitureDeliveryManager.Instance.AddOrdersToPallet(orderFurniture);
+                if (FurniturePlacementManager.IsWorkshopMachine(fType, out _))
+                {
+                    workshopMachineOrders.Add(fType);
+                }
+                else
+                {
+                    storeFurnitureOrders.Add(fType);
+                }
+            }
+
+            // Mağaza Mobilyalarını Mal Kabul Paletine Gönder
+            if (storeFurnitureOrders.Count > 0 && FurnitureDeliveryManager.Instance != null)
+            {
+                FurnitureDeliveryManager.Instance.AddOrdersToPallet(storeFurnitureOrders);
                 if (TutorialManager.Instance != null)
                 {
                     foreach (var kvp in shoppingCart)
                     {
-                        TutorialManager.Instance.NotifyFurnitureItemPurchased(kvp.Key, kvp.Value);
+                        if (!FurniturePlacementManager.IsWorkshopMachine(kvp.Key, out _))
+                        {
+                            TutorialManager.Instance.NotifyFurnitureItemPurchased(kvp.Key, kvp.Value);
+                        }
                     }
                 }
+            }
+
+            // Atölye Makinelerini Doğrudan Atölye Paletine Gönder!
+            if (workshopMachineOrders.Count > 0 && WorkshopPalletManager.Instance != null)
+            {
+                WorkshopPalletManager.Instance.AddMachineOrders(workshopMachineOrders);
             }
 
             // Toptancı Siparişlerini Özel Kapalı Kasa Kamyon Kuryesine Gönder
@@ -2536,17 +3247,28 @@ namespace Farm2Shelf.UI
             seedCart.Clear();
             RenderShoppingCategoryContent();
 
-            string btnGreat = LocalizationManager.L("Btn_Great", "Harika!", "Great!");
             if (orderWholesale.Count > 0)
             {
                 string title = LocalizationManager.L("Modal_TruckDispatched_Title", "Toptancı Kamyonu Yola Çıktı! 🚛", "Wholesaler Truck Dispatched! 🚛");
                 string bodyFmt = LocalizationManager.L("Modal_TruckDispatched_Body", "Toplam {0} kalem siparişiniz alındı!\n\nÖzel kapalı kasa kamyon teslimatı kapıya ulaştırıyor.", "Your order of {0} items has been received!\n\nA dedicated box truck is delivering your goods to the loading dock.");
                 ModalManager.ShowModal(title, string.Format(bodyFmt, totalItems), btnGreat);
             }
+            else if (workshopMachineOrders.Count > 0 && storeFurnitureOrders.Count == 0 && seedCart.Count == 0)
+            {
+                string wsTitle = LocalizationManager.L("Modal_WorkshopDelivered_Title", "Atölye Makineleri Teslim Edildi! 🏭", "Workshop Machines Delivered! 🏭");
+                string wsBody = LocalizationManager.L("Modal_WorkshopDelivered_Body", "Satın aldığınız endüstriyel makineler doğrudan <b>Atölye Paletine</b> teslim edildi.\n\nAtölye binasına gidip palete dokunarak makinelerinizi hemen kurabilirsiniz!", "Purchased industrial machines have been delivered directly to the <b>Workshop Pallet</b>.\n\nVisit the workshop and click the pallet to assemble them!");
+                ModalManager.ShowModal(wsTitle, wsBody, btnGreat);
+            }
+            else if (workshopMachineOrders.Count > 0)
+            {
+                string mixedTitle = LocalizationManager.L("Modal_MixedDelivered_Title", "Siparişiniz Teslim Edildi! 📦", "Order Delivered! 📦");
+                string mixedBody = LocalizationManager.L("Modal_MixedDelivered_Body", "Siparişiniz başarıyla tamamlandı!\n\n• Mağaza Mobilyaları: <b>Mal Kabul Paletinde</b>\n• Atölye Makineleri: <b>Atölye Paletinde</b>\n• Tohumlar: <b>Ahır Envanterinde</b>", "Your order has been completed!\n\n• Store Furniture: <b>Loading Dock Pallet</b>\n• Workshop Machines: <b>Workshop Pallet</b>\n• Seeds: <b>Barn Storage</b>");
+                ModalManager.ShowModal(mixedTitle, mixedBody, btnGreat);
+            }
             else
             {
                 string title = LocalizationManager.L("Modal_OrderReceived_Title", "Sipariş Alındı! 📦", "Order Placed! 📦");
-                string bodyFmt = LocalizationManager.L("Modal_OrderReceived_Body", "Toplam {0} kalem siparişiniz başarıyla alındı ve ödemesi yapıldı!\n\nSatın aldığınız tohumlar ahır kilerinize eklenmiştir.", "Your order of {0} items was successfully placed and paid!\n\nPurchased seeds have been added to your barn storage.");
+                string bodyFmt = LocalizationManager.L("Modal_OrderReceived_Body", "Toplam {0} kalem siparişiniz başarıyla alındı ve ödemesi yapıldı!", "Your order of {0} items was successfully placed and paid!");
                 ModalManager.ShowModal(title, string.Format(bodyFmt, totalItems), btnGreat);
             }
         }
@@ -3511,14 +4233,16 @@ namespace Farm2Shelf.UI
                 return a.name.CompareTo(b.name);
             });
 
-            string filterQuery = currentFinanceProductSearchQuery.Trim().ToLower(System.Globalization.CultureInfo.InvariantCulture);
+            string filterQuery = string.IsNullOrEmpty(currentFinanceProductSearchQuery) ? "" : currentFinanceProductSearchQuery.Trim().ToLower(System.Globalization.CultureInfo.GetCultureInfo("tr-TR"));
 
             foreach (var pDef in sortedProducts)
             {
                 if (!string.IsNullOrEmpty(filterQuery))
                 {
-                    bool matchesName = pDef.name.ToLower(System.Globalization.CultureInfo.InvariantCulture).Contains(filterQuery);
-                    bool matchesShelf = pDef.GetTargetShelfText().ToLower(System.Globalization.CultureInfo.InvariantCulture).Contains(filterQuery);
+                    bool matchesName = pDef.LocalizedName.ToLower(System.Globalization.CultureInfo.GetCultureInfo("tr-TR")).Contains(filterQuery) ||
+                                       pDef.name.ToLower(System.Globalization.CultureInfo.GetCultureInfo("tr-TR")).Contains(filterQuery) ||
+                                       (!string.IsNullOrEmpty(pDef.nameEn) && pDef.nameEn.ToLower(System.Globalization.CultureInfo.GetCultureInfo("tr-TR")).Contains(filterQuery));
+                    bool matchesShelf = pDef.GetTargetShelfText().ToLower(System.Globalization.CultureInfo.GetCultureInfo("tr-TR")).Contains(filterQuery);
                     if (!matchesName && !matchesShelf) continue;
                 }
 
@@ -3572,9 +4296,18 @@ namespace Farm2Shelf.UI
                 }
                 else
                 {
-                    string fairFmt = LocalizationManager.L("Badge_FairPrice", "✅ Makul Fiyat\n<size=13><color=#50E678>(%{0:F0} Kâr Marjı)</color></size>", "✅ Fair Price\n<size=13><color=#50E678>(+{0:F0}% Profit Margin)</color></size>");
-                    sbBadgeText.text = string.Format(fairFmt, margin);
-                    sbBadgeText.color = new Color(0.35f, 0.90f, 0.50f);
+                    if (pDef.targetShelfType == FurnitureType.GourmetShelf || pDef.profitMarginPercent >= 70f)
+                    {
+                        string gourmetFmt = LocalizationManager.L("Badge_GourmetPrice", "🌟 Lüks Gurme\n<size=13><color=#FFD700>(+%{0:F0} Kâr Marjı)</color></size>", "🌟 Gourmet\n<size=13><color=#FFD700>(+{0:F0}% Profit)</color></size>");
+                        sbBadgeText.text = string.Format(gourmetFmt, margin);
+                        sbBadgeText.color = new Color(1.0f, 0.85f, 0.25f);
+                    }
+                    else
+                    {
+                        string fairFmt = LocalizationManager.L("Badge_FairPrice", "✅ Makul Fiyat\n<size=13><color=#50E678>(%{0:F0} Kâr Marjı)</color></size>", "✅ Fair Price\n<size=13><color=#50E678>(+{0:F0}% Profit Margin)</color></size>");
+                        sbBadgeText.text = string.Format(fairFmt, margin);
+                        sbBadgeText.color = new Color(0.35f, 0.90f, 0.50f);
+                    }
                 }
                 sbBadgeText.fontSize = 14;
                 sbBadgeText.fontStyle = FontStyle.Bold;
@@ -4610,9 +5343,9 @@ namespace Farm2Shelf.UI
             };
 
             string[] upgradeDescs = new string[] {
-                LocalizationManager.L("Barn_Lvl1_Desc", "Başlangıç Ahırı. Maksimum 500 KG mahsul depolama kapasitesi sunar.", "Initial Barn. Offers maximum 500 KG crop storage capacity."),
-                LocalizationManager.L("Barn_Lvl2_Desc", "Ahır depolama alanını genişleterek maksimum kapasiteyi 1.500 KG seviyesine çıkarır.", "Expands barn storage area to maximum 1,500 KG capacity."),
-                LocalizationManager.L("Barn_Lvl3_Desc", "Devasa çiftlik silosu ve ahır. Maksimum mahsul depolama kapasitesini 4.000 KG seviyesine çıkarır.", "Giant farm silo and barn. Increases maximum crop storage capacity to 4,000 KG.")
+                LocalizationManager.L("Barn_Lvl1_Desc", "Başlangıç Ahırı. Maksimum 1.000 KG mahsul depolama kapasitesi sunar.", "Initial Barn. Offers maximum 1,000 KG crop storage capacity."),
+                LocalizationManager.L("Barn_Lvl2_Desc", "Ahır depolama alanını genişleterek maksimum kapasiteyi 2.500 KG seviyesine çıkarır.", "Expands barn storage area to maximum 2,500 KG capacity."),
+                LocalizationManager.L("Barn_Lvl3_Desc", "Devasa çiftlik silosu ve ahır. Maksimum mahsul depolama kapasitesini 5.000 KG seviyesine çıkarır.", "Giant farm silo and barn. Increases maximum crop storage capacity to 5,000 KG.")
             };
 
             float[] upgradeCosts = new float[] { 0f, 15000f, 35000f };
@@ -5008,8 +5741,8 @@ namespace Farm2Shelf.UI
                 ? Farm2Shelf.Environment.EnvironmentBuilder.Instance.CurrentUpgradeLevel 
                 : 1;
 
-            List<WholesaleProductDef> allProducts = WholesaleDatabase.GetAllProducts();
-            List<WholesaleProductDef> unlockedProducts = allProducts.FindAll(p => p.requiredLevel <= currentLevel);
+            List<WholesaleProductDef> wholesaleOnly = WholesaleDatabase.GetWholesaleOnlyProducts();
+            List<WholesaleProductDef> unlockedProducts = wholesaleOnly.FindAll(p => p.requiredLevel <= currentLevel && p.isOrderable);
 
             if (unlockedProducts.Count == 0)
             {
@@ -5893,6 +6626,18 @@ namespace Farm2Shelf.UI
             }
 
             closeBtnObj.transform.SetAsLastSibling();
+        }
+
+        private void Update()
+        {
+            if (tabletPopupRoot != null && tabletPopupRoot.activeSelf && workshopsAppView != null && workshopsAppView.gameObject.activeSelf && activeWorkshopTab == 1)
+            {
+                if (Time.unscaledTime - lastWorkshopLiveRefreshTime >= 1.0f)
+                {
+                    lastWorkshopLiveRefreshTime = Time.unscaledTime;
+                    RefreshWorkshopsViews();
+                }
+            }
         }
 
         private void OnDestroy()

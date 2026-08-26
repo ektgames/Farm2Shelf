@@ -297,25 +297,31 @@ namespace Farm2Shelf.UI
         {
             CloseReport();
 
-            // 1. Günlük Gelir/Gider Sayaçlarını Sıfırla / Yeni Güne Devret
+            // 1. Dükkan Durumunu Kapalıya Çek
+            if (StoreStatusManager.Instance != null && StoreStatusManager.Instance.IsOpen)
+            {
+                StoreStatusManager.Instance.CloseStore();
+            }
+
+            // 2. Günlük Gelir/Gider Sayaçlarını Sıfırla / Yeni Güne Devret
             if (FinanceManager.Instance != null)
             {
                 FinanceManager.Instance.ResetDailyStats();
             }
 
-            // 2. Tahliye Durumu Bayrağını Sıfırla
+            // 3. Tahliye Durumu Bayrağını Sıfırla
             if (GameHUDManager.Instance != null)
             {
                 GameHUDManager.Instance.SetWaitingForEvacuation(false);
             }
 
-            // 3. Zamanı Sabah 06:00'ya Geçir ve Günlük İlerlemeyi Yap
+            // 4. Zamanı Sabah 06:00'ya Geçir ve Günlük İlerlemeyi Yap
             if (TimeManager.Instance != null)
             {
                 TimeManager.Instance.SkipToNextDay06AM();
             }
 
-            // 4. Personellerin sabah modellerini senkronize et
+            // 5. Personellerin sabah modellerini senkronize et
             if (StaffVisualManager.Instance != null)
             {
                 StaffVisualManager.Instance.SyncStaff3DModels();

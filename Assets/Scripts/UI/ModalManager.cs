@@ -16,10 +16,17 @@ namespace Farm2Shelf.UI
         private static GameObject currentGlobalPopupCanvas;
         public static bool IsGlobalPopupOpen => currentGlobalPopupCanvas != null && currentGlobalPopupCanvas.activeInHierarchy;
 
-        public static bool IsModalOpen => IsAnyModalCanvasActive();
+        public static float LastModalCloseTime { get; private set; } = -1f;
+
+        public static bool IsModalOpen => modalState || IsAnyModalCanvasActive();
 
         public static void SetModalOpen(bool isOpen)
         {
+            if (modalState && !isOpen)
+            {
+                LastModalCloseTime = Time.unscaledTime;
+                Farm2Shelf.Utils.TouchInputHelper.SuppressNextTap();
+            }
             modalState = isOpen;
         }
 
@@ -48,10 +55,12 @@ namespace Farm2Shelf.UI
             if (CalendarPopupUI.IsCalendarModalOpen) return true;
             if (FieldPlotDetailModalUI.IsDetailOpen) return true;
             if (TutorialPromptModalUI.IsPromptOpen) return true;
+            if (SettingsModalUI.Instance != null && SettingsModalUI.Instance.IsSettingsOpen) return true;
+            if (SaveLoadSlotModalUI.Instance != null && SaveLoadSlotModalUI.Instance.IsModalOpen) return true;
+            if (HowToPlayModalUI.Instance != null && HowToPlayModalUI.Instance.IsModalOpen) return true;
+            if (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen) return true;
 
-            // Eğer yukarıdaki gerçek modalların hiçbiri sahnede aktif değilse, modalState bayrağını da otomatik sıfırla!
-            modalState = false;
-            return false;
+            return modalState;
         }
 
         /// <summary>
@@ -78,7 +87,7 @@ namespace Farm2Shelf.UI
 
             Canvas canvas = canvasObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 999;
+            canvas.sortingOrder = 2000;
 
             CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -146,10 +155,10 @@ namespace Farm2Shelf.UI
             btnObj.transform.SetParent(boxObj.transform, false);
             RectTransform bRect = btnObj.AddComponent<RectTransform>();
             bRect.anchoredPosition = new Vector2(0f, -110f);
-            bRect.sizeDelta = new Vector2(180f, 44f);
+            bRect.sizeDelta = new Vector2(220f, 48f);
 
             Image bBg = btnObj.AddComponent<Image>();
-            bBg.sprite = UIStyleUtility.CreateRoundedPillSprite(180, 44, 10, new Color(0.95f, 0.40f, 0.55f));
+            bBg.sprite = UIStyleUtility.CreateRoundedPillSprite(220, 48, 12, new Color(0.95f, 0.40f, 0.55f));
 
             Button btn = btnObj.AddComponent<Button>();
             btn.targetGraphic = bBg;
@@ -165,12 +174,18 @@ namespace Farm2Shelf.UI
             RectTransform btRect = btnTxtObj.AddComponent<RectTransform>();
             btRect.anchorMin = Vector2.zero;
             btRect.anchorMax = Vector2.one;
-            btRect.sizeDelta = Vector2.zero;
+            btRect.offsetMin = new Vector2(12f, 2f);
+            btRect.offsetMax = new Vector2(-12f, -2f);
 
             Text btText = btnTxtObj.AddComponent<Text>();
             btText.font = font;
             btText.text = buttonText;
-            btText.fontSize = 16;
+            btText.fontSize = 17;
+            btText.resizeTextForBestFit = true;
+            btText.resizeTextMinSize = 10;
+            btText.resizeTextMaxSize = 17;
+            btText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            btText.verticalOverflow = VerticalWrapMode.Truncate;
             btText.fontStyle = FontStyle.Bold;
             btText.alignment = TextAnchor.MiddleCenter;
             btText.color = Color.white;
@@ -241,7 +256,7 @@ namespace Farm2Shelf.UI
 
             Canvas canvas = canvasObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 999;
+            canvas.sortingOrder = 2000;
 
             CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -268,10 +283,10 @@ namespace Farm2Shelf.UI
 
             RectTransform boxRect = boxObj.AddComponent<RectTransform>();
             boxRect.anchoredPosition = Vector2.zero;
-            boxRect.sizeDelta = new Vector2(620f, 340f);
+            boxRect.sizeDelta = new Vector2(660f, 350f);
 
             Image boxBg = boxObj.AddComponent<Image>();
-            boxBg.sprite = UIStyleUtility.CreateOutlinePillSprite(620, 340, 16, 2, new Color(0.95f, 0.40f, 0.55f), new Color(0.12f, 0.15f, 0.20f, 0.98f));
+            boxBg.sprite = UIStyleUtility.CreateOutlinePillSprite(660, 350, 16, 2, new Color(0.95f, 0.40f, 0.55f), new Color(0.12f, 0.15f, 0.20f, 0.98f));
 
             Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
@@ -279,16 +294,16 @@ namespace Farm2Shelf.UI
             GameObject titleObj = new GameObject("Modal_Title");
             titleObj.transform.SetParent(boxObj.transform, false);
             RectTransform tRect = titleObj.AddComponent<RectTransform>();
-            tRect.anchoredPosition = new Vector2(0f, 120f);
-            tRect.sizeDelta = new Vector2(560f, 40f);
+            tRect.anchoredPosition = new Vector2(0f, 125f);
+            tRect.sizeDelta = new Vector2(580f, 40f);
 
             Text tText = titleObj.AddComponent<Text>();
             tText.font = font;
             tText.text = title;
-            tText.fontSize = 26;
+            tText.fontSize = 24;
             tText.resizeTextForBestFit = true;
             tText.resizeTextMinSize = 16;
-            tText.resizeTextMaxSize = 28;
+            tText.resizeTextMaxSize = 26;
             tText.fontStyle = FontStyle.Bold;
             tText.alignment = TextAnchor.MiddleCenter;
             tText.color = new Color(0.95f, 0.45f, 0.60f);
@@ -298,15 +313,15 @@ namespace Farm2Shelf.UI
             msgObj.transform.SetParent(boxObj.transform, false);
             RectTransform mRect = msgObj.AddComponent<RectTransform>();
             mRect.anchoredPosition = new Vector2(0f, 20f);
-            mRect.sizeDelta = new Vector2(540f, 150f);
+            mRect.sizeDelta = new Vector2(580f, 150f);
 
             Text mText = msgObj.AddComponent<Text>();
             mText.font = font;
             mText.text = message;
-            mText.fontSize = 19;
+            mText.fontSize = 18;
             mText.resizeTextForBestFit = true;
-            mText.resizeTextMinSize = 13;
-            mText.resizeTextMaxSize = 20;
+            mText.resizeTextMinSize = 12;
+            mText.resizeTextMaxSize = 19;
             mText.alignment = TextAnchor.MiddleCenter;
             mText.color = Color.white;
 
@@ -314,11 +329,11 @@ namespace Farm2Shelf.UI
             GameObject confirmBtnObj = new GameObject("Confirm_Button");
             confirmBtnObj.transform.SetParent(boxObj.transform, false);
             RectTransform confirmRect = confirmBtnObj.AddComponent<RectTransform>();
-            confirmRect.anchoredPosition = new Vector2(110f, -110f);
-            confirmRect.sizeDelta = new Vector2(170f, 44f);
+            confirmRect.anchoredPosition = new Vector2(150f, -115f);
+            confirmRect.sizeDelta = new Vector2(260f, 48f);
 
             Image confirmBg = confirmBtnObj.AddComponent<Image>();
-            confirmBg.sprite = UIStyleUtility.CreateRoundedPillSprite(170, 44, 10, new Color(0.20f, 0.75f, 0.45f));
+            confirmBg.sprite = UIStyleUtility.CreateRoundedPillSprite(260, 48, 12, new Color(0.20f, 0.75f, 0.45f));
 
             Button confirmBtn = confirmBtnObj.AddComponent<Button>();
             confirmBtn.targetGraphic = confirmBg;
@@ -334,14 +349,18 @@ namespace Farm2Shelf.UI
             RectTransform cLabelRect = confirmTxtObj.AddComponent<RectTransform>();
             cLabelRect.anchorMin = Vector2.zero;
             cLabelRect.anchorMax = Vector2.one;
+            cLabelRect.offsetMin = new Vector2(10f, 2f);
+            cLabelRect.offsetMax = new Vector2(-10f, -2f);
 
             Text confirmTxt = confirmTxtObj.AddComponent<Text>();
             confirmTxt.font = font;
             confirmTxt.text = confirmText;
-            confirmTxt.fontSize = 19;
+            confirmTxt.fontSize = 16;
             confirmTxt.resizeTextForBestFit = true;
-            confirmTxt.resizeTextMinSize = 12;
-            confirmTxt.resizeTextMaxSize = 20;
+            confirmTxt.resizeTextMinSize = 10;
+            confirmTxt.resizeTextMaxSize = 17;
+            confirmTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
+            confirmTxt.verticalOverflow = VerticalWrapMode.Truncate;
             confirmTxt.fontStyle = FontStyle.Bold;
             confirmTxt.alignment = TextAnchor.MiddleCenter;
             confirmTxt.color = Color.white;
@@ -350,11 +369,11 @@ namespace Farm2Shelf.UI
             GameObject cancelBtnObj = new GameObject("Cancel_Button");
             cancelBtnObj.transform.SetParent(boxObj.transform, false);
             RectTransform cancelRect = cancelBtnObj.AddComponent<RectTransform>();
-            cancelRect.anchoredPosition = new Vector2(-110f, -110f);
-            cancelRect.sizeDelta = new Vector2(170f, 44f);
+            cancelRect.anchoredPosition = new Vector2(-150f, -115f);
+            cancelRect.sizeDelta = new Vector2(260f, 48f);
 
             Image cancelBg = cancelBtnObj.AddComponent<Image>();
-            cancelBg.sprite = UIStyleUtility.CreateRoundedPillSprite(170, 44, 10, new Color(0.40f, 0.45f, 0.55f));
+            cancelBg.sprite = UIStyleUtility.CreateRoundedPillSprite(260, 48, 12, new Color(0.40f, 0.45f, 0.55f));
 
             Button cancelBtn = cancelBtnObj.AddComponent<Button>();
             cancelBtn.targetGraphic = cancelBg;
@@ -370,14 +389,18 @@ namespace Farm2Shelf.UI
             RectTransform cancelLabelRect = cancelTxtObj.AddComponent<RectTransform>();
             cancelLabelRect.anchorMin = Vector2.zero;
             cancelLabelRect.anchorMax = Vector2.one;
+            cancelLabelRect.offsetMin = new Vector2(10f, 2f);
+            cancelLabelRect.offsetMax = new Vector2(-10f, -2f);
 
             Text cancelTxt = cancelTxtObj.AddComponent<Text>();
             cancelTxt.font = font;
             cancelTxt.text = cancelText;
-            cancelTxt.fontSize = 19;
+            cancelTxt.fontSize = 16;
             cancelTxt.resizeTextForBestFit = true;
-            cancelTxt.resizeTextMinSize = 12;
-            cancelTxt.resizeTextMaxSize = 20;
+            cancelTxt.resizeTextMinSize = 10;
+            cancelTxt.resizeTextMaxSize = 17;
+            cancelTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
+            cancelTxt.verticalOverflow = VerticalWrapMode.Truncate;
             cancelTxt.fontStyle = FontStyle.Bold;
             cancelTxt.alignment = TextAnchor.MiddleCenter;
             cancelTxt.color = Color.white;
@@ -386,7 +409,7 @@ namespace Farm2Shelf.UI
             GameObject closeBtnObj = new GameObject("CloseButton_X");
             closeBtnObj.transform.SetParent(boxObj.transform, false);
             RectTransform cRect = closeBtnObj.AddComponent<RectTransform>();
-            cRect.anchoredPosition = new Vector2(275f, 135f);
+            cRect.anchoredPosition = new Vector2(295f, 140f);
             cRect.sizeDelta = new Vector2(40f, 40f);
 
             Image cBg = closeBtnObj.AddComponent<Image>();

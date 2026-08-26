@@ -196,11 +196,34 @@ namespace Farm2Shelf.Environment
                 case FurnitureType.ProduceShelf:
                     BuildProduceShelf(root);
                     break;
+                case FurnitureType.GourmetShelf:
+                    BuildGourmetShelf(root);
+                    break;
                 case FurnitureType.ButcherCounter:
                     BuildButcherCounter(root);
                     break;
                 case FurnitureType.ElectronicsShelf:
                     BuildElectronicsShelf(root);
+                    break;
+
+                // --- ATÖLYE MAKİNELERİ (6 Adet) ---
+                case FurnitureType.WorkshopJamMaker:
+                    WorkshopMachineModelBuilder.BuildMachineModel(WorkshopMachineType.JamMaker).transform.SetParent(root.transform, false);
+                    break;
+                case FurnitureType.WorkshopJuicePress:
+                    WorkshopMachineModelBuilder.BuildMachineModel(WorkshopMachineType.JuiceExtractor).transform.SetParent(root.transform, false);
+                    break;
+                case FurnitureType.WorkshopCannery:
+                    WorkshopMachineModelBuilder.BuildMachineModel(WorkshopMachineType.Cannery).transform.SetParent(root.transform, false);
+                    break;
+                case FurnitureType.WorkshopDehydrator:
+                    WorkshopMachineModelBuilder.BuildMachineModel(WorkshopMachineType.Dehydrator).transform.SetParent(root.transform, false);
+                    break;
+                case FurnitureType.WorkshopOilPress:
+                    WorkshopMachineModelBuilder.BuildMachineModel(WorkshopMachineType.OilPress).transform.SetParent(root.transform, false);
+                    break;
+                case FurnitureType.WorkshopSaladStation:
+                    WorkshopMachineModelBuilder.BuildMachineModel(WorkshopMachineType.SaladStation).transform.SetParent(root.transform, false);
                     break;
 
                 // --- SEVİYE 1 DEKORASYONLAR (10 Adet) ---
@@ -512,6 +535,31 @@ namespace Farm2Shelf.Environment
 
             // Ön Yön Ok Göstergesi
             BuildDirectionalArrowIndicator(parent, -d / 2f, new Color(0.30f, 0.85f, 0.40f));
+        }
+
+        // 8B. Lüks Gurme Reyonu (Gourmet Shelf)
+        private static void BuildGourmetShelf(GameObject parent)
+        {
+            float w = 1.9f, h = 2.1f, d = 0.7f;
+
+            // Koyu Ceviz Ağacı Lüks Gövde & Yan Paneller
+            CreatePrimitive(parent, "GourmetBody", PrimitiveType.Cube, new Vector3(0f, h / 2f, 0.05f), new Vector3(w, h, d - 0.1f), darkWoodMat);
+            CreatePrimitive(parent, "GourmetTrim_L", PrimitiveType.Cube, new Vector3(-w / 2f + 0.04f, h / 2f, -d / 2f + 0.04f), new Vector3(0.06f, h, 0.06f), goldMat);
+            CreatePrimitive(parent, "GourmetTrim_R", PrimitiveType.Cube, new Vector3(w / 2f - 0.04f, h / 2f, -d / 2f + 0.04f), new Vector3(0.06f, h, 0.06f), goldMat);
+
+            // 4 Katlı Cam Raflar ve Altın Ön Korkuluklar
+            float[] shelfY = new float[] { 0.45f, 0.90f, 1.35f, 1.80f };
+            foreach (float y in shelfY)
+            {
+                CreatePrimitive(parent, "GourmetGlassShelf", PrimitiveType.Cube, new Vector3(0f, y, -0.02f), new Vector3(w - 0.12f, 0.04f, d - 0.15f), glassMat);
+                CreatePrimitive(parent, "GourmetGoldRail", PrimitiveType.Cube, new Vector3(0f, y + 0.06f, -d / 2f + 0.06f), new Vector3(w - 0.14f, 0.03f, 0.03f), goldMat);
+            }
+
+            // Üst Altın Gurme Logosu / Başlığı
+            CreatePrimitive(parent, "GourmetCrest", PrimitiveType.Cube, new Vector3(0f, h + 0.12f, 0f), new Vector3(1.3f, 0.22f, 0.06f), goldMat);
+
+            // Ön Yön Ok Göstergesi (Altın/Amber Rengi)
+            BuildDirectionalArrowIndicator(parent, -d / 2f, new Color(1.0f, 0.85f, 0.20f));
         }
 
         // 9. Kasap Reyonu (Butcher Counter)

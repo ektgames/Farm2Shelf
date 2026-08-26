@@ -55,6 +55,15 @@ namespace Farm2Shelf.Utils
             }
         }
 
+        public static void SuppressNextTap()
+        {
+            lastGlobalDispatchTime = Time.unscaledTime;
+            cleanTapTriggeredThisFrame = false;
+            isPressed = false;
+            isDragging = false;
+            wasMultiTouch = false;
+        }
+
         public static bool IsCleanTapThisFrame(out Vector2 tapPosition)
         {
             EvaluateFrame();
@@ -116,7 +125,8 @@ namespace Farm2Shelf.Utils
                         lastTapPosition = (pressPosition.sqrMagnitude > 0.001f) ? pressPosition : effectiveReleasePos;
 
                         // UI üzerinde değilse ve Modal açık değilse doğrudan 3D nesneleri tetikle
-                        if (!ModalManager.IsModalOpen && !EKTPhoneManager.IsTabletOpen && !IsPointerOverUI(lastTapPosition))
+                        bool isPauseOpen = (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen);
+                        if (!ModalManager.IsModalOpen && !EKTPhoneManager.IsTabletOpen && !isPauseOpen && !IsPointerOverUI(lastTapPosition))
                         {
                             Dispatch3DClick(lastTapPosition);
                         }
@@ -134,7 +144,10 @@ namespace Farm2Shelf.Utils
         /// </summary>
         public static bool Dispatch3DClick(Vector2 screenPos)
         {
-            if (Time.unscaledTime - lastGlobalDispatchTime < 0.15f) return false;
+            bool isPauseOpen = (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen);
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || isPauseOpen || IsPointerOverUI(screenPos)) return false;
+            if (Time.unscaledTime - lastGlobalDispatchTime < 0.20f) return false;
+            if (Time.unscaledTime - ModalManager.LastModalCloseTime < 0.35f) return false;
             if (screenPos == Vector2.zero) return false;
 
             Camera cam = Camera.main;
@@ -161,12 +174,23 @@ namespace Farm2Shelf.Utils
                     return true;
                 }
 
-                DeliveryPalletClickable pallet = go.GetComponentInParent<DeliveryPalletClickable>();
-                if (pallet == null) pallet = go.GetComponent<DeliveryPalletClickable>();
-                if (pallet != null || go.name.Contains("Pallet") || (go.transform.parent != null && go.transform.parent.name.Contains("Pallet")))
+                WorkshopPalletClickable wsPallet = go.GetComponentInParent<WorkshopPalletClickable>();
+                if (wsPallet == null) wsPallet = go.GetComponent<WorkshopPalletClickable>();
+                if (wsPallet != null || go.name.Contains("Workshop_Pallet") || (go.transform.parent != null && go.transform.parent.name.Contains("Workshop_Pallet")))
                 {
                     lastGlobalDispatchTime = Time.unscaledTime;
-                    PalletStorageInventoryModalUI.ShowModal();
+                    PalletStorageInventoryModalUI.ShowModal(isWorkshopMode: true);
+                    return true;
+                }
+
+                DeliveryPalletClickable pallet = go.GetComponentInParent<DeliveryPalletClickable>();
+                if (pallet == null) pallet = go.GetComponent<DeliveryPalletClickable>();
+                if (pallet != null || go.name.Contains("Pallet") || go.name.Contains("Delivery") || go.name.Contains("Cargo") ||
+                    (go.transform.parent != null && (go.transform.parent.name.Contains("Pallet") || go.transform.parent.name.Contains("Delivery") || go.transform.parent.name.Contains("Cargo"))) ||
+                    (go.transform.root != null && (go.transform.root.name.Contains("Pallet") || go.transform.root.name.Contains("Delivery"))))
+                {
+                    lastGlobalDispatchTime = Time.unscaledTime;
+                    PalletStorageInventoryModalUI.ShowModal(isWorkshopMode: false);
                     return true;
                 }
             }
@@ -242,14 +266,24 @@ namespace Farm2Shelf.Utils
                 if (pallet != null)
                 {
                     lastGlobalDispatchTime = Time.unscaledTime;
-                    PalletStorageInventoryModalUI.ShowModal();
+                    PalletStorageInventoryModalUI.ShowModal(isWorkshopMode: false);
+                    return true;
+                }
+
+                // 7.b Atölye Hammadde Paleti (Workshop Pallet)
+                WorkshopPalletClickable wsPallet = go.GetComponentInParent<WorkshopPalletClickable>();
+                if (wsPallet == null) wsPallet = go.GetComponent<WorkshopPalletClickable>();
+                if (wsPallet != null || go.name.Contains("Workshop_Pallet") || (go.transform.parent != null && go.transform.parent.name.Contains("Workshop_Pallet")))
+                {
+                    lastGlobalDispatchTime = Time.unscaledTime;
+                    PalletStorageInventoryModalUI.ShowModal(isWorkshopMode: true);
                     return true;
                 }
 
                 if (go.name.Contains("Pallet") || (go.transform.parent != null && go.transform.parent.name.Contains("Pallet")))
                 {
                     lastGlobalDispatchTime = Time.unscaledTime;
-                    PalletStorageInventoryModalUI.ShowModal();
+                    PalletStorageInventoryModalUI.ShowModal(isWorkshopMode: false);
                     return true;
                 }
             }
@@ -259,6 +293,11 @@ namespace Farm2Shelf.Utils
 
         public static int GetTouchCount()
         {
+            if (!Application.isMobilePlatform && Input.touchCount == 0)
+            {
+                return 0;
+            }
+
             try
             {
                 if (Input.touchCount > 0) return Input.touchCount;
@@ -387,22 +426,19 @@ namespace Farm2Shelf.Utils
                 {
                     GameObject go = result.gameObject;
 
-                    // 1. Gerçek Tıklanabilir UI Buton ve Girdi Elemanları
+                    // 1. Herhangi bir modal, tablet veya pause menüsü açıksa tüm UI arkasını kilitler
+                    if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen))
+                    {
+                        return true;
+                    }
+
+                    // 2. Modal açık değilken sadece tıklanabilir interaktif buton/UI öğeleri 3D tıklamayı engeller
                     if (go.GetComponentInParent<UnityEngine.UI.Selectable>() != null ||
                         go.GetComponentInParent<UnityEngine.UI.Button>() != null ||
                         go.GetComponentInParent<UnityEngine.UI.Toggle>() != null ||
                         go.GetComponentInParent<UnityEngine.UI.Slider>() != null ||
                         go.GetComponentInParent<UnityEngine.UI.InputField>() != null ||
-                        go.GetComponentInParent<UnityEngine.UI.ScrollRect>() != null ||
-                        go.GetComponentInParent<TMPro.TMP_InputField>() != null ||
-                        go.GetComponentInParent<TMPro.TMP_Dropdown>() != null)
-                    {
-                        return true;
-                    }
-
-                    // 2. Açık Modal / Dialog / Popup Katmanları
-                    string n = go.name.ToLower();
-                    if (n.Contains("modal") || n.Contains("popup") || n.Contains("dialog") || n.Contains("tablet") || n.Contains("backdrop"))
+                        go.GetComponentInParent<UnityEngine.UI.ScrollRect>() != null)
                     {
                         return true;
                     }

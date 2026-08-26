@@ -29,7 +29,9 @@ namespace Farm2Shelf.UI
             else Destroy(gameObject);
         }
 
-        public static void ShowModal()
+        private bool isWorkshop = false;
+
+        public static void ShowModal(bool isWorkshopMode = false)
         {
             if (globalFont == null)
             {
@@ -57,6 +59,7 @@ namespace Farm2Shelf.UI
             currentCanvasObj.AddComponent<GraphicRaycaster>();
 
             PalletStorageInventoryModalUI script = currentCanvasObj.AddComponent<PalletStorageInventoryModalUI>();
+            script.isWorkshop = isWorkshopMode;
             script.BuildUI(currentCanvasObj.transform);
         }
 
@@ -152,11 +155,13 @@ namespace Farm2Shelf.UI
 
             Text titleText = titleObj.AddComponent<Text>();
             titleText.font = globalFont;
-            titleText.text = LocalizationManager.L("PalletModal_Title", "📦 PALET RAFI MOBİLYA DEPOSU", "📦 PALLET RACK FURNITURE STORAGE");
+            titleText.text = isWorkshop
+                ? LocalizationManager.L("PalletModal_WorkshopTitle", "🏭 ATÖLYE PALETİ (MAKİNELER & HAMMADDELER)", "🏭 WORKSHOP PALLET (MACHINES & RAW CROPS)")
+                : LocalizationManager.L("PalletModal_Title", "📦 PALET RAFI MOBİLYA DEPOSU", "📦 PALLET RACK FURNITURE STORAGE");
             titleText.fontSize = 20;
             titleText.fontStyle = FontStyle.Bold;
             titleText.alignment = TextAnchor.MiddleLeft;
-            titleText.color = new Color(1.0f, 0.85f, 0.30f);
+            titleText.color = isWorkshop ? new Color(0.95f, 0.65f, 0.20f) : new Color(1.0f, 0.85f, 0.30f);
             titleText.raycastTarget = false;
 
             // Arama Kutusu (Search Input Field)
@@ -182,7 +187,9 @@ namespace Farm2Shelf.UI
 
             Text phText = placeholderObj.AddComponent<Text>();
             phText.font = globalFont;
-            phText.text = LocalizationManager.L("PalletModal_SearchPlaceholder", "🔍 Mobilya ara...", "🔍 Search furniture...");
+            phText.text = isWorkshop
+                ? LocalizationManager.L("PalletModal_SearchWorkshopPlaceholder", "🔍 Makine veya mahsul ara...", "🔍 Search machine or crop...")
+                : LocalizationManager.L("PalletModal_SearchPlaceholder", "🔍 Mobilya ara...", "🔍 Search furniture...");
             phText.fontSize = 14;
             phText.fontStyle = FontStyle.Italic;
             phText.color = new Color(0.55f, 0.65f, 0.75f, 0.70f);
@@ -321,7 +328,7 @@ namespace Farm2Shelf.UI
 
             Text iconText = iconObj.AddComponent<Text>();
             iconText.font = globalFont;
-            iconText.text = "📦";
+            iconText.text = isWorkshop ? "🏭" : "📦";
             iconText.fontSize = 44;
             iconText.alignment = TextAnchor.MiddleCenter;
             iconText.color = new Color(0.70f, 0.75f, 0.85f);
@@ -335,11 +342,17 @@ namespace Farm2Shelf.UI
 
             Text descText = descObj.AddComponent<Text>();
             descText.font = globalFont;
-            descText.text = LocalizationManager.L(
-                "PalletModal_EmptyDesc",
-                "Palet rafında kurulu olmayan mobilya kolisi bulunmuyor.\nEKT Phone TrendyShop uygulamasından dilediğiniz reyon veya mobilyayı sipariş edebilirsiniz.",
-                "No stored furniture boxes on the pallet rack.\nYou can order shelves and furniture anytime via EKT Phone TrendyShop."
-            );
+            descText.text = isWorkshop
+                ? LocalizationManager.L(
+                    "PalletModal_WorkshopEmptyDesc",
+                    "Atölye paletinde kurulu olmayan makine kolisi bulunmuyor.\nTabletten Atölye Makineleri sekmesine giderek yeni makineler satın alabilirsiniz.",
+                    "No uninstalled machine boxes on the workshop pallet.\nYou can buy new machines from the Workshop tab in Tablet."
+                )
+                : LocalizationManager.L(
+                    "PalletModal_EmptyDesc",
+                    "Palet rafında kurulu olmayan mobilya kolisi bulunmuyor.\nEKT Phone TrendyShop uygulamasından dilediğiniz reyon veya mobilyayı sipariş edebilirsiniz.",
+                    "No stored furniture boxes on the pallet rack.\nYou can order shelves and furniture anytime via EKT Phone TrendyShop."
+                );
             descText.fontSize = 15;
             descText.alignment = TextAnchor.MiddleCenter;
             descText.color = new Color(0.65f, 0.75f, 0.85f);
@@ -350,10 +363,10 @@ namespace Farm2Shelf.UI
             shopBtnObj.transform.SetParent(emptyStateObj.transform, false);
             RectTransform bRect = shopBtnObj.AddComponent<RectTransform>();
             bRect.anchoredPosition = new Vector2(0f, -70f);
-            bRect.sizeDelta = new Vector2(260f, 44f);
+            bRect.sizeDelta = new Vector2(280f, 44f);
 
             Image bBg = shopBtnObj.AddComponent<Image>();
-            bBg.sprite = UIStyleUtility.CreateOutlinePillSprite(260, 44, 22, 2, new Color(0.95f, 0.70f, 0.20f), new Color(0.22f, 0.16f, 0.05f, 0.95f));
+            bBg.sprite = UIStyleUtility.CreateOutlinePillSprite(280, 44, 22, 2, new Color(0.95f, 0.70f, 0.20f), new Color(0.22f, 0.16f, 0.05f, 0.95f));
             bBg.raycastTarget = true;
 
             Button shopBtn = shopBtnObj.AddComponent<Button>();
@@ -375,7 +388,9 @@ namespace Farm2Shelf.UI
 
             Text shopText = stObj.AddComponent<Text>();
             shopText.font = globalFont;
-            shopText.text = LocalizationManager.L("PalletModal_OpenShopBtn", "📱 TrendyShop'a Git", "📱 Open TrendyShop");
+            shopText.text = isWorkshop
+                ? LocalizationManager.L("PalletModal_OpenWorkshopShopBtn", "📱 Atölye Makinelerine Git", "📱 Open Workshop Machines")
+                : LocalizationManager.L("PalletModal_OpenShopBtn", "📱 TrendyShop'a Git", "📱 Open TrendyShop");
             shopText.fontSize = 15;
             shopText.fontStyle = FontStyle.Bold;
             shopText.alignment = TextAnchor.MiddleCenter;
@@ -394,11 +409,21 @@ namespace Farm2Shelf.UI
                 Destroy(child.gameObject);
             }
 
-            Dictionary<FurnitureType, int> pendingCounts = null;
-            if (FurnitureDeliveryManager.Instance != null)
+            if (isWorkshop)
             {
-                pendingCounts = FurnitureDeliveryManager.Instance.GetPendingFurnitureCounts();
+                RefreshWorkshopPalletInventory();
             }
+            else
+            {
+                RefreshFurniturePalletInventory();
+            }
+        }
+
+        private void RefreshFurniturePalletInventory()
+        {
+            Dictionary<FurnitureType, int> pendingCounts = (FurnitureDeliveryManager.Instance != null)
+                ? FurnitureDeliveryManager.Instance.GetPendingFurnitureCounts()
+                : null;
 
             if (pendingCounts == null || pendingCounts.Count == 0)
             {
@@ -406,8 +431,9 @@ namespace Farm2Shelf.UI
                 return;
             }
 
-            int matchingCards = 0;
+            if (emptyStateObj != null) emptyStateObj.SetActive(false);
 
+            int matchingCards = 0;
             foreach (var kvp in pendingCounts)
             {
                 FurnitureType fType = kvp.Key;
@@ -418,7 +444,6 @@ namespace Farm2Shelf.UI
                 string locName = def.LocalizedName;
                 string locDesc = def.LocalizedDescription;
 
-                // Arama Filtresi Kontrolü
                 if (!string.IsNullOrEmpty(searchQuery))
                 {
                     bool matchName = locName.ToLower().Contains(searchQuery);
@@ -435,6 +460,244 @@ namespace Farm2Shelf.UI
             {
                 emptyStateObj.SetActive(matchingCards == 0);
             }
+        }
+
+        private void RefreshWorkshopPalletInventory()
+        {
+            Dictionary<FurnitureType, int> pendingMachines = (WorkshopPalletManager.Instance != null)
+                ? WorkshopPalletManager.Instance.GetPendingMachineCounts()
+                : new Dictionary<FurnitureType, int>();
+
+            Dictionary<string, int> storedCrops = (WorkshopPalletManager.Instance != null)
+                ? WorkshopPalletManager.Instance.GetCropInventory()
+                : new Dictionary<string, int>();
+
+            int totalPendingMachines = 0;
+            if (pendingMachines != null)
+            {
+                foreach (var kvp in pendingMachines) totalPendingMachines += kvp.Value;
+            }
+
+            int totalKg = (WorkshopPalletManager.Instance != null)
+                ? WorkshopPalletManager.Instance.GetTotalStoredAmount()
+                : 0;
+
+            bool isTotallyEmpty = totalPendingMachines == 0 && totalKg == 0;
+            if (isTotallyEmpty && string.IsNullOrEmpty(searchQuery))
+            {
+                if (emptyStateObj != null) emptyStateObj.SetActive(true);
+                return;
+            }
+
+            if (emptyStateObj != null) emptyStateObj.SetActive(false);
+
+            // ================= 1. KATEGORİ: 🏭 KURULMAYI BEKLEYEN MAKİNELER =================
+            string machHeaderTitle = LocalizationManager.L("Pallet_Section_Machines", "🏭 KURULMAYI BEKLEYEN MAKİNE KOLİLERİ", "🏭 UNINSTALLED MACHINE BOXES");
+            CreateSectionHeader($"{machHeaderTitle} ({totalPendingMachines} {LocalizationManager.L("Unit_Pieces", "Adet", "Pcs")})", new Color(0.95f, 0.65f, 0.20f));
+
+            int matchingMachines = 0;
+            if (pendingMachines != null && pendingMachines.Count > 0)
+            {
+                foreach (var kvp in pendingMachines)
+                {
+                    FurnitureType fType = kvp.Key;
+                    int quantity = kvp.Value;
+                    FurnitureItemDef def = FurnitureDatabase.GetDef(fType);
+                    if (def == null) continue;
+
+                    string locName = def.LocalizedName;
+                    string locDesc = def.LocalizedDescription;
+
+                    if (!string.IsNullOrEmpty(searchQuery))
+                    {
+                        bool matchName = locName.ToLower().Contains(searchQuery);
+                        bool matchDesc = locDesc.ToLower().Contains(searchQuery);
+                        bool matchType = fType.ToString().ToLower().Contains(searchQuery);
+                        if (!matchName && !matchDesc && !matchType) continue;
+                    }
+
+                    matchingMachines++;
+                    CreateFurnitureInventoryCard(fType, def, quantity);
+                }
+            }
+
+            if (matchingMachines == 0 && string.IsNullOrEmpty(searchQuery))
+            {
+                CreateEmptyNoticeCard(LocalizationManager.L("Pallet_NoPendingMachinesNotice", "✅ Palette bekleyen makine kolisi yok. (Satın aldığınız tüm makineler kuruldu).", "✅ No pending machine boxes on the pallet. (All purchased machines are installed)."));
+            }
+
+            // ================= 2. KATEGORİ: 🌾 İŞLENMEYE HAZIR HAMMADDE MAHSULLER =================
+            string cropHeaderTitle = LocalizationManager.L("Pallet_Section_Crops", "🌾 İŞLENMEYE HAZIR HAMMADDE MAHSULLER", "🌾 RAW CROPS READY FOR PROCESSING");
+            CreateSectionHeader($"{cropHeaderTitle} ({totalKg} KG)", new Color(0.35f, 0.85f, 0.40f));
+
+            int matchingCrops = 0;
+            if (storedCrops != null && storedCrops.Count > 0)
+            {
+                foreach (var kvp in storedCrops)
+                {
+                    string cropId = kvp.Key;
+                    int count = kvp.Value;
+                    if (count <= 0) continue;
+
+                    GardenSeedDef sDef = GardenSeedDatabase.GetSeedById(cropId);
+                    string cropName = (sDef != null) ? sDef.LocalizedName.Replace(" Tohumu", "").Replace(" Seeds", "").Replace(" Seed", "") : cropId;
+
+                    if (!string.IsNullOrEmpty(searchQuery))
+                    {
+                        bool matchName = cropName.ToLower().Contains(searchQuery);
+                        bool matchId = cropId.ToLower().Contains(searchQuery);
+                        if (!matchName && !matchId) continue;
+                    }
+
+                    matchingCrops++;
+                    CreateWorkshopCropRow(cropId, count);
+                }
+            }
+
+            if (matchingCrops == 0 && string.IsNullOrEmpty(searchQuery))
+            {
+                CreateEmptyNoticeCard(LocalizationManager.L("Pallet_NoCropsNotice", "📦 Palette henüz hammadde mahsulü bulunmuyor. Ahır menüsündeki 'TÜMÜNÜ ATÖLYEYE GÖNDER' butonu ile aktarabilirsiniz.", "📦 No raw crops on the pallet yet. Transfer crops from Barn menu using 'SHIP ALL TO WORKSHOP' button."));
+            }
+
+            if (matchingMachines == 0 && matchingCrops == 0 && !string.IsNullOrEmpty(searchQuery))
+            {
+                CreateEmptyNoticeCard(string.Format(LocalizationManager.L("Pallet_NoSearchMatch", "🔍 \"{0}\" aramasına uygun makine veya mahsul bulunamadı.", "🔍 No machines or crops found matching \"{0}\"."), searchQuery));
+            }
+        }
+
+        private void CreateSectionHeader(string title, Color accentColor)
+        {
+            GameObject headerObj = new GameObject("SectionHeader");
+            headerObj.transform.SetParent(cardsContainer, false);
+
+            RectTransform hRect = headerObj.AddComponent<RectTransform>();
+            hRect.sizeDelta = new Vector2(890f, 38f);
+
+            LayoutElement elem = headerObj.AddComponent<LayoutElement>();
+            elem.minHeight = 38f;
+            elem.preferredHeight = 38f;
+
+            Image hBg = headerObj.AddComponent<Image>();
+            hBg.sprite = UIStyleUtility.CreateOutlinePillSprite(890, 38, 10, 1, accentColor, new Color(0.08f, 0.12f, 0.18f, 0.95f));
+
+            GameObject tObj = new GameObject("Text");
+            tObj.transform.SetParent(headerObj.transform, false);
+            RectTransform tRect = tObj.AddComponent<RectTransform>();
+            tRect.anchorMin = Vector2.zero;
+            tRect.anchorMax = Vector2.one;
+            tRect.offsetMin = new Vector2(16f, 0f);
+            tRect.offsetMax = new Vector2(-16f, 0f);
+
+            Text txt = tObj.AddComponent<Text>();
+            txt.font = globalFont;
+            txt.text = $"<b>{title}</b>";
+            txt.fontSize = 15;
+            txt.alignment = TextAnchor.MiddleLeft;
+            txt.color = accentColor;
+            txt.raycastTarget = false;
+        }
+
+        private void CreateEmptyNoticeCard(string message)
+        {
+            GameObject emptyObj = new GameObject("EmptyNoticeCard");
+            emptyObj.transform.SetParent(cardsContainer, false);
+
+            RectTransform eRect = emptyObj.AddComponent<RectTransform>();
+            eRect.sizeDelta = new Vector2(890f, 48f);
+
+            LayoutElement elem = emptyObj.AddComponent<LayoutElement>();
+            elem.minHeight = 48f;
+            elem.preferredHeight = 48f;
+
+            Image eBg = emptyObj.AddComponent<Image>();
+            eBg.sprite = UIStyleUtility.CreateRoundedPillSprite(890, 48, 10, new Color(0.08f, 0.10f, 0.14f, 0.85f));
+
+            GameObject tObj = new GameObject("Text");
+            tObj.transform.SetParent(emptyObj.transform, false);
+            RectTransform tRect = tObj.AddComponent<RectTransform>();
+            tRect.anchorMin = Vector2.zero;
+            tRect.anchorMax = Vector2.one;
+
+            Text txt = tObj.AddComponent<Text>();
+            txt.font = globalFont;
+            txt.text = message;
+            txt.fontSize = 14;
+            txt.fontStyle = FontStyle.Italic;
+            txt.alignment = TextAnchor.MiddleCenter;
+            txt.color = new Color(0.65f, 0.72f, 0.80f);
+            txt.raycastTarget = false;
+        }
+
+        private void CreateWorkshopCropRow(string cropId, int count)
+        {
+            GardenSeedDef sDef = GardenSeedDatabase.GetSeedById(cropId);
+            string cropName = (sDef != null) ? sDef.LocalizedName.Replace(" Tohumu", "").Replace(" Seeds", "").Replace(" Seed", "") : cropId;
+            string emoji = (sDef != null) ? sDef.iconEmoji : "📦";
+
+            GameObject rowObj = new GameObject("CropRow_" + cropId);
+            rowObj.transform.SetParent(cardsContainer, false);
+
+            RectTransform rRect = rowObj.AddComponent<RectTransform>();
+            rRect.sizeDelta = new Vector2(890f, 64f);
+
+            LayoutElement elem = rowObj.AddComponent<LayoutElement>();
+            elem.minHeight = 64f;
+            elem.preferredHeight = 64f;
+
+            Image rBg = rowObj.AddComponent<Image>();
+            rBg.sprite = UIStyleUtility.CreateOutlinePillSprite(890, 64, 12, 1, new Color(0.30f, 0.70f, 0.40f, 0.7f), new Color(0.12f, 0.16f, 0.22f, 0.95f));
+
+            // Sol İkon Kutusu
+            GameObject iconObj = new GameObject("Icon_Box");
+            iconObj.transform.SetParent(rowObj.transform, false);
+            RectTransform iRect = iconObj.AddComponent<RectTransform>();
+            iRect.anchoredPosition = new Vector2(-390f, 0f);
+            iRect.sizeDelta = new Vector2(48f, 48f);
+
+            Image iconBg = iconObj.AddComponent<Image>();
+            iconBg.sprite = UIStyleUtility.CreateSeedIconSprite(cropId, emoji, new Color(0.35f, 0.85f, 0.40f));
+            iconBg.raycastTarget = false;
+
+            // Orta Bilgi Metni
+            GameObject infoObj = new GameObject("Info_Panel");
+            infoObj.transform.SetParent(rowObj.transform, false);
+            RectTransform inRect = infoObj.AddComponent<RectTransform>();
+            inRect.anchoredPosition = new Vector2(-75f, 0f);
+            inRect.sizeDelta = new Vector2(530f, 52f);
+
+            Text infoTxt = infoObj.AddComponent<Text>();
+            infoTxt.font = globalFont;
+            string subText = LocalizationManager.L("PalletModal_CropSubtitle", "Atölye Makinelerinde Kullanıma Hazır Depolanan Hammadde", "Raw Material Ready for Workshop Machine Processing");
+            infoTxt.text = $"<b>{emoji} {cropName}</b>  <color=#00E676><b>[Hammadde]</b></color>\n<size=13><color=#85A5B8>{subText}</color></size>";
+            infoTxt.fontSize = 15;
+            infoTxt.alignment = TextAnchor.MiddleLeft;
+            infoTxt.color = Color.white;
+            infoTxt.raycastTarget = false;
+
+            // Sağ KG Göstergesi
+            GameObject countObj = new GameObject("Count_Panel");
+            countObj.transform.SetParent(rowObj.transform, false);
+            RectTransform cRect = countObj.AddComponent<RectTransform>();
+            cRect.anchoredPosition = new Vector2(345f, 0f);
+            cRect.sizeDelta = new Vector2(150f, 44f);
+
+            Image cBg = countObj.AddComponent<Image>();
+            cBg.sprite = UIStyleUtility.CreateOutlinePillSprite(150, 44, 10, 1, new Color(0.95f, 0.65f, 0.20f), new Color(0.20f, 0.16f, 0.08f, 0.90f));
+
+            GameObject ctObj = new GameObject("Count_Txt");
+            ctObj.transform.SetParent(countObj.transform, false);
+            RectTransform ctRect = ctObj.AddComponent<RectTransform>();
+            ctRect.anchorMin = Vector2.zero;
+            ctRect.anchorMax = Vector2.one;
+
+            Text cTxt = ctObj.AddComponent<Text>();
+            cTxt.font = globalFont;
+            cTxt.text = $"<color=#FFD700><b>{count} KG</b></color>";
+            cTxt.fontSize = 17;
+            cTxt.fontStyle = FontStyle.Bold;
+            cTxt.alignment = TextAnchor.MiddleCenter;
+            cTxt.color = Color.white;
+            cTxt.raycastTarget = false;
         }
 
         private void CreateFurnitureInventoryCard(FurnitureType fType, FurnitureItemDef def, int quantity)
@@ -473,7 +736,7 @@ namespace Farm2Shelf.UI
 
             Text infoTxt = infoObj.AddComponent<Text>();
             infoTxt.font = globalFont;
-            string zoneColorHex = (def.zone == FurnitureZone.StorageOnly) ? "#FFB03A" : ((def.zone == FurnitureZone.StoreAndStorage) ? "#50E3C2" : "#54D6FF");
+            string zoneColorHex = (def.zone == FurnitureZone.WorkshopOnly) ? "#FFA726" : ((def.zone == FurnitureZone.StorageOnly) ? "#FFB03A" : ((def.zone == FurnitureZone.StoreAndStorage) ? "#50E3C2" : "#54D6FF"));
             string zoneTag = $"<color={zoneColorHex}><b>[{def.GetZoneText()}]</b></color>";
             string qtyTag = (quantity > 1) ? $" <color=#FFD700><b>(x{quantity} Adet)</b></color>" : "";
 
@@ -505,7 +768,7 @@ namespace Farm2Shelf.UI
 
                 // İlgili koliyi bul veya yerleştirmeyi başlat
                 DeliveryBoxController box = null;
-                if (FurnitureDeliveryManager.Instance != null)
+                if (!isWorkshop && FurnitureDeliveryManager.Instance != null)
                 {
                     box = FurnitureDeliveryManager.Instance.GetFirstBoxOfType(targetType);
                 }

@@ -130,13 +130,19 @@ namespace Farm2Shelf.Environment
                 case CustomerType.L1_StudentGirl:
                 case CustomerType.L1_VillageGirl:
                 case CustomerType.L1_NeighborhoodMom:
+                case CustomerType.L1_BookwormGirl:
                 case CustomerType.L2_FashionWoman:
                 case CustomerType.L2_BusinessWoman:
                 case CustomerType.L2_ArtistGirl:
                 case CustomerType.L2_DoctorWoman:
+                case CustomerType.L2_YogaInstructor:
+                case CustomerType.L2_BaristaGirl:
+                case CustomerType.L2_Veterinarian:
                 case CustomerType.L3_VIP_Influencer:
                 case CustomerType.L3_BoutiqueLady:
                 case CustomerType.L3_JewelryLady:
+                case CustomerType.L3_Supermodel:
+                case CustomerType.L3_LuxuryCollector:
                     return true;
                 default:
                     return false;
@@ -178,6 +184,21 @@ namespace Farm2Shelf.Environment
                 case CustomerType.L1_NeighborhoodMom:
                     minAge = 38; maxAge = 52; occ = "Ev Hanımı"; emoji = "👩";
                     bgColor = new Color(0.75f, 0.35f, 0.45f); break;
+                case CustomerType.L1_GardenerGrandpa:
+                    minAge = 58; maxAge = 72; occ = "Emekli Bahçıvan"; emoji = "🌱";
+                    bgColor = new Color(0.25f, 0.55f, 0.30f); break;
+                case CustomerType.L1_BookwormGirl:
+                    minAge = 19; maxAge = 25; occ = "Edebiyat Öğrencisi"; emoji = "📚";
+                    bgColor = new Color(0.85f, 0.60f, 0.20f); break;
+                case CustomerType.L1_MusicianGuy:
+                    minAge = 20; maxAge = 28; occ = "Müzisyen / Gitarist"; emoji = "🎸";
+                    bgColor = new Color(0.25f, 0.45f, 0.75f); break;
+                case CustomerType.L1_PostmanUncle:
+                    minAge = 42; maxAge = 58; occ = "Mahalle Postacısı"; emoji = "📫";
+                    bgColor = new Color(0.18f, 0.40f, 0.70f); break;
+                case CustomerType.L1_Fisherman:
+                    minAge = 52; maxAge = 68; occ = "Kıyı Balıkçısı"; emoji = "🎣";
+                    bgColor = new Color(0.85f, 0.65f, 0.15f); break;
 
                 // Level 2 Müşteriler
                 case CustomerType.L2_OfficeWorker:
@@ -210,6 +231,21 @@ namespace Farm2Shelf.Environment
                 case CustomerType.L2_DoctorWoman:
                     minAge = 34; maxAge = 50; occ = "Uzman Doktor"; emoji = "👩‍⚕️";
                     bgColor = new Color(0.20f, 0.65f, 0.85f); break;
+                case CustomerType.L2_ChefMaster:
+                    minAge = 35; maxAge = 52; occ = "Executive Baş Aşçı"; emoji = "👨‍🍳";
+                    bgColor = new Color(0.85f, 0.30f, 0.25f); break;
+                case CustomerType.L2_YogaInstructor:
+                    minAge = 24; maxAge = 34; occ = "Yoga & Pilates Eğitmeni"; emoji = "🧘‍♀️";
+                    bgColor = new Color(0.70f, 0.45f, 0.80f); break;
+                case CustomerType.L2_ArchitectGuy:
+                    minAge = 29; maxAge = 44; occ = "İç Mimar & Tasarımcı"; emoji = "📐";
+                    bgColor = new Color(0.25f, 0.30f, 0.38f); break;
+                case CustomerType.L2_BaristaGirl:
+                    minAge = 22; maxAge = 30; occ = "Nitelikli Kahve Baristası"; emoji = "☕";
+                    bgColor = new Color(0.60f, 0.40f, 0.25f); break;
+                case CustomerType.L2_Veterinarian:
+                    minAge = 28; maxAge = 42; occ = "Veteriner Hekim"; emoji = "🐾";
+                    bgColor = new Color(0.30f, 0.65f, 0.50f); break;
 
                 // Level 3 Müşteriler
                 case CustomerType.L3_CEO_Executive:
@@ -242,6 +278,21 @@ namespace Farm2Shelf.Environment
                 case CustomerType.L3_BillionaireYacht:
                     minAge = 48; maxAge = 64; occ = "Armatör"; emoji = "⚓";
                     bgColor = new Color(0.10f, 0.35f, 0.60f); break;
+                case CustomerType.L3_GourmetCritic:
+                    minAge = 45; maxAge = 62; occ = "Restoran & Gurme Eleştirmeni"; emoji = "🍷";
+                    bgColor = new Color(0.55f, 0.25f, 0.20f); break;
+                case CustomerType.L3_Supermodel:
+                    minAge = 21; maxAge = 29; occ = "Moda İkonu & Süpermodel"; emoji = "✨";
+                    bgColor = new Color(0.80f, 0.20f, 0.50f); break;
+                case CustomerType.L3_TechInvestor:
+                    minAge = 34; maxAge = 48; occ = "Melek Yatırımcı & Girişimci"; emoji = "💼";
+                    bgColor = new Color(0.15f, 0.35f, 0.65f); break;
+                case CustomerType.L3_OperaSinger:
+                    minAge = 36; maxAge = 54; occ = "Devlet Opera Solisti"; emoji = "🎭";
+                    bgColor = new Color(0.20f, 0.20f, 0.30f); break;
+                case CustomerType.L3_LuxuryCollector:
+                    minAge = 50; maxAge = 66; occ = "Antika & Sanat Koleksiyoneri"; emoji = "🏺";
+                    bgColor = new Color(0.50f, 0.15f, 0.30f); break;
 
                 default:
                     minAge = 25; maxAge = 45; occ = "Müşteri"; emoji = isFemale ? "👩" : "👨";

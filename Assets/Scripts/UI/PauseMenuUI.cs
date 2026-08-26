@@ -54,6 +54,7 @@ namespace Farm2Shelf.UI
         public void ShowPauseMenu()
         {
             Time.timeScale = 0f; // Oyunu duraklat
+            ModalManager.SetModalOpen(true);
             BuildUI();
         }
 
@@ -61,9 +62,10 @@ namespace Farm2Shelf.UI
         {
             Time.timeScale = 1.0f; // Oyunu devam ettir
             if (canvasObj != null) Destroy(canvasObj);
+            ModalManager.SetModalOpen(false);
         }
 
-        public bool IsPauseMenuOpen => canvasObj != null && canvasObj.activeSelf;
+        public bool IsPauseMenuOpen => canvasObj != null && canvasObj.activeInHierarchy;
 
         private void BuildUI()
         {
@@ -81,7 +83,7 @@ namespace Farm2Shelf.UI
 
             canvasObj.AddComponent<GraphicRaycaster>();
 
-            // Karartma Arka Plan
+            // Karartma Arka Plan (Tüm Ekranı ve Arka Plan Tıklamalarını Kesin Olarak Kilitler)
             GameObject backdrop = new GameObject("Backdrop");
             backdrop.transform.SetParent(canvasObj.transform, false);
             RectTransform bdRect = backdrop.AddComponent<RectTransform>();
@@ -92,6 +94,9 @@ namespace Farm2Shelf.UI
             Image bdImg = backdrop.AddComponent<Image>();
             bdImg.color = new Color(0.05f, 0.08f, 0.12f, 0.88f);
             bdImg.raycastTarget = true;
+
+            Button bdBtn = backdrop.AddComponent<Button>();
+            bdBtn.transition = Selectable.Transition.None; // Tıklamaları emer ve arka plana geçirmez
 
             Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 

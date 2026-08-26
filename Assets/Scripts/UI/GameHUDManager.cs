@@ -456,13 +456,7 @@ namespace Farm2Shelf.UI
 
             if (StoreStatusManager.Instance != null)
             {
-                bool willBeOpen = !StoreStatusManager.Instance.IsOpen;
                 StoreStatusManager.Instance.ToggleStoreStatus();
-
-                if (willBeOpen && TimeManager.Instance != null)
-                {
-                    TimeManager.Instance.StartDayTimeFlow();
-                }
             }
         }
 

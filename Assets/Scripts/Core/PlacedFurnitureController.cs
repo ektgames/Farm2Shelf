@@ -123,12 +123,7 @@ namespace Farm2Shelf.Core
         public void OnPointerDown(PointerEventData eventData)
         {
             if (eventData != null && eventData.button != PointerEventData.InputButton.Left) return;
-            if (ModalManager.IsModalOpen)
-            {
-                if (!ModalManager.IsAnyModalCanvasActive()) ModalManager.SetModalOpen(false);
-                else return;
-            }
-            if (EKTPhoneManager.IsTabletOpen) return;
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen) return;
             if (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing) return;
 
             isLongPressTriggered = false;
@@ -481,13 +476,16 @@ namespace Farm2Shelf.Core
 
         public void OnClickDetected()
         {
-            if (ModalManager.IsModalOpen)
-            {
-                if (!ModalManager.IsAnyModalCanvasActive()) ModalManager.SetModalOpen(false);
-                else return;
-            }
-            if (EKTPhoneManager.IsTabletOpen) return;
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || Time.unscaledTime - ModalManager.LastModalCloseTime < 0.35f) return;
             if (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing) return;
+
+            // Eğer bir atölye makinesiyse doğrudan makine üretim arayüzünü / toplama eylemini aç!
+            Farm2Shelf.Environment.WorkshopMachineController wsMachine = GetComponent<Farm2Shelf.Environment.WorkshopMachineController>();
+            if (wsMachine != null)
+            {
+                wsMachine.HandleInteraction();
+                return;
+            }
 
             // TEK TIK / DOKUNMA -> KESİNLİKLE TAŞIMA MODUNA GİRMEZ, SADECE ARAYÜZÜ AÇAR!
             if (FurnitureInfoModalUI.Instance != null)
@@ -859,6 +857,28 @@ namespace Farm2Shelf.Core
                     if (currentStock > 25)
                     {
                         positions.Add(new Vector3(xPos, y + 0.16f, 0f)); // 2. Kat İstifli Koli
+                    }
+                    break;
+                }
+
+                case FurnitureType.GourmetShelf:
+                {
+                    // Lüks Gurme Reyonu (w=1.6m, h=2.1m, d=0.6m) - 4 Kat Sıcak Ahşap & LED Işıklı
+                    float[] shelfY = new float[] { 0.40f, 0.86f, 1.32f, 1.78f };
+                    float y = (rowIndex < shelfY.Length) ? shelfY[rowIndex] : (0.40f + rowIndex * 0.46f);
+                    scale = 0.92f;
+
+                    float[] xCols = new float[] { -0.48f, -0.24f, 0f, 0.24f, 0.48f };
+                    float[] zRanks = new float[] { -0.09f, 0.09f };
+
+                    int maxSlots = xCols.Length * zRanks.Length; // 10 nesne
+                    int visibleCount = (currentStock >= maxCapacity) ? maxSlots : Mathf.Clamp(Mathf.CeilToInt(fillRatio * maxSlots), currentStock > 0 ? 1 : 0, maxSlots);
+
+                    for (int k = 0; k < visibleCount; k++)
+                    {
+                        int xIdx = k % xCols.Length;
+                        int zIdx = (k / xCols.Length) % zRanks.Length;
+                        positions.Add(new Vector3(xCols[xIdx], y, zRanks[zIdx]));
                     }
                     break;
                 }

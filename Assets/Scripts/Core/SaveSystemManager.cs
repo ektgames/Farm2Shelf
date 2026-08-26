@@ -109,6 +109,12 @@ namespace Farm2Shelf.Core
                 saveData.floorColorA = floorC.a;
             }
 
+            // 2.b ATÖLYE SEVİYESİ
+            if (WorkshopManager.Instance != null)
+            {
+                saveData.workshopLevel = WorkshopManager.Instance.CurrentWorkshopLevel;
+            }
+
             // 3. DÜKKAN AÇIK / KAPALI DURUMU VE ŞİRKET BİLGİLERİ
             if (StoreStatusManager.Instance != null)
             {
@@ -224,6 +230,25 @@ namespace Farm2Shelf.Core
                     {
                         saveData.barnCrops.Add(new BarnCropSaveData { seedId = kvp.Key, count = kvp.Value });
                     }
+                }
+            }
+
+            // 10.b ATÖLYE HAMMADDE PALETİ VE MAKİNE KOLİLERİ
+            if (WorkshopPalletManager.Instance != null)
+            {
+                Dictionary<string, int> wsCrops = WorkshopPalletManager.Instance.GetCropInventory();
+                if (wsCrops != null)
+                {
+                    foreach (var kvp in wsCrops)
+                    {
+                        saveData.workshopCrops.Add(new BarnCropSaveData { seedId = kvp.Key, count = kvp.Value });
+                    }
+                }
+
+                List<string> wsMachines = WorkshopPalletManager.Instance.GetPendingMachineBoxTypes();
+                if (wsMachines != null)
+                {
+                    saveData.pendingWorkshopMachineBoxes.AddRange(wsMachines);
                 }
             }
 
@@ -349,6 +374,30 @@ namespace Farm2Shelf.Core
                 }
             }
 
+            // 14.b ATÖLYE MAKİNELERİ VE ÜRETİM DURUMLARI
+            var wsControllers = GameObject.FindObjectsOfType<Farm2Shelf.Environment.WorkshopMachineController>();
+            if (wsControllers != null)
+            {
+                foreach (var ws in wsControllers)
+                {
+                    if (ws == null) continue;
+                    saveData.workshopMachines.Add(new WorkshopMachineSaveData
+                    {
+                        instanceId = ws.gameObject.name,
+                        machineType = ws.machineType.ToString(),
+                        posX = ws.transform.position.x,
+                        posY = ws.transform.position.y,
+                        posZ = ws.transform.position.z,
+                        rotY = ws.transform.rotation.eulerAngles.y,
+                        isProducing = ws.isProducing,
+                        isReadyToCollect = ws.isReadyToCollect,
+                        activeRecipeId = ws.activeRecipeId,
+                        remainingSeconds = ws.remainingProductionSeconds,
+                        totalDuration = ws.totalProductionSeconds
+                    });
+                }
+            }
+
             // 15. EĞİTİM ADIMI (TUTORIAL PROGRESS)
             if (TutorialManager.Instance != null)
             {
@@ -414,6 +463,12 @@ namespace Farm2Shelf.Core
                 EnvironmentBuilder.Instance.ApplyFloorStyle(floorC);
             }
 
+            // 3.b Atölye Seviyesini Yükleme
+            if (WorkshopManager.Instance != null && saveData.workshopLevel > 0)
+            {
+                WorkshopManager.Instance.SetWorkshopLevel(saveData.workshopLevel);
+            }
+
             // 4. Eski Mobilyaları Temizle ve Kayıtlı Mobilyaları / Rafları Yeniden Kur
             var existingFurniture = new List<PlacedFurnitureController>(PlacedFurnitureController.AllPlacedFurniture);
             foreach (var f in existingFurniture)
@@ -454,6 +509,30 @@ namespace Farm2Shelf.Core
                         }
 
                         FurniturePlacementManager.Instance.SpawnRestoredFurniture(fType, pos, rot, rows);
+                    }
+                }
+            }
+
+            // 4.b Atölye Makineleri Üretim Durumlarını Eşleştir ve Yükle
+            if (saveData.workshopMachines != null && saveData.workshopMachines.Count > 0)
+            {
+                var allWsControllers = GameObject.FindObjectsOfType<Farm2Shelf.Environment.WorkshopMachineController>();
+                if (allWsControllers != null)
+                {
+                    foreach (var ws in allWsControllers)
+                    {
+                        if (ws == null) continue;
+                        var mData = saveData.workshopMachines.Find(m => Vector3.Distance(ws.transform.position, new Vector3(m.posX, m.posY, m.posZ)) < 0.5f);
+                        if (mData != null)
+                        {
+                            ws.isProducing = mData.isProducing;
+                            ws.isReadyToCollect = mData.isReadyToCollect;
+                            ws.activeRecipeId = mData.activeRecipeId;
+                            ws.remainingProductionSeconds = mData.remainingSeconds;
+                            ws.totalProductionSeconds = mData.totalDuration;
+                            ws.UpdateFloatingBadgeVisual();
+                            ws.Update3DStatusDisplay();
+                        }
                     }
                 }
             }
@@ -525,6 +604,27 @@ namespace Farm2Shelf.Core
                         if (crop == null || string.IsNullOrEmpty(crop.seedId)) continue;
                         GardenSeedInventoryManager.Instance.AddBarnCrop(crop.seedId, crop.count);
                     }
+                }
+            }
+
+            // 11.b Atölye Hammadde Paletini ve Bekleyen Makine Kolilerini Yükleme
+            if (WorkshopPalletManager.Instance != null)
+            {
+                WorkshopPalletManager.Instance.ClearAll();
+                if (saveData.workshopCrops != null)
+                {
+                    Dictionary<string, int> wsDict = new Dictionary<string, int>();
+                    foreach (var crop in saveData.workshopCrops)
+                    {
+                        if (crop == null || string.IsNullOrEmpty(crop.seedId)) continue;
+                        wsDict[crop.seedId] = crop.count;
+                    }
+                    WorkshopPalletManager.Instance.SetAllCrops(wsDict);
+                }
+
+                if (saveData.pendingWorkshopMachineBoxes != null)
+                {
+                    WorkshopPalletManager.Instance.RestorePendingMachineBoxes(saveData.pendingWorkshopMachineBoxes);
                 }
             }
 

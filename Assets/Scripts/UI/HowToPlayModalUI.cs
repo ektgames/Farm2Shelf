@@ -11,6 +11,7 @@ namespace Farm2Shelf.UI
     public class HowToPlayModalUI : MonoBehaviour
     {
         public static HowToPlayModalUI Instance { get; private set; }
+        public bool IsModalOpen => canvasObj != null && canvasObj.activeInHierarchy;
 
         private GameObject canvasObj;
 

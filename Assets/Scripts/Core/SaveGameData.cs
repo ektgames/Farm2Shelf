@@ -58,6 +58,20 @@ namespace Farm2Shelf.Core
     }
 
     [Serializable]
+    public class WorkshopMachineSaveData
+    {
+        public string instanceId;
+        public string machineType;
+        public float posX, posY, posZ;
+        public float rotY;
+        public bool isProducing;
+        public bool isReadyToCollect;
+        public string activeRecipeId;
+        public float remainingSeconds;
+        public float totalDuration;
+    }
+
+    [Serializable]
     public class StockSaveItem
     {
         public string tickerSymbol;
@@ -95,6 +109,7 @@ namespace Farm2Shelf.Core
         public string companyName = "Farm2Shelf Market";
         public int playerMoney;             // Bakiye (ör. 400,000 TL)
         public int storeLevel;              // Mağaza Seviyesi (1, 2, 3)
+        public int workshopLevel = 1;       // Atölye Seviyesi (1, 2, 3)
         public bool isStoreOpen;            // Dükkan Açık/Kapalı 🟢/🔴
         public int gameDay;                 // Günü (ör. Gün 4)
         public int gameHour;                // Saati (ör. 14)
@@ -136,7 +151,12 @@ namespace Farm2Shelf.Core
         public List<OwnedSeedSaveData> ownedSeeds = new List<OwnedSeedSaveData>();
         public List<BarnCropSaveData> barnCrops = new List<BarnCropSaveData>();
 
-        // Palette Bekleyen Teslimat Kolileri
+        // Atölye Hammadde Paleti & Makineleri
+        public List<BarnCropSaveData> workshopCrops = new List<BarnCropSaveData>();
+        public List<WorkshopMachineSaveData> workshopMachines = new List<WorkshopMachineSaveData>();
+        public List<string> pendingWorkshopMachineBoxes = new List<string>();
+
+        // Palette Bekleyen Teslimat Kolileri (Mağaza)
         public List<string> pendingDeliveryBoxes = new List<string>();
 
         // Personel Kadrosu (Mağaza & Çiftlik)

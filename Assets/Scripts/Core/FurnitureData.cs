@@ -6,14 +6,16 @@ namespace Farm2Shelf.Core
     public enum FurnitureCategory
     {
         Furniture,  // Mobilyalar (Raflar, Kasa, Dolaplar)
-        Decoration  // Dekorasyonlar (Bitki, Otomat, Heykel, Bank vb.)
+        Decoration, // Dekorasyonlar (Bitki, Otomat, Heykel, Bank vb.)
+        Workshop    // Atölye Makineleri (Reçel Kazanı, İçecek Presi vb.)
     }
 
     public enum FurnitureType
     {
-        // --- MOBİLYALAR (12 Adet) ---
+        // --- MOBİLYALAR ---
         Shelf,              // Raf (Seviye 1, Mağaza)
         ProduceShelf,       // Manav Rafı (Seviye 1, Mağaza)
+        GourmetShelf,       // 🥫 Gurme Rafı (Seviye 1, Mağaza - Sadece Atölye Ürünleri)
         ShoppingCart,       // Alışveriş Sepeti Stantı (Seviye 1, Mağaza)
         StorageShelf,       // Depo Rafı (Seviye 1, Depo)
         Cashier,            // Kasa (Seviye 1, Mağaza)
@@ -24,6 +26,14 @@ namespace Farm2Shelf.Core
         BakeryCounter,      // Fırın Tezgahı (Seviye 2, Mağaza)
         ButcherCounter,     // Kasap Reyonu (Seviye 3, Mağaza)
         ElectronicsShelf,   // Elektronik Rafı (Seviye 3, Mağaza)
+
+        // --- ATÖLYE MAKİNELERİ (6 Adet) ---
+        WorkshopJamMaker,       // 🍓 Reçel & Marmelat Kazanı
+        WorkshopJuicePress,      // 🧃 Meyve & Sebze Sıkma / İçecek Presi
+        WorkshopCannery,         // 🥫 Sos, Salça & Konserve Makinesi
+        WorkshopDehydrator,      // 🍿 Kurutma & Cips Fırını
+        WorkshopOilPress,        // 🫒 Soğuk Sıkım Yağ Presi
+        WorkshopSaladStation,    // 🥗 Gurme Salata & Fermente Meze İstasyonu
 
         // --- SEVİYE 1 DEKORASYONLAR (10 Adet) ---
         PlantPot,           // Saksılı İç Mekan Bitkisi
@@ -66,7 +76,8 @@ namespace Farm2Shelf.Core
     {
         StoreAndStorage, // Mağaza ve Depo (Hem dükkan içine hem depoya kurulabilir)
         StoreOnly,       // Sadece Mağaza Kısmı
-        StorageOnly      // Sadece Depo Kısmı
+        StorageOnly,     // Sadece Depo Kısmı
+        WorkshopOnly     // Sadece Atölye Binası İçi
     }
 
     [System.Serializable]
@@ -118,6 +129,8 @@ namespace Farm2Shelf.Core
                     return LocalizationManager.L("Zone_StoreOnly", "📍 Mağaza", "📍 Store Only");
                 case FurnitureZone.StorageOnly:
                     return LocalizationManager.L("Zone_StorageOnly", "📦 Depo", "📦 Storage Only");
+                case FurnitureZone.WorkshopOnly:
+                    return LocalizationManager.L("Zone_WorkshopOnly", "🏭 Atölye", "🏭 Workshop Only");
                 default:
                     return LocalizationManager.L("Zone_StoreAndStorage", "📍 Mağaza & Depo", "📍 Store & Storage");
             }
@@ -136,6 +149,34 @@ namespace Farm2Shelf.Core
             {
                 FurnitureType.ProduceShelf,
                 new FurnitureItemDef(FurnitureType.ProduceShelf, "Manav Rafı", "Produce Display", "Çiftlikten gelen taze meyve ve sebzeler için özel 3 katlı eğimli ahşap manav teşhir reyonu (%40 Kâr Marjı).", "Special 3-tier angled wooden produce stand for farm-fresh fruits & vegetables (+40% Profit Margin).", FurnitureZone.StoreOnly, FurnitureCategory.Furniture, 1, 600, "🧺", 0)
+            },
+            {
+                FurnitureType.GourmetShelf,
+                new FurnitureItemDef(FurnitureType.GourmetShelf, "Lüks Gurme Reyonu", "Luxury Gourmet Shelf", "Yalnızca atölyede üretilen reçel, konserve, cips, meyve suyu ve soğuk sıkım yağlar gibi yüksek kârlı gurme ürünler için LED aydınlatmalı ceviz ağacı reyon.", "LED-lit luxury walnut display rack strictly for high-profit workshop-crafted gourmet goods (jams, juices, oils, preserves).", FurnitureZone.StoreOnly, FurnitureCategory.Furniture, 1, 800, "🥫", 0)
+            },
+            {
+                FurnitureType.WorkshopJamMaker,
+                new WorkshopMachineFurnitureDef(FurnitureType.WorkshopJamMaker, "Reçel & Marmelat Kazanı", "Jam & Marmalade Boiler", "Çilek, kavun, karpuz, üzüm ve bal kabağını lüks gurme reçellere dönüştüren endüstriyel bakır kazan.", "Industrial copper boiler that turns strawberries, melons, grapes, and pumpkins into luxury gourmet jams.", 2500, "🍓", WorkshopMachineType.JamMaker)
+            },
+            {
+                FurnitureType.WorkshopJuicePress,
+                new WorkshopMachineFurnitureDef(FurnitureType.WorkshopJuicePress, "Meyve & Sebze Sıkma Presi", "Juice & Beverage Extractor", "Havuç, pancar, karpuz, kavun ve şalgamdan %100 doğal taze meyve suları ve nektarlar sıkan hidrolik pres.", "Hydraulic press that extracts pure 100% natural juices from carrots, beets, melons, and turnips.", 2200, "🧃", WorkshopMachineType.JuiceExtractor)
+            },
+            {
+                FurnitureType.WorkshopCannery,
+                new WorkshopMachineFurnitureDef(FurnitureType.WorkshopCannery, "Sos & Salça & Konserve Ünitesi", "Sauce & Paste Cannery", "Domates, biber, salatalık, sarımsak, enginar ve fasulyeden salça, sos ve konserveler üreten konserveleme ünitesi.", "Complete cannery that produces pure pastes, roasted sauces, and pickled preserves from tomatoes, peppers, and garlic.", 2800, "🥫", WorkshopMachineType.Cannery)
+            },
+            {
+                FurnitureType.WorkshopDehydrator,
+                new WorkshopMachineFurnitureDef(FurnitureType.WorkshopDehydrator, "Kurutma & Cips Fırını", "Dehydrator & Snack Oven", "Patates, mısır, ayçiçeği, kabak ve brokoliden çıtır gurme cips ve kurutulmuş çerezler pişiren konveksiyonel fırın.", "Convection oven that bakes crispy gourmet chips and dehydrated snacks from potatoes, corn, zucchini, and broccoli.", 2600, "🍿", WorkshopMachineType.Dehydrator)
+            },
+            {
+                FurnitureType.WorkshopOilPress,
+                new WorkshopMachineFurnitureDef(FurnitureType.WorkshopOilPress, "Soğuk Sıkım Yağ Presi", "Cold-Press Oil Press", "Ayçiçeği, bal kabağı çekirdeği, sarımsak ve acı biberden değerli soğuk sıkım yağlar çıkaran endüstriyel burgulu pres.", "Screw press that extracts precious cold-pressed oils and gourmet infused seasonings from sunflowers and pumpkin seeds.", 3200, "🫒", WorkshopMachineType.OilPress)
+            },
+            {
+                FurnitureType.WorkshopSaladStation,
+                new WorkshopMachineFurnitureDef(FurnitureType.WorkshopSaladStation, "Gurme Salata & Meze İstasyonu", "Gourmet Fermentation & Salad Station", "Marul, ıspanak, pazı, roka, lahana ve turptan taze paketli salatalar ve fermente mezeler hazırlayan hijyenik meze tezgahı.", "Hygienic prep station for packaged gourmet salads and fermented delicacies from fresh lettuce, spinach, arugula, and cabbage.", 2100, "🥗", WorkshopMachineType.SaladStation)
             },
             {
                 FurnitureType.ShoppingCart,
@@ -330,6 +371,26 @@ namespace Farm2Shelf.Core
                 }
             }
             return list;
+        }
+    }
+
+    [System.Serializable]
+    public class WorkshopMachineFurnitureDef : FurnitureItemDef
+    {
+        public WorkshopMachineType machineType;
+
+        public WorkshopMachineFurnitureDef(
+            FurnitureType type,
+            string name,
+            string nameEn,
+            string description,
+            string descriptionEn,
+            int price,
+            string iconEmoji,
+            WorkshopMachineType machineType
+        ) : base(type, name, nameEn, description, descriptionEn, FurnitureZone.WorkshopOnly, FurnitureCategory.Workshop, 1, price, iconEmoji, 0)
+        {
+            this.machineType = machineType;
         }
     }
 }

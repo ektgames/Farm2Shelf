@@ -217,6 +217,64 @@ namespace Farm2Shelf.UI
             return sprite;
         }
 
+        private static readonly Dictionary<string, Sprite> arrowSpriteCache = new Dictionary<string, Sprite>();
+
+        /// <summary>
+        /// Nizami, yüksek kaliteli, anti-aliased vektörel yön oku (D-Pad) Sprite'ı üretir.
+        /// </summary>
+        public static Sprite CreateArrowSprite(string direction, int size = 64, Color? color = null)
+        {
+            Color col = color ?? Color.white;
+            string cacheKey = $"{direction}_{size}_{col.r:F2}_{col.g:F2}_{col.b:F2}_{col.a:F2}";
+            if (arrowSpriteCache.TryGetValue(cacheKey, out Sprite cached) && cached != null)
+            {
+                return cached;
+            }
+
+            Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            Color[] pixels = new Color[size * size];
+            for (int i = 0; i < pixels.Length; i++) pixels[i] = Color.clear;
+
+            float center = (size - 1) / 2f;
+            float half = size * 0.42f;
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float nx = (x - center) / half;
+                    float ny = (y - center) / half;
+
+                    // Koordinatları UP yönüne göre hizala
+                    float rx = nx;
+                    float ry = ny;
+                    if (direction == "DOWN") { rx = nx; ry = -ny; }
+                    else if (direction == "LEFT") { rx = ny; ry = -nx; }
+                    else if (direction == "RIGHT") { rx = -ny; ry = nx; }
+
+                    // Ok geometrisi:
+                    // Üçgen Tepe Noktası: ry = 0.88
+                    // Üçgen Tabanı: ry = 0.0, Genişlik rx [-0.80, 0.80]
+                    // Gövde (Stem): ry = [-0.80, 0.0], Genişlik rx [-0.26, 0.26]
+                    bool insideHead = (ry >= -0.05f && ry <= 0.88f && Mathf.Abs(rx) <= (1f - (ry + 0.05f) / 0.93f) * 0.80f);
+                    bool insideStem = (ry >= -0.80f && ry <= 0.05f && Mathf.Abs(rx) <= 0.26f);
+
+                    if (insideHead || insideStem)
+                    {
+                        pixels[y * size + x] = col;
+                    }
+                }
+            }
+
+            tex.SetPixels(pixels);
+            tex.filterMode = FilterMode.Bilinear;
+            tex.Apply();
+
+            Sprite sprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
+            arrowSpriteCache[cacheKey] = sprite;
+            return sprite;
+        }
+
         /// <summary>
         /// Mobilya ve Dekorasyon ögelerine özel kendine has detaylı 2D Vektör çizim illüstrasyonu üretici.
         /// </summary>

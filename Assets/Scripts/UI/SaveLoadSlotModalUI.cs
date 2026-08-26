@@ -12,6 +12,7 @@ namespace Farm2Shelf.UI
     public class SaveLoadSlotModalUI : MonoBehaviour
     {
         public static SaveLoadSlotModalUI Instance { get; private set; }
+        public bool IsModalOpen => canvasObj != null && canvasObj.activeInHierarchy;
 
         private GameObject canvasObj;
         private bool isSaveMode = true; // true: KAYDET, false: YÜKLE

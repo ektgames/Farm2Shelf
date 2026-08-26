@@ -15,6 +15,7 @@ namespace Farm2Shelf.Core
         public int wholesaleUnitPrice;   // Adet Başı Toptan Alış Fiyatı (Örn: 10C)
         public int packQuantity;          // Koli İçi Adedi (Sabit 50 Adet)
         public float profitMarginPercent; // %20 Kar Marjı
+        public bool isOrderable;          // Toptancıdan veya Mağazadan Satın Alınabilir mi? (Gurme ve Mahsuller için FALSE!)
 
         // Dinamik Dil Desteği
         public string LocalizedName => LocalizationManager.L("Prod_" + id, name, !string.IsNullOrEmpty(nameEn) ? nameEn : name);
@@ -29,14 +30,24 @@ namespace Farm2Shelf.Core
         // Oyuncu Tarafından Ayarlanan Dinamik Satış Fiyatı
         public int CurrentSalePrice => WholesaleDatabase.GetProductSalePrice(id);
         public float CurrentProfitMarginPercent => wholesaleUnitPrice > 0 ? (((float)CurrentSalePrice - wholesaleUnitPrice) / (float)wholesaleUnitPrice) * 100f : 0f;
-        public bool IsOverpriced => CurrentSalePrice > Mathf.RoundToInt(wholesaleUnitPrice * 1.30f);
+        public bool IsOverpriced
+        {
+            get
+            {
+                if (targetShelfType == FurnitureType.GourmetShelf || profitMarginPercent >= 70f)
+                {
+                    return CurrentSalePrice > Mathf.RoundToInt(wholesaleUnitPrice * 1.95f);
+                }
+                return CurrentSalePrice > Mathf.RoundToInt(wholesaleUnitPrice * 1.30f);
+            }
+        }
 
-        public WholesaleProductDef(string id, string name, string iconEmoji, FurnitureType targetShelfType, int requiredLevel, int wholesaleUnitPrice, int packQuantity = 50, float profitMarginPercent = 20f)
-            : this(id, name, name, iconEmoji, targetShelfType, requiredLevel, wholesaleUnitPrice, packQuantity, profitMarginPercent)
+        public WholesaleProductDef(string id, string name, string iconEmoji, FurnitureType targetShelfType, int requiredLevel, int wholesaleUnitPrice, int packQuantity = 50, float profitMarginPercent = 20f, bool isOrderable = true)
+            : this(id, name, name, iconEmoji, targetShelfType, requiredLevel, wholesaleUnitPrice, packQuantity, profitMarginPercent, isOrderable)
         {
         }
 
-        public WholesaleProductDef(string id, string name, string nameEn, string iconEmoji, FurnitureType targetShelfType, int requiredLevel, int wholesaleUnitPrice, int packQuantity = 50, float profitMarginPercent = 20f)
+        public WholesaleProductDef(string id, string name, string nameEn, string iconEmoji, FurnitureType targetShelfType, int requiredLevel, int wholesaleUnitPrice, int packQuantity = 50, float profitMarginPercent = 20f, bool isOrderable = true)
         {
             this.id = id;
             this.name = name;
@@ -47,6 +58,7 @@ namespace Farm2Shelf.Core
             this.wholesaleUnitPrice = wholesaleUnitPrice;
             this.packQuantity = packQuantity;
             this.profitMarginPercent = profitMarginPercent;
+            this.isOrderable = isOrderable;
         }
 
         public string GetTargetShelfText()
@@ -60,6 +72,7 @@ namespace Farm2Shelf.Core
                 case FurnitureType.CosmeticShelf: return LocalizationManager.L("Shelf_Cosmetic", "💄 Kozmetik Rafı", "💄 Cosmetic Shelf");
                 case FurnitureType.ButcherCounter: return LocalizationManager.L("Shelf_Butcher", "🥩 Kasap Reyonu", "🥩 Butcher Counter");
                 case FurnitureType.ElectronicsShelf: return LocalizationManager.L("Shelf_Electronics", "🎧 Elektronik Rafı", "🎧 Electronics Shelf");
+                case FurnitureType.GourmetShelf: return LocalizationManager.L("Shelf_Gourmet", "🥫 Lüks Gurme Reyonu", "🥫 Luxury Gourmet Shelf");
                 default: return LocalizationManager.L("Shelf_Display", "🗄️ Teşhir Rafı", "🗄️ Display Shelf");
             }
         }
@@ -138,11 +151,77 @@ namespace Farm2Shelf.Core
 
         private static readonly Dictionary<string, int> customPrices = new Dictionary<string, int>();
 
-        public static List<WholesaleProductDef> GetAllProducts() => products;
+        public static List<WholesaleProductDef> GetWholesaleOnlyProducts() => products;
+
+        public static bool IsProductWholesaleOrderable(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return false;
+            // SADECE ve SADECE p1..p60 toptancı süpermarket ürünleri sipariş edilebilir!
+            // Çiftlik mahsulleri ve atölye gurme ürünleri toptancıdan veya market ekranından satın alınamaz!
+            WholesaleProductDef def = products.Find(p => p.id == id);
+            return def != null && def.isOrderable;
+        }
+
+        public static bool IsGourmetOrCrop(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return false;
+            if (WorkshopMachineDatabase.GetRecipeByOutputId(id) != null) return true;
+            if (GardenSeedDatabase.GetSeedById(id) != null) return true;
+            return false;
+        }
+
+        public static List<WholesaleProductDef> GetAllProducts()
+        {
+            List<WholesaleProductDef> all = new List<WholesaleProductDef>(products);
+            var recipes = WorkshopMachineDatabase.GetAllRecipes();
+            if (recipes != null)
+            {
+                foreach (var r in recipes)
+                {
+                    if (r == null || string.IsNullOrEmpty(r.outputProductId)) continue;
+                    int rawCost = Mathf.Max(1, Mathf.RoundToInt(r.unitSalePrice / 1.80f));
+                    all.Add(new WholesaleProductDef(
+                        r.outputProductId,
+                        r.outputNameTr,
+                        r.outputNameEn,
+                        r.iconEmoji,
+                        FurnitureType.GourmetShelf,
+                        1,
+                        rawCost,
+                        r.outputPackCount,
+                        80f,
+                        isOrderable: false // GURME ÜRÜNLER TOPTANDAN SİPARİŞ EDİLEMEZ VEYA SATIN ALINAMAZ!
+                    ));
+                }
+            }
+            return all;
+        }
 
         public static WholesaleProductDef GetProductById(string id)
         {
-            return products.Find(p => p.id == id);
+            if (string.IsNullOrEmpty(id)) return null;
+            WholesaleProductDef def = products.Find(p => p.id == id);
+            if (def != null) return def;
+
+            // Atölye Gurme Ürünlerini Otomatik Olarak Eşle (isOrderable: false)
+            WorkshopRecipeDef recipe = WorkshopMachineDatabase.GetRecipeByOutputId(id);
+            if (recipe != null)
+            {
+                int rawCost = Mathf.Max(1, Mathf.RoundToInt(recipe.unitSalePrice / 1.80f));
+                return new WholesaleProductDef(
+                    recipe.outputProductId,
+                    recipe.outputNameTr,
+                    recipe.outputNameEn,
+                    recipe.iconEmoji,
+                    FurnitureType.GourmetShelf,
+                    1,
+                    rawCost,
+                    recipe.outputPackCount,
+                    80f,
+                    isOrderable: false // GURME ÜRÜNLER TOPTANDAN SİPARİŞ EDİLEMEZ VEYA SATIN ALINAMAZ!
+                );
+            }
+            return null;
         }
 
         public static int GetProductSalePrice(string productId)
@@ -165,8 +244,9 @@ namespace Farm2Shelf.Core
         public static string GetLocalizedProductName(string rawNameOrId)
         {
             if (string.IsNullOrEmpty(rawNameOrId)) return "";
-            WholesaleProductDef def = products.Find(p => p.id == rawNameOrId || p.name == rawNameOrId || p.nameEn == rawNameOrId);
-            return def != null ? def.LocalizedName : rawNameOrId;
+            WholesaleProductDef def = GetProductById(rawNameOrId);
+            if (def != null) return def.LocalizedName;
+            return rawNameOrId;
         }
 
         public static void ResetAllPricesToDefault()

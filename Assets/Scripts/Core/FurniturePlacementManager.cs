@@ -75,10 +75,29 @@ namespace Farm2Shelf.Core
             FurnitureItemDef def = FurnitureDatabase.GetDef(type);
             Vector3 startPos = (def != null && def.zone == FurnitureZone.StorageOnly)
                 ? new Vector3(7.0f, 0.01f, 4.5f)
-                : new Vector3(-5.0f, 0.01f, 4.0f);
+                : ((def != null && def.zone == FurnitureZone.WorkshopOnly)
+                    ? new Vector3(-55.0f, 0.01f, 5.0f)
+                    : new Vector3(-5.0f, 0.01f, 4.0f));
 
             ghostObj.transform.position = startPos;
             ghostObj.transform.rotation = Quaternion.Euler(0f, currentYRotation, 0f);
+
+            // Kamerayı otomatik olarak ilgili binaya odakla
+            if (IsometricCameraSetup.Instance != null && def != null)
+            {
+                if (def.zone == FurnitureZone.WorkshopOnly)
+                {
+                    IsometricCameraSetup.Instance.FocusOn(new Vector3(-55.0f, 0f, 6.0f));
+                }
+                else if (def.zone == FurnitureZone.StorageOnly)
+                {
+                    IsometricCameraSetup.Instance.FocusOn(new Vector3(7.0f, 0f, 5.0f));
+                }
+                else
+                {
+                    IsometricCameraSetup.Instance.FocusOn(new Vector3(-5.0f, 0f, 5.0f));
+                }
+            }
 
             SetFloorGridVisible(true);
             if (placementHUDCanvas != null) placementHUDCanvas.SetActive(true);
@@ -159,9 +178,24 @@ namespace Farm2Shelf.Core
                             hitPoint.z = Mathf.Round(hitPoint.z * 4f) / 4f;
                             hitPoint.y = 0.01f;
 
-                            // Sınır güvenliği
-                            hitPoint.x = Mathf.Clamp(hitPoint.x, -14f, 12f);
-                            hitPoint.z = Mathf.Clamp(hitPoint.z, -3f, 25f);
+                            FurnitureItemDef currentDef = FurnitureDatabase.GetDef(currentType);
+                            if (currentDef != null && currentDef.zone == FurnitureZone.WorkshopOnly)
+                            {
+                                int wsLevel = (WorkshopManager.Instance != null) ? WorkshopManager.Instance.CurrentWorkshopLevel : 1;
+                                float wsDepth = (wsLevel == 1) ? 18.0f : ((wsLevel == 2) ? 27.0f : 36.0f);
+                                hitPoint.x = Mathf.Clamp(hitPoint.x, -68.0f, -42.0f);
+                                hitPoint.z = Mathf.Clamp(hitPoint.z, -3.5f, -3.0f + wsDepth + 1.0f);
+                            }
+                            else if (currentDef != null && currentDef.zone == FurnitureZone.StorageOnly)
+                            {
+                                hitPoint.x = Mathf.Clamp(hitPoint.x, 2.5f, 11.5f);
+                                hitPoint.z = Mathf.Clamp(hitPoint.z, -3.5f, 38.0f);
+                            }
+                            else
+                            {
+                                hitPoint.x = Mathf.Clamp(hitPoint.x, -14.0f, 12.0f);
+                                hitPoint.z = Mathf.Clamp(hitPoint.z, -3.5f, 38.0f);
+                            }
 
                             ghostObj.transform.position = hitPoint;
                         }
@@ -208,7 +242,16 @@ namespace Farm2Shelf.Core
                 }
                 else if (!isZoneValid)
                 {
-                    if (def.zone == FurnitureZone.StorageOnly)
+                    if (def.zone == FurnitureZone.WorkshopOnly)
+                    {
+                        string zoneMsg = LocalizationManager.L(
+                            "HUD_WorkshopOnlyErr",
+                            "⚠️ GEÇERSİZ BÖLGE! (Atölye Makinesi SADECE ATÖLYE BİNASI İÇİNE kurulabilir!)",
+                            "⚠️ INVALID ZONE! (Workshop Machine can ONLY be placed inside the WORKSHOP!)"
+                        );
+                        infoStatusText.text = zoneMsg;
+                    }
+                    else if (def.zone == FurnitureZone.StorageOnly)
                     {
                         string zoneMsg = LocalizationManager.L(
                             "HUD_StorageOnlyErr",
@@ -265,23 +308,20 @@ namespace Farm2Shelf.Core
             isTouch = false;
 
 #if ENABLE_INPUT_SYSTEM
-            if (UnityEngine.InputSystem.EnhancedTouch.Touch.activeTouches.Count >= 2)
+            if (UnityEngine.InputSystem.Mouse.current != null)
             {
-                return false;
+                if (UnityEngine.InputSystem.Mouse.current.leftButton.isPressed || UnityEngine.InputSystem.Mouse.current.leftButton.wasPressedThisFrame)
+                {
+                    pointerPos = UnityEngine.InputSystem.Mouse.current.position.ReadValue();
+                    isTouch = false;
+                    if (pointerPos.sqrMagnitude > 1f) return true;
+                }
             }
 
-            if (UnityEngine.InputSystem.Touchscreen.current != null)
+            if (UnityEngine.InputSystem.Touchscreen.current != null && Application.isMobilePlatform)
             {
-                var touches = UnityEngine.InputSystem.Touchscreen.current.touches;
-                int activeCount = 0;
-                for (int i = 0; i < touches.Count; i++)
-                {
-                    if (touches[i].press.isPressed) activeCount++;
-                }
-                if (activeCount >= 2) return false;
-
                 var touch = UnityEngine.InputSystem.Touchscreen.current.primaryTouch;
-                if (touch.press.isPressed)
+                if (touch.press.isPressed || touch.press.wasPressedThisFrame)
                 {
                     pointerPos = touch.position.ReadValue();
                     isTouch = true;
@@ -289,34 +329,31 @@ namespace Farm2Shelf.Core
                 }
             }
 
-            if (UnityEngine.InputSystem.Mouse.current != null)
+            if (UnityEngine.InputSystem.Pointer.current != null)
             {
-                if (UnityEngine.InputSystem.Mouse.current.leftButton.isPressed)
+                if (UnityEngine.InputSystem.Pointer.current.press.isPressed || UnityEngine.InputSystem.Pointer.current.press.wasPressedThisFrame)
                 {
-                    pointerPos = UnityEngine.InputSystem.Mouse.current.position.ReadValue();
-                    isTouch = false;
+                    pointerPos = UnityEngine.InputSystem.Pointer.current.position.ReadValue();
                     if (pointerPos.sqrMagnitude > 1f) return true;
                 }
             }
-#else
+#endif
             try
             {
-                if (Input.touchCount >= 2) return false;
+                if (Input.GetMouseButton(0) || Input.GetMouseButtonDown(0))
+                {
+                    pointerPos = (Vector2)Input.mousePosition;
+                    isTouch = false;
+                    return true;
+                }
                 if (Input.touchCount == 1)
                 {
                     pointerPos = Input.GetTouch(0).position;
                     isTouch = true;
                     return true;
                 }
-                if (Input.GetMouseButton(0))
-                {
-                    pointerPos = (Vector2)Input.mousePosition;
-                    isTouch = false;
-                    return true;
-                }
             }
             catch {}
-#endif
 
             return false;
         }
@@ -493,14 +530,25 @@ namespace Farm2Shelf.Core
             bool inStorageZ = pos.z >= -2.6f && pos.z <= (frontWallZ + storageDepth - 0.6f);
             bool inStorage = inStorageX && inStorageZ;
 
-            if (zone == FurnitureZone.StorageOnly)
+            // ATÖLYE BİNASI İÇİ (WORKSHOP): X: [-66.0, -44.0], Z: [-2.6, frontWallZ + wsDepth - 0.6]
+            int wsLevel = (WorkshopManager.Instance != null) ? WorkshopManager.Instance.CurrentWorkshopLevel : 1;
+            float wsDepth = (wsLevel == 1) ? 18.0f : ((wsLevel == 2) ? 27.0f : 36.0f);
+            bool inWorkshopX = pos.x >= -66.0f && pos.x <= -44.0f;
+            bool inWorkshopZ = pos.z >= -2.6f && pos.z <= (frontWallZ + wsDepth - 0.6f);
+            bool inWorkshop = inWorkshopX && inWorkshopZ;
+
+            if (zone == FurnitureZone.WorkshopOnly)
             {
-                // Depo Rafı: SADECE VE SADECE DEPO KISMINA KOYULABİLİR! (Dükkana, personel odasına veya dışarıya KESİNLİKLE koyulamaz)
+                return inWorkshop;
+            }
+            else if (zone == FurnitureZone.StorageOnly)
+            {
+                // Depo Rafı: SADECE VE SADECE DEPO KISMINA KOYULABİLİR!
                 return inStorage;
             }
             else
             {
-                // Diğer Mobilyalar: SADECE VE SADECE DÜKKAN İÇİNE KOYULABİLİR! (Depoya veya personel odasına KESİNLİKLE koyulamaz)
+                // Diğer Mobilyalar: SADECE VE SADECE DÜKKAN İÇİNE KOYULABİLİR!
                 return inStore;
             }
         }
@@ -519,6 +567,10 @@ namespace Farm2Shelf.Core
             if (sourceBox != null && FurnitureDeliveryManager.Instance != null)
             {
                 FurnitureDeliveryManager.Instance.RemoveBox(sourceBox);
+            }
+            else if (IsWorkshopMachine(currentType, out _) && WorkshopPalletManager.Instance != null)
+            {
+                WorkshopPalletManager.Instance.RemoveOneMachineBox(currentType);
             }
             else if (FurnitureDeliveryManager.Instance != null)
             {
@@ -552,6 +604,17 @@ namespace Farm2Shelf.Core
                 case FurnitureType.ButcherCounter:
                 case FurnitureType.ElectronicsShelf:
                     return new Vector2(1.6f, 1.0f);
+
+                case FurnitureType.GourmetShelf:
+                    return new Vector2(1.9f, 1.0f);
+
+                case FurnitureType.WorkshopJamMaker:
+                case FurnitureType.WorkshopJuicePress:
+                case FurnitureType.WorkshopCannery:
+                case FurnitureType.WorkshopDehydrator:
+                case FurnitureType.WorkshopOilPress:
+                case FurnitureType.WorkshopSaladStation:
+                    return new Vector2(2.4f, 1.8f);
 
                 case FurnitureType.Freezer:
                     return new Vector2(1.8f, 1.0f);
@@ -635,7 +698,36 @@ namespace Farm2Shelf.Core
                 return true;
             }
 
-            if (pos.x <= 2.85f)
+            if (pos.x <= -35.0f)
+            {
+                // ATÖLYE BİNASI SINIRLARI
+                int wsLevel = (WorkshopManager.Instance != null) ? WorkshopManager.Instance.CurrentWorkshopLevel : 1;
+                float wsDepth = (wsLevel == 1) ? 18.0f : ((wsLevel == 2) ? 27.0f : 36.0f);
+                float wsBackZ = frontWallZ + wsDepth;
+
+                float minX = -66.0f + halfW;
+                float maxX = -44.0f - halfW;
+                float minZ = -2.6f + halfD;
+                float maxZ = (wsBackZ - 0.4f) - halfD;
+
+                if (pos.x < minX || pos.x > maxX || pos.z < minZ || pos.z > maxZ)
+                {
+                    return true;
+                }
+
+                // Ön Sürgülü Kapı Ağzı (X: -56.5 .. -53.5, Z: <= -1.8)
+                if (pos.z <= -1.8f && pos.x >= -56.5f && pos.x <= -53.5f)
+                {
+                    return true;
+                }
+
+                // Atölye Sabit Hammadde Palet Rafı Alanı (Paletin içine/üzerine makine kurulmasını engeller)
+                if (pos.x + halfW > -64.2f && pos.x - halfW < -60.8f && pos.z + halfD > 1.0f && pos.z - halfD < 4.0f)
+                {
+                    return true;
+                }
+            }
+            else if (pos.x <= 2.85f)
             {
                 // MAĞAZA ALANI SINIRLARI
                 float minX = -12.6f + halfW;
@@ -741,6 +833,40 @@ namespace Farm2Shelf.Core
 
             PlacedFurnitureController placedCtrl = realFurniture.AddComponent<PlacedFurnitureController>();
             placedCtrl.Setup(type, pos, rot, existingRows);
+
+            if (IsWorkshopMachine(type, out WorkshopMachineType mType))
+            {
+                WorkshopMachineController wsCtrl = realFurniture.AddComponent<WorkshopMachineController>();
+                wsCtrl.machineType = mType;
+            }
+        }
+
+        public static bool IsWorkshopMachine(FurnitureType type, out WorkshopMachineType mType)
+        {
+            switch (type)
+            {
+                case FurnitureType.WorkshopJamMaker:
+                    mType = WorkshopMachineType.JamMaker;
+                    return true;
+                case FurnitureType.WorkshopJuicePress:
+                    mType = WorkshopMachineType.JuiceExtractor;
+                    return true;
+                case FurnitureType.WorkshopCannery:
+                    mType = WorkshopMachineType.Cannery;
+                    return true;
+                case FurnitureType.WorkshopDehydrator:
+                    mType = WorkshopMachineType.Dehydrator;
+                    return true;
+                case FurnitureType.WorkshopOilPress:
+                    mType = WorkshopMachineType.OilPress;
+                    return true;
+                case FurnitureType.WorkshopSaladStation:
+                    mType = WorkshopMachineType.SaladStation;
+                    return true;
+                default:
+                    mType = WorkshopMachineType.JamMaker;
+                    return false;
+            }
         }
 
         public void CancelPlacement()
@@ -768,17 +894,20 @@ namespace Farm2Shelf.Core
             }
         }
 
+        private static readonly List<UnityEngine.EventSystems.RaycastResult> uiRaycastResults = new List<UnityEngine.EventSystems.RaycastResult>(16);
+
         private bool IsPointerOverUIButton(Vector2 pointerPos)
         {
             if (UnityEngine.EventSystems.EventSystem.current == null || placementHUDCanvas == null) return false;
 
             UnityEngine.EventSystems.PointerEventData eventData = new UnityEngine.EventSystems.PointerEventData(UnityEngine.EventSystems.EventSystem.current);
             eventData.position = pointerPos;
-            List<UnityEngine.EventSystems.RaycastResult> results = new List<UnityEngine.EventSystems.RaycastResult>();
-            UnityEngine.EventSystems.EventSystem.current.RaycastAll(eventData, results);
+            uiRaycastResults.Clear();
+            UnityEngine.EventSystems.EventSystem.current.RaycastAll(eventData, uiRaycastResults);
 
-            foreach (var r in results)
+            for (int i = 0; i < uiRaycastResults.Count; i++)
             {
+                var r = uiRaycastResults[i];
                 if (r.gameObject != null && r.gameObject.transform.IsChildOf(placementHUDCanvas.transform))
                 {
                     if (r.gameObject.GetComponentInParent<Button>() != null || r.gameObject.GetComponent<Button>() != null)
@@ -814,9 +943,11 @@ namespace Farm2Shelf.Core
             else if (!isZoneValid)
             {
                 string warnTitle = LocalizationManager.L("Modal_InvalidZone_Title", "Geçersiz Bölge! ⚠️", "Invalid Placement Zone! ⚠️");
-                string warnBody = (def != null && def.zone == FurnitureZone.StorageOnly)
-                    ? LocalizationManager.L("Modal_StorageOnly_Body", "Depo rafları SADECE VE SADECE DEPO kısmına yerleştirilebilir!\n\nLütfen mobilyayı depo alanına taşıyın.", "Storage racks can ONLY be placed inside the STORAGE / WAREHOUSE room!\n\nPlease move it inside the storage area.")
-                    : LocalizationManager.L("Modal_StoreOnly_Body", "Bu mobilya SADECE VE SADECE DÜKKAN İÇİNE yerleştirilebilir!\n\nDepoya veya personel odasına yerleştirilemez.", "This furniture can ONLY be placed inside the STORE INTERIOR!\n\nIt cannot be placed in the warehouse or staff room.");
+                string warnBody = (def != null && def.zone == FurnitureZone.WorkshopOnly)
+                    ? LocalizationManager.L("Modal_WorkshopOnly_Body", "Atölye makineleri SADECE VE SADECE ATÖLYE BİNASI İÇİNE yerleştirilebilir!\n\nLütfen makineyi atölye binası içine taşıyın.", "Workshop machines can ONLY be placed inside the WORKSHOP building!\n\nPlease move it inside the workshop area.")
+                    : ((def != null && def.zone == FurnitureZone.StorageOnly)
+                        ? LocalizationManager.L("Modal_StorageOnly_Body", "Depo rafları SADECE VE SADECE DEPO kısmına yerleştirilebilir!\n\nLütfen mobilyayı depo alanına taşıyın.", "Storage racks can ONLY be placed inside the STORAGE / WAREHOUSE room!\n\nPlease move it inside the storage area.")
+                        : LocalizationManager.L("Modal_StoreOnly_Body", "Bu mobilya SADECE VE SADECE DÜKKAN İÇİNE yerleştirilebilir!\n\nDepoya, atölyeye veya personel odasına yerleştirilemez.", "This furniture can ONLY be placed inside the STORE INTERIOR!\n\nIt cannot be placed in the warehouse or workshop."));
                 string btnOk = LocalizationManager.L("Btn_OK", "Tamam", "OK");
                 ModalManager.ShowModal(warnTitle, warnBody, btnOk);
             }
@@ -890,7 +1021,29 @@ namespace Farm2Shelf.Core
         private void SetFloorGridVisible(bool visible)
         {
             if (floorGridObj == null) CreateFloorGridOverlay();
-            if (floorGridObj != null) floorGridObj.SetActive(visible);
+            if (floorGridObj != null)
+            {
+                FurnitureItemDef currentDef = FurnitureDatabase.GetDef(currentType);
+                Transform storeQuad = floorGridObj.transform.Find("Store_Grid_Quad");
+                if (currentDef != null && currentDef.zone == FurnitureZone.WorkshopOnly)
+                {
+                    int wsLevel = (WorkshopManager.Instance != null) ? WorkshopManager.Instance.CurrentWorkshopLevel : 1;
+                    float wsDepth = (wsLevel == 1) ? 18.0f : ((wsLevel == 2) ? 27.0f : 36.0f);
+                    floorGridObj.transform.position = new Vector3(-55.0f, 0.02f, -3.0f + (wsDepth / 2f));
+                    if (storeQuad != null) storeQuad.localScale = new Vector3(22.0f, wsDepth, 1f);
+                }
+                else if (currentDef != null && currentDef.zone == FurnitureZone.StorageOnly)
+                {
+                    floorGridObj.transform.position = new Vector3(7.0f, 0.02f, 4.5f);
+                    if (storeQuad != null) storeQuad.localScale = new Vector3(8.0f, 15.0f, 1f);
+                }
+                else
+                {
+                    floorGridObj.transform.position = new Vector3(-5.0f, 0.02f, 6.0f);
+                    if (storeQuad != null) storeQuad.localScale = new Vector3(16.0f, 20.0f, 1f);
+                }
+                floorGridObj.SetActive(visible);
+            }
         }
 
         private void CreatePlacementHUDUI()
@@ -965,10 +1118,10 @@ namespace Farm2Shelf.Core
             dpRect.anchorMax = new Vector2(0.5f, 0f);
             dpRect.pivot = new Vector2(0.5f, 0f);
             dpRect.anchoredPosition = new Vector2(380f, 25f);
-            dpRect.sizeDelta = new Vector2(130f, 130f);
+            dpRect.sizeDelta = new Vector2(136f, 136f);
 
             Image dpBg = dpadPanel.AddComponent<Image>();
-            dpBg.sprite = UIStyleUtility.CreateOutlinePillSprite(130, 130, 18, 2, new Color(0.20f, 0.70f, 0.95f, 0.85f), new Color(0.10f, 0.13f, 0.18f, 0.95f));
+            dpBg.sprite = UIStyleUtility.CreateOutlinePillSprite(136, 136, 20, 3, new Color(0.15f, 0.75f, 0.95f, 0.95f), new Color(0.08f, 0.12f, 0.18f, 0.96f));
             dpBg.raycastTarget = false;
 
             // Merkez Bilgi Rozeti (0.25m)
@@ -976,61 +1129,70 @@ namespace Farm2Shelf.Core
             centerObj.transform.SetParent(dpadPanel.transform, false);
             RectTransform crt = centerObj.AddComponent<RectTransform>();
             crt.anchoredPosition = Vector2.zero;
-            crt.sizeDelta = new Vector2(40f, 40f);
+            crt.sizeDelta = new Vector2(42f, 24f);
 
-            Text cText = centerObj.AddComponent<Text>();
+            Image cBg = centerObj.AddComponent<Image>();
+            cBg.sprite = UIStyleUtility.CreateRoundedPillSprite(42, 24, 6, new Color(0.05f, 0.08f, 0.13f, 0.90f));
+            cBg.raycastTarget = false;
+
+            GameObject cTxtObj = new GameObject("Txt");
+            cTxtObj.transform.SetParent(centerObj.transform, false);
+            RectTransform cTxtR = cTxtObj.AddComponent<RectTransform>();
+            cTxtR.anchorMin = Vector2.zero;
+            cTxtR.anchorMax = Vector2.one;
+            cTxtR.sizeDelta = Vector2.zero;
+
+            Text cText = cTxtObj.AddComponent<Text>();
             cText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            cText.text = "📐\n<size=9>0.25m</size>";
-            cText.fontSize = 12;
+            cText.text = "0.25m";
+            cText.fontSize = 11;
             cText.fontStyle = FontStyle.Bold;
             cText.alignment = TextAnchor.MiddleCenter;
-            cText.color = new Color(0.40f, 0.85f, 1.0f);
+            cText.color = new Color(0.35f, 0.85f, 1.0f);
             cText.raycastTarget = false;
 
             // ⬆️ YUKARI (Z + 0.25m)
-            CreateDPadArrowButton(dpadPanel.transform, new Vector2(0f, 42f), "⬆️", () => NudgeGhost(0f, 0.25f));
+            CreateDPadArrowButton(dpadPanel.transform, new Vector2(0f, 44f), "UP", () => NudgeGhost(0f, 0.25f));
             // ⬇️ AŞAĞI (Z - 0.25m)
-            CreateDPadArrowButton(dpadPanel.transform, new Vector2(0f, -42f), "⬇️", () => NudgeGhost(0f, -0.25f));
+            CreateDPadArrowButton(dpadPanel.transform, new Vector2(0f, -44f), "DOWN", () => NudgeGhost(0f, -0.25f));
             // ⬅️ SOL (X - 0.25m)
-            CreateDPadArrowButton(dpadPanel.transform, new Vector2(-42f, 0f), "⬅️", () => NudgeGhost(-0.25f, 0f));
+            CreateDPadArrowButton(dpadPanel.transform, new Vector2(-44f, 0f), "LEFT", () => NudgeGhost(-0.25f, 0f));
             // ➡️ SAĞ (X + 0.25m)
-            CreateDPadArrowButton(dpadPanel.transform, new Vector2(42f, 0f), "➡️", () => NudgeGhost(0.25f, 0f));
+            CreateDPadArrowButton(dpadPanel.transform, new Vector2(44f, 0f), "RIGHT", () => NudgeGhost(0.25f, 0f));
 
             placementHUDCanvas.SetActive(false);
         }
 
-        private GameObject CreateDPadArrowButton(Transform parent, Vector2 pos, string arrow, UnityEngine.Events.UnityAction onClick)
+        private GameObject CreateDPadArrowButton(Transform parent, Vector2 pos, string direction, UnityEngine.Events.UnityAction onClick)
         {
-            GameObject btnObj = new GameObject("DPad_" + arrow);
+            GameObject btnObj = new GameObject("DPad_" + direction);
             btnObj.transform.SetParent(parent, false);
 
             RectTransform r = btnObj.AddComponent<RectTransform>();
             r.anchoredPosition = pos;
-            r.sizeDelta = new Vector2(46f, 46f);
+            r.sizeDelta = new Vector2(42f, 42f);
 
             Image img = btnObj.AddComponent<Image>();
-            img.sprite = UIStyleUtility.CreateRoundedPillSprite(46, 46, 12, new Color(0.18f, 0.26f, 0.38f, 0.95f));
+            img.sprite = UIStyleUtility.CreateOutlinePillSprite(42, 42, 10, 2, new Color(0.35f, 0.65f, 0.95f, 0.90f), new Color(0.14f, 0.22f, 0.32f, 0.96f));
             img.raycastTarget = true;
 
             Button btn = btnObj.AddComponent<Button>();
             btn.targetGraphic = img;
             btn.onClick.AddListener(onClick);
 
-            GameObject txtObj = new GameObject("Arrow");
-            txtObj.transform.SetParent(btnObj.transform, false);
-            RectTransform tr = txtObj.AddComponent<RectTransform>();
-            tr.anchorMin = Vector2.zero;
-            tr.anchorMax = Vector2.one;
-            tr.sizeDelta = Vector2.zero;
+            // Nizami Vektörel Ok İkonu
+            GameObject iconObj = new GameObject("Arrow_Icon");
+            iconObj.transform.SetParent(btnObj.transform, false);
+            RectTransform tr = iconObj.AddComponent<RectTransform>();
+            tr.anchorMin = new Vector2(0.5f, 0.5f);
+            tr.anchorMax = new Vector2(0.5f, 0.5f);
+            tr.sizeDelta = new Vector2(22f, 22f);
+            tr.anchoredPosition = Vector2.zero;
 
-            Text txt = txtObj.AddComponent<Text>();
-            txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            txt.text = arrow;
-            txt.fontSize = 18;
-            txt.fontStyle = FontStyle.Bold;
-            txt.alignment = TextAnchor.MiddleCenter;
-            txt.color = Color.white;
-            txt.raycastTarget = false;
+            Image iconImg = iconObj.AddComponent<Image>();
+            iconImg.sprite = UIStyleUtility.CreateArrowSprite(direction, 64, Color.white);
+            iconImg.color = Color.white;
+            iconImg.raycastTarget = false;
 
             return btnObj;
         }

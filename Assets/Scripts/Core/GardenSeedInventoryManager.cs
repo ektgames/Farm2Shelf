@@ -62,9 +62,9 @@ namespace Farm2Shelf.Core
             {
                 switch (BarnUpgradeLevel)
                 {
-                    case 2: return 1500;
-                    case 3: return 4000;
-                    default: return 500;
+                    case 2: return 2500;
+                    case 3: return 5000;
+                    default: return 1000;
                 }
             }
         }
@@ -85,7 +85,29 @@ namespace Farm2Shelf.Core
 
         private void InitDefaultSeeds()
         {
-            // Oyuna sıfır tohumla başlanır. Oyuncu EKT Tablet'ten satın alır.
+            if (barnCropInventory.Count == 0)
+            {
+                SeedAllCropsForTesting(25);
+            }
+        }
+
+        /// <summary>
+        /// Test amaçlı oyundaki tüm mahsul türlerini ahıra ekler.
+        /// </summary>
+        public void SeedAllCropsForTesting(int amountPerCrop = 25)
+        {
+            var allSeeds = GardenSeedDatabase.GetAllSeeds();
+            if (allSeeds != null)
+            {
+                foreach (var s in allSeeds)
+                {
+                    if (s != null && !string.IsNullOrEmpty(s.id))
+                    {
+                        barnCropInventory[s.id] = amountPerCrop;
+                    }
+                }
+            }
+            OnInventoryUpdated?.Invoke();
         }
 
         public void AddSeeds(string seedId, int count)

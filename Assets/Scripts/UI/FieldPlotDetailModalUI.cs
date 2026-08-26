@@ -87,6 +87,7 @@ namespace Farm2Shelf.UI
 
             Image bImg = boxObj.AddComponent<Image>();
             bImg.sprite = UIStyleUtility.CreateOutlinePillSprite(620, 540, 20, 3, themeColor, new Color(0.10f, 0.13f, 0.18f, 0.98f));
+            bImg.raycastTarget = true;
 
             // Header Banner
             GameObject headerObj = new GameObject("Header");

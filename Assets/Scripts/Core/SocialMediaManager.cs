@@ -525,6 +525,21 @@ namespace Farm2Shelf.Core
             return pool[idx];
         }
 
+        public (string tr, string en) GeneratePartialStockTweet(string storeName, int itemsBought, int itemsMissed)
+        {
+            var pool = new (string tr, string en)[]
+            {
+                ($"@{storeName} marketinden {itemsBought} parça ürün aldım ama aradığım diğer reyonlar boştu, stokları sık yenileyin lütfen! 🛒📉", $"Got {itemsBought} items at @{storeName} but other shelves I needed were empty, please restock more often! 🛒📉"),
+                ($"@{storeName} dükkanında bazı ürünleri buldum ({itemsBought} adet) fakat listedeki diğer şeyler tükenmişti 😕📦", $"Found some items ({itemsBought} pcs) at @{storeName} but the rest on my list was sold out 😕📦"),
+                ($"Alışverişi tam bitiremedim @{storeName}, {itemsBought} ürün alabildim sadece. Reyonlara daha çok çeşit lazım 🏷️📉", $"Couldn't finish full shopping at @{storeName}, only got {itemsBought} items. Need more variety on shelves 🏷️📉"),
+                ($"@{storeName} taze ürünler güzel ama aradığım {itemsMissed} çeşit ürün kalmamıştı, erken saatte mi gelmek gerek? 🚶‍♂️🤔", $"Fresh items were good at @{storeName} but missed {itemsMissed} items I wanted, should I come earlier? 🚶‍♂️🤔"),
+                ($"Sepete {itemsBought} parça ürün koydum ama diğer raflar boştu @{storeName}. Yine de teşekkürler 🥦❌", $"Placed {itemsBought} items in cart but other shelves were bare @{storeName}. Thanks anyway 🥦❌")
+            };
+
+            int idx = UnityEngine.Random.Range(0, pool.Length);
+            return pool[idx];
+        }
+
         #endregion
 
         public string GetPlayerFullName()

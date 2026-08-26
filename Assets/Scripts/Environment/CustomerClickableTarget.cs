@@ -29,12 +29,13 @@ namespace Farm2Shelf.Environment
         public void OnPointerClick(PointerEventData eventData)
         {
             if (eventData != null && eventData.dragging) return;
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen) return;
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || Time.unscaledTime - ModalManager.LastModalCloseTime < 0.35f) return;
             OnCustomerClicked();
         }
 
         public void OnCustomerClicked()
         {
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || Time.unscaledTime - ModalManager.LastModalCloseTime < 0.35f) return;
             if (profileData == null) return;
 
             if (CustomerProfileModalUI.Instance == null)

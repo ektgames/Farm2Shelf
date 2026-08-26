@@ -12,12 +12,25 @@ using UnityEngine.InputSystem;
 
 namespace Farm2Shelf.Core
 {
-    public class DeliveryPalletClickable : MonoBehaviour, IPointerClickHandler
+    public class DeliveryPalletClickable : MonoBehaviour, IPointerClickHandler, IPointerDownHandler
     {
+        public void OnPointerDown(PointerEventData eventData)
+        {
+            if (eventData != null && eventData.dragging) return;
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen) || Time.unscaledTime - ModalManager.LastModalCloseTime < 0.35f) return;
+            PalletStorageInventoryModalUI.ShowModal();
+        }
+
         public void OnPointerClick(PointerEventData eventData)
         {
             if (eventData != null && eventData.dragging) return;
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen) return;
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen) || Time.unscaledTime - ModalManager.LastModalCloseTime < 0.35f) return;
+            PalletStorageInventoryModalUI.ShowModal();
+        }
+
+        private void OnMouseDown()
+        {
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen) || Time.unscaledTime - ModalManager.LastModalCloseTime < 0.35f) return;
             PalletStorageInventoryModalUI.ShowModal();
         }
     }
@@ -38,10 +51,6 @@ namespace Farm2Shelf.Core
         private GameObject palletObj;
         private Transform boxContainer;
         private readonly List<DeliveryBoxController> activeBoxes = new List<DeliveryBoxController>();
-        private DeliveryBoxController currentHoveredBox = null;
-        private GameObject palletFloatingBadgeObj;
-        private Text palletBadgeTitleText;
-        private Text palletBadgeSubText;
 
         public List<string> GetActiveBoxTypes()
         {
@@ -74,7 +83,6 @@ namespace Farm2Shelf.Core
                     }
                 }
             }
-            UpdatePalletBadge();
         }
 
         private Material palletWoodMat;
@@ -91,128 +99,6 @@ namespace Farm2Shelf.Core
         {
             InitMaterials();
             CreateDeliveryPallet();
-            UpdatePalletBadge();
-        }
-
-        private void Update()
-        {
-            // Floating badge her zaman kameraya baksın
-            if (palletFloatingBadgeObj != null && Camera.main != null)
-            {
-                palletFloatingBadgeObj.transform.rotation = Camera.main.transform.rotation;
-            }
-
-            if (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing) return;
-            if (IsPointerOverUI() || ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen)
-            {
-                ClearHoveredBox();
-                return;
-            }
-
-            Camera mainCam = Camera.main;
-            if (mainCam == null) return;
-
-            Vector2 pointerPos = GetPointerPosition();
-            if (pointerPos == Vector2.zero)
-            {
-                ClearHoveredBox();
-                return;
-            }
-
-            Ray ray = mainCam.ScreenPointToRay(pointerPos);
-            RaycastHit[] hits = Physics.RaycastAll(ray, 100f);
-            if (hits != null && hits.Length > 0)
-            {
-                System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-
-                DeliveryBoxController box = null;
-                foreach (var h in hits)
-                {
-                    if (h.collider == null) continue;
-                    box = h.collider.GetComponentInParent<DeliveryBoxController>();
-                    if (box == null) box = h.collider.GetComponent<DeliveryBoxController>();
-                    if (box != null) break;
-                }
-
-                if (box != null)
-                {
-                    if (currentHoveredBox != box)
-                    {
-                        ClearHoveredBox();
-                        currentHoveredBox = box;
-                        currentHoveredBox.ShowHover(true);
-                    }
-                    return;
-                }
-            }
-
-            ClearHoveredBox();
-        }
-
-        private void ClearHoveredBox()
-        {
-            if (currentHoveredBox != null)
-            {
-                currentHoveredBox.ShowHover(false);
-                currentHoveredBox = null;
-            }
-        }
-
-        private Vector2 GetPointerPosition()
-        {
-            try
-            {
-                Vector3 mPos = Input.mousePosition;
-                if (mPos.sqrMagnitude > 0.01f) return new Vector2(mPos.x, mPos.y);
-            }
-            catch { }
-
-#if ENABLE_INPUT_SYSTEM
-            if (UnityEngine.InputSystem.Mouse.current != null)
-            {
-                Vector2 mPos = UnityEngine.InputSystem.Mouse.current.position.ReadValue();
-                if (mPos.sqrMagnitude > 0.01f) return mPos;
-            }
-            if (UnityEngine.InputSystem.Pointer.current != null)
-            {
-                Vector2 pPos = UnityEngine.InputSystem.Pointer.current.position.ReadValue();
-                if (pPos.sqrMagnitude > 0.01f) return pPos;
-            }
-            if (UnityEngine.InputSystem.Touchscreen.current != null && UnityEngine.InputSystem.Touchscreen.current.primaryTouch.press.isPressed)
-            {
-                return UnityEngine.InputSystem.Touchscreen.current.primaryTouch.position.ReadValue();
-            }
-#endif
-
-            return Vector2.zero;
-        }
-
-        private bool WasPointerPressed()
-        {
-#if ENABLE_INPUT_SYSTEM
-            if (UnityEngine.InputSystem.Touchscreen.current != null)
-            {
-                var touch = UnityEngine.InputSystem.Touchscreen.current.primaryTouch;
-                if (touch.press.wasPressedThisFrame || touch.press.wasReleasedThisFrame) return true;
-            }
-            if (UnityEngine.InputSystem.Mouse.current != null && (UnityEngine.InputSystem.Mouse.current.leftButton.wasPressedThisFrame || UnityEngine.InputSystem.Mouse.current.leftButton.wasReleasedThisFrame))
-                return true;
-            if (UnityEngine.InputSystem.Pointer.current != null && (UnityEngine.InputSystem.Pointer.current.press.wasPressedThisFrame || UnityEngine.InputSystem.Pointer.current.press.wasReleasedThisFrame))
-                return true;
-#else
-            try
-            {
-                if (Input.touchCount > 0 && (Input.GetTouch(0).phase == UnityEngine.TouchPhase.Began || Input.GetTouch(0).phase == UnityEngine.TouchPhase.Ended)) return true;
-                if (Input.GetMouseButtonDown(0) || Input.GetMouseButtonUp(0)) return true;
-            }
-            catch {}
-#endif
-            return false;
-        }
-
-        private bool IsPointerOverUI()
-        {
-            return ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || PalletStorageInventoryModalUI.IsModalOpen;
         }
 
         private void InitMaterials()
@@ -241,8 +127,8 @@ namespace Farm2Shelf.Core
             palletObj.transform.position = palletPosition;
 
             BoxCollider pCol = palletObj.AddComponent<BoxCollider>();
-            pCol.center = new Vector3(0f, 0.9f, 0f);
-            pCol.size = new Vector3(3.2f, 2.2f, 3.2f); // Geniş dokunmatik/tıklama alanı
+            pCol.center = new Vector3(0f, 1.2f, 0f);
+            pCol.size = new Vector3(4.2f, 3.2f, 4.2f); // Geniş dokunmatik/tıklama alanı
 
             palletObj.AddComponent<DeliveryPalletClickable>();
 
@@ -342,7 +228,7 @@ namespace Farm2Shelf.Core
 
             BoxCollider col = boxObj.AddComponent<BoxCollider>();
             col.center = Vector3.zero;
-            col.size = new Vector3(0.58f, 0.48f, 0.58f);
+            col.size = new Vector3(0.80f, 0.70f, 0.80f);
 
             DeliveryBoxController controller = boxObj.AddComponent<DeliveryBoxController>();
             controller.SetupBox(type);
@@ -380,87 +266,6 @@ namespace Farm2Shelf.Core
                 Vector3 targetLocalPos = gridOffsets[gridIdx] + new Vector3(0f, baseOffsetY + (layerIdx * boxHeight), 0f);
                 activeBoxes[i].transform.localPosition = targetLocalPos;
                 activeBoxes[i].transform.localRotation = Quaternion.identity;
-            }
-            UpdatePalletBadge();
-        }
-
-        private void CreatePalletFloatingBadge()
-        {
-            if (palletFloatingBadgeObj != null || palletObj == null) return;
-
-            palletFloatingBadgeObj = new GameObject("Pallet_Floating_Badge");
-            palletFloatingBadgeObj.transform.SetParent(palletObj.transform, false);
-            palletFloatingBadgeObj.transform.localPosition = new Vector3(0f, 2.3f, 0f);
-            palletFloatingBadgeObj.transform.localRotation = Quaternion.identity;
-
-            Canvas canvas = palletFloatingBadgeObj.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.WorldSpace;
-            canvas.sortingOrder = 60;
-
-            RectTransform rect = palletFloatingBadgeObj.GetComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(340f, 90f);
-            rect.localScale = new Vector3(0.005f, 0.005f, 0.005f);
-
-            GameObject bgObj = new GameObject("Badge_Bg");
-            bgObj.transform.SetParent(palletFloatingBadgeObj.transform, false);
-            RectTransform bgRect = bgObj.AddComponent<RectTransform>();
-            bgRect.anchorMin = Vector2.zero;
-            bgRect.anchorMax = Vector2.one;
-            bgRect.sizeDelta = Vector2.zero;
-
-            Image bgImg = bgObj.AddComponent<Image>();
-            bgImg.sprite = UIStyleUtility.CreateOutlinePillSprite(340, 90, 16, 2, new Color(0.95f, 0.70f, 0.20f), new Color(0.10f, 0.13f, 0.18f, 0.95f));
-            bgImg.raycastTarget = false;
-
-            GameObject titleObj = new GameObject("Badge_Title");
-            titleObj.transform.SetParent(bgObj.transform, false);
-            RectTransform tRect = titleObj.AddComponent<RectTransform>();
-            tRect.anchoredPosition = new Vector2(0f, 16f);
-            tRect.sizeDelta = new Vector2(320f, 36f);
-
-            palletBadgeTitleText = titleObj.AddComponent<Text>();
-            palletBadgeTitleText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            palletBadgeTitleText.fontSize = 22;
-            palletBadgeTitleText.fontStyle = FontStyle.Bold;
-            palletBadgeTitleText.alignment = TextAnchor.MiddleCenter;
-            palletBadgeTitleText.color = new Color(1.0f, 0.85f, 0.30f);
-            palletBadgeTitleText.raycastTarget = false;
-
-            GameObject subObj = new GameObject("Badge_Sub");
-            subObj.transform.SetParent(bgObj.transform, false);
-            RectTransform sRect = subObj.AddComponent<RectTransform>();
-            sRect.anchoredPosition = new Vector2(0f, -18f);
-            sRect.sizeDelta = new Vector2(320f, 30f);
-
-            palletBadgeSubText = subObj.AddComponent<Text>();
-            palletBadgeSubText.font = palletBadgeTitleText.font;
-            palletBadgeSubText.fontSize = 16;
-            palletBadgeSubText.alignment = TextAnchor.MiddleCenter;
-            palletBadgeSubText.color = new Color(0.85f, 0.90f, 0.95f);
-            palletBadgeSubText.raycastTarget = false;
-        }
-
-        public void UpdatePalletBadge()
-        {
-            if (palletFloatingBadgeObj == null)
-            {
-                CreatePalletFloatingBadge();
-            }
-
-            if (palletFloatingBadgeObj == null) return;
-
-            int count = activeBoxes.Count;
-            if (count > 0)
-            {
-                palletFloatingBadgeObj.SetActive(true);
-                string titleFmt = LocalizationManager.L("Pallet_BadgeTitleFmt", "📦 TESLİMAT PALETİ ({0} Koli)", "📦 DELIVERY PALLET ({0} Boxes)");
-                string subFmt = LocalizationManager.L("Pallet_BadgeSub", "👆 Dokun: Depo Listesini Aç", "👆 Tap: Open Storage List");
-                if (palletBadgeTitleText != null) palletBadgeTitleText.text = string.Format(titleFmt, count);
-                if (palletBadgeSubText != null) palletBadgeSubText.text = subFmt;
-            }
-            else
-            {
-                palletFloatingBadgeObj.SetActive(false);
             }
         }
 

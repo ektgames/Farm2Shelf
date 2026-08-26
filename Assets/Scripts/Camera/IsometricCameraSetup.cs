@@ -1,6 +1,7 @@
 using UnityEngine;
 using Farm2Shelf.UI;
 using Farm2Shelf.Core;
+using Farm2Shelf.Utils;
 
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
@@ -112,8 +113,9 @@ namespace Farm2Shelf.CameraSystem
 
         private void Update()
         {
-            // Ekranda Modal/Pencere/Tablet açıkken harita hareketini engelle
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen) return;
+            // Ekranda Modal/Pencere/Tablet/Duraklatma açıkken harita hareketini engelle
+            bool isPauseOpen = (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen);
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || isPauseOpen) return;
 
             bool isPlacing = (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing);
 
@@ -131,7 +133,18 @@ namespace Farm2Shelf.CameraSystem
 
         private void HandleTouchInputs(bool isPlacing)
         {
+            // Yalnızca mobil cihazlarda veya gerçek dokunmatik ekranda dokunma varsa dokunmatik jestleri işle
+            if (!Application.isMobilePlatform && Input.touchCount == 0)
+            {
 #if ENABLE_INPUT_SYSTEM
+                if (Touchscreen.current == null) return;
+#else
+                return;
+#endif
+            }
+
+#if ENABLE_INPUT_SYSTEM
+            if (Touchscreen.current == null) return;
             var activeTouches = Touch.activeTouches;
             int touchCount = activeTouches.Count;
             if (touchCount == 0)
@@ -163,13 +176,19 @@ namespace Farm2Shelf.CameraSystem
                     }
                 }
             }
-            else if (touchCount >= 2)
+            else if (touchCount >= 2 && !isPlacing)
             {
                 var touch0 = activeTouches[0];
                 var touch1 = activeTouches[1];
 
                 Vector2 pos0 = touch0.screenPosition;
                 Vector2 pos1 = touch1.screenPosition;
+
+                if (TouchInputHelper.IsPointerOverUI(pos0) || TouchInputHelper.IsPointerOverUI(pos1))
+                {
+                    lastPinchDistance = 0f;
+                    return;
+                }
 
                 float currentPinchDist = Vector2.Distance(pos0, pos1);
                 float currentPinchAngle = Mathf.Atan2(pos1.y - pos0.y, pos1.x - pos0.x) * Mathf.Rad2Deg;
@@ -183,11 +202,11 @@ namespace Farm2Shelf.CameraSystem
 
                 if (touch0.phase == UnityEngine.InputSystem.TouchPhase.Moved || touch1.phase == UnityEngine.InputSystem.TouchPhase.Moved)
                 {
-                    // 1. Zoom (Pinch)
+                    // 1. Zoom (Pinch) - Eşik değeri ile tekil dokunmalarda ani zıplamayı önler
                     float deltaDist = currentPinchDist - lastPinchDistance;
-                    if (Mathf.Abs(deltaDist) > 1.0f)
+                    if (Mathf.Abs(deltaDist) > 6.0f)
                     {
-                        float zoomDelta = -deltaDist * pinchSensitivity * 0.25f;
+                        float zoomDelta = Mathf.Clamp(-deltaDist * pinchSensitivity * 0.25f, -2.5f, 2.5f);
                         orthographicSize = Mathf.Clamp(orthographicSize + zoomDelta, minZoom, maxZoom);
                         distance = Mathf.Clamp(distance + (zoomDelta * 1.5f), 6f, 60f);
 
@@ -201,7 +220,7 @@ namespace Farm2Shelf.CameraSystem
 
                     // 2. Rotate (Twist)
                     float deltaAngle = Mathf.DeltaAngle(lastPinchAngle, currentPinchAngle);
-                    if (Mathf.Abs(deltaAngle) > 0.1f)
+                    if (Mathf.Abs(deltaAngle) > 0.6f)
                     {
                         yawAngle += deltaAngle * rotateSensitivity * 1.2f;
                         lastPinchAngle = currentPinchAngle;
@@ -216,7 +235,7 @@ namespace Farm2Shelf.CameraSystem
                     Vector2 delta0 = touch0.delta;
                     Vector2 delta1 = touch1.delta;
                     Vector2 avgDelta = (delta0 + delta1) * 0.5f;
-                    if (avgDelta.sqrMagnitude > 0.2f)
+                    if (avgDelta.sqrMagnitude > 0.5f)
                     {
                         Quaternion yawRot = Quaternion.Euler(0f, yawAngle, 0f);
                         Vector3 moveDir = yawRot * new Vector3(-avgDelta.x, 0f, -avgDelta.y);
@@ -258,13 +277,19 @@ namespace Farm2Shelf.CameraSystem
                         }
                     }
                 }
-                else if (touchCount >= 2)
+                else if (touchCount >= 2 && !isPlacing)
                 {
                     UnityEngine.Touch touch0 = Input.GetTouch(0);
                     UnityEngine.Touch touch1 = Input.GetTouch(1);
 
                     Vector2 pos0 = touch0.position;
                     Vector2 pos1 = touch1.position;
+
+                    if (TouchInputHelper.IsPointerOverUI(pos0) || TouchInputHelper.IsPointerOverUI(pos1))
+                    {
+                        lastPinchDistance = 0f;
+                        return;
+                    }
 
                     float currentPinchDist = Vector2.Distance(pos0, pos1);
                     float currentPinchAngle = Mathf.Atan2(pos1.y - pos0.y, pos1.x - pos0.x) * Mathf.Rad2Deg;
@@ -280,9 +305,9 @@ namespace Farm2Shelf.CameraSystem
                     {
                         // 1. Zoom (Pinch)
                         float deltaDist = currentPinchDist - lastPinchDistance;
-                        if (Mathf.Abs(deltaDist) > 1.0f)
+                        if (Mathf.Abs(deltaDist) > 6.0f)
                         {
-                            float zoomDelta = -deltaDist * pinchSensitivity * 0.25f;
+                            float zoomDelta = Mathf.Clamp(-deltaDist * pinchSensitivity * 0.25f, -2.5f, 2.5f);
                             orthographicSize = Mathf.Clamp(orthographicSize + zoomDelta, minZoom, maxZoom);
                             distance = Mathf.Clamp(distance + (zoomDelta * 1.5f), 6f, 60f);
 
@@ -296,7 +321,7 @@ namespace Farm2Shelf.CameraSystem
 
                         // 2. Rotate (Twist)
                         float deltaAngle = Mathf.DeltaAngle(lastPinchAngle, currentPinchAngle);
-                        if (Mathf.Abs(deltaAngle) > 0.1f)
+                        if (Mathf.Abs(deltaAngle) > 0.6f)
                         {
                             yawAngle += deltaAngle * rotateSensitivity * 1.2f;
                             lastPinchAngle = currentPinchAngle;
@@ -309,7 +334,7 @@ namespace Farm2Shelf.CameraSystem
 
                         // 3. Two-Finger Pan
                         Vector2 avgDelta = (touch0.deltaPosition + touch1.deltaPosition) * 0.5f;
-                        if (avgDelta.sqrMagnitude > 0.2f)
+                        if (avgDelta.sqrMagnitude > 0.5f)
                         {
                             Quaternion yawRot = Quaternion.Euler(0f, yawAngle, 0f);
                             Vector3 moveDir = yawRot * new Vector3(-avgDelta.x, 0f, -avgDelta.y);
@@ -331,13 +356,11 @@ namespace Farm2Shelf.CameraSystem
             if (Mouse.current != null)
             {
                 isPanDown = Mouse.current.rightButton.isPressed || Mouse.current.middleButton.isPressed;
-                if (!isPlacing) isPanDown |= Mouse.current.leftButton.isPressed;
             }
 #else
             try
             {
                 isPanDown = Input.GetMouseButton(1) || Input.GetMouseButton(2);
-                if (!isPlacing) isPanDown |= Input.GetMouseButton(0);
             }
             catch {}
 #endif
@@ -384,6 +407,16 @@ namespace Farm2Shelf.CameraSystem
 
         private void HandleMouseScrollZoom()
         {
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen)) return;
+
+            Vector2 curMouse = Vector2.zero;
+#if ENABLE_INPUT_SYSTEM
+            if (Mouse.current != null) curMouse = Mouse.current.position.ReadValue();
+#else
+            try { curMouse = (Vector2)Input.mousePosition; } catch {}
+#endif
+            if (TouchInputHelper.IsPointerOverUI(curMouse)) return;
+
             float scrollY = 0f;
 
 #if ENABLE_INPUT_SYSTEM
@@ -405,7 +438,7 @@ namespace Farm2Shelf.CameraSystem
             if (Mathf.Abs(scrollY) > 0.01f)
             {
                 float scrollDir = Mathf.Sign(scrollY);
-                float zoomDelta = -scrollDir * 1.5f;
+                float zoomDelta = Mathf.Clamp(-scrollDir * 1.5f, -2.5f, 2.5f);
 
                 orthographicSize = Mathf.Clamp(orthographicSize + zoomDelta, minZoom, maxZoom);
                 distance = Mathf.Clamp(distance + (zoomDelta * 1.4f), 5f, 60f);

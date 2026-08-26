@@ -148,6 +148,8 @@ namespace Farm2Shelf.UI
                 Text hText = CreateText(header, $"{iconEmoji} {titleName} - Stok & Raf Bilgisi", 24, FontStyle.Bold, Color.white);
                 hText.alignment = TextAnchor.MiddleCenter;
 
+                CreateHeaderCloseButton(header, CloseModal);
+
                 // Özet Bilgi Çubuğu
                 int totalStock = 0;
                 int totalCapacity = 0;
@@ -264,6 +266,8 @@ namespace Farm2Shelf.UI
             Text hText = CreateText(header, $"🎨 {def.iconEmoji} {def.name} - Pasif Gelir & Etkileşim", 22, FontStyle.Bold, Color.white);
             hText.alignment = TextAnchor.MiddleCenter;
 
+            CreateHeaderCloseButton(header, CloseModal);
+
             // Orta İçerik Kartları Alanı
             GameObject contentBox = new GameObject("ContentBox");
             contentBox.transform.SetParent(panel.transform, false);
@@ -325,6 +329,8 @@ namespace Farm2Shelf.UI
 
             Text hText = CreateText(header, "💁‍♂️ Müşteri Hizmetleri Masası - İstasyon Bilgisi", 22, FontStyle.Bold, Color.white);
             hText.alignment = TextAnchor.MiddleCenter;
+
+            CreateHeaderCloseButton(header, CloseModal);
 
             // Orta İçerik Kartları Alanı
             GameObject contentBox = new GameObject("ContentBox");
@@ -752,6 +758,27 @@ namespace Farm2Shelf.UI
                         40f
                     );
                     productsPool.Add(cropProd);
+                }
+            }
+            else if (furniture.FurnitureType == FurnitureType.GourmetShelf)
+            {
+                // GURME RAFI: SADECE VE SADECE ATÖLYEDE ÜRETİLEN GURME ÜRÜNLERİ KABUL EDER!
+                List<WorkshopRecipeDef> allRecipes = WorkshopMachineDatabase.GetAllRecipes();
+                foreach (var recipe in allRecipes)
+                {
+                    int wholesalePrice = Mathf.Max(1, Mathf.RoundToInt(recipe.unitSalePrice / 1.4f));
+                    WholesaleProductDef gourmetProd = new WholesaleProductDef(
+                        recipe.outputProductId,
+                        recipe.outputNameTr,
+                        recipe.outputNameEn,
+                        recipe.iconEmoji,
+                        FurnitureType.GourmetShelf,
+                        1,
+                        wholesalePrice,
+                        recipe.outputPackCount,
+                        40f
+                    );
+                    productsPool.Add(gourmetProd);
                 }
             }
             else
@@ -1230,6 +1257,43 @@ namespace Farm2Shelf.UI
                 modalCanvasObj = null;
             }
             ModalManager.SetModalOpen(false);
+        }
+
+        private GameObject CreateHeaderCloseButton(GameObject header, UnityEngine.Events.UnityAction onClose)
+        {
+            GameObject closeBtnObj = new GameObject("CloseButton_X");
+            closeBtnObj.transform.SetParent(header.transform, false);
+            RectTransform cRect = closeBtnObj.AddComponent<RectTransform>();
+            cRect.anchorMin = new Vector2(1, 0.5f);
+            cRect.anchorMax = new Vector2(1, 0.5f);
+            cRect.pivot = new Vector2(1, 0.5f);
+            cRect.anchoredPosition = new Vector2(-12f, 0f);
+            cRect.sizeDelta = new Vector2(44f, 44f);
+
+            Image cBg = closeBtnObj.AddComponent<Image>();
+            cBg.sprite = UIStyleUtility.CreateRoundedPillSprite(44, 44, 22, new Color(0.92f, 0.18f, 0.20f, 1f));
+            cBg.raycastTarget = true;
+
+            Button cBtn = closeBtnObj.AddComponent<Button>();
+            cBtn.targetGraphic = cBg;
+            if (onClose != null) cBtn.onClick.AddListener(onClose);
+
+            GameObject cxObj = new GameObject("X");
+            cxObj.transform.SetParent(closeBtnObj.transform, false);
+            RectTransform cxRect = cxObj.AddComponent<RectTransform>();
+            cxRect.anchorMin = Vector2.zero;
+            cxRect.anchorMax = Vector2.one;
+
+            Text cxText = cxObj.AddComponent<Text>();
+            cxText.font = UIStyleUtility.GetGlobalFont(24);
+            cxText.text = "✖";
+            cxText.fontSize = 24;
+            cxText.fontStyle = FontStyle.Bold;
+            cxText.alignment = TextAnchor.MiddleCenter;
+            cxText.color = Color.white;
+            cxText.raycastTarget = false;
+
+            return closeBtnObj;
         }
 
         private Text CreateText(GameObject parent, string content, int fontSize, FontStyle style, Color color)

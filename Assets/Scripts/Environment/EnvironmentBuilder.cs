@@ -156,10 +156,32 @@ namespace Farm2Shelf.Environment
             CreateTownshipSystem();
             CreateLightingAndDecorations();
             CreateDenseTwoRowTreeBoundaryWall();
+            BuildWorkshopBuilding();
 
             RefreshAll3DWorldLabels();
 
             Debug.Log($"[Farm2Shelf] Seviye {currentUpgradeLevel} Harita Mimarisi ve Dükkan Alanı Başarıyla Yeniden Oluşturuldu!");
+        }
+
+        private void BuildWorkshopBuilding()
+        {
+            if (WorkshopManager.Instance == null || WorkshopBuilder.Instance == null)
+            {
+                GameObject coreManagers = GameObject.Find("Core_Managers");
+                if (coreManagers == null) coreManagers = new GameObject("Core_Managers");
+
+                if (WorkshopManager.Instance == null && coreManagers.GetComponent<WorkshopManager>() == null)
+                    coreManagers.AddComponent<WorkshopManager>();
+
+                if (WorkshopBuilder.Instance == null && coreManagers.GetComponent<WorkshopBuilder>() == null)
+                    coreManagers.AddComponent<WorkshopBuilder>();
+            }
+
+            int wsLvl = (WorkshopManager.Instance != null) ? WorkshopManager.Instance.CurrentWorkshopLevel : 1;
+            if (WorkshopBuilder.Instance != null)
+            {
+                WorkshopBuilder.Instance.BuildWorkshop(wsLvl);
+            }
         }
 
         private void CleanStrayObjectsInStoreArea()
@@ -171,8 +193,9 @@ namespace Farm2Shelf.Environment
                 if (rootGo == null) continue;
                 string n = rootGo.name;
                 
-                // Ana sistem yöneticileri, mobilya konteyneri, kamera ve UI tuvalini KESİNLİKLE KORU
+                // Ana sistem yöneticileri, atölye, mobilya konteyneri, kamera ve UI tuvalini KESİNLİKLE KORU
                 if (n == "Farm2Shelf_Environment" || n == "Core_Managers" || n == "UI_Manager" ||
+                    n == "Workshop_Complex" || n == "Workshop_Manager_Host" ||
                     n == "EnvironmentManager" || n == "[Farm2ShelfBootstrapper]" ||
                     n == "Placed_Furniture_Container" || n.Contains("Placed_Furniture") || n.Contains("PlacedFurniture") ||
                     n == "Main Camera" || n == "Directional Light" || n == "EventSystem" || 
@@ -216,6 +239,7 @@ namespace Farm2Shelf.Environment
                 string topName = topParent != null ? topParent.name : "";
 
                 bool isProtectedParent = (topName == "Farm2Shelf_Environment" || topName == "Core_Managers" || topName == "UI_Manager" ||
+                    topName == "Workshop_Complex" || topName == "Workshop_Manager_Host" || topName.Contains("Workshop") ||
                     topName == "EnvironmentManager" || topName == "[Farm2ShelfBootstrapper]" ||
                     topName == "Placed_Furniture_Container" || topName.Contains("Placed_Furniture") || topName.Contains("PlacedFurniture") ||
                     topName == "Main Camera" || topName == "Directional Light" || topName == "EventSystem" || 
@@ -830,7 +854,7 @@ namespace Farm2Shelf.Environment
             CreateFlushDoubleDoor("Main_Entrance_DoubleDoor", buildingGroup, new Vector3(-5f, 0f, -3f), mainDoorGlassMat, true, "ANA GİRİŞ (CAM KAPISI)", "MAIN ENTRANCE (GLASS DOOR)", Color.cyan, 0f, true, 3.0f);
             CreateFlushDoubleDoor("Storage_DoubleDoor", buildingGroup, new Vector3(3f, 0f, 2f), darkWallMat, false, "DEPO GİRİŞİ", "STORAGE ENTRANCE", Color.yellow, 90f, false, 4.0f);
             CreateFlushDoubleDoor("Goods_Receipt_DoubleDoor_RightWall", buildingGroup, new Vector3(11f, 0f, 2f), goodsDoorMat, false, "MAL KABUL (YÜKLEME)", "GOODS RECEIPT (LOADING)", Color.green, 90f, false, 3.0f);
-            CreateFlushDoubleDoor("StaffRoom_DoubleDoor", buildingGroup, new Vector3(7f, 0f, storageBackZ), staffDoorMat, true, "PERSONEL ODASI", "STAFF ROOM", Color.magenta, 0f, false, 3.0f);
+            CreateFlushDoubleDoor("StaffRoom_DoubleDoor", buildingGroup, new Vector3(7f, 0f, storageBackZ), staffDoorMat, true, null, null, Color.clear, 0f, false, 3.0f);
 
             // SEVİYEYE BAĞLI ODA BÜYÜKLÜĞÜ İLE %100 UYUMLU DETAYLI VE MOBİLYALI PERSONEL DİNLENME ODASI
             BuildStaffRoomFurnishings(buildingGroup, currentUpgradeLevel, storageBackZ, backWallZ, staffDepth);
@@ -1835,8 +1859,11 @@ namespace Farm2Shelf.Environment
             InteractiveDoubleDoor doorScript = doorRoot.AddComponent<InteractiveDoubleDoor>();
             doorScript.SetupDoors(leftLeaf.transform, rightLeaf.transform, slideAlongX, openDistance);
 
-            Vector3 labelPos = slideAlongX ? new Vector3(0f, 2.85f, -0.3f) : new Vector3(-0.3f, 2.85f, 0f);
-            CreateLabel(labelTextTr, labelTextEn, doorRoot.transform, labelPos, labelColor, labelRotation);
+            if (!string.IsNullOrEmpty(labelTextTr))
+            {
+                Vector3 labelPos = slideAlongX ? new Vector3(0f, 2.85f, -0.3f) : new Vector3(-0.3f, 2.85f, 0f);
+                CreateLabel(labelTextTr, labelTextEn, doorRoot.transform, labelPos, labelColor, labelRotation);
+            }
         }
 
         private void CreateSingleLaneDeliveryRoad()

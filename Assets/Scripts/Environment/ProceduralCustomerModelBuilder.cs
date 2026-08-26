@@ -5,7 +5,7 @@ namespace Farm2Shelf.Environment
 {
     public enum CustomerType
     {
-        // ==================== SEVİYE 1 MÜŞTERİLER (10 ADET) ====================
+        // ==================== SEVİYE 1 MÜŞTERİLER (15 ADET) ====================
         L1_CasualBoy,          // Kot tişörtlü genç çocuk
         L1_FarmerUncle,        // Şapkalı tulumlu çiftçi amca
         L1_GrandmaTeyze,       // Eşarplı hırkalı teyze
@@ -16,8 +16,13 @@ namespace Farm2Shelf.Environment
         L1_VillageGirl,        // Çiçekli elbiseli köylü kızı
         L1_SportsMan,          // Eşofmanlı koşan genç
         L1_NeighborhoodMom,    // Alışveriş çantalı mahalle annesi
+        L1_GardenerGrandpa,    // Hasır şapkalı tulumlu bahçıvan dede
+        L1_BookwormGirl,       // Yuvarlak gözlüklü örgü kazaklı kitap kurdu kız
+        L1_MusicianGuy,        // Kot ceketli sırtında gitar taşıyan müzisyen genç
+        L1_PostmanUncle,       // Mavi üniformalı postacı amca
+        L1_Fisherman,          // Sarı yağmurluklu denizci kasketli balıkçı
 
-        // ==================== SEVİYE 2 MÜŞTERİLER (10 ADET) ====================
+        // ==================== SEVİYE 2 MÜŞTERİLER (15 ADET) ====================
         L2_OfficeWorker,       // Kravatlı gömlekli ofis çalışanı
         L2_HipsterGuy,         // Bereli gözlüklü hipster genç
         L2_FashionWoman,       // Güneş gözlüklü elbiseli şık kadın
@@ -28,8 +33,13 @@ namespace Farm2Shelf.Environment
         L2_TechNerd,           // Kapüşonlu kulaklıklı yazılımcı
         L2_TouristGuy,         // Kameralı şortlu turist
         L2_DoctorWoman,        // Steteskoplu doktor kadın
+        L2_ChefMaster,         // Beyaz önlüklü ve şapkalı restoran şefi
+        L2_YogaInstructor,     // Spor giyimli mat taşıyan yoga eğitmeni
+        L2_ArchitectGuy,       // Boğazlı kazaklı çizim tüplü mimar
+        L2_BaristaGirl,        // Deri önlüklü bandanalı kahve baristası
+        L2_Veterinarian,       // Medikal önlüklü steteskoplu veteriner
 
-        // ==================== SEVİYE 3 MÜŞTERİLER (10 ADET) ====================
+        // ==================== SEVİYE 3 MÜŞTERİLER (15 ADET) ====================
         L3_CEO_Executive,      // Lüks takım elbiseli CEO
         L3_VIP_Influencer,     // Şapkalı stil sahibi influencer
         L3_RichGentleman,      // Silindir şapkalı zengin bey
@@ -39,7 +49,12 @@ namespace Farm2Shelf.Environment
         L3_PilotMan,           // Kaptan pilot üniformalı adam
         L3_GoldChainRapper,    // Altın kolyeli tarz müzisyen
         L3_JewelryLady,        // Gece elbiseli mücevherli hanımefendi
-        L3_BillionaireYacht    // Yat kaptanı milyarder
+        L3_BillionaireYacht,   // Yat kaptanı milyarder
+        L3_GourmetCritic,      // İpek fularlı tüvit ceketli gurme eleştirmeni
+        L3_Supermodel,         // Siyah podyum elbiseli pırlanta küpeli süpermodel
+        L3_TechInvestor,       // Minimalist blazer ceketli melek yatırımcı
+        L3_OperaSinger,        // Papyonlu smokinli fraklı opera sanatçısı
+        L3_LuxuryCollector     // Bordo kadife ceketli inci kolyeli sanat koleksiyoneri
     }
 
     public static class ProceduralCustomerModelBuilder
@@ -151,6 +166,11 @@ namespace Farm2Shelf.Environment
                 case CustomerType.L1_VillageGirl: return new Color(0.95f, 0.40f, 0.60f); // Çiçekli Elbise
                 case CustomerType.L1_SportsMan: return new Color(0.15f, 0.50f, 0.85f); // Mavi Eşofman
                 case CustomerType.L1_NeighborhoodMom: return new Color(0.50f, 0.25f, 0.60f); // Mor Elbise
+                case CustomerType.L1_GardenerGrandpa: return new Color(0.22f, 0.48f, 0.24f); // Yeşil Bahçe Önlüğü
+                case CustomerType.L1_BookwormGirl: return new Color(0.88f, 0.68f, 0.18f); // Hardal Örgü Kazak
+                case CustomerType.L1_MusicianGuy: return new Color(0.35f, 0.55f, 0.80f); // Kot Ceket
+                case CustomerType.L1_PostmanUncle: return new Color(0.18f, 0.40f, 0.75f); // Postacı Mavisi Üniforma
+                case CustomerType.L1_Fisherman: return new Color(0.95f, 0.78f, 0.10f); // Sarı Yağmurluk
 
                 // Level 2
                 case CustomerType.L2_OfficeWorker: return new Color(0.95f, 0.95f, 0.95f); // Beyaz Gömlek
@@ -163,6 +183,11 @@ namespace Farm2Shelf.Environment
                 case CustomerType.L2_TechNerd: return new Color(0.25f, 0.28f, 0.35f); // Gri Kapüşonlu
                 case CustomerType.L2_TouristGuy: return new Color(0.95f, 0.85f, 0.25f); // Çiçekli Desenli Gömlek
                 case CustomerType.L2_DoctorWoman: return new Color(0.98f, 0.98f, 1.0f); // Beyaz Doktor Önlüğü
+                case CustomerType.L2_ChefMaster: return new Color(0.98f, 0.98f, 0.98f); // Beyaz Şef Ceketi
+                case CustomerType.L2_YogaInstructor: return new Color(0.72f, 0.60f, 0.85f); // Lila Spor Üst
+                case CustomerType.L2_ArchitectGuy: return new Color(0.10f, 0.10f, 0.12f); // Siyah Boğazlı Kazak
+                case CustomerType.L2_BaristaGirl: return new Color(0.30f, 0.45f, 0.35f); // Zeytin Yeşili Gömlek
+                case CustomerType.L2_Veterinarian: return new Color(0.40f, 0.70f, 0.55f); // Mint Yeşili Medikal Önlük
 
                 // Level 3
                 case CustomerType.L3_CEO_Executive: return new Color(0.12f, 0.14f, 0.18f); // Siyah Lüks Takım
@@ -175,6 +200,11 @@ namespace Farm2Shelf.Environment
                 case CustomerType.L3_GoldChainRapper: return new Color(0.95f, 0.80f, 0.15f); // Altın Sarısı Ceket
                 case CustomerType.L3_JewelryLady: return new Color(0.10f, 0.45f, 0.75f); // Safir Gece Elbisesi
                 case CustomerType.L3_BillionaireYacht: return new Color(0.95f, 0.95f, 0.98f); // Yat Kaptanı Kıyafeti
+                case CustomerType.L3_GourmetCritic: return new Color(0.42f, 0.28f, 0.18f); // Kahverengi Tüvit Ceket
+                case CustomerType.L3_Supermodel: return new Color(0.08f, 0.08f, 0.10f); // Siyah Saten Gece Elbisesi
+                case CustomerType.L3_TechInvestor: return new Color(0.12f, 0.25f, 0.50f); // İtalyan Lacivert Blazer
+                case CustomerType.L3_OperaSinger: return new Color(0.06f, 0.06f, 0.08f); // Siyah Fraklı Smokin
+                case CustomerType.L3_LuxuryCollector: return new Color(0.48f, 0.10f, 0.20f); // Bordo Kadife Ceket
                 default: return Color.blue;
             }
         }
@@ -186,10 +216,25 @@ namespace Farm2Shelf.Environment
                 case CustomerType.L1_CasualBoy: return new Color(0.20f, 0.35f, 0.65f); // Kot Pantolon
                 case CustomerType.L1_FarmerUncle: return new Color(0.25f, 0.45f, 0.25f);
                 case CustomerType.L1_StudentGirl: return new Color(0.18f, 0.20f, 0.25f);
+                case CustomerType.L1_GardenerGrandpa: return new Color(0.38f, 0.28f, 0.18f); // Toprak Rengi Pantolon
+                case CustomerType.L1_BookwormGirl: return new Color(0.18f, 0.24f, 0.40f); // Lacivert Etek
+                case CustomerType.L1_MusicianGuy: return new Color(0.18f, 0.18f, 0.22f); // Siyah Kot
+                case CustomerType.L1_PostmanUncle: return new Color(0.14f, 0.18f, 0.28f); // Koyu Lacivert Pantolon
+                case CustomerType.L1_Fisherman: return new Color(0.12f, 0.22f, 0.38f); // Koyu Mavi Tulum
                 case CustomerType.L2_OfficeWorker: return new Color(0.15f, 0.18f, 0.25f); // Siyah Kumaş Pantolon
                 case CustomerType.L2_GymBro: return new Color(0.85f, 0.20f, 0.20f); // Spor Şort
+                case CustomerType.L2_ChefMaster: return new Color(0.15f, 0.15f, 0.18f); // Siyah Şef Pantolonu
+                case CustomerType.L2_YogaInstructor: return new Color(0.28f, 0.18f, 0.35f); // Koyu Mürdüm Tayt
+                case CustomerType.L2_ArchitectGuy: return new Color(0.22f, 0.24f, 0.28f); // Kömür Grisi Pantolon
+                case CustomerType.L2_BaristaGirl: return new Color(0.15f, 0.22f, 0.35f); // Koyu Kot Pantolon
+                case CustomerType.L2_Veterinarian: return new Color(0.35f, 0.65f, 0.50f); // Mint Scrub Pantolonu
                 case CustomerType.L3_CEO_Executive: return new Color(0.12f, 0.14f, 0.18f);
                 case CustomerType.L3_GoldChainRapper: return new Color(0.12f, 0.12f, 0.14f);
+                case CustomerType.L3_GourmetCritic: return new Color(0.85f, 0.80f, 0.70f); // Krem Pantolon
+                case CustomerType.L3_Supermodel: return new Color(0.08f, 0.08f, 0.10f); // Saten Etek
+                case CustomerType.L3_TechInvestor: return new Color(0.20f, 0.22f, 0.26f); // Şık Slim Kumaş
+                case CustomerType.L3_OperaSinger: return new Color(0.08f, 0.08f, 0.10f); // Smokin Pantolonu
+                case CustomerType.L3_LuxuryCollector: return new Color(0.12f, 0.12f, 0.14f); // Siyah Saten Pantolon
                 default: return new Color(0.20f, 0.22f, 0.28f);
             }
         }
@@ -199,88 +244,182 @@ namespace Farm2Shelf.Environment
             Material hatRed = GetMaterial("Mat_HatRed", new Color(0.85f, 0.15f, 0.15f));
             Material hatYellow = GetMaterial("Mat_HatYellow", new Color(0.95f, 0.85f, 0.10f));
             Material hatBlack = GetMaterial("Mat_HatBlack", new Color(0.12f, 0.12f, 0.14f));
+            Material hatWhite = GetMaterial("Mat_CapWhite", Color.white);
             Material goldMat = GetMaterial("Mat_CustGold", new Color(0.95f, 0.80f, 0.15f), 0.9f, 0.9f);
+            Material pearlMat = GetMaterial("Mat_CustPearl", new Color(0.95f, 0.95f, 0.95f), 0.3f, 0.95f);
             Material glassLensMat = GetMaterial("Mat_CustLens", new Color(0.2f, 0.2f, 0.25f, 0.8f), 0.9f, 0.9f);
+            Material leatherBrown = GetMaterial("Mat_LeatherBrown", new Color(0.42f, 0.24f, 0.12f), 0.3f, 0.3f);
+            Material turquoiseMat = GetMaterial("Mat_Turquoise", new Color(0.15f, 0.75f, 0.80f));
+            Material rubyMat = GetMaterial("Mat_RubyRed", new Color(0.85f, 0.10f, 0.25f), 0.8f, 0.9f);
 
             switch (type)
             {
+                // ==================== LEVEL 1 AKSESUARLARI ====================
                 case CustomerType.L1_FarmerUncle:
-                    // Hasır Şapka
                     CreateBlock(parent, "Farmer_Hat", new Vector3(0f, 1.70f, 0f), new Vector3(0.55f, 0.08f, 0.55f), hatYellow);
                     break;
 
                 case CustomerType.L1_StudentGirl:
-                    // Sırt Çantası
                     CreateBlock(parent, "Backpack", new Vector3(0f, 1.05f, -0.22f), new Vector3(0.35f, 0.40f, 0.16f), hatRed);
                     break;
 
                 case CustomerType.L1_Workman:
-                    // Sarı Baret
                     CreateBlock(parent, "Safety_Helmet", new Vector3(0f, 1.72f, 0f), new Vector3(0.38f, 0.15f, 0.38f), hatYellow);
                     break;
 
                 case CustomerType.L1_GrandpaDede:
-                    // Kasket & Baston
                     CreateBlock(parent, "Cap", new Vector3(0f, 1.70f, 0.05f), new Vector3(0.35f, 0.10f, 0.40f), hairGray);
                     CreateBlock(parent, "Cane", new Vector3(0.35f, 0.50f, 0.15f), new Vector3(0.05f, 0.90f, 0.05f), hairBrown);
                     break;
 
+                case CustomerType.L1_GardenerGrandpa:
+                    // Hasır Şapka & Bahçe Çantası
+                    CreateBlock(parent, "Straw_Hat_Brim", new Vector3(0f, 1.68f, 0f), new Vector3(0.58f, 0.06f, 0.58f), hatYellow);
+                    CreateBlock(parent, "Straw_Hat_Crown", new Vector3(0f, 1.76f, 0f), new Vector3(0.34f, 0.14f, 0.34f), hatYellow);
+                    CreateBlock(parent, "Beard_Gray", new Vector3(0f, 1.44f, 0.14f), new Vector3(0.24f, 0.14f, 0.12f), hairGray);
+                    break;
+
+                case CustomerType.L1_BookwormGirl:
+                    // Yuvarlak Gözlük & Kitap Destesi
+                    CreateBlock(parent, "Glasses", new Vector3(0f, 1.55f, 0.16f), new Vector3(0.28f, 0.08f, 0.04f), hatBlack);
+                    CreateBlock(parent, "Book_Stack", new Vector3(-0.35f, 0.95f, 0.10f), new Vector3(0.14f, 0.22f, 0.28f), hatRed);
+                    break;
+
+                case CustomerType.L1_MusicianGuy:
+                    // Sırtında Gitar Çantası & Havalı Saç
+                    CreateBlock(parent, "Guitar_Body", new Vector3(0f, 1.15f, -0.24f), new Vector3(0.32f, 0.45f, 0.14f), leatherBrown);
+                    CreateBlock(parent, "Guitar_Neck", new Vector3(0.08f, 1.50f, -0.22f), new Vector3(0.08f, 0.38f, 0.06f), leatherBrown);
+                    CreateBlock(parent, "Hair_Wavy", new Vector3(0f, 1.70f, 0f), new Vector3(0.36f, 0.14f, 0.36f), hairBrown);
+                    break;
+
+                case CustomerType.L1_PostmanUncle:
+                    // Postacı Şapkası & Omuz Çantası
+                    CreateBlock(parent, "Mail_Cap", new Vector3(0f, 1.70f, 0.04f), new Vector3(0.36f, 0.12f, 0.40f), GetMaterial("Mat_PostNavy", new Color(0.12f, 0.20f, 0.45f)));
+                    CreateBlock(parent, "Mail_Badge", new Vector3(0f, 1.72f, 0.21f), new Vector3(0.08f, 0.06f, 0.02f), hatYellow);
+                    CreateBlock(parent, "Mail_Bag", new Vector3(0.35f, 0.85f, 0f), new Vector3(0.12f, 0.32f, 0.38f), leatherBrown);
+                    break;
+
+                case CustomerType.L1_Fisherman:
+                    // Balıkçı Beresi & Sakal
+                    CreateBlock(parent, "Sailor_Beanie", new Vector3(0f, 1.72f, 0f), new Vector3(0.34f, 0.16f, 0.34f), GetMaterial("Mat_NavyBeanie", new Color(0.10f, 0.18f, 0.35f)));
+                    CreateBlock(parent, "Fisher_Beard", new Vector3(0f, 1.42f, 0.14f), new Vector3(0.26f, 0.18f, 0.14f), hairGray);
+                    break;
+
+                // ==================== LEVEL 2 AKSESUARLARI ====================
                 case CustomerType.L2_OfficeWorker:
-                    // Kravat & Çanta
                     CreateBlock(parent, "Tie", new Vector3(0f, 1.15f, 0.16f), new Vector3(0.08f, 0.35f, 0.02f), hatRed);
                     CreateBlock(parent, "Briefcase", new Vector3(0.35f, 0.60f, 0f), new Vector3(0.08f, 0.30f, 0.40f), hatBlack);
                     break;
 
                 case CustomerType.L2_HipsterGuy:
-                    // Bere & Gözlük
                     CreateBlock(parent, "Beanie", new Vector3(0f, 1.72f, 0f), new Vector3(0.34f, 0.18f, 0.32f), hatRed);
                     CreateBlock(parent, "Glasses", new Vector3(0f, 1.55f, 0.16f), new Vector3(0.28f, 0.08f, 0.04f), hatBlack);
                     break;
 
                 case CustomerType.L2_DeliveryCourier:
-                    // Kask
                     CreateBlock(parent, "Courier_Helmet", new Vector3(0f, 1.72f, 0f), new Vector3(0.38f, 0.22f, 0.38f), hatRed);
                     break;
 
                 case CustomerType.L2_TouristGuy:
-                    // Kamera
                     CreateBlock(parent, "Camera", new Vector3(0f, 1.10f, 0.18f), new Vector3(0.20f, 0.14f, 0.12f), hatBlack);
                     break;
 
                 case CustomerType.L2_DoctorWoman:
-                    // Steteskop
                     CreateBlock(parent, "Stethoscope", new Vector3(0f, 1.20f, 0.16f), new Vector3(0.25f, 0.25f, 0.04f), hatBlack);
                     break;
 
+                case CustomerType.L2_ChefMaster:
+                    // Uzun Aşçı Şapkası (Toque) & Kırmızı Fular
+                    CreateBlock(parent, "Chef_Hat_Base", new Vector3(0f, 1.70f, 0f), new Vector3(0.34f, 0.08f, 0.34f), hatWhite);
+                    CreateBlock(parent, "Chef_Hat_Toque", new Vector3(0f, 1.95f, 0f), new Vector3(0.38f, 0.42f, 0.38f), hatWhite);
+                    CreateBlock(parent, "Chef_Scarf", new Vector3(0f, 1.30f, 0.16f), new Vector3(0.16f, 0.12f, 0.04f), hatRed);
+                    break;
+
+                case CustomerType.L2_YogaInstructor:
+                    // Rulo Yoga Matı & Atkuyruğu Saç
+                    CreateBlock(parent, "Yoga_Mat", new Vector3(-0.35f, 0.95f, 0f), new Vector3(0.14f, 0.55f, 0.14f), turquoiseMat);
+                    CreateBlock(parent, "Ponytail", new Vector3(0f, 1.62f, -0.20f), new Vector3(0.12f, 0.28f, 0.12f), hairBlonde);
+                    break;
+
+                case CustomerType.L2_ArchitectGuy:
+                    // Modern Tasarım Gözlük & Çizim Tüpü
+                    CreateBlock(parent, "Arch_Glasses", new Vector3(0f, 1.55f, 0.16f), new Vector3(0.28f, 0.07f, 0.04f), hatBlack);
+                    CreateBlock(parent, "Blueprint_Tube", new Vector3(0.10f, 1.15f, -0.22f), new Vector3(0.10f, 0.65f, 0.10f), hatBlack);
+                    CreateBlock(parent, "Tube_Cap", new Vector3(0.10f, 1.48f, -0.22f), new Vector3(0.11f, 0.06f, 0.11f), hatRed);
+                    break;
+
+                case CustomerType.L2_BaristaGirl:
+                    // Deri Önlük & Bandana
+                    CreateBlock(parent, "Bandana", new Vector3(0f, 1.68f, 0f), new Vector3(0.35f, 0.08f, 0.35f), rubyMat);
+                    CreateBlock(parent, "Leather_Apron", new Vector3(0f, 1.05f, 0.16f), new Vector3(0.38f, 0.45f, 0.02f), leatherBrown);
+                    break;
+
+                case CustomerType.L2_Veterinarian:
+                    // Steteskop & Medikal Dosya
+                    CreateBlock(parent, "Vet_Stethoscope", new Vector3(0f, 1.20f, 0.16f), new Vector3(0.25f, 0.25f, 0.04f), hatBlack);
+                    CreateBlock(parent, "Clipboard", new Vector3(0.35f, 0.90f, 0.10f), new Vector3(0.06f, 0.28f, 0.22f), hatWhite);
+                    break;
+
+                // ==================== LEVEL 3 AKSESUARLARI ====================
                 case CustomerType.L3_RichGentleman:
-                    // Silindir Şapka & Baston
                     CreateBlock(parent, "TopHat_Base", new Vector3(0f, 1.70f, 0f), new Vector3(0.48f, 0.05f, 0.48f), hatBlack);
                     CreateBlock(parent, "TopHat_Crown", new Vector3(0f, 1.90f, 0f), new Vector3(0.32f, 0.35f, 0.32f), hatBlack);
                     CreateBlock(parent, "Gold_Cane", new Vector3(0.35f, 0.50f, 0.15f), new Vector3(0.05f, 0.90f, 0.05f), goldMat);
                     break;
 
                 case CustomerType.L3_GamerPro:
-                    // Işıklı Kulaklık
                     GameObject headset = CreateBlock(parent, "Headset_Band", new Vector3(0f, 1.72f, 0f), new Vector3(0.36f, 0.06f, 0.20f), hatBlack);
                     CreateBlock(headset.transform, "Ear_L", new Vector3(-0.18f, -0.15f, 0f), new Vector3(0.08f, 0.15f, 0.15f), hatRed);
                     CreateBlock(headset.transform, "Ear_R", new Vector3(0.18f, -0.15f, 0f), new Vector3(0.08f, 0.15f, 0.15f), hatRed);
                     break;
 
                 case CustomerType.L3_PilotMan:
-                    // Pilot Kasketi
                     CreateBlock(parent, "Pilot_Cap", new Vector3(0f, 1.70f, 0.04f), new Vector3(0.36f, 0.12f, 0.38f), hatBlack);
                     CreateBlock(parent, "Gold_Badge", new Vector3(0f, 1.72f, 0.20f), new Vector3(0.10f, 0.06f, 0.02f), goldMat);
                     break;
 
                 case CustomerType.L3_GoldChainRapper:
-                    // Altın Kolye & Güneş Gözlüğü
                     CreateBlock(parent, "Gold_Chain", new Vector3(0f, 1.25f, 0.16f), new Vector3(0.26f, 0.08f, 0.04f), goldMat);
                     CreateBlock(parent, "Sunglasses", new Vector3(0f, 1.55f, 0.16f), new Vector3(0.28f, 0.07f, 0.04f), glassLensMat);
                     break;
 
                 case CustomerType.L3_BillionaireYacht:
-                    // Kaptan Şapkası
-                    CreateBlock(parent, "Yacht_Cap", new Vector3(0f, 1.70f, 0.04f), new Vector3(0.36f, 0.12f, 0.38f), GetMaterial("Mat_CapWhite", Color.white));
+                    CreateBlock(parent, "Yacht_Cap", new Vector3(0f, 1.70f, 0.04f), new Vector3(0.36f, 0.12f, 0.38f), hatWhite);
+                    break;
+
+                case CustomerType.L3_GourmetCritic:
+                    // İpek Fular & Gurme Not Defteri
+                    CreateBlock(parent, "Silk_Ascot", new Vector3(0f, 1.30f, 0.16f), new Vector3(0.18f, 0.18f, 0.04f), rubyMat);
+                    CreateBlock(parent, "Critic_Notebook", new Vector3(0.35f, 0.90f, 0.10f), new Vector3(0.06f, 0.22f, 0.16f), leatherBrown);
+                    CreateBlock(parent, "Critic_Hair", new Vector3(0f, 1.70f, 0f), new Vector3(0.35f, 0.12f, 0.35f), hairGray);
+                    break;
+
+                case CustomerType.L3_Supermodel:
+                    // Pırlanta Küpeler & Lüks Çanta
+                    CreateBlock(parent, "Earring_L", new Vector3(-0.18f, 1.48f, 0f), new Vector3(0.04f, 0.12f, 0.04f), pearlMat);
+                    CreateBlock(parent, "Earring_R", new Vector3(0.18f, 1.48f, 0f), new Vector3(0.04f, 0.12f, 0.04f), pearlMat);
+                    CreateBlock(parent, "Designer_Clutch", new Vector3(0.35f, 0.75f, 0f), new Vector3(0.08f, 0.16f, 0.24f), goldMat);
+                    CreateBlock(parent, "Model_Hair", new Vector3(0f, 1.68f, -0.05f), new Vector3(0.34f, 0.22f, 0.32f), hairBlack);
+                    break;
+
+                case CustomerType.L3_TechInvestor:
+                    // Titanyum Akıllı Saat & İnce Çerçeveli Gözlük
+                    CreateBlock(parent, "Smart_Glasses", new Vector3(0f, 1.55f, 0.16f), new Vector3(0.28f, 0.06f, 0.03f), glassLensMat);
+                    CreateBlock(parent, "Smart_Watch", new Vector3(-0.35f, 0.85f, 0f), new Vector3(0.18f, 0.06f, 0.18f), hatBlack);
+                    break;
+
+                case CustomerType.L3_OperaSinger:
+                    // Papyon & Smokin Yaka Detayı
+                    CreateBlock(parent, "BowTie", new Vector3(0f, 1.34f, 0.16f), new Vector3(0.18f, 0.08f, 0.04f), hatBlack);
+                    CreateBlock(parent, "Shirt_Pleats", new Vector3(0f, 1.15f, 0.16f), new Vector3(0.20f, 0.30f, 0.02f), hatWhite);
+                    CreateBlock(parent, "Rose_Boutonniere", new Vector3(0.14f, 1.25f, 0.16f), new Vector3(0.06f, 0.06f, 0.04f), hatRed);
+                    break;
+
+                case CustomerType.L3_LuxuryCollector:
+                    // Üç Sıra İnci Kolye & Yakutlu Altın Baston
+                    CreateBlock(parent, "Pearl_Necklace", new Vector3(0f, 1.28f, 0.16f), new Vector3(0.24f, 0.10f, 0.04f), pearlMat);
+                    CreateBlock(parent, "Ruby_Cane_Shaft", new Vector3(0.35f, 0.50f, 0.15f), new Vector3(0.05f, 0.90f, 0.05f), hatBlack);
+                    CreateBlock(parent, "Ruby_Cane_Head", new Vector3(0.35f, 0.96f, 0.15f), new Vector3(0.09f, 0.09f, 0.09f), rubyMat);
                     break;
 
                 default:

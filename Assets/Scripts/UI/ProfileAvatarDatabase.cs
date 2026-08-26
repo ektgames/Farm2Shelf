@@ -87,6 +87,21 @@ namespace Farm2Shelf.UI
                 case CustomerType.L1_NeighborhoodMom:
                     return "avatar_female_homemaker";
 
+                case CustomerType.L1_GardenerGrandpa:
+                    return "avatar_male_gardener";
+
+                case CustomerType.L1_BookwormGirl:
+                    return "avatar_female_bookworm";
+
+                case CustomerType.L1_MusicianGuy:
+                    return "avatar_male_musician";
+
+                case CustomerType.L1_PostmanUncle:
+                    return "avatar_male_postman";
+
+                case CustomerType.L1_Fisherman:
+                    return "avatar_male_fisherman";
+
                 case CustomerType.L2_OfficeWorker:
                     return isFemale ? "avatar_female_business" : "avatar_male_business";
 
@@ -113,8 +128,38 @@ namespace Farm2Shelf.UI
                 case CustomerType.L2_DoctorWoman:
                     return "avatar_female_doctor";
 
+                case CustomerType.L2_ChefMaster:
+                    return "avatar_male_chef";
+
+                case CustomerType.L2_YogaInstructor:
+                    return "avatar_female_yoga";
+
+                case CustomerType.L2_ArchitectGuy:
+                    return "avatar_male_architect";
+
+                case CustomerType.L2_BaristaGirl:
+                    return "avatar_female_barista";
+
+                case CustomerType.L2_Veterinarian:
+                    return "avatar_female_vet";
+
                 case CustomerType.L3_JewelryLady:
                     return "avatar_female_business";
+
+                case CustomerType.L3_GourmetCritic:
+                    return "avatar_male_critic";
+
+                case CustomerType.L3_Supermodel:
+                    return "avatar_female_supermodel";
+
+                case CustomerType.L3_TechInvestor:
+                    return "avatar_male_investor";
+
+                case CustomerType.L3_OperaSinger:
+                    return "avatar_male_opera";
+
+                case CustomerType.L3_LuxuryCollector:
+                    return "avatar_female_collector";
 
                 default:
                     return GetDiverseAvatarByAgeAndGender(isFemale, age, seed);

@@ -99,6 +99,18 @@ namespace Farm2Shelf.Core
             if (managersObj.GetComponent<TutorialManager>() == null)
                 managersObj.AddComponent<TutorialManager>();
 
+            if (managersObj.GetComponent<WorkshopManager>() == null)
+                managersObj.AddComponent<WorkshopManager>();
+
+            if (managersObj.GetComponent<Farm2Shelf.Environment.WorkshopBuilder>() == null)
+                managersObj.AddComponent<Farm2Shelf.Environment.WorkshopBuilder>();
+
+            if (managersObj.GetComponent<WorkshopPalletManager>() == null)
+                managersObj.AddComponent<WorkshopPalletManager>();
+
+            if (managersObj.GetComponent<Farm2Shelf.UI.WorkshopPalletModalUI>() == null)
+                managersObj.AddComponent<Farm2Shelf.UI.WorkshopPalletModalUI>();
+
             // 2. Çevre Oluşturucu
             GameObject envManager = GameObject.Find("EnvironmentManager");
             if (envManager == null)

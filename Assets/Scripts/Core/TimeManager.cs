@@ -52,6 +52,7 @@ namespace Farm2Shelf.Core
                 Debug.LogWarning("[TimeManager] Saat 24:00 olduğu için gün akışı başlatılamaz. Ertesi güne geçilmelidir.");
                 return;
             }
+            timer = 0f;
             isDayActive = true;
             isTimePaused = false;
             Debug.Log("[TimeManager] GÜN ZAMAN AKIŞI BAŞLATILDI (Gece 12'ye kadar kesintisiz akacak)");
@@ -101,8 +102,15 @@ namespace Farm2Shelf.Core
         {
             currentHour = 6;
             currentMinute = 0;
+            timer = 0f;
             isDayActive = false;
             isTimePaused = true; // Oyuncu dükkanı açana kadar saat durur!
+
+            if (StoreStatusManager.Instance != null && StoreStatusManager.Instance.IsOpen)
+            {
+                StoreStatusManager.Instance.CloseStore();
+            }
+
             AdvanceDay();
             OnTimeUpdated?.Invoke(currentHour, currentMinute);
             Debug.Log($"[TimeManager] Ertesi Güne Atlandı: Sabah 06:00 (Zaman Duraklatıldı)");
@@ -110,8 +118,8 @@ namespace Farm2Shelf.Core
 
         private void Update()
         {
-            // Gün başlatılmamışsa (Sabah 06:00 beklemesi), zaman duraklatılmışsa veya Gece 24:00 olmuşsa oyun saati KESİNLİKLE ilerlemez!
-            if (isTimePaused || !isDayActive || currentHour >= 24) return;
+            // Gün başlatılmamışsa (Sabah 06:00 beklemesi), zaman duraklatılmışsa, Gece 24:00 olmuşsa veya dükkan kapalıysa oyun saati KESİNLİKLE ilerlemez!
+            if (isTimePaused || !isDayActive || currentHour >= 24 || (StoreStatusManager.Instance != null && !StoreStatusManager.Instance.IsOpen)) return;
 
             AdvanceTime();
         }

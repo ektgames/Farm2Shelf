@@ -29,6 +29,8 @@ namespace Farm2Shelf.Environment
 
         public void OnBarnClicked()
         {
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || Time.unscaledTime - ModalManager.LastModalCloseTime < 0.35f) return;
+
             if (BarnInventoryModalUI.Instance == null)
             {
                 GameObject uiObj = GameObject.Find("UI_Manager") ?? new GameObject("UI_Manager");
@@ -45,7 +47,7 @@ namespace Farm2Shelf.Environment
         public void OnPointerClick(PointerEventData eventData)
         {
             if (eventData != null && eventData.dragging) return;
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen) return;
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || Time.unscaledTime - ModalManager.LastModalCloseTime < 0.35f) return;
             OnBarnClicked();
         }
 

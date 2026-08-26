@@ -12,6 +12,7 @@ namespace Farm2Shelf.UI
     public class SettingsModalUI : MonoBehaviour
     {
         public static SettingsModalUI Instance { get; private set; }
+        public bool IsSettingsOpen => canvasObj != null && canvasObj.activeInHierarchy;
 
         private GameObject canvasObj;
         private Text currentTrackText;

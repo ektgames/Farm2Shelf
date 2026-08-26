@@ -159,7 +159,7 @@ namespace Farm2Shelf.Environment
             foreach (var s in shelves)
             {
                 if (s == null || s.rows == null) continue;
-                if (s.FurnitureType == FurnitureType.Shelf || s.FurnitureType == FurnitureType.ProduceShelf || s.FurnitureType == FurnitureType.Fridge || s.FurnitureType == FurnitureType.BakeryCounter || s.FurnitureType == FurnitureType.CosmeticShelf || s.FurnitureType == FurnitureType.ButcherCounter)
+                if (s.FurnitureType == FurnitureType.Shelf || s.FurnitureType == FurnitureType.ProduceShelf || s.FurnitureType == FurnitureType.Fridge || s.FurnitureType == FurnitureType.BakeryCounter || s.FurnitureType == FurnitureType.CosmeticShelf || s.FurnitureType == FurnitureType.ButcherCounter || s.FurnitureType == FurnitureType.ElectronicsShelf || s.FurnitureType == FurnitureType.GourmetShelf)
                 {
                     for (int r = 0; r < s.rows.Length; r++)
                     {

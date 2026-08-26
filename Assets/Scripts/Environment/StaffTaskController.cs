@@ -82,6 +82,10 @@ namespace Farm2Shelf.Environment
             // Maskot Özel Neşeli Gösteri Zamanlayıcısı
             public float lastMascotCheerTime;
 
+            // Çiftçi Özel Parsel & Çalışma Verisi
+            public FieldPlotController targetPlot;
+            public bool isFarmerWorkingOnPlot;
+
             // Personel Dinlenme Odası Mavi Koltuk Oturma Durumu
             public bool isSitting;
             public int assignedSofaSeatIndex = -1;
@@ -184,14 +188,6 @@ namespace Farm2Shelf.Environment
                 return (totalMinsCalc >= 360 && totalMinsCalc < 960); // 06:00 - 16:00 (Sabah Hazırlık ve Vardiya Süresi)
             }
 
-            bool isStoreOpen = StoreStatusManager.Instance != null && StoreStatusManager.Instance.IsOpen;
-            int activeCustCount = CustomerShoppingManager.Instance != null ? CustomerShoppingManager.Instance.ActiveCustomerCount : 0;
-            bool isTruckWaiting = (WholesaleTruckManager.Instance != null && WholesaleTruckManager.Instance.IsTruckAtDockWaitingForUnload) ||
-                                  (GreenTruckDeliveryManager.Instance != null && GreenTruckDeliveryManager.Instance.IsTruckAtDockWaitingForUnload);
-
-            // Dükkan kapalıysa VE dükkanda/kasada müşteri kalmamışsa VE bekleyen teslimat kamyonu yoksa personellerin vardiyası biter
-            if (!isStoreOpen && activeCustCount == 0 && !isTruckWaiting) return false;
-
             string shift = staff.shiftHours ?? "";
 
             // 1. SABAH VARDİYASI: 08:00 - 16:00 (30 dk erken geliş / hazırlık: 07:30 - 08:00)
@@ -201,12 +197,12 @@ namespace Farm2Shelf.Environment
                 return (totalMinsCalc >= 480 && totalMinsCalc < 960);
             }
             // 2. AKŞAM VARDİYASI: 16:00 - 24:00 (30 dk erken geliş / hazırlık: 15:30 - 16:00)
-            // Gece 24:00 (1440) olduğunda, dükkanda müşteri varsa (activeCustCount > 0) vardiya bitmez, personeller çalışmaya devam eder!
             else if (shift.Contains("Akşam") || shift.Contains("16:00") || shift.Contains("14:00") || shift.Contains("Gece") || shift.Contains("22:00"))
             {
                 if (totalMinsCalc >= 930 && totalMinsCalc < 960) { isEarlyArrivalWindow = true; return true; }
                 if (totalMinsCalc >= 960 && totalMinsCalc < 1440) return true;
-                // Saat 24:00 ve üstü (totalMinsCalc >= 1440 veya currentHour >= 24) ve içeride müşteri varsa personeller görev başında kalır:
+                // Gece 24:00 ve sonrası dükkanda müşteri tahliyesi sürüyorsa personeller çalışmaya devam eder:
+                int activeCustCount = CustomerShoppingManager.Instance != null ? CustomerShoppingManager.Instance.ActiveCustomerCount : 0;
                 if ((totalMinsCalc >= 1440 || currentHour >= 24) && activeCustCount > 0) return true;
                 return false;
             }
@@ -1199,6 +1195,60 @@ namespace Farm2Shelf.Environment
                 return;
             }
 
+            // 1. PARSEL BAŞINDA ÇALIŞMA / SULAMA / KONTROL EVRESİ (5 - 10 Saniye)
+            if (data.isFarmerWorkingOnPlot)
+            {
+                if (data.taskTimer > 0f)
+                {
+                    data.taskTimer -= deltaTime;
+
+                    // Parsele doğru dön
+                    if (data.targetPlot != null)
+                    {
+                        Vector3 lookDir = (data.targetPlot.transform.position - data.staffObj.transform.position).normalized;
+                        lookDir.y = 0f;
+                        if (lookDir != Vector3.zero)
+                        {
+                            data.staffObj.transform.rotation = Quaternion.RotateTowards(data.staffObj.transform.rotation, Quaternion.LookRotation(lookDir), 360f * deltaTime);
+                        }
+                    }
+
+                    // Ritmik Çapa / Sulama / Mahsul Kontrolü Kol Animasyonu
+                    if (data.leftLimbs != null && data.leftLimbs.Count >= 2 && data.rightLimbs != null && data.rightLimbs.Count >= 2)
+                    {
+                        Transform lArm = data.leftLimbs[1];  // Arm_L
+                        Transform rArm = data.rightLimbs[1];  // Arm_R
+
+                        float workSwing = Mathf.Sin(Time.time * 5.5f) * 22.0f;
+                        lArm.localRotation = Quaternion.Euler(38f + workSwing, 15f, 0f);
+                        rArm.localRotation = Quaternion.Euler(38f - workSwing, -15f, 0f);
+                    }
+                    return;
+                }
+
+                // Çalışma süresi (5-10s) tamamlandı! Eylemi gerçekleştir
+                if (data.targetPlot != null)
+                {
+                    if (data.targetPlot.NeedsWater && !data.targetPlot.WateredToday)
+                    {
+                        data.targetPlot.WaterCrop(); // Sulama işlemi tamamlandı
+                    }
+                    else if (data.targetPlot.State == PlotState.SpoiledTrash)
+                    {
+                        data.targetPlot.ClearSpoiledPlot(); // Çürümüş ekin temizlendi
+                    }
+                }
+
+                data.isFarmerWorkingOnPlot = false;
+                data.targetPlot = null;
+                if (data.waypoints != null) data.waypoints.Clear();
+                data.currentWaypointIndex = 0;
+                data.taskTimer = Random.Range(0.8f, 1.6f); // Bir sonraki parsele geçmeden önce kısa mola
+                ResetLimbsToRest(data);
+                return;
+            }
+
+            // 2. KISA GEÇİŞ MOLA ZAMANLAYICISI
             if (data.taskTimer > 0f)
             {
                 data.taskTimer -= deltaTime;
@@ -1206,53 +1256,60 @@ namespace Farm2Shelf.Environment
                 return;
             }
 
+            // 3. YENİ PARSEL HEDEFİ BELİRLEME (Sürekli Devriye & Kontrol)
             if (data.waypoints == null || data.waypoints.Count == 0 || data.currentWaypointIndex >= data.waypoints.Count)
             {
                 // Çiftçi Akıllı Parsel Arama & Öncelik Sıralaması:
-                // 1. Öncelik: Çürümüş Ekinler (Temizlenip yeni ekilebilir alana dönüştürülmeli)
-                // 2. Öncelik: Olgunlaşmış ve Hasada Hazır Ekinler
-                // 3. Öncelik: Sulanması Gereken Ekinler
-                // 4. Öncelik: Büyüyen Diğer Ekinler
-                // 5. Rastgele Parsel
-                List<FieldPlotController> spoiledPlots = new List<FieldPlotController>();
-                List<FieldPlotController> ripePlots = new List<FieldPlotController>();
+                // 1. Öncelik: Sulanması Gereken Ekinler
+                // 2. Öncelik: Çürümüş Ekinler (Temizlenmeli)
+                // 3. Öncelik: Büyüyen / Ekili Ekinler (Mahsul kontrolü için)
+                // 4. Öncelik: Tüm Tarlalar (Toprak kontrol devriyesi için - Asla boş durmaz!)
                 List<FieldPlotController> needWaterPlots = new List<FieldPlotController>();
+                List<FieldPlotController> spoiledPlots = new List<FieldPlotController>();
                 List<FieldPlotController> growingPlots = new List<FieldPlotController>();
+                List<FieldPlotController> allValidPlots = new List<FieldPlotController>();
 
                 for (int i = 0; i < plots.Count; i++)
                 {
                     var p = plots[i];
                     if (p == null) continue;
-                    if (p.State == PlotState.SpoiledTrash) spoiledPlots.Add(p);
-                    else if (p.State == PlotState.RipeReadyToHarvest) ripePlots.Add(p);
-                    else if ((p.State == PlotState.PlantedSprout || p.State == PlotState.Growing) && (p.NeedsWater || !p.WateredToday)) needWaterPlots.Add(p);
-                    else if (p.State == PlotState.PlantedSprout || p.State == PlotState.Growing) growingPlots.Add(p);
+                    allValidPlots.Add(p);
+
+                    if (p.State == PlotState.SpoiledTrash)
+                    {
+                        spoiledPlots.Add(p);
+                    }
+                    else if ((p.State == PlotState.PlantedSprout || p.State == PlotState.Growing) && (p.NeedsWater || !p.WateredToday))
+                    {
+                        needWaterPlots.Add(p);
+                    }
+                    else if (p.State == PlotState.PlantedSprout || p.State == PlotState.Growing || p.State == PlotState.RipeReadyToHarvest)
+                    {
+                        growingPlots.Add(p);
+                    }
                 }
 
                 FieldPlotController targetPlot = null;
-                if (spoiledPlots.Count > 0)
-                {
-                    targetPlot = GetNearestPlot(data.staffObj.transform.position, spoiledPlots);
-                }
-                else if (ripePlots.Count > 0)
-                {
-                    targetPlot = GetNearestPlot(data.staffObj.transform.position, ripePlots);
-                }
-                else if (needWaterPlots.Count > 0)
+                if (needWaterPlots.Count > 0)
                 {
                     targetPlot = GetNearestPlot(data.staffObj.transform.position, needWaterPlots);
                 }
+                else if (spoiledPlots.Count > 0)
+                {
+                    targetPlot = GetNearestPlot(data.staffObj.transform.position, spoiledPlots);
+                }
                 else if (growingPlots.Count > 0)
                 {
-                    targetPlot = GetNearestPlot(data.staffObj.transform.position, growingPlots);
+                    targetPlot = growingPlots[Random.Range(0, growingPlots.Count)];
                 }
-                else
+                else if (allValidPlots.Count > 0)
                 {
-                    targetPlot = plots[Random.Range(0, plots.Count)];
+                    targetPlot = allValidPlots[Random.Range(0, allValidPlots.Count)];
                 }
 
                 if (targetPlot != null)
                 {
+                    data.targetPlot = targetPlot;
                     Vector3 plotTargetPos = targetPlot.transform.position;
                     data.waypoints = new List<Vector3>
                     {
@@ -1260,43 +1317,34 @@ namespace Farm2Shelf.Environment
                         plotTargetPos
                     };
                     data.currentWaypointIndex = 1;
+                    data.isFarmerWorkingOnPlot = false;
                 }
             }
 
+            // 4. PARSELE DOĞRU YÜRÜYÜŞ
             Vector3 currentPos = data.staffObj.transform.position;
             Vector3 targetPos = (data.waypoints != null && data.currentWaypointIndex < data.waypoints.Count) ? data.waypoints[data.currentWaypointIndex] : currentPos;
             Vector3 toTarget = targetPos - currentPos;
             float dist = toTarget.magnitude;
 
-            if (dist < 0.6f)
+            if (dist < 0.65f)
             {
-                // Tarlaya ulaşıldı: Çürümüşse temizle, olgunsa hasat et, susuzsa sula!
-                FieldPlotController nearestPlot = null;
-                float minDist = 2.5f;
-                foreach (var p in plots)
-                {
-                    if (p == null) continue;
-                    float d = Vector3.Distance(currentPos, p.transform.position);
-                    if (d < minDist) { minDist = d; nearestPlot = p; }
-                }
-
-                if (nearestPlot != null)
-                {
-                    nearestPlot.AdvanceGrowthByFarmerBonus(1.3f);
-                }
-
+                // Tarlanın başına ulaşıldı: 5 ile 10 saniye arası sürecek çalışma/sulama/kontrol sürecini başlat
+                data.isFarmerWorkingOnPlot = true;
+                data.taskTimer = Random.Range(5.5f, 9.5f); // 5 - 10 saniye sürsün!
                 if (data.waypoints != null) data.waypoints.Clear();
                 data.currentWaypointIndex = 0;
-                data.taskTimer = Random.Range(1.8f, 3.5f);
-                ResetLimbsToRest(data);
                 return;
             }
 
             Vector3 moveDir = toTarget.normalized;
-            float stepDist = 2.8f * deltaTime;
+            float stepDist = 2.4f * deltaTime;
             Vector3 avoidanceDir = CalculateAvoidanceDirection(data.staffObj, currentPos, moveDir, stepDist);
 
-            if (avoidanceDir != Vector3.zero) data.staffObj.transform.rotation = Quaternion.RotateTowards(data.staffObj.transform.rotation, Quaternion.LookRotation(avoidanceDir), 360f * deltaTime);
+            if (avoidanceDir != Vector3.zero)
+            {
+                data.staffObj.transform.rotation = Quaternion.RotateTowards(data.staffObj.transform.rotation, Quaternion.LookRotation(avoidanceDir), 360f * deltaTime);
+            }
             data.staffObj.transform.position = Vector3.MoveTowards(currentPos, currentPos + avoidanceDir, stepDist);
 
             data.walkCycleTimer += deltaTime * 8.5f;
@@ -1480,7 +1528,7 @@ namespace Farm2Shelf.Environment
             return t == FurnitureType.Shelf || t == FurnitureType.Fridge || t == FurnitureType.Freezer ||
                    t == FurnitureType.ProduceShelf || t == FurnitureType.BakeryCounter ||
                    t == FurnitureType.CosmeticShelf || t == FurnitureType.ElectronicsShelf ||
-                   t == FurnitureType.ButcherCounter;
+                   t == FurnitureType.ButcherCounter || t == FurnitureType.GourmetShelf;
         }
 
         private Vector3 GetStorageShelfPosition()
@@ -1813,7 +1861,8 @@ namespace Farm2Shelf.Environment
                                                     for (int rId = 0; rId < storeShelf.rows.Length; rId++)
                                                     {
                                                         var rInfo = storeShelf.rows[rId];
-                                                        if (rInfo != null && !rInfo.IsUnassigned && rInfo.productName == sRowExtra.productName)
+                                                        bool isMatchingProduct = rInfo != null && !rInfo.IsUnassigned && (rInfo.productName == sRowExtra.productName || (!string.IsNullOrEmpty(rInfo.productId) && rInfo.productId == sRowExtra.productId));
+                                                        if (isMatchingProduct)
                                                         {
                                                             int curFill = (storeShelf == data.targetShelf1 && rId == data.targetRowId1) ? rInfo.currentStock + data.carriedAmount1 : rInfo.currentStock;
                                                             if (curFill < rInfo.maxCapacity)
@@ -2026,7 +2075,8 @@ namespace Farm2Shelf.Environment
                             for (int sr = 0; sr < storage.rows.Length; sr++)
                             {
                                 var sRow = storage.rows[sr];
-                                if (sRow != null && sRow.currentStock > 0 && sRow.productName == rData.productName && !IsStorageRowClaimedByOtherRestocker(data, storage, sr))
+                                bool isMatch1 = sRow != null && sRow.currentStock > 0 && (sRow.productName == rData.productName || (!string.IsNullOrEmpty(sRow.productId) && sRow.productId == rData.productId));
+                                if (isMatch1 && !IsStorageRowClaimedByOtherRestocker(data, storage, sr))
                                 {
                                     data.targetShelf1 = s;
                                     data.targetRowId1 = r;
@@ -2072,7 +2122,8 @@ namespace Farm2Shelf.Environment
                                 for (int sr = 0; sr < storage.rows.Length; sr++)
                                 {
                                     var sRow = storage.rows[sr];
-                                    int availableStorage = (sRow != null && sRow.productName == rData.productName) ? sRow.currentStock : 0;
+                                    bool isMatch2 = sRow != null && (sRow.productName == rData.productName || (!string.IsNullOrEmpty(sRow.productId) && sRow.productId == rData.productId));
+                                    int availableStorage = isMatch2 ? sRow.currentStock : 0;
                                     if (storage == data.sourceStorageShelf && sr == data.sourceStorageRowId) availableStorage -= 20;
 
                                     if (availableStorage > 0 && !IsStorageRowClaimedByOtherRestocker(data, storage, sr))
