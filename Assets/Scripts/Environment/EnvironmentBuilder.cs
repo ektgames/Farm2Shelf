@@ -148,12 +148,15 @@ namespace Farm2Shelf.Environment
             InitializeMaterials();
             CreateGrassTerrain();
             CreateRectangleRingRoadAndLanes();
+            CreateNorthernApartmentDistrict();
             CreateSidewalk();
             CreateUnifiedBuilding();
             CreateSingleLaneDeliveryRoad();
             CreateCustomerParkingLotAndTurnstile();
             CreateCleanFarmComplex();
             CreateTownshipSystem();
+            CreateWestDistrictSystem();
+            CreateSouthDistrictSystem();
             CreateLightingAndDecorations();
             CreateDenseTwoRowTreeBoundaryWall();
             BuildWorkshopBuilding();
@@ -390,12 +393,21 @@ namespace Farm2Shelf.Environment
 
         private void CreateGrassTerrain()
         {
-            GameObject grass = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            grass.name = "Grass_Terrain_Ground";
-            grass.transform.SetParent(environmentRoot);
-            grass.transform.position = new Vector3(0f, -0.15f, -20f);
-            grass.transform.localScale = new Vector3(220f, 0.1f, 260f);
-            grass.GetComponent<Renderer>().sharedMaterial = grassMat;
+            // Doğu Çim Tabanı (Mevcut ve Güney Alan: X = -83.5m ile +90m arası | Z: -145m ile +190m)
+            GameObject grassEast = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            grassEast.name = "Grass_Terrain_Ground_East";
+            grassEast.transform.SetParent(environmentRoot);
+            grassEast.transform.position = new Vector3(3.25f, -0.15f, 22.5f);
+            grassEast.transform.localScale = new Vector3(173.5f, 0.1f, 335.0f);
+            grassEast.GetComponent<Renderer>().sharedMaterial = grassMat;
+
+            // Batı Çim Tabanı (Batı Alanı: X = -106.5m ile -245m arası | Z: -145m ile +190m)
+            GameObject grassWest = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            grassWest.name = "Grass_Terrain_Ground_West";
+            grassWest.transform.SetParent(environmentRoot);
+            grassWest.transform.position = new Vector3(-175.75f, -0.15f, 22.5f);
+            grassWest.transform.localScale = new Vector3(138.5f, 0.1f, 335.0f);
+            grassWest.GetComponent<Renderer>().sharedMaterial = grassMat;
         }
 
         private void CreateRectangleRingRoadAndLanes()
@@ -421,18 +433,18 @@ namespace Farm2Shelf.Environment
                 line.GetComponent<Renderer>().sharedMaterial = roadLineMat;
             }
 
-            // 2. ORTA BÖLGE ANA OTOYOLU (KASABA DIŞINA, UFKA VE SINIR UZAKLIĞINA KADAR UZANAN UZUN ANA BAĞLANTI OTOYOLU - 400m)
+            // 2. ORTA BÖLGE DOĞU ANA OTOYOLU (X = -83.5m ile +180m arası - Köprü girişinde biter)
             GameObject midRoad = GameObject.CreatePrimitive(PrimitiveType.Cube);
             midRoad.name = "Mid_Asphalt_Road";
             midRoad.transform.SetParent(roadGroup);
-            midRoad.transform.position = new Vector3(0f, -0.05f, -9f);
-            midRoad.transform.localScale = new Vector3(400f, 0.1f, 6f);
+            midRoad.transform.position = new Vector3(48.25f, -0.05f, -9f);
+            midRoad.transform.localScale = new Vector3(263.5f, 0.1f, 6f);
             midRoad.GetComponent<Renderer>().sharedMaterial = mainRoadMat;
 
-            for (float x = -195f; x <= 195f; x += 3f)
+            for (float x = -80f; x <= 180f; x += 3f)
             {
                 if (Mathf.Abs(x - (-5.0f)) <= 2.5f || Mathf.Abs(x - 0.0f) <= 3.2f || Mathf.Abs(x - 13.0f) <= 2.5f || 
-                    (x >= -21.0f && x <= -10.0f) || Mathf.Abs(x - (-79.5f)) <= 2.0f || Mathf.Abs(x - (79.5f)) <= 2.0f)
+                    (x >= -21.0f && x <= -10.0f) || Mathf.Abs(x - (79.5f)) <= 2.0f)
                 {
                     continue;
                 }
@@ -505,27 +517,24 @@ namespace Farm2Shelf.Environment
             Transform sidewalkGroup = new GameObject("Sidewalk_System").transform;
             sidewalkGroup.SetParent(environmentRoot);
 
-            // DIŞ KALDIRIMLAR (EN DIŞ SINIR - ORTA OTOYOL KAVŞAĞINDA KESİLEREK DIŞ YAYA GEÇİTLERİ EKLENDİ)
-            GameObject northOuterSidewalk = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            northOuterSidewalk.name = "North_Outer_Sidewalk_TopBoundary";
-            northOuterSidewalk.transform.SetParent(sidewalkGroup);
-            northOuterSidewalk.transform.position = new Vector3(0f, 0.05f, 54.5f);
-            northOuterSidewalk.transform.localScale = new Vector3(162f, 0.2f, 3f);
-            northOuterSidewalk.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
+            // DIŞ KALDIRIMLAR (KUZEY MAHALLE CADDE GİRİŞLERİNDE 5 KAPI AÇILARAK SEGMENTLERE AYRILDI - TAM HİZALI)
+            float[] northSidewalkX = new float[] { -56.25f, -18.75f, 18.75f, 56.25f };
+            for (int i = 0; i < northSidewalkX.Length; i++)
+            {
+                GameObject nSw = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                nSw.name = $"North_Outer_Sidewalk_Segment_{i + 1}";
+                nSw.transform.SetParent(sidewalkGroup);
+                nSw.transform.position = new Vector3(northSidewalkX[i], 0.05f, 53.75f);
+                nSw.transform.localScale = new Vector3(31.5f, 0.2f, 1.5f);
+                nSw.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
+            }
 
-            GameObject southOuterSidewalk = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            southOuterSidewalk.name = "South_Outer_Sidewalk";
-            southOuterSidewalk.transform.SetParent(sidewalkGroup);
-            southOuterSidewalk.transform.position = new Vector3(0f, 0.05f, -59.5f);
-            southOuterSidewalk.transform.localScale = new Vector3(162f, 0.2f, 3f);
-            southOuterSidewalk.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
-
-            // Batı Dış Kaldırımı (Orta otoyol kavşağında Z: -12m ile -6m arası kesildi, tam hizalandı)
+            // Batı Dış Kaldırımı (Orta otoyol kavşağında Z: -12m ile -6m arası kesildi, kuzey çevre yoluna kadar uzatıldı)
             GameObject westOuterSidewalkTop = GameObject.CreatePrimitive(PrimitiveType.Cube);
             westOuterSidewalkTop.name = "West_Outer_Sidewalk_Top";
             westOuterSidewalkTop.transform.SetParent(sidewalkGroup);
-            westOuterSidewalkTop.transform.position = new Vector3(-79.5f, 0.05f, 25.0f);
-            westOuterSidewalkTop.transform.localScale = new Vector3(3f, 0.2f, 62.0f);
+            westOuterSidewalkTop.transform.position = new Vector3(-79.5f, 0.05f, 85.0f);
+            westOuterSidewalkTop.transform.localScale = new Vector3(3f, 0.2f, 182.0f);
             westOuterSidewalkTop.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
 
             GameObject westOuterSidewalkBottom = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -535,12 +544,12 @@ namespace Farm2Shelf.Environment
             westOuterSidewalkBottom.transform.localScale = new Vector3(3f, 0.2f, 49.0f);
             westOuterSidewalkBottom.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
 
-            // Doğu Dış Kaldırımı (Orta otoyol kavşağında Z: -12m ile -6m arası kesildi, tam hizalandı)
+            // Doğu Dış Kaldırımı (Orta otoyol kavşağında Z: -12m ile -6m arası kesildi, kuzey çevre yoluna kadar uzatıldı)
             GameObject eastOuterSidewalkTop = GameObject.CreatePrimitive(PrimitiveType.Cube);
             eastOuterSidewalkTop.name = "East_Outer_Sidewalk_Top";
             eastOuterSidewalkTop.transform.SetParent(sidewalkGroup);
-            eastOuterSidewalkTop.transform.position = new Vector3(79.5f, 0.05f, 25.0f);
-            eastOuterSidewalkTop.transform.localScale = new Vector3(3f, 0.2f, 62.0f);
+            eastOuterSidewalkTop.transform.position = new Vector3(79.5f, 0.05f, 85.0f);
+            eastOuterSidewalkTop.transform.localScale = new Vector3(3f, 0.2f, 182.0f);
             eastOuterSidewalkTop.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
 
             GameObject eastOuterSidewalkBottom = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -575,21 +584,22 @@ namespace Farm2Shelf.Environment
                 stripe.GetComponent<Renderer>().sharedMaterial = crosswalkMat;
             }
 
-            // ORTA OTOYOL DIŞ UZANTI KALDIRIMLARI (SOL VE SAĞ UFKA UZANAN KALDIRIMLAR)
-            // Batı Otoyolu Kuzey ve Güney Kaldırımları (X: -200m ile -81m arası)
-            GameObject westHighwayNorthSidewalk = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            westHighwayNorthSidewalk.name = "West_Highway_North_Sidewalk";
-            westHighwayNorthSidewalk.transform.SetParent(sidewalkGroup);
-            westHighwayNorthSidewalk.transform.position = new Vector3(-140.5f, 0.05f, -4.5f);
-            westHighwayNorthSidewalk.transform.localScale = new Vector3(119.0f, 0.2f, 3.0f);
-            westHighwayNorthSidewalk.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
+            // ORTA OTOYOL DIŞ UZANTI KALDIRIMLARI (Batı Bölgesi kaldırımları ProceduralWestDistrictBuilder tarafından kavşaklara göre segmentli olarak inşa edilir)
 
-            GameObject westHighwaySouthSidewalk = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            westHighwaySouthSidewalk.name = "West_Highway_South_Sidewalk";
-            westHighwaySouthSidewalk.transform.SetParent(sidewalkGroup);
-            westHighwaySouthSidewalk.transform.position = new Vector3(-140.5f, 0.05f, -13.5f);
-            westHighwaySouthSidewalk.transform.localScale = new Vector3(119.0f, 0.2f, 3.0f);
-            westHighwaySouthSidewalk.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
+            // Köprü Doğu Giriş Kaldırım Bağlantıları (X: -81m ile -78m arası)
+            GameObject eastBridgeApproachNorth = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            eastBridgeApproachNorth.name = "East_Bridge_Approach_North_Sidewalk";
+            eastBridgeApproachNorth.transform.SetParent(sidewalkGroup);
+            eastBridgeApproachNorth.transform.position = new Vector3(-79.5f, 0.05f, -4.5f);
+            eastBridgeApproachNorth.transform.localScale = new Vector3(3.0f, 0.2f, 3.0f);
+            eastBridgeApproachNorth.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
+
+            GameObject eastBridgeApproachSouth = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            eastBridgeApproachSouth.name = "East_Bridge_Approach_South_Sidewalk";
+            eastBridgeApproachSouth.transform.SetParent(sidewalkGroup);
+            eastBridgeApproachSouth.transform.position = new Vector3(-79.5f, 0.05f, -13.5f);
+            eastBridgeApproachSouth.transform.localScale = new Vector3(3.0f, 0.2f, 3.0f);
+            eastBridgeApproachSouth.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
 
             // Doğu Otoyolu Kuzey ve Güney Kaldırımları (X: +81m ile +200m arası)
             GameObject eastHighwayNorthSidewalk = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -1905,6 +1915,67 @@ namespace Farm2Shelf.Environment
                 stripe.transform.localScale = new Vector3(0.35f, 0.01f, 2.4f);
                 stripe.GetComponent<Renderer>().sharedMaterial = crosswalkMat;
             }
+
+            // DÜKKAN PALET RAFI YANINA 5 MOTOR KAPASİTELİ SARI MOTOR PARK YERİ ÇİZGİLERİ (7 ADET ÇİZGİ)
+            CreateMotorcycleParkingBays(deliveryGroup);
+        }
+
+        private void CreateMotorcycleParkingBays(Transform parent)
+        {
+            Transform motorGroup = new GameObject("Motorcycle_Parking_Bays_Group").transform;
+            motorGroup.SetParent(parent);
+
+            Material yellowMotorMat = CreateSolidMaterial("MotorcycleParkingYellowMat", new Color(1.0f, 0.82f, 0.05f));
+
+            float lineThickness = 0.10f;
+            float lineY = 0.02f;
+            float bayDepthX = 2.20f;
+            float bayWidthZ = 1.15f;
+            float startZ = 7.50f;
+            float innerX = 11.40f;
+            float outerX = innerX + bayDepthX; // 13.60f
+            float centerX = (innerX + outerX) / 2f; // 12.50f
+
+            // 1'den 6'ya: 6 ADET ENİNE BÖLME ÇİZGİSİ (5 ADET MOTOR PARK GÖZÜ OLUŞTURUR)
+            for (int i = 0; i < 6; i++)
+            {
+                float zPos = startZ + (i * bayWidthZ);
+                GameObject divLine = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                divLine.name = $"Motorcycle_Bay_Divider_Line_{i + 1}";
+                divLine.transform.SetParent(motorGroup);
+                divLine.transform.position = new Vector3(centerX, lineY, zPos);
+                divLine.transform.localScale = new Vector3(bayDepthX, 0.01f, lineThickness);
+                divLine.GetComponent<Renderer>().sharedMaterial = yellowMotorMat;
+                Destroy(divLine.GetComponent<Collider>());
+            }
+
+            // 7. ÇİZGİ: 5 PARK GÖZÜNÜN ARKASINI BİRLEŞTİREN BOYUNA TABAN ÇİZGİSİ (BASE / STOPPER LINE)
+            float totalSpanZ = 5 * bayWidthZ; // 5.75m
+            float centerZ = startZ + (totalSpanZ / 2f); // 10.375f
+
+            GameObject backLine = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            backLine.name = "Motorcycle_Bay_Back_Boundary_Line_7";
+            backLine.transform.SetParent(motorGroup);
+            backLine.transform.position = new Vector3(innerX, lineY, centerZ);
+            backLine.transform.localScale = new Vector3(lineThickness, 0.01f, totalSpanZ + lineThickness);
+            backLine.GetComponent<Renderer>().sharedMaterial = yellowMotorMat;
+            Destroy(backLine.GetComponent<Collider>());
+
+            // 5 Park Yeri İçin Zemin Numaraları & Sembolik Sarı İşaretler
+            for (int slot = 0; slot < 5; slot++)
+            {
+                float slotCenterZ = startZ + (slot * bayWidthZ) + (bayWidthZ / 2f);
+
+                GameObject tag = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                tag.name = $"Motor_Slot_Tag_{slot + 1}";
+                tag.transform.SetParent(motorGroup);
+                tag.transform.position = new Vector3(innerX + 0.35f, lineY + 0.005f, slotCenterZ);
+                tag.transform.localScale = new Vector3(0.35f, 0.01f, 0.40f);
+                tag.GetComponent<Renderer>().sharedMaterial = yellowMotorMat;
+                Destroy(tag.GetComponent<Collider>());
+            }
+
+            CreateLabel("🛵 MOTOR & KURYE PARKI (5 ARAÇ)", "🛵 MOTORCYCLE & COURIER PARKING (5 SLOTS)", motorGroup, new Vector3(centerX, 0.05f, centerZ), new Color(1.0f, 0.85f, 0.10f), 90f);
         }
 
         private void CreateCustomerParkingLotAndTurnstile()
@@ -2053,462 +2124,28 @@ namespace Farm2Shelf.Environment
             Transform townGroup = new GameObject("Township_Complex").transform;
             townGroup.SetParent(environmentRoot);
 
-            GameObject squareFloor = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            squareFloor.name = "Town_Center_Square_Paving";
-            squareFloor.transform.SetParent(townGroup);
-            squareFloor.transform.position = new Vector3(0f, 0.01f, -31.5f);
-            squareFloor.transform.localScale = new Vector3(26f, 0.02f, 18f);
-            squareFloor.GetComponent<Renderer>().sharedMaterial = townSquareMat;
-
-            CreateLabel("KASABA MEYDANI", "TOWN SQUARE", townGroup, new Vector3(0f, 3.5f, -31.5f), Color.yellow);
-
-            GameObject fountain = new GameObject("Town_Decorative_Fountain");
-            fountain.transform.SetParent(townGroup);
-            fountain.transform.position = new Vector3(0f, 0f, -31.5f);
-
-            GameObject basin = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            basin.name = "Fountain_Basin";
-            basin.transform.SetParent(fountain.transform);
-            basin.transform.localPosition = new Vector3(0f, 0.25f, 0f);
-            basin.transform.localScale = new Vector3(4.5f, 0.25f, 4.5f);
-            basin.GetComponent<Renderer>().sharedMaterial = pondStoneMat;
-
-            GameObject water = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            water.name = "Water_Surface";
-            water.transform.SetParent(fountain.transform);
-            water.transform.localPosition = new Vector3(0f, 0.35f, 0f);
-            water.transform.localScale = new Vector3(4.0f, 0.02f, 4.0f);
-            water.GetComponent<Renderer>().sharedMaterial = pondWaterMat;
-
-            GameObject jet = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            jet.name = "Water_Jet_Column";
-            jet.transform.SetParent(fountain.transform);
-            jet.transform.localPosition = new Vector3(0f, 1.0f, 0f);
-            jet.transform.localScale = new Vector3(0.6f, 0.75f, 0.6f);
-            jet.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
-
-            CreateTownBuildingDetailed(townGroup, "Town_Hall_Building", new Vector3(0f, 0f, -43.5f), new Vector3(11f, 5.5f, 5.5f), townHallWallMat, roofBlueMat, "KASABA BELEDİYESİ", "TOWN HALL", Color.cyan, true, "TownHall");
-            CreateTownBuildingDetailed(townGroup, "Town_Bakery", new Vector3(-22f, 0f, -20f), new Vector3(8f, 3.5f, 5.0f), bakeryWallMat, roofBrownMat, "TAŞ FIRIN", "BAKERY", new Color(1.0f, 0.60f, 0.20f), false, "Bakery");
-            CreateTownBuildingDetailed(townGroup, "Town_GreenGrocer", new Vector3(22f, 0f, -20f), new Vector3(8f, 3.5f, 5.0f), cafeWallMat, roofRedMat, "KASABA MANAVI", "GREENGROCER", Color.green, false, "GreenGrocer");
-            CreateTownBuildingDetailed(townGroup, "Town_Cafe", new Vector3(-45f, 0f, -31.5f), new Vector3(8.5f, 5.2f, 5.5f), cafeWallMat, roofRedMat, "KASABA KAFESİ", "TOWN CAFE", new Color(0.95f, 0.45f, 0.75f), true, "Cafe");
-
-            CreateTownBuildingDetailed(townGroup, "Residential_House_1", new Vector3(45f, 0f, -31.5f), new Vector3(8.5f, 5.2f, 5.5f), resWallBlueMat, roofRedMat, "MÜSTAKİL EV", "HOUSE", Color.white, true, "Residential");
-            CreateTownBuildingDetailed(townGroup, "Residential_House_2", new Vector3(-22f, 0f, -43.5f), new Vector3(7.5f, 3.8f, 5.2f), resWallYellowMat, roofBrownMat, "KASABA EVİ", "HOUSE", Color.white, false, "Residential");
-            CreateTownBuildingDetailed(townGroup, "Residential_House_3", new Vector3(22f, 0f, -43.5f), new Vector3(8.0f, 5.0f, 5.2f), farmhouseWallMat, roofBlueMat, "MÜSTAKİL EV", "HOUSE", Color.white, true, "Residential");
-
-            CreateTownGardenField(townGroup, "Town_Flower_Garden_West", new Vector3(-48f, 0.02f, -19.5f), new Vector3(7f, 0.04f, 5f), flowerRedMat, "ÇİÇEK BAHÇESİ", "FLOWER GARDEN");
-            CreateTownGardenField(townGroup, "Town_Vegetable_Garden_East", new Vector3(48f, 0.02f, -19.5f), new Vector3(7f, 0.04f, 5f), flowerYellowMat, "SEBZE BAHÇESİ", "VEGETABLE GARDEN");
-            CreateTownGardenField(townGroup, "Town_Mini_Wheat_Field", new Vector3(45f, 0.02f, -43.5f), new Vector3(7.5f, 0.04f, 5f), wheatCropMat, "UFAK BUĞDAY TARLASI", "WHEAT FIELD");
-
-            CreateTownFootpath(townGroup, new Vector3(0f, 0.01f, -38.5f), new Vector3(3.5f, 0.02f, 4f));
-            CreateTownFootpath(townGroup, new Vector3(-20f, 0.01f, -31.5f), new Vector3(14f, 0.02f, 3.0f));
-            CreateTownFootpath(townGroup, new Vector3(20f, 0.01f, -31.5f), new Vector3(14f, 0.02f, 3.0f));
-
-            Vector3[] townTreePos = new Vector3[] {
-                new Vector3(-12f, 0f, -20f), new Vector3(12f, 0f, -20f),
-                new Vector3(-12f, 0f, -41f), new Vector3(12f, 0f, -41f),
-                new Vector3(-32f, 0f, -31.5f), new Vector3(32f, 0f, -31.5f),
-                new Vector3(-58f, 0f, -31.5f), new Vector3(58f, 0f, -31.5f),
-                new Vector3(-35f, 0f, -43.5f), new Vector3(35f, 0f, -43.5f)
-            };
-
-            foreach (Vector3 pos in townTreePos)
-            {
-                GameObject tree = new GameObject("Town_Tree");
-                tree.transform.SetParent(townGroup);
-                tree.transform.position = pos;
-
-                GameObject trunk = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                trunk.name = "Trunk";
-                trunk.transform.SetParent(tree.transform);
-                trunk.transform.localPosition = new Vector3(0f, 1.0f, 0f);
-                trunk.transform.localScale = new Vector3(0.45f, 2.0f, 0.45f);
-                trunk.GetComponent<Renderer>().sharedMaterial = treeTrunkMat;
-
-                GameObject foliage = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                foliage.name = "Foliage";
-                foliage.transform.SetParent(tree.transform);
-                foliage.transform.localPosition = new Vector3(0f, 2.5f, 0f);
-                foliage.transform.localScale = new Vector3(1.7f, 1.7f, 1.7f);
-                foliage.GetComponent<Renderer>().sharedMaterial = treeFoliageMat;
-            }
+            // Yeni Nizami Kasaba Bölgesi (8 Adet Müstakil Ev Parseli + Belediye Meydanı ve Binası)
+            ProceduralTownshipDistrictBuilder.BuildTownshipDistrict(townGroup);
         }
 
-        private void CreateTownBuildingDetailed(Transform parent, string name, Vector3 pos, Vector3 size, Material wallMat, Material roofMat, string labelText, string labelEn, Color labelColor, bool isTwoStory, string buildingType = "Generic")
+        private void CreateWestDistrictSystem()
         {
-            GameObject buildingRoot = new GameObject(name);
-            buildingRoot.transform.SetParent(parent);
-            buildingRoot.transform.position = pos;
+            Transform westGroup = new GameObject("West_District_Complex").transform;
+            westGroup.SetParent(environmentRoot);
 
-            // 1. TEMEL ETEK SU BASMAN TAŞI (BASEBOARD FOUNDATION PLINTH)
-            GameObject baseboard = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            baseboard.name = "Foundation_Plinth";
-            baseboard.transform.SetParent(buildingRoot.transform);
-            baseboard.transform.localPosition = new Vector3(0f, 0.15f, 0f);
-            baseboard.transform.localScale = new Vector3(size.x + 0.2f, 0.3f, size.z + 0.2f);
-            baseboard.GetComponent<Renderer>().sharedMaterial = windowSillMat;
-
-            // 2. ANA BİNA GÖVDESİ (MAIN BUILDING BODY)
-            GameObject body = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            body.name = "Building_Body";
-            body.transform.SetParent(buildingRoot.transform);
-            body.transform.localPosition = new Vector3(0f, (size.y / 2f) + 0.3f, 0f);
-            body.transform.localScale = size;
-            body.GetComponent<Renderer>().sharedMaterial = wallMat;
-
-            // 3. 4 DIŞ KÖŞE KOLON ÇITALARI (CORNER PILLAR TRIMS)
-            float halfX = size.x / 2f;
-            float halfZ = size.z / 2f;
-            float bodyYCenter = (size.y / 2f) + 0.3f;
-            Vector3[] cornerOffsets = new Vector3[] {
-                new Vector3(-halfX, bodyYCenter, -halfZ),
-                new Vector3(halfX, bodyYCenter, -halfZ),
-                new Vector3(-halfX, bodyYCenter, halfZ),
-                new Vector3(halfX, bodyYCenter, halfZ)
-            };
-            foreach (Vector3 offset in cornerOffsets)
-            {
-                GameObject corner = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                corner.name = "Corner_Trim_Pillar";
-                corner.transform.SetParent(buildingRoot.transform);
-                corner.transform.localPosition = offset;
-                corner.transform.localScale = new Vector3(0.25f, size.y + 0.05f, 0.25f);
-                corner.GetComponent<Renderer>().sharedMaterial = windowFrameMat;
-            }
-
-            // 4. ÇATI VE SAÇAKLAR (GABLED PITCHED ROOF & EAVES & CHIMNEY)
-            float roofBaseY = size.y + 0.3f;
-            GameObject roofEaveTrim = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            roofEaveTrim.name = "Roof_Eave_Trim";
-            roofEaveTrim.transform.SetParent(buildingRoot.transform);
-            roofEaveTrim.transform.localPosition = new Vector3(0f, roofBaseY + 0.15f, 0f);
-            roofEaveTrim.transform.localScale = new Vector3(size.x + 0.6f, 0.3f, size.z + 0.6f);
-            roofEaveTrim.GetComponent<Renderer>().sharedMaterial = darkWallMat;
-
-            // Eğimli Ana Çatı
-            GameObject roofCap = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            roofCap.name = "Pitched_Roof_Cap";
-            roofCap.transform.SetParent(buildingRoot.transform);
-            roofCap.transform.localPosition = new Vector3(0f, roofBaseY + 0.85f, 0f);
-            roofCap.transform.localScale = new Vector3(size.x + 0.4f, 1.1f, size.z + 0.4f);
-            roofCap.GetComponent<Renderer>().sharedMaterial = roofMat;
-
-            // Çatı Üstü Baca (Chimney)
-            GameObject chimney = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            chimney.name = "Roof_Chimney";
-            chimney.transform.SetParent(buildingRoot.transform);
-            chimney.transform.localPosition = new Vector3(size.x * 0.25f, roofBaseY + 1.6f, size.z * 0.15f);
-            chimney.transform.localScale = new Vector3(0.7f, 1.2f, 0.7f);
-            chimney.GetComponent<Renderer>().sharedMaterial = chimneyBrickMat;
-
-            GameObject chimneyCap = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            chimneyCap.name = "Chimney_Cap";
-            chimneyCap.transform.SetParent(buildingRoot.transform);
-            chimneyCap.transform.localPosition = new Vector3(size.x * 0.25f, roofBaseY + 2.25f, size.z * 0.15f);
-            chimneyCap.transform.localScale = new Vector3(0.85f, 0.15f, 0.85f);
-            chimneyCap.GetComponent<Renderer>().sharedMaterial = darkWallMat;
-
-            // 5. İKİNCİ KAT AYIRMA ŞERİDİ (2-STORY FLOOR SEPARATOR BAND)
-            if (isTwoStory)
-            {
-                GameObject floorBand = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                floorBand.name = "Floor_Separator_Band";
-                floorBand.transform.SetParent(buildingRoot.transform);
-                floorBand.transform.localPosition = new Vector3(0f, (size.y * 0.5f) + 0.3f, 0f);
-                floorBand.transform.localScale = new Vector3(size.x + 0.25f, 0.25f, size.z + 0.25f);
-                floorBand.GetComponent<Renderer>().sharedMaterial = windowFrameMat;
-            }
-
-            // 6. ÖN ANA KAPI, ÇERÇEVE, KULP VE GİRİŞ BASAMAĞI (FRONT MAIN DOOR)
-            float doorZ = halfZ + 0.05f;
-            float doorY = 1.0f;
-            float doorW = 1.3f;
-            float doorH = 2.0f;
-
-            // Kapı Çerçevesi
-            GameObject doorFrame = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            doorFrame.name = "Main_Door_Frame";
-            doorFrame.transform.SetParent(buildingRoot.transform);
-            doorFrame.transform.localPosition = new Vector3(0f, doorY, doorZ);
-            doorFrame.transform.localScale = new Vector3(doorW + 0.2f, doorH + 0.2f, 0.12f);
-            doorFrame.GetComponent<Renderer>().sharedMaterial = doorFrameMat;
-
-            // Kapı Paneli
-            GameObject doorPanel = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            doorPanel.name = "Main_Door_Panel";
-            doorPanel.transform.SetParent(buildingRoot.transform);
-            doorPanel.transform.localPosition = new Vector3(0f, doorY, doorZ + 0.02f);
-            doorPanel.transform.localScale = new Vector3(doorW, doorH, 0.1f);
-            doorPanel.GetComponent<Renderer>().sharedMaterial = woodDoorMat;
-
-            // Kapı Kulpu
-            GameObject doorHandle = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            doorHandle.name = "Main_Door_Handle";
-            doorHandle.transform.SetParent(buildingRoot.transform);
-            doorHandle.transform.localPosition = new Vector3(0.45f, doorY, doorZ + 0.08f);
-            doorHandle.transform.localScale = new Vector3(0.12f, 0.12f, 0.12f);
-            doorHandle.GetComponent<Renderer>().sharedMaterial = doorHandleMat;
-
-            // Giriş Basamağı
-            GameObject doorStep = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            doorStep.name = "Main_Door_Step";
-            doorStep.transform.SetParent(buildingRoot.transform);
-            doorStep.transform.localPosition = new Vector3(0f, 0.15f, doorZ + 0.35f);
-            doorStep.transform.localScale = new Vector3(doorW + 0.6f, 0.25f, 0.6f);
-            doorStep.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
-
-            // 7. DETAYLI PENCERELER (CAM, ÇERÇEVE, MERYEM/DENİZLİK VE IZGARA)
-            float windowYGround = isTwoStory ? (size.y * 0.28f) + 0.3f : (size.y * 0.50f) + 0.3f;
-            float windowYUpper = (size.y * 0.75f) + 0.3f;
-
-            // Ön Cephe Pencereleri (Sol & Sağ)
-            float winOffsetX = size.x * 0.28f;
-            CreateWindowWithFrame(buildingRoot.transform, new Vector3(-winOffsetX, windowYGround, doorZ), new Vector3(1.1f, 1.2f, 0.1f));
-            CreateWindowWithFrame(buildingRoot.transform, new Vector3(winOffsetX, windowYGround, doorZ), new Vector3(1.1f, 1.2f, 0.1f));
-
-            if (isTwoStory)
-            {
-                CreateWindowWithFrame(buildingRoot.transform, new Vector3(-winOffsetX, windowYUpper, doorZ), new Vector3(1.1f, 1.2f, 0.1f));
-                CreateWindowWithFrame(buildingRoot.transform, new Vector3(0f, windowYUpper, doorZ), new Vector3(1.1f, 1.2f, 0.1f));
-                CreateWindowWithFrame(buildingRoot.transform, new Vector3(winOffsetX, windowYUpper, doorZ), new Vector3(1.1f, 1.2f, 0.1f));
-            }
-
-            // Yan Cephe Pencereleri (Sol & Sağ Yan Duvarlar)
-            float sideXLeft = -halfX - 0.05f;
-            float sideXRight = halfX + 0.05f;
-            CreateWindowWithFrameSide(buildingRoot.transform, new Vector3(sideXLeft, windowYGround, 0f), new Vector3(0.1f, 1.2f, 1.1f));
-            CreateWindowWithFrameSide(buildingRoot.transform, new Vector3(sideXRight, windowYGround, 0f), new Vector3(0.1f, 1.2f, 1.1f));
-
-            if (isTwoStory)
-            {
-                CreateWindowWithFrameSide(buildingRoot.transform, new Vector3(sideXLeft, windowYUpper, 0f), new Vector3(0.1f, 1.2f, 1.1f));
-                CreateWindowWithFrameSide(buildingRoot.transform, new Vector3(sideXRight, windowYUpper, 0f), new Vector3(0.1f, 1.2f, 1.1f));
-            }
-
-            // Arka Cephe Pencereleri (Sol, Sağ ve Üst Kat Arka Duvarlar)
-            float backZ = -halfZ - 0.05f;
-            CreateWindowWithFrameBack(buildingRoot.transform, new Vector3(-winOffsetX, windowYGround, backZ), new Vector3(1.1f, 1.2f, 0.1f));
-            CreateWindowWithFrameBack(buildingRoot.transform, new Vector3(winOffsetX, windowYGround, backZ), new Vector3(1.1f, 1.2f, 0.1f));
-
-            if (isTwoStory)
-            {
-                CreateWindowWithFrameBack(buildingRoot.transform, new Vector3(-winOffsetX, windowYUpper, backZ), new Vector3(1.1f, 1.2f, 0.1f));
-                CreateWindowWithFrameBack(buildingRoot.transform, new Vector3(0f, windowYUpper, backZ), new Vector3(1.1f, 1.2f, 0.1f));
-                CreateWindowWithFrameBack(buildingRoot.transform, new Vector3(winOffsetX, windowYUpper, backZ), new Vector3(1.1f, 1.2f, 0.1f));
-            }
-
-            // 8. BİNAYA ÖZEL MİMARİ EKSTRALAR (CANOPY, AWNING, COLUMNS)
-            if (buildingType == "Bakery")
-            {
-                GameObject awning = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                awning.name = "Bakery_Awning";
-                awning.transform.SetParent(buildingRoot.transform);
-                awning.transform.localPosition = new Vector3(0f, 2.2f, doorZ + 0.5f);
-                awning.transform.localScale = new Vector3(size.x * 0.85f, 0.15f, 1.1f);
-                awning.GetComponent<Renderer>().sharedMaterial = awningRedWhiteMat;
-            }
-            else if (buildingType == "GreenGrocer")
-            {
-                GameObject awning = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                awning.name = "Grocer_Awning";
-                awning.transform.SetParent(buildingRoot.transform);
-                awning.transform.localPosition = new Vector3(0f, 2.2f, doorZ + 0.5f);
-                awning.transform.localScale = new Vector3(size.x * 0.85f, 0.15f, 1.1f);
-                awning.GetComponent<Renderer>().sharedMaterial = awningGreenMat;
-
-                for (float cx = -2.0f; cx <= 2.0f; cx += 1.3f)
-                {
-                    if (Mathf.Abs(cx) < 0.8f) continue;
-                    GameObject crate = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                    crate.name = "Grocer_Produce_Crate";
-                    crate.transform.SetParent(buildingRoot.transform);
-                    crate.transform.localPosition = new Vector3(cx, 0.35f, doorZ + 0.7f);
-                    crate.transform.localScale = new Vector3(0.9f, 0.5f, 0.7f);
-                    crate.GetComponent<Renderer>().sharedMaterial = fenceWoodMat;
-                }
-            }
-            else if (buildingType == "Cafe")
-            {
-                GameObject awning = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                awning.name = "Cafe_Awning";
-                awning.transform.SetParent(buildingRoot.transform);
-                awning.transform.localPosition = new Vector3(0f, 2.2f, doorZ + 0.5f);
-                awning.transform.localScale = new Vector3(size.x * 0.85f, 0.15f, 1.2f);
-                awning.GetComponent<Renderer>().sharedMaterial = awningRedWhiteMat;
-            }
-            else if (buildingType == "TownHall")
-            {
-                float pillarX = size.x * 0.35f;
-                GameObject pillarL = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                pillarL.name = "TownHall_Column_Left";
-                pillarL.transform.SetParent(buildingRoot.transform);
-                pillarL.transform.localPosition = new Vector3(-pillarX, size.y / 2f, doorZ + 0.6f);
-                pillarL.transform.localScale = new Vector3(0.5f, size.y / 2f, 0.5f);
-                pillarL.GetComponent<Renderer>().sharedMaterial = pillarStoneMat;
-
-                GameObject pillarR = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                pillarR.name = "TownHall_Column_Right";
-                pillarR.transform.SetParent(buildingRoot.transform);
-                pillarR.transform.localPosition = new Vector3(pillarX, size.y / 2f, doorZ + 0.6f);
-                pillarR.transform.localScale = new Vector3(0.5f, size.y / 2f, 0.5f);
-                pillarR.GetComponent<Renderer>().sharedMaterial = pillarStoneMat;
-
-                GameObject pediment = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                pediment.name = "TownHall_Pediment";
-                pediment.transform.SetParent(buildingRoot.transform);
-                pediment.transform.localPosition = new Vector3(0f, size.y + 0.8f, doorZ + 0.6f);
-                pediment.transform.localScale = new Vector3(size.x + 0.2f, 0.5f, 0.8f);
-                pediment.GetComponent<Renderer>().sharedMaterial = pillarStoneMat;
-            }
-
-            // 9. BİNA İSİM VE TABELA PANOSU (SIGNBOARD PANEL & BOLD LABEL)
-            GameObject signboard = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            signboard.name = "Building_Signboard_Panel";
-            signboard.transform.SetParent(buildingRoot.transform);
-            signboard.transform.localPosition = new Vector3(0f, size.y + 0.05f, doorZ + 0.1f);
-            signboard.transform.localScale = new Vector3(size.x * 0.75f, 0.65f, 0.15f);
-            signboard.GetComponent<Renderer>().sharedMaterial = darkWallMat;
-
-            CreateLabel(labelText, labelEn, buildingRoot.transform, new Vector3(0f, size.y + 0.05f, doorZ + 0.20f), labelColor);
+            // Yeni Batı Bölgesi (Nehir, Kemerli Köprüler, 12 Lüks Villa ve Kamu Tesisleri)
+            ProceduralWestDistrictBuilder.BuildWestDistrict(westGroup);
         }
 
-        private void CreateWindowWithFrame(Transform parent, Vector3 localPos, Vector3 winSize)
+        private void CreateSouthDistrictSystem()
         {
-            GameObject winGroup = new GameObject("Window_Complex");
-            winGroup.transform.SetParent(parent);
-            winGroup.transform.localPosition = localPos;
+            Transform southGroup = new GameObject("South_District_Complex").transform;
+            southGroup.SetParent(environmentRoot);
 
-            GameObject frame = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            frame.name = "Window_Frame";
-            frame.transform.SetParent(winGroup.transform);
-            frame.transform.localPosition = Vector3.zero;
-            frame.transform.localScale = new Vector3(winSize.x + 0.18f, winSize.y + 0.18f, 0.10f);
-            frame.GetComponent<Renderer>().sharedMaterial = windowFrameMat;
-
-            GameObject glass = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            glass.name = "Window_Glass_Pane";
-            glass.transform.SetParent(winGroup.transform);
-            glass.transform.localPosition = new Vector3(0f, 0f, 0.02f);
-            glass.transform.localScale = winSize;
-            glass.GetComponent<Renderer>().sharedMaterial = windowGlassMat;
-
-            GameObject sill = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            sill.name = "Window_Sill";
-            sill.transform.SetParent(winGroup.transform);
-            sill.transform.localPosition = new Vector3(0f, -winSize.y / 2f - 0.08f, 0.10f);
-            sill.transform.localScale = new Vector3(winSize.x + 0.35f, 0.15f, 0.25f);
-            sill.GetComponent<Renderer>().sharedMaterial = windowSillMat;
-
-            GameObject dividerV = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            dividerV.name = "Window_Divider_V";
-            dividerV.transform.SetParent(winGroup.transform);
-            dividerV.transform.localPosition = new Vector3(0f, 0f, 0.03f);
-            dividerV.transform.localScale = new Vector3(0.06f, winSize.y, 0.08f);
-            dividerV.GetComponent<Renderer>().sharedMaterial = windowFrameMat;
-
-            GameObject dividerH = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            dividerH.name = "Window_Divider_H";
-            dividerH.transform.SetParent(winGroup.transform);
-            dividerH.transform.localPosition = new Vector3(0f, 0f, 0.03f);
-            dividerH.transform.localScale = new Vector3(winSize.x, 0.06f, 0.08f);
-            dividerH.GetComponent<Renderer>().sharedMaterial = windowFrameMat;
+            // Güney Boş Arazi Bölgesi: Bahçeli 2 Minareli Büyük Cami ve Doğu Caddesine Bakan 3 Kafe
+            ProceduralSouthMosqueAndCafeDistrictBuilder.BuildDistrict(southGroup);
         }
 
-        private void CreateWindowWithFrameSide(Transform parent, Vector3 localPos, Vector3 winSize)
-        {
-            GameObject winGroup = new GameObject("Window_Complex_Side");
-            winGroup.transform.SetParent(parent);
-            winGroup.transform.localPosition = localPos;
-
-            GameObject frame = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            frame.name = "Window_Frame_Side";
-            frame.transform.SetParent(winGroup.transform);
-            frame.transform.localPosition = Vector3.zero;
-            frame.transform.localScale = new Vector3(0.10f, winSize.y + 0.18f, winSize.z + 0.18f);
-            frame.GetComponent<Renderer>().sharedMaterial = windowFrameMat;
-
-            GameObject glass = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            glass.name = "Window_Glass_Pane_Side";
-            glass.transform.SetParent(winGroup.transform);
-            glass.transform.localPosition = Vector3.zero;
-            glass.transform.localScale = winSize;
-            glass.GetComponent<Renderer>().sharedMaterial = windowGlassMat;
-
-            GameObject sill = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            sill.name = "Window_Sill_Side";
-            sill.transform.SetParent(winGroup.transform);
-            sill.transform.localPosition = new Vector3(0f, -winSize.y / 2f - 0.08f, 0f);
-            sill.transform.localScale = new Vector3(0.25f, 0.15f, winSize.z + 0.35f);
-            sill.GetComponent<Renderer>().sharedMaterial = windowSillMat;
-        }
-
-        private void CreateWindowWithFrameBack(Transform parent, Vector3 localPos, Vector3 winSize)
-        {
-            GameObject winGroup = new GameObject("Window_Complex_Back");
-            winGroup.transform.SetParent(parent);
-            winGroup.transform.localPosition = localPos;
-
-            GameObject frame = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            frame.name = "Window_Frame_Back";
-            frame.transform.SetParent(winGroup.transform);
-            frame.transform.localPosition = Vector3.zero;
-            frame.transform.localScale = new Vector3(winSize.x + 0.18f, winSize.y + 0.18f, 0.10f);
-            frame.GetComponent<Renderer>().sharedMaterial = windowFrameMat;
-
-            GameObject glass = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            glass.name = "Window_Glass_Pane_Back";
-            glass.transform.SetParent(winGroup.transform);
-            glass.transform.localPosition = new Vector3(0f, 0f, -0.02f);
-            glass.transform.localScale = winSize;
-            glass.GetComponent<Renderer>().sharedMaterial = windowGlassMat;
-
-            GameObject sill = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            sill.name = "Window_Sill_Back";
-            sill.transform.SetParent(winGroup.transform);
-            sill.transform.localPosition = new Vector3(0f, -winSize.y / 2f - 0.08f, -0.10f);
-            sill.transform.localScale = new Vector3(winSize.x + 0.35f, 0.15f, 0.25f);
-            sill.GetComponent<Renderer>().sharedMaterial = windowSillMat;
-
-            GameObject dividerV = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            dividerV.name = "Window_Divider_V_Back";
-            dividerV.transform.SetParent(winGroup.transform);
-            dividerV.transform.localPosition = new Vector3(0f, 0f, -0.03f);
-            dividerV.transform.localScale = new Vector3(0.06f, winSize.y, 0.08f);
-            dividerV.GetComponent<Renderer>().sharedMaterial = windowFrameMat;
-
-            GameObject dividerH = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            dividerH.name = "Window_Divider_H_Back";
-            dividerH.transform.SetParent(winGroup.transform);
-            dividerH.transform.localPosition = new Vector3(0f, 0f, -0.03f);
-            dividerH.transform.localScale = new Vector3(winSize.x, 0.06f, 0.08f);
-            dividerH.GetComponent<Renderer>().sharedMaterial = windowFrameMat;
-        }
-
-        private void CreateTownGardenField(Transform parent, string name, Vector3 pos, Vector3 size, Material cropMat, string labelText, string labelEn)
-        {
-            GameObject gardenRoot = new GameObject(name);
-            gardenRoot.transform.SetParent(parent);
-            gardenRoot.transform.position = pos;
-
-            GameObject soil = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            soil.name = "Garden_Soil_Bed";
-            soil.transform.SetParent(gardenRoot.transform);
-            soil.transform.localPosition = Vector3.zero;
-            soil.transform.localScale = size;
-            soil.GetComponent<Renderer>().sharedMaterial = cropMat;
-
-            CreateLabel(labelText, labelEn, gardenRoot.transform, new Vector3(0f, 1.2f, 0f), Color.white);
-        }
-
-        private void CreateTownFootpath(Transform parent, Vector3 pos, Vector3 scale)
-        {
-            GameObject path = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            path.name = "Town_Pedestrian_Path";
-            path.transform.SetParent(parent);
-            path.transform.position = pos;
-            path.transform.localScale = scale;
-            path.GetComponent<Renderer>().sharedMaterial = footpathMat;
-        }
 
         private void CreateOutlineBox(Transform parent, Vector3 center, float width, float depth)
         {
@@ -2814,54 +2451,266 @@ namespace Farm2Shelf.Environment
 
         }
 
+        private void CreateNorthernApartmentDistrict()
+        {
+            Transform districtGroup = new GameObject("Northern_Apartment_District").transform;
+            districtGroup.SetParent(environmentRoot);
+
+            // 1. DİKEY CADDELER (5 Adet: X = -75, -37.5, 0, 37.5, 75 | Z: 50m ile 175m arası, Uzunluk = 125m)
+            float[] avenueX = new float[] { -75.0f, -37.5f, 0.0f, 37.5f, 75.0f };
+            float roadStartZ = 50.0f;
+            float roadEndZ = 175.0f;
+            float roadLenZ = roadEndZ - roadStartZ; // 125m
+            float roadCenterZ = (roadStartZ + roadEndZ) / 2.0f; // 112.5m
+
+            // Kaldırımlar alt ve üst yatay yolların içine KESİNLİKLE TAŞMAZ (Z: 53.0m ile 172.0m arası tam sınırda biter)
+            float swStartZ = 53.0f;
+            float swEndZ = 172.0f;
+            float swLenZ = swEndZ - swStartZ; // 119m
+            float swCenterZ = (swStartZ + swEndZ) / 2.0f; // 112.5m
+
+            foreach (float ax in avenueX)
+            {
+                // Asfalt Yol
+                GameObject aveRoad = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                aveRoad.name = $"Avenue_Road_X_{ax:0}";
+                aveRoad.transform.SetParent(districtGroup);
+                aveRoad.transform.position = new Vector3(ax, -0.05f, roadCenterZ);
+                aveRoad.transform.localScale = new Vector3(6.0f, 0.1f, roadLenZ);
+                aveRoad.GetComponent<Renderer>().sharedMaterial = mainRoadMat;
+
+                // Sarı Kesikli Şerit Çizgisi
+                for (float z = roadStartZ + 4.0f; z <= roadEndZ - 4.0f; z += 3.0f)
+                {
+                    GameObject line = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    line.name = "Road_Center_Line";
+                    line.transform.SetParent(districtGroup);
+                    line.transform.position = new Vector3(ax, 0.01f, z);
+                    line.transform.localScale = new Vector3(0.25f, 0.02f, 1.8f);
+                    line.GetComponent<Renderer>().sharedMaterial = roadLineMat;
+                }
+
+                // Kaldırımlar (Sol ve Sağ Kaldırım - Yola sıfır taşmasız)
+                float leftSidewalkX = ax - 3.75f;
+                float rightSidewalkX = ax + 3.75f;
+
+                GameObject swLeft = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                swLeft.name = $"Avenue_Sidewalk_Left_X_{ax:0}";
+                swLeft.transform.SetParent(districtGroup);
+                swLeft.transform.position = new Vector3(leftSidewalkX, 0.05f, swCenterZ);
+                swLeft.transform.localScale = new Vector3(1.5f, 0.20f, swLenZ);
+                swLeft.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
+
+                GameObject swRight = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                swRight.name = $"Avenue_Sidewalk_Right_X_{ax:0}";
+                swRight.transform.SetParent(districtGroup);
+                swRight.transform.position = new Vector3(rightSidewalkX, 0.05f, swCenterZ);
+                swRight.transform.localScale = new Vector3(1.5f, 0.20f, swLenZ);
+                swRight.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
+
+                // Sokak Aydınlatma Direkleri (Her 28m'de bir)
+                for (float z = roadStartZ + 15.0f; z <= roadEndZ - 15.0f; z += 28.0f)
+                {
+                    BuildApartmentStreetLamp(districtGroup, new Vector3(leftSidewalkX, 0.05f, z), true);
+                    BuildApartmentStreetLamp(districtGroup, new Vector3(rightSidewalkX, 0.05f, z + 14.0f), false);
+                }
+            }
+
+            // 2. EN ÜST KUZEY ÇEVRE YOLU (Z = 175.0m | X: -78m ile +78m arası, Genişlik 156m)
+            GameObject topRoad = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            topRoad.name = "North_Perimeter_Top_Asphalt_Road";
+            topRoad.transform.SetParent(districtGroup);
+            topRoad.transform.position = new Vector3(0f, -0.05f, roadEndZ);
+            topRoad.transform.localScale = new Vector3(156.0f, 0.1f, 6.0f);
+            topRoad.GetComponent<Renderer>().sharedMaterial = mainRoadMat;
+
+            // En Üst Yol Şerit Çizgileri
+            for (float x = -75.0f; x <= 75.0f; x += 3.0f)
+            {
+                // Dikey yol kesişimlerini atla
+                bool isIntersection = false;
+                foreach (float ax in avenueX)
+                {
+                    if (Mathf.Abs(x - ax) < 3.2f) { isIntersection = true; break; }
+                }
+                if (isIntersection) continue;
+
+                GameObject line = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                line.name = "Road_Center_Line";
+                line.transform.SetParent(districtGroup);
+                line.transform.position = new Vector3(x, 0.01f, roadEndZ);
+                line.transform.localScale = new Vector3(1.8f, 0.02f, 0.25f);
+                line.GetComponent<Renderer>().sharedMaterial = roadLineMat;
+            }
+
+            // Üst Yol İç Bağlantı Kaldırımları (Z = 171.25m, 4 Blok Önü)
+            float[] colXCenters = new float[] { -56.25f, -18.75f, 18.75f, 56.25f };
+            for (int i = 0; i < colXCenters.Length; i++)
+            {
+                GameObject topInnerSw = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                topInnerSw.name = $"Top_Inner_Sidewalk_Segment_{i + 1}";
+                topInnerSw.transform.SetParent(districtGroup);
+                topInnerSw.transform.position = new Vector3(colXCenters[i], 0.05f, 171.25f);
+                topInnerSw.transform.localScale = new Vector3(31.5f, 0.20f, 1.5f);
+                topInnerSw.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
+            }
+
+            // En Üst Kuzey Dış Kaldırımı (Z = 178.75m)
+            GameObject topOuterSidewalk = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            topOuterSidewalk.name = "North_Top_Outer_Sidewalk";
+            topOuterSidewalk.transform.SetParent(districtGroup);
+            topOuterSidewalk.transform.position = new Vector3(0f, 0.05f, roadEndZ + 3.75f);
+            topOuterSidewalk.transform.localScale = new Vector3(162.0f, 0.20f, 1.5f);
+            topOuterSidewalk.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
+
+            // 3. KAVŞAK YAYA GEÇİTLERİ (Crosswalk Zebra Stripes)
+            foreach (float ax in avenueX)
+            {
+                // Alt Kavşak (Z = 55.0m)
+                CreateAvenueCrosswalk(districtGroup, new Vector3(ax, 0.02f, 55.0f), true);
+                // Üst Kavşak (Z = 170.0m)
+                CreateAvenueCrosswalk(districtGroup, new Vector3(ax, 0.02f, 170.0f), true);
+            }
+
+            // 4. 16 ADET APARTMAN BİNASI PARSELİ (4 Sütun x 4 Sıra)
+            float[] rowZCenters = new float[] { 68.0f, 98.0f, 128.0f, 158.0f };
+            Vector2 parcelSize = new Vector2(30.0f, 26.0f);
+
+            // Kat sayıları (3, 4, 5 kat kombinasyonu)
+            int[,] floorMatrix = new int[,]
+            {
+                { 4, 5, 3, 4 }, // Sütun 1: 4, 5, 3, 4 kat
+                { 5, 3, 5, 4 }, // Sütun 2: 5, 3, 5, 4 kat
+                { 3, 4, 4, 5 }, // Sütun 3: 3, 4, 4, 5 kat
+                { 5, 4, 3, 4 }  // Sütun 4: 5, 4, 3, 4 kat
+            };
+
+            // Renk varyantları (0: Terracotta, 1: Antrasit, 2: Krem, 3: Adaçayı, 4: Navy, 5: Hardal, 6: Taş Gri, 7: Gül Kurusu)
+            int[,] colorMatrix = new int[,]
+            {
+                { 0, 1, 2, 3 },
+                { 4, 0, 5, 6 },
+                { 7, 4, 1, 2 },
+                { 3, 5, 0, 6 }
+            };
+
+            // Giriş yönleri (Sütun 1 & 2 -> Doğuya bakar; Sütun 3 & 4 -> Batıya bakar)
+            bool[] entranceFacingEast = new bool[] { true, true, false, false };
+
+            int parcelCounter = 0;
+            for (int col = 0; col < 4; col++)
+            {
+                float px = colXCenters[col];
+                bool faceEast = entranceFacingEast[col];
+
+                for (int row = 0; row < 4; row++)
+                {
+                    float pz = rowZCenters[row];
+                    int floors = floorMatrix[col, row];
+                    int colorIdx = colorMatrix[col, row];
+
+                    Vector3 pCenter = new Vector3(px, 0f, pz);
+                    ProceduralApartmentModelBuilder.BuildApartmentParcel(
+                        districtGroup,
+                        pCenter,
+                        parcelSize,
+                        floors,
+                        colorIdx,
+                        parcelCounter++,
+                        faceEast
+                    );
+                }
+            }
+
+            CreateLabel("YENİ KUZEY MAHALLESİ (16 APARTMAN)", "NORTH RESIDENTIAL DISTRICT (16 APARTMENTS)", districtGroup, new Vector3(0f, 4.0f, 177.5f), new Color(1.0f, 0.85f, 0.30f));
+        }
+
+        private void BuildApartmentStreetLamp(Transform parent, Vector3 pos, bool faceRight)
+        {
+            Material poleMat = CreateSolidMaterial("StreetLampPoleMat", new Color(0.18f, 0.20f, 0.24f), 0.7f, 0.8f);
+            Material bulbDefaultMat = CreateSolidMaterial("StreetLampBulbMat", new Color(0.35f, 0.35f, 0.38f), 0.1f, 0.5f);
+
+            GameObject lampObj = new GameObject("ApartmentStreetLamp_Post");
+            lampObj.transform.SetParent(parent, false);
+            lampObj.transform.position = pos;
+
+            // Metalik Direk (3.4m yükseklik)
+            GameObject pole = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            pole.name = "Lamp_Pole";
+            pole.transform.SetParent(lampObj.transform, false);
+            pole.transform.localPosition = new Vector3(0f, 1.7f, 0f);
+            pole.transform.localScale = new Vector3(0.10f, 1.7f, 0.10f);
+            pole.GetComponent<Renderer>().sharedMaterial = poleMat;
+            Destroy(pole.GetComponent<Collider>());
+
+            float armDir = faceRight ? 1f : -1f;
+
+            // Üst Kavis Başlık
+            GameObject arm = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            arm.name = "Lamp_Arm";
+            arm.transform.SetParent(lampObj.transform, false);
+            arm.transform.localPosition = new Vector3(armDir * 0.25f, 3.35f, 0f);
+            arm.transform.localScale = new Vector3(0.6f, 0.08f, 0.10f);
+            arm.GetComponent<Renderer>().sharedMaterial = poleMat;
+            Destroy(arm.GetComponent<Collider>());
+
+            // Ampul
+            GameObject bulb = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            bulb.name = "Lamp_Bulb";
+            bulb.transform.SetParent(lampObj.transform, false);
+            bulb.transform.localPosition = new Vector3(armDir * 0.50f, 3.25f, 0f);
+            bulb.transform.localScale = new Vector3(0.32f, 0.32f, 0.32f);
+            bulb.GetComponent<Renderer>().sharedMaterial = bulbDefaultMat;
+            Destroy(bulb.GetComponent<Collider>());
+
+            // Gece Yanan Point Light (Sıcak Sarı Sokak Işığı)
+            GameObject lightChild = new GameObject("StreetLamp_Light");
+            lightChild.transform.SetParent(lampObj.transform, false);
+            lightChild.transform.localPosition = new Vector3(armDir * 0.50f, 3.1f, 0f);
+
+            Light pointLight = lightChild.AddComponent<Light>();
+            pointLight.type = LightType.Point;
+            pointLight.color = new Color(1.0f, 0.88f, 0.55f);
+            pointLight.intensity = 2.5f;
+            pointLight.range = 14.0f;
+            pointLight.shadows = LightShadows.None;
+            pointLight.enabled = false;
+
+            if (DayNightCycleManager.Instance != null)
+            {
+                DayNightCycleManager.Instance.RegisterStreetLamp(bulb, pointLight);
+            }
+        }
+
+        private void CreateAvenueCrosswalk(Transform parent, Vector3 centerPos, bool horizontalStripes)
+        {
+            Transform crosswalkGroup = new GameObject("Avenue_Crosswalk").transform;
+            crosswalkGroup.SetParent(parent, false);
+
+            for (float offset = -2.2f; offset <= 2.2f; offset += 0.65f)
+            {
+                GameObject stripe = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                stripe.name = "Zebra_Stripe";
+                stripe.transform.SetParent(crosswalkGroup, false);
+                stripe.transform.position = centerPos + new Vector3(offset, 0f, 0f);
+                stripe.transform.localScale = new Vector3(0.35f, 0.01f, 2.4f);
+                stripe.GetComponent<Renderer>().sharedMaterial = crosswalkMat;
+                Destroy(stripe.GetComponent<Collider>());
+            }
+        }
+
         private void CreateDenseTwoRowTreeBoundaryWall()
         {
             Transform borderGroup = new GameObject("Map_Boundary_Tree_Forest_Wall").transform;
             borderGroup.SetParent(environmentRoot);
 
-            // 1. ÇİM TABANINI AĞAÇ SINIRINA GÖRE TAM DÜZENLE
-            GameObject grass = GameObject.Find("Grass_Terrain_Ground");
-            if (grass != null)
+            // Çim tabanları CreateGrassTerrain içinde doğu ve batı olarak oluşturuldu.
+            float treePitch = 4.2f;
+
+            // 1. DOĞU SINIRI (Sağ taraf: Row 1 at X = +83.5m, Row 2 at X = +87.0m | Z: -138m ile +186m arası)
+            for (float z = -138.0f; z <= 186.0f; z += treePitch)
             {
-                grass.transform.position = new Vector3(0f, -0.15f, -2.5f);
-                grass.transform.localScale = new Vector3(178.0f, 0.1f, 133.0f);
-            }
-
-            // OTOYOL ALTINA UZAK UFUK ÇİM TABAN UZANTILARI (SOL VE SAĞ UZAK YOL VE AĞAÇ BULVARI ALTI)
-            GameObject westExtendedGrass = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            westExtendedGrass.name = "West_Extended_Highway_Grass";
-            westExtendedGrass.transform.SetParent(borderGroup);
-            westExtendedGrass.transform.position = new Vector3(-144f, -0.15f, -9f);
-            westExtendedGrass.transform.localScale = new Vector3(112f, 0.1f, 28f);
-            westExtendedGrass.GetComponent<Renderer>().sharedMaterial = grassMat;
-
-            GameObject eastExtendedGrass = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            eastExtendedGrass.name = "East_Extended_Highway_Grass";
-            eastExtendedGrass.transform.SetParent(borderGroup);
-            eastExtendedGrass.transform.position = new Vector3(144f, -0.15f, -9f);
-            eastExtendedGrass.transform.localScale = new Vector3(112f, 0.1f, 28f);
-            eastExtendedGrass.GetComponent<Renderer>().sharedMaterial = grassMat;
-
-            float treePitch = 3.8f; // Yan yana iki ağaç arasındaki mesafe
-
-            // BATI SINIRI (Sol taraf: Row 1 at X = -83.5m, Row 2 at X = -87.0m)
-            for (float z = -66.0f; z <= 61.0f; z += treePitch)
-            {
-                // OTOYOL GEÇİDİNDE (Z: -14.5m ile -3.5m arası) KESİNLİKLE AĞAÇ KOYMA! YOLU TEMİZ VE AÇIK BIRAK!
-                if (z >= -14.5f && z <= -3.5f)
-                {
-                    continue;
-                }
-
-                CreateBoundaryTree(borderGroup, new Vector3(-83.5f, 0f, z));
-                CreateBoundaryTree(borderGroup, new Vector3(-87.0f, 0f, z + (treePitch / 2f)));
-            }
-
-            // DOĞU SINIRI (Sağ taraf: Row 1 at X = +83.5m, Row 2 at X = +87.0m)
-            for (float z = -66.0f; z <= 61.0f; z += treePitch)
-            {
-                // OTOYOL GEÇİDİNDE (Z: -14.5m ile -3.5m arası) KESİNLİKLE AĞAÇ KOYMA! YOLU TEMİZ VE AÇIK BIRAK!
-                if (z >= -14.5f && z <= -3.5f)
+                if ((z >= -14.5f && z <= -3.5f) || (z >= 46.5f && z <= 53.5f) || (z >= 171.5f && z <= 178.5f))
                 {
                     continue;
                 }
@@ -2870,57 +2719,51 @@ namespace Farm2Shelf.Environment
                 CreateBoundaryTree(borderGroup, new Vector3(87.0f, 0f, z + (treePitch / 2f)));
             }
 
-            // KUZEY SINIRI (Üst taraf: Row 1 at Z = +58.5m, Row 2 at Z = +62.0m)
-            for (float x = -87.0f; x <= 87.0f; x += treePitch)
+            // 2. EN BATI DIŞ SINIR (Row 1 at X = -242m, Row 2 at X = -246m | Z: -138m ile +186m arası)
+            for (float z = -138.0f; z <= 186.0f; z += treePitch)
             {
-                CreateBoundaryTree(borderGroup, new Vector3(x, 0f, 58.5f));
-                CreateBoundaryTree(borderGroup, new Vector3(x + (treePitch / 2f), 0f, 62.0f));
+                if (z >= -14.5f && z <= -3.5f) continue;
+
+                CreateBoundaryTree(borderGroup, new Vector3(-242.0f, 0f, z));
+                CreateBoundaryTree(borderGroup, new Vector3(-246.0f, 0f, z + (treePitch / 2f)));
             }
 
-            // GÜNEY SINIRI (Alt taraf: Row 1 at Z = -63.5m, Row 2 at Z = -67.0m)
-            for (float x = -87.0f; x <= 87.0f; x += treePitch)
+            // 3. EN KUZEY DIŞ SINIR (Z = 186.0m | X: -245m ile +87m arası, Nehir alanı X: -110m..-80m atlanır)
+            for (float x = -245.0f; x <= 87.0f; x += treePitch)
             {
-                CreateBoundaryTree(borderGroup, new Vector3(x, 0f, -63.5f));
-                CreateBoundaryTree(borderGroup, new Vector3(x + (treePitch / 2f), 0f, -67.0f));
+                // NEHİR VE KIYI KORDONUNU ATLA (Nehir içine ağaç dikilmez!)
+                if (x >= -110.0f && x <= -80.0f) continue;
+
+                CreateBoundaryTree(borderGroup, new Vector3(x, 0f, 186.0f));
+                CreateBoundaryTree(borderGroup, new Vector3(x + (treePitch / 2f), 0f, 189.5f));
             }
 
-            // BATI UZATILMIŞ OTOYOL AĞAÇ BULVARI (Sol taraf X: -200m ile -83.5m arası, kaldırımların arkasında 2 sıra ağaç)
-            for (float x = -200.0f; x <= -83.5f; x += treePitch)
+            // 4. EN GÜNEY DIŞ SINIR (Z = -138.0m & -141.5m | Yol ve kaldırımların arkasında, Nehir alanı X: -110m..-80m atlanır)
+            for (float x = -245.0f; x <= 87.0f; x += treePitch)
             {
-                // Kuzey kaldırım arkası 2 sıra ağaç
-                CreateBoundaryTree(borderGroup, new Vector3(x, 0f, -1.5f));
-                CreateBoundaryTree(borderGroup, new Vector3(x + (treePitch / 2f), 0f, 2.0f));
+                // NEHİR VE KIYI KORDONUNU ATLA (Nehir içine ağaç dikilmez!)
+                if (x >= -110.0f && x <= -80.0f) continue;
 
-                // Güney kaldırım arkası 2 sıra ağaç
-                CreateBoundaryTree(borderGroup, new Vector3(x, 0f, -16.5f));
-                CreateBoundaryTree(borderGroup, new Vector3(x + (treePitch / 2f), 0f, -20.0f));
+                // Güney yolu (Z = -128m) ve kaldırımlarının (Z = -132.5m) tamamen arkasında güvenli sınır
+                CreateBoundaryTree(borderGroup, new Vector3(x, 0f, -138.0f));
+                CreateBoundaryTree(borderGroup, new Vector3(x + (treePitch / 2f), 0f, -141.5f));
             }
 
-            // DOĞU UZATILMIŞ OTOYOL AĞAÇ BULVARI (Sağ taraf X: +83.5m ile +200m arası, kaldırımların arkasında 2 sıra ağaç)
+            // 5. DOĞU UZATILMIŞ OTOYOL AĞAÇ BULVARI (Sağ taraf X: +83.5m ile +200m arası)
             for (float x = 83.5f; x <= 200.0f; x += treePitch)
             {
-                // Kuzey kaldırım arkası 2 sıra ağaç
                 CreateBoundaryTree(borderGroup, new Vector3(x, 0f, -1.5f));
                 CreateBoundaryTree(borderGroup, new Vector3(x + (treePitch / 2f), 0f, 2.0f));
 
-                // Güney kaldırım arkası 2 sıra ağaç
                 CreateBoundaryTree(borderGroup, new Vector3(x, 0f, -16.5f));
                 CreateBoundaryTree(borderGroup, new Vector3(x + (treePitch / 2f), 0f, -20.0f));
             }
 
-            // OYUNCUNUN HARİTA DIŞINA ÇIKMASINI ENGELLEYEN FİZİK ENGELLERİ (GÖRÜNMEZ DUVARLAR)
-            // Batı Fizik Duvarları (Otoyol kapısı açık bırakılarak sol/sağ orman sınırı kapatıldı)
-            CreateWorldPhysicsBoundaryCollider(borderGroup, "Boundary_Physics_Wall_West_Top", new Vector3(-83.5f, 2.5f, 28.5f), new Vector3(1.0f, 6.0f, 65.0f));
-            CreateWorldPhysicsBoundaryCollider(borderGroup, "Boundary_Physics_Wall_West_Bottom", new Vector3(-83.5f, 2.5f, -40.0f), new Vector3(1.0f, 6.0f, 52.0f));
-            CreateWorldPhysicsBoundaryCollider(borderGroup, "Boundary_Physics_Wall_West_Highway_End", new Vector3(-92.0f, 2.5f, -9.0f), new Vector3(1.0f, 6.0f, 12.0f));
-
-            // Doğu Fizik Duvarları (Otoyol kapısı açık bırakılarak sol/sağ orman sınırı kapatıldı)
-            CreateWorldPhysicsBoundaryCollider(borderGroup, "Boundary_Physics_Wall_East_Top", new Vector3(83.5f, 2.5f, 28.5f), new Vector3(1.0f, 6.0f, 65.0f));
-            CreateWorldPhysicsBoundaryCollider(borderGroup, "Boundary_Physics_Wall_East_Bottom", new Vector3(83.5f, 2.5f, -40.0f), new Vector3(1.0f, 6.0f, 52.0f));
-            CreateWorldPhysicsBoundaryCollider(borderGroup, "Boundary_Physics_Wall_East_Highway_End", new Vector3(92.0f, 2.5f, -9.0f), new Vector3(1.0f, 6.0f, 12.0f));
-
-            CreateWorldPhysicsBoundaryCollider(borderGroup, "Boundary_Physics_Wall_North", new Vector3(0f, 2.5f, 58.5f), new Vector3(175.0f, 6.0f, 1.0f));
-            CreateWorldPhysicsBoundaryCollider(borderGroup, "Boundary_Physics_Wall_South", new Vector3(0f, 2.5f, -63.5f), new Vector3(175.0f, 6.0f, 1.0f));
+            // FİZİK ENGELLERİ (GÖRÜNMEZ DUVARLAR)
+            CreateWorldPhysicsBoundaryCollider(borderGroup, "Boundary_Physics_Wall_East", new Vector3(85.0f, 2.5f, 24.0f), new Vector3(1.0f, 6.0f, 330.0f));
+            CreateWorldPhysicsBoundaryCollider(borderGroup, "Boundary_Physics_Wall_West_Outer", new Vector3(-245.0f, 2.5f, 24.0f), new Vector3(1.0f, 6.0f, 330.0f));
+            CreateWorldPhysicsBoundaryCollider(borderGroup, "Boundary_Physics_Wall_North_Outer", new Vector3(-80.0f, 2.5f, 188.0f), new Vector3(340.0f, 6.0f, 1.0f));
+            CreateWorldPhysicsBoundaryCollider(borderGroup, "Boundary_Physics_Wall_South_Outer", new Vector3(-80.0f, 2.5f, -142.0f), new Vector3(340.0f, 6.0f, 1.0f));
         }
 
         private void CreateBoundaryTree(Transform parent, Vector3 pos)

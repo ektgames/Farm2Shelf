@@ -17,20 +17,23 @@ namespace Farm2Shelf.Core
         public void OnPointerDown(PointerEventData eventData)
         {
             if (eventData != null && eventData.dragging) return;
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen) || Time.unscaledTime - ModalManager.LastModalCloseTime < 0.35f) return;
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen)) return;
+            if (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing) return;
             PalletStorageInventoryModalUI.ShowModal();
         }
 
         public void OnPointerClick(PointerEventData eventData)
         {
             if (eventData != null && eventData.dragging) return;
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen) || Time.unscaledTime - ModalManager.LastModalCloseTime < 0.35f) return;
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen)) return;
+            if (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing) return;
             PalletStorageInventoryModalUI.ShowModal();
         }
 
         private void OnMouseDown()
         {
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen) || Time.unscaledTime - ModalManager.LastModalCloseTime < 0.35f) return;
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen)) return;
+            if (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing) return;
             PalletStorageInventoryModalUI.ShowModal();
         }
     }
@@ -60,6 +63,11 @@ namespace Farm2Shelf.Core
                 if (b != null) types.Add(b.FurnitureType.ToString());
             }
             return types;
+        }
+
+        public void ClearPendingBoxes()
+        {
+            RestorePendingBoxes(null);
         }
 
         public void RestorePendingBoxes(List<string> boxTypes)

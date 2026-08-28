@@ -89,6 +89,22 @@ namespace Farm2Shelf.Environment
             // Personel Dinlenme Odası Mavi Koltuk Oturma Durumu
             public bool isSitting;
             public int assignedSofaSeatIndex = -1;
+
+            // Online Market Kurye Siparişi Toplama Verisi
+            public OnlineCustomerOrder targetOnlineOrder;
+            public bool isGatheringForOnlineOrder;
+            public List<OnlineOrderGatherItem> onlineGatherItems = new List<OnlineOrderGatherItem>();
+            public int currentOnlineGatherIndex;
+            public bool isCarryingDeliveryBoxToMotorcycle;
+        }
+
+        public class OnlineOrderGatherItem
+        {
+            public PlacedFurnitureController shelf;
+            public int rowIndex;
+            public WholesaleProductDef productDef;
+            public int productIndexInOrder;
+            public int amountToGather;
         }
 
         private void Awake()
@@ -125,6 +141,7 @@ namespace Farm2Shelf.Environment
                 if (data.isCarryingBoxes || data.carriedAmount1 > 0 || data.carriedAmount2 > 0 ||
                     data.carriedProduct1 != null || data.carriedProduct2 != null ||
                     data.isFetchingFromStorage || data.isFetchingFromTruck || data.isUnloadingTruck ||
+                    data.isGatheringForOnlineOrder || data.targetOnlineOrder != null ||
                     data.targetShelf1 != null || data.targetShelf2 != null || data.targetStorageShelfForDeposit != null ||
                     (data.targetTrashObj != null && data.taskTimer > 0f))
                 {
@@ -139,11 +156,18 @@ namespace Farm2Shelf.Environment
             if (staffTaskList == null || staffTaskList.Count == 0) return false;
             StaffTaskData data = staffTaskList.Find(s => s.staffMember != null && s.staffMember.id == staffId);
             if (data == null || data.staffObj == null) return false;
-            return data.isCarryingBoxes || data.carriedAmount1 > 0 || data.carriedAmount2 > 0 ||
-                   data.carriedProduct1 != null || data.carriedProduct2 != null ||
-                   data.isFetchingFromStorage || data.isFetchingFromTruck || data.isUnloadingTruck ||
-                   data.targetShelf1 != null || data.targetShelf2 != null || data.targetStorageShelfForDeposit != null ||
-                   (data.targetTrashObj != null && data.taskTimer > 0f);
+            // SADECE bizzat elinde taşınan fiziksel koli/paket varsa true döner!
+            return data.isCarryingBoxes || data.carriedAmount1 > 0 || data.carriedAmount2 > 0 || data.isCarryingDeliveryBoxToMotorcycle;
+        }
+
+        public bool IsStaffLeavingShift(string staffId)
+        {
+            if (staffTaskList == null || staffTaskList.Count == 0) return false;
+            StaffTaskData data = staffTaskList.Find(s => s.staffMember != null && s.staffMember.id == staffId);
+            if (data == null) return false;
+            return data.isLeavingShift ||
+                   data.currentState == StaffAIState.WalkingToLeftExit ||
+                   data.currentState == StaffAIState.Despawned;
         }
 
         public static bool IsCashierWorkingAt(PlacedFurnitureController cashier)
@@ -180,24 +204,37 @@ namespace Farm2Shelf.Environment
             if (staff == null || !staff.isActive) return false;
 
             int totalMinsCalc = currentHour * 60 + currentMinute;
+            string shift = staff.shiftHours ?? "";
 
-            // ⚡ Eğer personel erken göreve çağrıldıysa dükkan kapalı olsa dahi 06:00 - 16:00 arası AKTİFTİR!
+            // Akşam Vardiyası Tespiti:
+            // "☀️ Sabah (08:00 - 16:00)" -> Sabah Vardiyası
+            // "🌆 Akşam (16:00 - 24:00)" -> Akşam Vardiyası
+            bool isEveningShift = shift.Contains("Akşam") || shift.Contains("Evening") || shift.Contains("Gece") || shift.Contains("Night") || shift.Contains("16:00 - 24:00") || shift.Contains("24:00");
+
+            // ⚡ Eğer personel erken göreve çağrıldıysa:
+            // Sabah personeli: Vardiya bitişi olan 16:00'a (960 dk) kadar KESİNTİSİZ AKTİFTİR!
+            // Akşam personeli: Gece 24:00'e (1440 dk) kadar KESİNTİSİZ AKTİFTİR!
             bool isCalledEarly = (StaffVisualManager.Instance != null && StaffVisualManager.Instance.IsStaffCalledEarlyToday(staff.id));
             if (isCalledEarly)
             {
-                return (totalMinsCalc >= 360 && totalMinsCalc < 960); // 06:00 - 16:00 (Sabah Hazırlık ve Vardiya Süresi)
+                if (isEveningShift)
+                {
+                    return (totalMinsCalc < 1440);
+                }
+                else
+                {
+                    return (totalMinsCalc < 960);
+                }
             }
 
-            string shift = staff.shiftHours ?? "";
-
             // 1. SABAH VARDİYASI: 08:00 - 16:00 (30 dk erken geliş / hazırlık: 07:30 - 08:00)
-            if (shift.Contains("Sabah") || shift.Contains("Gündüz") || shift.Contains("08:00") || shift.Contains("06:00"))
+            if (!isEveningShift)
             {
                 if (totalMinsCalc >= 450 && totalMinsCalc < 480) { isEarlyArrivalWindow = true; return true; }
                 return (totalMinsCalc >= 480 && totalMinsCalc < 960);
             }
             // 2. AKŞAM VARDİYASI: 16:00 - 24:00 (30 dk erken geliş / hazırlık: 15:30 - 16:00)
-            else if (shift.Contains("Akşam") || shift.Contains("16:00") || shift.Contains("14:00") || shift.Contains("Gece") || shift.Contains("22:00"))
+            else
             {
                 if (totalMinsCalc >= 930 && totalMinsCalc < 960) { isEarlyArrivalWindow = true; return true; }
                 if (totalMinsCalc >= 960 && totalMinsCalc < 1440) return true;
@@ -206,8 +243,6 @@ namespace Farm2Shelf.Environment
                 if ((totalMinsCalc >= 1440 || currentHour >= 24) && activeCustCount > 0) return true;
                 return false;
             }
-
-            return false;
         }
 
         public static void GetStaffLockerPosition(int staffIndex, out Vector3 lockerStandPos, out float lockerFacingY)
@@ -624,6 +659,15 @@ namespace Farm2Shelf.Environment
             StaffTaskData data = staffTaskList.Find(s => s.staffMember != null && s.staffMember.id == staffId);
             if (data != null)
             {
+                if (data.targetOnlineOrder != null)
+                {
+                    data.targetOnlineOrder.isAssignedToStocker = false;
+                    data.targetOnlineOrder = null;
+                }
+                data.isGatheringForOnlineOrder = false;
+                data.isCarryingDeliveryBoxToMotorcycle = false;
+                data.onlineGatherItems.Clear();
+
                 FreeSofaSeat(data);
                 ClearCarriedBoxesOnStaff(data);
                 if (data.staffObj != null) Destroy(data.staffObj);
@@ -638,6 +682,15 @@ namespace Farm2Shelf.Environment
                 var data = staffTaskList[i];
                 if (data != null)
                 {
+                    if (data.targetOnlineOrder != null)
+                    {
+                        data.targetOnlineOrder.isAssignedToStocker = false;
+                        data.targetOnlineOrder = null;
+                    }
+                    data.isGatheringForOnlineOrder = false;
+                    data.isCarryingDeliveryBoxToMotorcycle = false;
+                    data.onlineGatherItems.Clear();
+
                     FreeSofaSeat(data);
                     ClearCarriedBoxesOnStaff(data);
                     if (data.staffObj != null) Destroy(data.staffObj);
@@ -682,9 +735,7 @@ namespace Farm2Shelf.Environment
                 bool isEligible = IsStaffShiftActive(data.staffMember, currentHour, currentMinute, out bool isEarlyArrival);
 
                 bool hasInHandTask = data.isCarryingBoxes || data.carriedAmount1 > 0 || data.carriedAmount2 > 0 ||
-                                     data.carriedProduct1 != null || data.carriedProduct2 != null ||
-                                     data.isFetchingFromStorage || data.isFetchingFromTruck || data.isUnloadingTruck ||
-                                     (data.targetTrashObj != null && data.taskTimer > 0f);
+                                     data.carriedProduct1 != null || data.carriedProduct2 != null || data.isCarryingDeliveryBoxToMotorcycle;
 
                 if (!isEligible && !hasInHandTask && data.currentState != StaffAIState.WalkingToLeftExit && data.currentState != StaffAIState.HandingOverShift && !data.isLeavingShift)
                 {
@@ -745,17 +796,8 @@ namespace Farm2Shelf.Environment
                         }
                         else
                         {
-                            int curMin = (TimeManager.Instance != null) ? TimeManager.Instance.Minute : 0;
-                            bool shouldDispatchEarly = (data.staffMember.role == StaffRole.Kasiyer && curMin >= 55);
-
-                            if (!isEarlyArrival || shouldDispatchEarly)
-                            {
-                                AssignStaffToTaskPosition(data);
-                            }
-                            else
-                            {
-                                data.currentState = StaffAIState.WaitingInBreakRoom;
-                            }
+                            // İşe yeni gelen veya erken çağrılan personel: Doğrudan görev pozisyonuna başla!
+                            AssignStaffToTaskPosition(data);
                         }
                     }
                     break;
@@ -834,8 +876,8 @@ namespace Farm2Shelf.Environment
 
         public static List<Vector3> BuildStructuredStaffWaypoints(Vector3 startPos, Vector3 endPos)
         {
-            List<Vector3> route = new List<Vector3>();
-            route.Add(startPos);
+            List<Vector3> rawRoute = new List<Vector3>();
+            rawRoute.Add(startPos);
 
             int level = (EnvironmentBuilder.Instance != null) ? EnvironmentBuilder.Instance.CurrentUpgradeLevel : 1;
             float storageDepth = (level == 1) ? 9.5f : ((level == 2) ? 14.5f : 19.5f);
@@ -847,97 +889,202 @@ namespace Farm2Shelf.Environment
             Vector3 storageDoorStorageSide = new Vector3(3.6f, 0.05f, 2.0f);
             Vector3 storageDoorStoreSide   = new Vector3(2.2f, 0.05f, 2.0f);
 
+            // Teslimat Kamyonu & Mal Kabul Geniş Çift Kapısı (Right Wall X: 11.0f, Z: 2.0f)
+            Vector3 goodsDoorStorageSide = new Vector3(9.2f, 0.05f, 2.0f); // Depo içi
+            Vector3 goodsDoorThreshold   = new Vector3(11.2f, 0.05f, 2.0f); // Kapı eşiği
+            Vector3 eastDrivewayPos      = new Vector3(14.0f, 0.05f, 2.0f); // Dış asfalt / kaldırım koridoru
+
             Vector3 storageAislePos = new Vector3(7.0f, 0.05f, 2.0f);
             Vector3 storeFoyerPos   = new Vector3(-5.0f, 0.05f, 0.5f);
             Vector3 storeOutsidePos = new Vector3(-5.0f, 0.05f, -4.5f);
 
-            bool startInStaffRoom = (startPos.x > 2.8f && startPos.z >= (storageBackZ - 0.1f));
-            bool endInStaffRoom   = (endPos.x > 2.8f && endPos.z >= (storageBackZ - 0.1f));
+            // BÖLGE TESPİTLERİ (Katı Bina Duvarlarını Hatasız Ayıran Çakışmasız Koordinatlar)
+            bool startInEastOutside = (startPos.x >= 10.8f && startPos.z > -2.8f);
+            bool endInEastOutside   = (endPos.x >= 10.8f && endPos.z > -2.8f);
 
-            bool startInStorage   = (startPos.x > 2.8f && startPos.z < (storageBackZ - 0.1f) && startPos.z > -2.8f);
-            bool endInStorage     = (endPos.x > 2.8f && endPos.z < (storageBackZ - 0.1f) && endPos.z > -2.8f);
+            bool startInStaffRoom = (startPos.x > 2.8f && startPos.x < 10.8f && startPos.z >= (storageBackZ - 0.1f));
+            bool endInStaffRoom   = (endPos.x > 2.8f && endPos.x < 10.8f && endPos.z >= (storageBackZ - 0.1f));
+
+            bool startInStorage   = (startPos.x > 2.8f && startPos.x < 10.8f && startPos.z < (storageBackZ - 0.1f) && startPos.z > -2.8f);
+            bool endInStorage     = (endPos.x > 2.8f && endPos.x < 10.8f && endPos.z < (storageBackZ - 0.1f) && endPos.z > -2.8f);
 
             bool startInStore     = (startPos.x <= 2.8f && startPos.z > -2.8f);
             bool endInStore       = (endPos.x <= 2.8f && endPos.z > -2.8f);
 
-            bool startOutside     = (startPos.z <= -2.8f);
-            bool endOutside       = (endPos.z <= -2.8f);
+            bool startInFrontOutside = (startPos.z <= -2.8f);
+            bool endInFrontOutside   = (endPos.z <= -2.8f);
 
-            // 1. PERSONEL ODASI <-> DEPO GEÇİŞİ
-            if (startInStaffRoom && endInStorage)
+            // 1. SAĞ DIŞ ALAN (MOTOR PARKI / MAL KABUL DIŞI) <-> SAĞ DIŞ ALAN
+            if (startInEastOutside && endInEastOutside)
             {
-                route.Add(staffDoorInside);
-                route.Add(staffDoorOutside);
-                route.Add(storageAislePos);
+                rawRoute.Add(new Vector3(14.0f, 0.05f, startPos.z));
+                rawRoute.Add(new Vector3(14.0f, 0.05f, endPos.z));
+            }
+            // 2. SAĞ DIŞ ALAN <-> PERSONEL DİNLENME ODASI
+            else if (startInEastOutside && endInStaffRoom)
+            {
+                rawRoute.Add(new Vector3(14.0f, 0.05f, startPos.z));
+                rawRoute.Add(eastDrivewayPos);
+                rawRoute.Add(goodsDoorThreshold);
+                rawRoute.Add(goodsDoorStorageSide);
+                rawRoute.Add(storageAislePos);
+                rawRoute.Add(staffDoorOutside);
+                rawRoute.Add(staffDoorInside);
+            }
+            else if (startInStaffRoom && endInEastOutside)
+            {
+                rawRoute.Add(staffDoorInside);
+                rawRoute.Add(staffDoorOutside);
+                rawRoute.Add(storageAislePos);
+                rawRoute.Add(goodsDoorStorageSide);
+                rawRoute.Add(goodsDoorThreshold);
+                rawRoute.Add(eastDrivewayPos);
+                rawRoute.Add(new Vector3(14.0f, 0.05f, endPos.z));
+            }
+            // 3. SAĞ DIŞ ALAN <-> DEPO
+            else if (startInEastOutside && endInStorage)
+            {
+                rawRoute.Add(new Vector3(14.0f, 0.05f, startPos.z));
+                rawRoute.Add(eastDrivewayPos);
+                rawRoute.Add(goodsDoorThreshold);
+                rawRoute.Add(goodsDoorStorageSide);
+                rawRoute.Add(storageAislePos);
+            }
+            else if (startInStorage && endInEastOutside)
+            {
+                rawRoute.Add(storageAislePos);
+                rawRoute.Add(goodsDoorStorageSide);
+                rawRoute.Add(goodsDoorThreshold);
+                rawRoute.Add(eastDrivewayPos);
+                rawRoute.Add(new Vector3(14.0f, 0.05f, endPos.z));
+            }
+            // 4. SAĞ DIŞ ALAN <-> MAĞAZA / REYON ALANI
+            else if (startInEastOutside && endInStore)
+            {
+                rawRoute.Add(new Vector3(14.0f, 0.05f, startPos.z));
+                rawRoute.Add(eastDrivewayPos);
+                rawRoute.Add(goodsDoorThreshold);
+                rawRoute.Add(goodsDoorStorageSide);
+                rawRoute.Add(storageAislePos);
+                rawRoute.Add(storageDoorStorageSide);
+                rawRoute.Add(storageDoorStoreSide);
+                rawRoute.Add(storeFoyerPos);
+            }
+            else if (startInStore && endInEastOutside)
+            {
+                rawRoute.Add(storeFoyerPos);
+                rawRoute.Add(storageDoorStoreSide);
+                rawRoute.Add(storageDoorStorageSide);
+                rawRoute.Add(storageAislePos);
+                rawRoute.Add(goodsDoorStorageSide);
+                rawRoute.Add(goodsDoorThreshold);
+                rawRoute.Add(eastDrivewayPos);
+                rawRoute.Add(new Vector3(14.0f, 0.05f, endPos.z));
+            }
+            // 5. SAĞ DIŞ ALAN <-> ÖN DIŞ KALDIRIM / OTOPARK
+            else if (startInEastOutside && endInFrontOutside)
+            {
+                rawRoute.Add(new Vector3(14.0f, 0.05f, startPos.z));
+                rawRoute.Add(eastDrivewayPos);
+                rawRoute.Add(new Vector3(14.0f, 0.05f, -4.5f));
+            }
+            else if (startInFrontOutside && endInEastOutside)
+            {
+                rawRoute.Add(new Vector3(14.0f, 0.05f, -4.5f));
+                rawRoute.Add(eastDrivewayPos);
+                rawRoute.Add(new Vector3(14.0f, 0.05f, endPos.z));
+            }
+            // 6. PERSONEL ODASI <-> DEPO GEÇİŞİ
+            else if (startInStaffRoom && endInStorage)
+            {
+                rawRoute.Add(staffDoorInside);
+                rawRoute.Add(staffDoorOutside);
+                rawRoute.Add(storageAislePos);
             }
             else if (startInStorage && endInStaffRoom)
             {
-                route.Add(storageAislePos);
-                route.Add(staffDoorOutside);
-                route.Add(staffDoorInside);
+                rawRoute.Add(storageAislePos);
+                rawRoute.Add(staffDoorOutside);
+                rawRoute.Add(staffDoorInside);
             }
-            // 2. PERSONEL ODASI <-> DÜKKAN / DIŞARI GEÇİŞİ
-            else if (startInStaffRoom && (endInStore || endOutside))
+            // 7. PERSONEL ODASI <-> DÜKKAN / ÖN DIŞ GEÇİŞİ
+            else if (startInStaffRoom && (endInStore || endInFrontOutside))
             {
-                route.Add(staffDoorInside);
-                route.Add(staffDoorOutside);
-                route.Add(storageAislePos);
-                route.Add(storageDoorStorageSide);
-                route.Add(storageDoorStoreSide);
-                route.Add(storeFoyerPos);
-                if (endOutside)
+                rawRoute.Add(staffDoorInside);
+                rawRoute.Add(staffDoorOutside);
+                rawRoute.Add(storageAislePos);
+                rawRoute.Add(storageDoorStorageSide);
+                rawRoute.Add(storageDoorStoreSide);
+                rawRoute.Add(storeFoyerPos);
+                if (endInFrontOutside)
                 {
-                    route.Add(storeOutsidePos);
+                    rawRoute.Add(storeOutsidePos);
                 }
             }
-            else if ((startInStore || startOutside) && endInStaffRoom)
+            else if ((startInStore || startInFrontOutside) && endInStaffRoom)
             {
-                if (startOutside)
+                if (startInFrontOutside)
                 {
-                    route.Add(storeOutsidePos);
+                    rawRoute.Add(storeOutsidePos);
                 }
-                route.Add(storeFoyerPos);
-                route.Add(storageDoorStoreSide);
-                route.Add(storageDoorStorageSide);
-                route.Add(storageAislePos);
-                route.Add(staffDoorOutside);
-                route.Add(staffDoorInside);
+                rawRoute.Add(storeFoyerPos);
+                rawRoute.Add(storageDoorStoreSide);
+                rawRoute.Add(storageDoorStorageSide);
+                rawRoute.Add(storageAislePos);
+                rawRoute.Add(staffDoorOutside);
+                rawRoute.Add(staffDoorInside);
             }
-            // 3. DEPO <-> DÜKKAN / DIŞARI GEÇİŞİ
-            else if (startInStorage && (endInStore || endOutside))
+            // 8. DEPO <-> DÜKKAN / ÖN DIŞ GEÇİŞİ
+            else if (startInStorage && (endInStore || endInFrontOutside))
             {
-                route.Add(storageDoorStorageSide);
-                route.Add(storageDoorStoreSide);
-                route.Add(storeFoyerPos);
-                if (endOutside)
+                rawRoute.Add(storageDoorStorageSide);
+                rawRoute.Add(storageDoorStoreSide);
+                rawRoute.Add(storeFoyerPos);
+                if (endInFrontOutside)
                 {
-                    route.Add(storeOutsidePos);
+                    rawRoute.Add(storeOutsidePos);
                 }
             }
-            else if ((startInStore || startOutside) && endInStorage)
+            else if ((startInStore || startInFrontOutside) && endInStorage)
             {
-                if (startOutside)
+                if (startInFrontOutside)
                 {
-                    route.Add(storeOutsidePos);
+                    rawRoute.Add(storeOutsidePos);
                 }
-                route.Add(storeFoyerPos);
-                route.Add(storageDoorStoreSide);
-                route.Add(storageDoorStorageSide);
-                route.Add(storageAislePos);
+                rawRoute.Add(storeFoyerPos);
+                rawRoute.Add(storageDoorStoreSide);
+                rawRoute.Add(storageDoorStorageSide);
+                rawRoute.Add(storageAislePos);
             }
-            // 4. DÜKKAN <-> DIŞARI GEÇİŞİ
-            else if (startInStore && endOutside)
+            // 9. DÜKKAN <-> ÖN DIŞ GEÇİŞİ
+            else if (startInStore && endInFrontOutside)
             {
-                route.Add(new Vector3(-5.0f, 0.05f, -1.0f));
-                route.Add(storeOutsidePos);
+                rawRoute.Add(new Vector3(-5.0f, 0.05f, -1.0f));
+                rawRoute.Add(storeOutsidePos);
             }
-            else if (startOutside && endInStore)
+            else if (startInFrontOutside && endInStore)
             {
-                route.Add(storeOutsidePos);
-                route.Add(new Vector3(-5.0f, 0.05f, -1.0f));
+                rawRoute.Add(storeOutsidePos);
+                rawRoute.Add(new Vector3(-5.0f, 0.05f, -1.0f));
             }
 
-            route.Add(endPos);
+            rawRoute.Add(endPos);
+
+            // ROTA TEMİZLEME (Aynı veya çok yakın ara noktaları ayıkla)
+            List<Vector3> route = new List<Vector3>();
+            for (int i = 0; i < rawRoute.Count; i++)
+            {
+                Vector3 pt = rawRoute[i];
+                if (route.Count == 0 || Vector3.Distance(route[route.Count - 1], pt) > 0.25f)
+                {
+                    route.Add(pt);
+                }
+            }
+            if (route.Count == 0 || Vector3.Distance(route[route.Count - 1], endPos) > 0.08f)
+            {
+                route.Add(endPos);
+            }
+
             return route;
         }
 
@@ -1640,6 +1787,110 @@ namespace Farm2Shelf.Environment
 
                 if (data.taskTimer <= 0f)
                 {
+                    if (data.isGatheringForOnlineOrder && data.targetOnlineOrder != null)
+                    {
+                        if (data.isCarryingDeliveryBoxToMotorcycle)
+                        {
+                            // A) MOTORSİKLETİN YANINA ULAŞILDI: Motora doğru dön ve koli bagajına yükle!
+                            if (data.targetOnlineOrder.assignedMotorcycle != null)
+                            {
+                                Vector3 dirToMoto = data.targetOnlineOrder.assignedMotorcycle.transform.position - data.staffObj.transform.position;
+                                dirToMoto.y = 0f;
+                                if (dirToMoto != Vector3.zero) data.staffObj.transform.rotation = Quaternion.LookRotation(dirToMoto);
+                            }
+
+                            var finishedOrder = data.targetOnlineOrder;
+                            data.targetOnlineOrder = null;
+                            data.isGatheringForOnlineOrder = false;
+                            data.isCarryingDeliveryBoxToMotorcycle = false;
+                            data.onlineGatherItems.Clear();
+                            data.currentOnlineGatherIndex = 0;
+                            ClearCarriedBoxesOnStaff(data);
+
+                            if (OnlineMarketOrderManager.Instance != null && finishedOrder != null)
+                            {
+                                OnlineMarketOrderManager.Instance.NotifyOrderGatheredByStocker(finishedOrder);
+                            }
+
+                            Vector3 popupPos = (data.staffObj != null) ? data.staffObj.transform.position : Vector3.zero;
+                            ShowStockPopup(popupPos, "🛵 Sipariş Motora Yüklendi! ✨");
+
+                            // Reyoncu işini bitirdi: Derhal Mal Kabul kapısından dükkan/depo içine dönüş rotasını başlat!
+                            Vector3 returnRestSpot = GetBreakRoomTargetPosition(data);
+                            data.waypoints = BuildStructuredStaffWaypoints(data.staffObj.transform.position, returnRestSpot);
+                            data.currentWaypointIndex = 1;
+                            data.taskTimer = 0.5f;
+                            return;
+                        }
+                        else
+                        {
+                            // B) REYON VEYA DEPO RAFINA ULAŞILDI: Ürünü raftan topla!
+                            if (data.onlineGatherItems != null && data.currentOnlineGatherIndex < data.onlineGatherItems.Count)
+                            {
+                                var gatherItem = data.onlineGatherItems[data.currentOnlineGatherIndex];
+                                if (gatherItem != null && gatherItem.shelf != null)
+                                {
+                                    Vector3 faceDir = gatherItem.shelf.transform.forward;
+                                    faceDir.y = 0f;
+                                    if (faceDir != Vector3.zero) data.staffObj.transform.rotation = Quaternion.LookRotation(faceDir);
+
+                                    if (gatherItem.rowIndex >= 0 && gatherItem.rowIndex < gatherItem.shelf.rows.Length)
+                                    {
+                                        var row = gatherItem.shelf.rows[gatherItem.rowIndex];
+                                        if (row != null)
+                                        {
+                                            int actualTake = Mathf.Min(gatherItem.amountToGather, row.currentStock);
+                                            row.currentStock -= actualTake;
+                                            if (row.currentStock <= 0 && gatherItem.shelf.FurnitureType == FurnitureType.StorageShelf)
+                                            {
+                                                row.productName = "";
+                                                row.productId = "";
+                                                row.unitPrice = 0f;
+                                            }
+                                            gatherItem.shelf.UpdateRow3DProductMeshes(gatherItem.rowIndex + 1);
+
+                                            if (gatherItem.productIndexInOrder >= 0 && gatherItem.productIndexInOrder < data.targetOnlineOrder.gatheredQuantities.Count)
+                                            {
+                                                data.targetOnlineOrder.gatheredQuantities[gatherItem.productIndexInOrder] += actualTake;
+                                            }
+
+                                            string prodName = gatherItem.productDef != null ? gatherItem.productDef.LocalizedName : "Ürün";
+                                            ShowStockPopup(data.staffObj.transform.position, $"+{actualTake} {prodName} Toplandı 🛍️");
+                                        }
+                                    }
+                                }
+
+                                data.currentOnlineGatherIndex++;
+                            }
+
+                            // Sırada toplanacak başka raf var mı?
+                            if (data.onlineGatherItems != null && data.currentOnlineGatherIndex < data.onlineGatherItems.Count)
+                            {
+                                var nextItem = data.onlineGatherItems[data.currentOnlineGatherIndex];
+                                if (nextItem != null && nextItem.shelf != null)
+                                {
+                                    Vector3 nextShelfPos = nextItem.shelf.GetFrontInteractionPosition(1.2f);
+                                    data.waypoints = BuildStructuredStaffWaypoints(data.staffObj.transform.position, nextShelfPos);
+                                    data.currentWaypointIndex = 1;
+                                    return;
+                                }
+                            }
+
+                            // Tüm ürünler raflardan toplandı: Şimdi koliyi eline al ve motora yönel!
+                            CreateCarriedBoxesOnStaff(data, 1);
+                            data.isCarryingDeliveryBoxToMotorcycle = true;
+
+                            Vector3 motoPos = (data.targetOnlineOrder != null && data.targetOnlineOrder.assignedMotorcycle != null)
+                                ? data.targetOnlineOrder.assignedMotorcycle.transform.position + new Vector3(0.40f, 0f, 0f)
+                                : new Vector3(13.0f, 0.05f, 8.0f);
+
+                            data.waypoints = BuildStructuredStaffWaypoints(data.staffObj.transform.position, motoPos);
+                            data.currentWaypointIndex = 1;
+                            ShowStockPopup(data.staffObj.transform.position, "📦 Sipariş Paketlendi -> Motora Gidiyor");
+                            return;
+                        }
+                    }
+
                     if (data.isUnloadingTruck)
                     {
                         if (data.isFetchingFromTruck)
@@ -1983,6 +2234,19 @@ namespace Farm2Shelf.Environment
             }
 
             // ==================== 3. GÖREV ARAMA & ATAMA ====================
+            if (TimeManager.Instance != null)
+            {
+                int curHour = TimeManager.Instance.Hour;
+                int curMin = TimeManager.Instance.Minute;
+                bool isShiftActive = IsStaffShiftActive(data.staffMember, curHour, curMin, out bool isEarly);
+                if (!isShiftActive || data.isLeavingShift)
+                {
+                    // Personelin vardiyası bitmiş: Asla yeni koli görevi arama, dinlenme odasına/çıkışa geç!
+                    ExecuteBreakRoomRestAndSeating(data, deltaTime);
+                    return;
+                }
+            }
+
             var shelves = PlacedFurnitureController.AllPlacedFurniture;
 
             bool isTruckWaitingToUnload = (WholesaleTruckManager.Instance != null &&
@@ -2158,7 +2422,98 @@ namespace Farm2Shelf.Environment
                 return;
             }
 
-            // ==================== 3. DOLDURULACAK RAF YOKSA PERSONEL DİNLENME ODASINDA BEKLE & KOLTUĞA OTUR ====================
+            // ==================== GÖREV 3: ONLINE SİPARİŞ ÜRÜNLERİNİ REYONLARDAN TOPLAYIP MOTORA YÜKLEME ====================
+            if (OnlineMarketOrderManager.Instance != null)
+            {
+                OnlineCustomerOrder onlineOrder = OnlineMarketOrderManager.Instance.GetNextOrderNeedingStocker();
+                if (onlineOrder != null && onlineOrder.assignedMotorcycle != null)
+                {
+                    // Siparişi tek bir reyoncuya rezerve et (2. reyoncu aynı siparişi alamaz ve stokları ziyan etmez!)
+                    onlineOrder.isAssignedToStocker = true;
+
+                    FreeSofaSeat(data);
+                    data.isSitting = false;
+                    ResetLimbsToRest(data);
+                    ClearCarriedBoxesOnStaff(data); // Henüz elinde koli YOK!
+
+                    data.isGatheringForOnlineOrder = true;
+                    data.isCarryingDeliveryBoxToMotorcycle = false;
+                    data.targetOnlineOrder = onlineOrder;
+                    data.onlineGatherItems.Clear();
+                    data.currentOnlineGatherIndex = 0;
+
+                    // Siparişteki her ürün için dükkan reyonlarını ve depo raflarını tara
+                    for (int p = 0; p < onlineOrder.requestedProducts.Count; p++)
+                    {
+                        var reqProd = onlineOrder.requestedProducts[p];
+                        int reqQty = onlineOrder.requestedQuantities[p];
+                        int plannedGather = 0;
+
+                        // 1. Önce Mağaza Raflarından ara, sonra Depo Raflarından ara
+                        foreach (var f in shelves)
+                        {
+                            if (f == null || f.rows == null) continue;
+                            for (int r = 0; r < f.rows.Length; r++)
+                            {
+                                var row = f.rows[r];
+                                if (row != null && row.currentStock > 0 && (row.productName == reqProd.name || row.productName == reqProd.nameEn || (!string.IsNullOrEmpty(row.productId) && row.productId == reqProd.id)))
+                                {
+                                    // Bu sırada bu görevde henüz rezerve edilmiş miktar
+                                    int alreadyPlannedInThisRow = 0;
+                                    for (int k = 0; k < data.onlineGatherItems.Count; k++)
+                                    {
+                                        if (data.onlineGatherItems[k].shelf == f && data.onlineGatherItems[k].rowIndex == r)
+                                            alreadyPlannedInThisRow += data.onlineGatherItems[k].amountToGather;
+                                    }
+
+                                    int availableInRow = row.currentStock - alreadyPlannedInThisRow;
+                                    if (availableInRow > 0)
+                                    {
+                                        int take = Mathf.Min(reqQty - plannedGather, availableInRow);
+                                        data.onlineGatherItems.Add(new OnlineOrderGatherItem
+                                        {
+                                            shelf = f,
+                                            rowIndex = r,
+                                            productDef = reqProd,
+                                            productIndexInOrder = p,
+                                            amountToGather = take
+                                        });
+                                        plannedGather += take;
+                                    }
+                                }
+                                if (plannedGather >= reqQty) break;
+                            }
+                            if (plannedGather >= reqQty) break;
+                        }
+                    }
+
+                    // Eğer toplanacak raflar bulunduysa ilk rafa doğru yürüyüşü başlat
+                    if (data.onlineGatherItems.Count > 0)
+                    {
+                        var firstItem = data.onlineGatherItems[0];
+                        Vector3 firstShelfPos = firstItem.shelf.GetFrontInteractionPosition(1.2f);
+                        data.waypoints = BuildStructuredStaffWaypoints(data.staffObj.transform.position, firstShelfPos);
+                        data.currentWaypointIndex = 1;
+                        ShowStockPopup(data.staffObj.transform.position, "🛍️ Sipariş Raflardan Toplanıyor...");
+                        return;
+                    }
+                    else
+                    {
+                        // Dükkanda hiç stok yoksa doğrudan teslimat kutusunu hazırlayıp motora gitsin
+                        CreateCarriedBoxesOnStaff(data, 1);
+                        data.isCarryingDeliveryBoxToMotorcycle = true;
+                        Vector3 motoPos = (onlineOrder.assignedMotorcycle != null)
+                            ? onlineOrder.assignedMotorcycle.transform.position + new Vector3(0.40f, 0f, 0f)
+                            : new Vector3(13.0f, 0.05f, 8.0f);
+                        data.waypoints = BuildStructuredStaffWaypoints(data.staffObj.transform.position, motoPos);
+                        data.currentWaypointIndex = 1;
+                        ShowStockPopup(data.staffObj.transform.position, "📦 Sipariş Paketi -> Motora Gidiyor");
+                        return;
+                    }
+                }
+            }
+
+            // ==================== 4. GÖREV YOKSA PERSONEL DİNLENME ODASINDA BEKLE & KOLTUĞA OTUR ====================
             ClearCarriedBoxesOnStaff(data);
             Vector3 restSpot = GetBreakRoomTargetPosition(data);
 

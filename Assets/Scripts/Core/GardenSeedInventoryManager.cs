@@ -85,29 +85,9 @@ namespace Farm2Shelf.Core
 
         private void InitDefaultSeeds()
         {
-            if (barnCropInventory.Count == 0)
-            {
-                SeedAllCropsForTesting(25);
-            }
-        }
-
-        /// <summary>
-        /// Test amaçlı oyundaki tüm mahsul türlerini ahıra ekler.
-        /// </summary>
-        public void SeedAllCropsForTesting(int amountPerCrop = 25)
-        {
-            var allSeeds = GardenSeedDatabase.GetAllSeeds();
-            if (allSeeds != null)
-            {
-                foreach (var s in allSeeds)
-                {
-                    if (s != null && !string.IsNullOrEmpty(s.id))
-                    {
-                        barnCropInventory[s.id] = amountPerCrop;
-                    }
-                }
-            }
-            OnInventoryUpdated?.Invoke();
+            // Ahır varsayılan olarak tamamen boş başlar (0 KG).
+            // Yalnızca oyuncunun tarlalarına ektiği ve hasat ettiği mahsuller burada birikir.
+            barnCropInventory.Clear();
         }
 
         public void AddSeeds(string seedId, int count)

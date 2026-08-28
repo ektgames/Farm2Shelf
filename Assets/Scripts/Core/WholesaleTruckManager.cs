@@ -49,6 +49,18 @@ namespace Farm2Shelf.Core
             return false;
         }
 
+        public void ClearAllPackages()
+        {
+            StopAllCoroutines();
+            IsTruckOnTheWay = false;
+            IsTruckAtDockWaitingForUnload = false;
+            if (PendingTruckPackages != null) PendingTruckPackages.Clear();
+            GameObject trk = GameObject.Find("WholesaleDeliveryTruck");
+            if (trk != null) Destroy(trk);
+            GameObject pObj = GameObject.Find("Popup_TruckStatus");
+            if (pObj != null) Destroy(pObj);
+        }
+
         public static bool DepositPackageToStorageShelf(WholesaleProductDef pDef, out PlacedFurnitureController usedShelf, out int usedRow)
         {
             usedShelf = null;
@@ -122,8 +134,8 @@ namespace Farm2Shelf.Core
             Transform rearDoors;
             GameObject truckObj = WholesaleTruckModelBuilder.CreateTruckModel(out wheels, out rearDoors);
             
-            Vector3 startPos = new Vector3(180f, 0.05f, -7.5f);
-            Vector3 junctionPos = new Vector3(13.0f, 0.05f, -7.5f);   // Mal Kabul Sapağı
+            Vector3 startPos = new Vector3(180f, 0.05f, -7.5f);     // Doğu uçtan Batıya gidiş sağ şeridi (Z: -7.5)
+            Vector3 junctionPos = new Vector3(13.0f, 0.05f, -7.5f); // Mal Kabul Sapağı (Batı Şeridi)
             Vector3 dockPos = new Vector3(13.0f, 0.05f, 1.5f);       // Mal Kabul İndirme Alanı
             Vector3 despawnPos = new Vector3(-180f, 0.05f, -7.5f);   // Harita Sonu Despawn
 
@@ -225,7 +237,7 @@ namespace Farm2Shelf.Core
 
             if (truckObj != null) truckObj.transform.position = junctionPos;
 
-            // 7. AŞAMA: SOLA DÖN VE EN SOLDA DESPAWN OL
+            // 7. AŞAMA: SOLA DÖN VE BATI KORİDORUNDAN KÖPRÜYÜ GEÇEREK EN SOLDA DESPAWN OL
             Quaternion targetRotWest = Quaternion.Euler(0f, -90f, 0f);
             while (truckObj != null && Quaternion.Angle(truckObj.transform.rotation, targetRotWest) > 2f)
             {
@@ -235,7 +247,8 @@ namespace Farm2Shelf.Core
             if (truckObj != null) truckObj.transform.rotation = targetRotWest;
 
             truckCurrentSpeed = driveSpeed;
-            while (truckObj != null && Vector3.Distance(truckObj.transform.position, despawnPos) > 0.3f)
+            Vector3 finalDespawnPos = new Vector3(-340.0f, 0.05f, -7.5f);
+            while (truckObj != null && truckObj.transform.position.x > -339.5f)
             {
                 float targetLimit = driveSpeed;
                 if (CityTrafficManager.Instance != null)
@@ -244,7 +257,20 @@ namespace Farm2Shelf.Core
                 }
                 truckCurrentSpeed = Mathf.MoveTowards(truckCurrentSpeed, targetLimit, 9.0f * Time.deltaTime);
 
-                truckObj.transform.position = Vector3.MoveTowards(truckObj.transform.position, despawnPos, truckCurrentSpeed * Time.deltaTime);
+                Vector3 currentPos = truckObj.transform.position;
+                Vector3 nextPos = Vector3.MoveTowards(currentPos, finalDespawnPos, truckCurrentSpeed * Time.deltaTime);
+
+                // Köprü Kavisini Milimetrik Takip Etme & Eğim Hesaplama
+                float slopeY;
+                float bridgeY = CityTrafficManager.GetBridgeElevation(nextPos.x, nextPos.z, out slopeY);
+                nextPos.y = bridgeY;
+
+                // Eğim Açısına (Pitch) Uyma
+                Vector3 tangentDir = new Vector3(-1f, slopeY * -1f, 0f).normalized;
+                Quaternion targetRot = Quaternion.LookRotation(tangentDir, Vector3.up);
+                truckObj.transform.rotation = Quaternion.RotateTowards(truckObj.transform.rotation, targetRot, 360f * Time.deltaTime);
+
+                truckObj.transform.position = nextPos;
                 RotateWheels(wheels, (truckCurrentSpeed / driveSpeed) * wheelRotateSpeed * Time.deltaTime);
                 yield return null;
             }

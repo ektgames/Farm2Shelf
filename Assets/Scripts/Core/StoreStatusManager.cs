@@ -79,5 +79,6 @@ namespace Farm2Shelf.Core
         public void CloseStore() => SetStoreStatus(false);
 
         public bool IsOpen => isOpen;
+        public bool IsStoreOpen => isOpen;
     }
 }

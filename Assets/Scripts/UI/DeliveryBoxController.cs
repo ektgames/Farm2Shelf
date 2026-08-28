@@ -40,7 +40,7 @@ namespace Farm2Shelf.UI
 
         public void TriggerPlacement()
         {
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen) || Time.unscaledTime - ModalManager.LastModalCloseTime < 0.35f) return;
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen)) return;
             PalletStorageInventoryModalUI.ShowModal();
         }
 

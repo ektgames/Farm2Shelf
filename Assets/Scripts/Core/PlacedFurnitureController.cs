@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using Farm2Shelf.UI;
 using Farm2Shelf.Utils;
+using Farm2Shelf.Environment;
 
 namespace Farm2Shelf.Core
 {
@@ -73,6 +74,7 @@ namespace Farm2Shelf.Core
         private Coroutine longPressCoroutine;
         private Coroutine passiveIncomeCoroutine;
         private bool isLongPressTriggered = false;
+        public bool IsLongPressTriggered => isLongPressTriggered;
 
         private GameObject seasonWarningCanvasObj;
 
@@ -195,6 +197,7 @@ namespace Farm2Shelf.Core
             UpdateSeasonWarningBadge();
 
             EnsureTouchColliders();
+            EnsureChildClickForwarders();
             StartPassiveIncomeRoutine();
         }
 
@@ -308,11 +311,15 @@ namespace Farm2Shelf.Core
                 Vector3 localSize = transform.InverseTransformVector(combinedBounds.size);
                 localSize = new Vector3(Mathf.Abs(localSize.x), Mathf.Abs(localSize.y), Mathf.Abs(localSize.z));
 
+                float extraX = (FurnitureType == FurnitureType.StorageShelf) ? 0.65f : 0.35f;
+                float extraY = (FurnitureType == FurnitureType.StorageShelf) ? 0.65f : 0.35f;
+                float extraZ = (FurnitureType == FurnitureType.StorageShelf) ? 0.65f : 0.35f;
+
                 boxCol.center = localCenter;
                 boxCol.size = new Vector3(
-                    Mathf.Max(1.4f, localSize.x + 0.35f),
-                    Mathf.Max(1.8f, localSize.y + 0.35f),
-                    Mathf.Max(1.4f, localSize.z + 0.35f)
+                    Mathf.Max(1.5f, localSize.x + extraX),
+                    Mathf.Max(2.0f, localSize.y + extraY),
+                    Mathf.Max(1.5f, localSize.z + extraZ)
                 );
 
                 if (IsWalkableFloorDecoration(FurnitureType))
@@ -474,9 +481,15 @@ namespace Farm2Shelf.Core
             if (popup != null) Destroy(popup);
         }
 
+        private void OnMouseDown()
+        {
+            if (isLongPressTriggered) return;
+            OnClickDetected();
+        }
+
         public void OnClickDetected()
         {
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || Time.unscaledTime - ModalManager.LastModalCloseTime < 0.35f) return;
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || Time.unscaledTime - ModalManager.LastModalCloseTime < 0.05f) return;
             if (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing) return;
 
             // Eğer bir atölye makinesiyse doğrudan makine üretim arayüzünü / toplama eylemini aç!
@@ -564,12 +577,20 @@ namespace Farm2Shelf.Core
                     }
                 }
 
+                // Atölye makinesinin aktif üretim durumunu, tarifini ve kalan süresini koru
+                WorkshopMachineState machineState = null;
+                WorkshopMachineController wsMachine = GetComponent<WorkshopMachineController>();
+                if (wsMachine != null)
+                {
+                    machineState = new WorkshopMachineState(wsMachine);
+                }
+
                 // Mevcut kurulu objeyi listeden kaldır ve imha et
                 AllPlacedFurniture.Remove(this);
                 Destroy(gameObject);
 
                 // Tekrar yerleştirme modunu başlat
-                FurniturePlacementManager.Instance.StartReplacement(type, origPos, origRot, currentRows);
+                FurniturePlacementManager.Instance.StartReplacement(type, origPos, origRot, currentRows, machineState);
             }
         }
 

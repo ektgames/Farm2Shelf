@@ -820,7 +820,7 @@ namespace Farm2Shelf.Environment
 
         private void HandleClick()
         {
-            if (Farm2Shelf.UI.ModalManager.IsModalOpen || Farm2Shelf.UI.EKTPhoneManager.IsTabletOpen || (Farm2Shelf.UI.PauseMenuUI.Instance != null && Farm2Shelf.UI.PauseMenuUI.Instance.IsPauseMenuOpen) || Time.unscaledTime - Farm2Shelf.UI.ModalManager.LastModalCloseTime < 0.35f) return;
+            if (Farm2Shelf.UI.ModalManager.IsModalOpen || Farm2Shelf.UI.EKTPhoneManager.IsTabletOpen || (Farm2Shelf.UI.PauseMenuUI.Instance != null && Farm2Shelf.UI.PauseMenuUI.Instance.IsPauseMenuOpen)) return;
 
             Farm2Shelf.UI.PalletStorageInventoryModalUI.ShowModal(isWorkshopMode: true);
         }

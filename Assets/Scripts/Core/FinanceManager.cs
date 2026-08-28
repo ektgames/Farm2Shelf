@@ -156,7 +156,7 @@ namespace Farm2Shelf.Core
         }
 
         // --- HESAPLANAN FİNANSAL METRİKLER ---
-        public int CurrentBalance => EconomyManager.Instance != null ? EconomyManager.Instance.Credits : 500000;
+        public int CurrentBalance => EconomyManager.Instance != null ? EconomyManager.Instance.Credits : 50000;
         public int NetProfit => totalRevenue - totalExpenses;
         public int DailyNetProfit => dailyRevenue - dailyExpenses;
         public int MonthlyNetProfit => monthlyRevenue - monthlyExpenses;

@@ -88,7 +88,7 @@ namespace Farm2Shelf.Core
             }
             else
             {
-                saveData.playerMoney = 400000;
+                saveData.playerMoney = 50000;
             }
 
             // 2. MAĞAZA SEVİYESİ VE TADİLAT RENKLERİ
@@ -307,7 +307,30 @@ namespace Farm2Shelf.Core
                         });
                     }
                 }
+
+                List<StaffMember> courierList = StaffManager.Instance.GetCourierStaffList();
+                if (courierList != null)
+                {
+                    foreach (var cs in courierList)
+                    {
+                        if (cs == null) continue;
+                        saveData.courierStaffList.Add(new StaffSaveData
+                        {
+                            id = cs.id,
+                            name = cs.name,
+                            role = cs.role.ToString(),
+                            isFemale = cs.isFemale,
+                            dailySalary = cs.dailySalary,
+                            shiftHours = cs.shiftHours,
+                            isActive = cs.isActive,
+                            isCalledEarly = false
+                        });
+                    }
+                }
             }
+
+            // 12.b Kurye Motorsiklet Filosu
+            saveData.ownedMotorcycleCount = (CourierManager.Instance != null) ? CourierManager.Instance.OwnedMotorcycleCount : 0;
 
             // 13. TARLADAKİ EKİNLER
             var plots = FieldPlotController.AllPlots;
@@ -690,6 +713,24 @@ namespace Farm2Shelf.Core
                     }
                     StaffManager.Instance.SetFarmStaffList(restoredFarmStaff);
                 }
+
+                if (saveData.courierStaffList != null)
+                {
+                    List<StaffMember> restoredCouriers = new List<StaffMember>();
+                    foreach (var csData in saveData.courierStaffList)
+                    {
+                        if (csData == null) continue;
+                        string normShift = StaffManager.NormalizeShift(csData.shiftHours);
+                        StaffMember member = new StaffMember(csData.id, csData.name, StaffRole.Kurye, normShift, csData.dailySalary, csData.isActive, csData.isFemale);
+                        restoredCouriers.Add(member);
+                    }
+                    StaffManager.Instance.SetCourierStaffList(restoredCouriers);
+                }
+            }
+
+            if (CourierManager.Instance != null)
+            {
+                CourierManager.Instance.RestoreOwnedMotorcycles(saveData.ownedMotorcycleCount);
             }
 
             if (StaffVisualManager.Instance != null)

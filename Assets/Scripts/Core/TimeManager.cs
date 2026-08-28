@@ -212,6 +212,8 @@ namespace Farm2Shelf.Core
 
         public int Hour => currentHour;
         public int Minute => currentMinute;
+        public int CurrentHour => currentHour;
+        public int CurrentMinute => currentMinute;
         public int Day => currentDay;
         public Season CurrentSeason => currentSeason;
         public int Year => currentYear;

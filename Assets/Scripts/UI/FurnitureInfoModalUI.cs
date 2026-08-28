@@ -570,9 +570,24 @@ namespace Farm2Shelf.UI
         {
             if (furniture == null || rData == null || modalCanvasObj == null) return;
 
+            // Alt Pop-up Tam Ekran Karartma & Tıklama Engelleyici Katmanı (SubBackdrop)
+            GameObject subBackdrop = new GameObject("SubBackdrop_Product_Selection");
+            subBackdrop.transform.SetParent(modalCanvasObj.transform, false);
+            RectTransform sbdRect = subBackdrop.AddComponent<RectTransform>();
+            sbdRect.anchorMin = Vector2.zero;
+            sbdRect.anchorMax = Vector2.one;
+            sbdRect.sizeDelta = Vector2.zero;
+
+            Image sbdImg = subBackdrop.AddComponent<Image>();
+            sbdImg.color = new Color(0.04f, 0.06f, 0.10f, 0.75f);
+            sbdImg.raycastTarget = true;
+
+            Button sbdBtn = subBackdrop.AddComponent<Button>();
+            sbdBtn.onClick.AddListener(() => Destroy(subBackdrop));
+
             // Alt Pop-up Paneli (740x660 Panel)
             GameObject subPanel = new GameObject("SubModal_Product_Selection");
-            subPanel.transform.SetParent(modalCanvasObj.transform, false);
+            subPanel.transform.SetParent(subBackdrop.transform, false);
             RectTransform spRect = subPanel.AddComponent<RectTransform>();
             spRect.anchorMin = new Vector2(0.5f, 0.5f);
             spRect.anchorMax = new Vector2(0.5f, 0.5f);
@@ -655,7 +670,7 @@ namespace Farm2Shelf.UI
             Image sfImg = subFooter.AddComponent<Image>();
             sfImg.color = new Color(0.06f, 0.09f, 0.14f, 1f);
 
-            GameObject closeBtn = CreateButton(subFooter, "❌ İptal / Kapat", new Color(0.45f, 0.50f, 0.55f), () => Destroy(subPanel));
+            GameObject closeBtn = CreateButton(subFooter, "❌ İptal / Kapat", new Color(0.45f, 0.50f, 0.55f), () => Destroy(subBackdrop));
             RectTransform cbRect = closeBtn.GetComponent<RectTransform>();
             cbRect.anchorMin = new Vector2(0.30f, 0.18f);
             cbRect.anchorMax = new Vector2(0.70f, 0.82f);
@@ -928,7 +943,7 @@ namespace Farm2Shelf.UI
                             rData.currentStock = 0; // ÜRÜN İLK DEFA ATANDIĞINDA 0 GELECEK, REYONCU DİZİNCE DOLACAK!
 
                             furniture.UpdateRow3DProductMeshes(rData.rowId);
-                            Destroy(subPanel);
+                            Destroy(subBackdrop);
                             ShowModal(furniture); // Ana modali güncelle
 
                             if (TutorialManager.Instance != null)

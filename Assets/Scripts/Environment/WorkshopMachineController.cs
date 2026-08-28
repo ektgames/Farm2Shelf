@@ -125,7 +125,7 @@ namespace Farm2Shelf.Environment
             if (isReadyToCollect)
             {
                 float floatOffset = Mathf.Sin(Time.time * 3.5f) * 0.08f;
-                overheadTransform.localPosition = new Vector3(0f, 2.35f + floatOffset, 0f);
+                overheadTransform.localPosition = new Vector3(0f, 2.70f + floatOffset, 0f);
             }
         }
 
@@ -161,15 +161,15 @@ namespace Farm2Shelf.Environment
 
             GameObject badgeObj = new GameObject("Overhead_Badge_3D");
             badgeObj.transform.SetParent(transform, false);
-            badgeObj.transform.localPosition = new Vector3(0f, 2.35f, 0f);
+            badgeObj.transform.localPosition = new Vector3(0f, 2.70f, 0f);
             overheadTransform = badgeObj.transform;
 
-            // 1. 3D Arka Plan Paneli
+            // 1. 3D Arka Plan Paneli (Büyütülmüş Devasa Gösterge)
             GameObject plateObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
             plateObj.name = "Badge_Plate";
             plateObj.transform.SetParent(badgeObj.transform, false);
             plateObj.transform.localPosition = Vector3.zero;
-            plateObj.transform.localScale = new Vector3(1.80f, 0.55f, 0.04f);
+            plateObj.transform.localScale = new Vector3(2.60f, 0.85f, 0.06f);
             plateTransform = plateObj.transform;
 
             Collider c = plateObj.GetComponent<Collider>();
@@ -181,11 +181,11 @@ namespace Farm2Shelf.Environment
             // 2. 3D TextMesh (3D Dünyada Kusursuz Görünen Net Metin)
             GameObject textObj = new GameObject("Badge_Text");
             textObj.transform.SetParent(badgeObj.transform, false);
-            textObj.transform.localPosition = new Vector3(0f, 0f, -0.04f);
+            textObj.transform.localPosition = new Vector3(0f, 0f, -0.05f);
 
             statusTextMesh = textObj.AddComponent<TextMesh>();
-            statusTextMesh.fontSize = 54;
-            statusTextMesh.characterSize = 0.055f;
+            statusTextMesh.fontSize = 64;
+            statusTextMesh.characterSize = 0.085f;
             statusTextMesh.alignment = TextAlignment.Center;
             statusTextMesh.anchor = TextAnchor.MiddleCenter;
             statusTextMesh.fontStyle = FontStyle.Bold;
@@ -209,15 +209,15 @@ namespace Farm2Shelf.Environment
                 if (!overheadTransform.gameObject.activeSelf) overheadTransform.gameObject.SetActive(true);
 
                 if (plateRenderer != null) plateRenderer.sharedMaterial = readyBadgeMat;
-                if (plateTransform != null) plateTransform.localScale = new Vector3(2.0f, 0.65f, 0.04f);
+                if (plateTransform != null) plateTransform.localScale = new Vector3(2.80f, 0.90f, 0.06f);
 
                 string readyWord = LocalizationManager.L("WS3D_ReadyWord", "HAZIR!", "READY!");
                 string collectWord = LocalizationManager.L("WS3D_CollectWord", "Topla", "Collect");
 
                 if (statusTextMesh != null)
                 {
-                    statusTextMesh.fontSize = 40;
-                    statusTextMesh.characterSize = 0.050f;
+                    statusTextMesh.fontSize = 50;
+                    statusTextMesh.characterSize = 0.075f;
                     statusTextMesh.color = new Color(1.0f, 0.98f, 0.75f);
                     statusTextMesh.text = $"★ {readyWord} ★\n[{collectWord}]";
                 }
@@ -227,17 +227,17 @@ namespace Farm2Shelf.Environment
                 if (!overheadTransform.gameObject.activeSelf) overheadTransform.gameObject.SetActive(true);
 
                 if (plateRenderer != null) plateRenderer.sharedMaterial = producingBadgeMat;
-                if (plateTransform != null) plateTransform.localScale = new Vector3(1.70f, 0.52f, 0.04f);
+                if (plateTransform != null) plateTransform.localScale = new Vector3(2.60f, 0.85f, 0.06f);
 
                 int mins = Mathf.FloorToInt(remainingSeconds / 60f);
                 int secs = Mathf.FloorToInt(remainingSeconds % 60f);
 
                 if (statusTextMesh != null)
                 {
-                    statusTextMesh.fontSize = 54;
-                    statusTextMesh.characterSize = 0.055f;
+                    statusTextMesh.fontSize = 64;
+                    statusTextMesh.characterSize = 0.085f;
                     statusTextMesh.color = Color.white;
-                    statusTextMesh.text = $"{mins:00}:{secs:00}";
+                    statusTextMesh.text = $"⏳ {mins:00}:{secs:00}";
                 }
             }
             else
@@ -314,6 +314,8 @@ namespace Farm2Shelf.Environment
 
         public void OnPointerClick(PointerEventData eventData)
         {
+            var placed = GetComponent<PlacedFurnitureController>();
+            if (placed != null && placed.IsLongPressTriggered) return;
             HandleInteraction();
         }
 
@@ -324,6 +326,9 @@ namespace Farm2Shelf.Environment
 
         public void HandleInteraction()
         {
+            bool isPauseOpen = (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen);
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || isPauseOpen) return;
+
             if (isReadyToCollect)
             {
                 CollectFinishedProduct();
@@ -334,7 +339,7 @@ namespace Farm2Shelf.Environment
         }
 
         /// <summary>
-        /// Kayıtlı oyundan makine durumunu geri yükler.
+        /// Kayıtlı oyundan veya taşıma işleminden makine durumunu geri yükler.
         /// </summary>
         public void RestoreState(string recipeId, bool producing, bool ready, float remainingSec, float duration)
         {
@@ -344,6 +349,53 @@ namespace Farm2Shelf.Environment
             remainingSeconds = remainingSec;
             totalDuration = duration;
             UpdateOverheadDisplay();
+        }
+    }
+
+    /// <summary>
+    /// Makine taşınırken veya kaydedilirken üretim durumunu, tarifini ve kalan süresini koruyan veri yapısı.
+    /// </summary>
+    [System.Serializable]
+    public class WorkshopMachineState
+    {
+        public string machineInstanceId;
+        public WorkshopMachineType machineType;
+        public string activeRecipeId;
+        public bool isProducing;
+        public bool isReadyToCollect;
+        public float remainingSeconds;
+        public float totalDuration;
+
+        public WorkshopMachineState() {}
+
+        public WorkshopMachineState(WorkshopMachineController machine)
+        {
+            if (machine != null)
+            {
+                this.machineInstanceId = machine.machineInstanceId;
+                this.machineType = machine.machineType;
+                this.activeRecipeId = machine.activeRecipeId;
+                this.isProducing = machine.isProducing;
+                this.isReadyToCollect = machine.isReadyToCollect;
+                this.remainingSeconds = machine.remainingSeconds;
+                this.totalDuration = machine.totalDuration;
+            }
+        }
+
+        public void ApplyTo(WorkshopMachineController machine)
+        {
+            if (machine == null) return;
+            if (!string.IsNullOrEmpty(this.machineInstanceId))
+            {
+                machine.machineInstanceId = this.machineInstanceId;
+            }
+            machine.RestoreState(
+                this.activeRecipeId,
+                this.isProducing,
+                this.isReadyToCollect,
+                this.remainingSeconds,
+                this.totalDuration
+            );
         }
     }
 }

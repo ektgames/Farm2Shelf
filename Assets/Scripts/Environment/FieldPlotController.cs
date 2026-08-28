@@ -243,7 +243,7 @@ namespace Farm2Shelf.Environment
             }
         }
 
-        private void ResetPlotToEmpty()
+        public void ResetPlotToEmpty()
         {
             State = PlotState.Empty;
             PlantedSeedId = "";
@@ -251,6 +251,21 @@ namespace Farm2Shelf.Environment
             NeedsWater = false;
             WateredToday = false;
             UpdateVisuals();
+        }
+
+        public static void ResetAllPlotsToEmpty()
+        {
+            if (AllPlots != null)
+            {
+                for (int i = 0; i < AllPlots.Count; i++)
+                {
+                    var p = AllPlots[i];
+                    if (p != null)
+                    {
+                        p.ResetPlotToEmpty();
+                    }
+                }
+            }
         }
 
         private void UpdateVisuals()
@@ -521,6 +536,7 @@ namespace Farm2Shelf.Environment
             btTxt.text = $"<size={emojiSize}>{s.iconEmoji}</size>\n<b>{cropShortName}</b>\n<size={countSize}><color=#00FFA3>x{ownedCount}</color></size>";
             btTxt.alignment = TextAnchor.MiddleCenter;
             btTxt.color = Color.white;
+            btTxt.raycastTarget = false;
             btTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
             btTxt.verticalOverflow = VerticalWrapMode.Truncate;
         }

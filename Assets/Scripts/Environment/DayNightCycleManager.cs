@@ -35,6 +35,8 @@ namespace Farm2Shelf.Environment
 
         public static Material HeadlightOnMaterial => Instance != null ? Instance.headlightOnMat : null;
         public static Material HeadlightOffMaterial => Instance != null ? Instance.headlightOffMat : null;
+        public static Material WindowGlowOnMaterial => Instance != null ? Instance.windowGlowOnMat : null;
+        public static Material WindowGlowOffMaterial => Instance != null ? Instance.windowGlowOffMat : null;
         public bool IsNight => isNight;
 
         private bool isNight = false;
@@ -47,12 +49,12 @@ namespace Farm2Shelf.Environment
                 return;
             }
             Instance = this;
+            CreateMaterials();
         }
 
         private void Start()
         {
             FindOrCreateSun();
-            CreateMaterials();
             ScanAndCollectSceneNightObjects();
             UpdateLightingImmediate();
         }
@@ -79,43 +81,54 @@ namespace Farm2Shelf.Environment
 
         private void CreateMaterials()
         {
+            if (bulbOnMat != null && windowGlowOnMat != null) return;
+
             Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
 
             // 1. Sokak Lamba Ampulü (Gece Yanan Sıcak Sarı)
             bulbOnMat = new Material(shader) { name = "LampBulb_ON", color = new Color(1.0f, 0.88f, 0.45f) };
             if (bulbOnMat.HasProperty("_BaseColor")) bulbOnMat.SetColor("_BaseColor", new Color(1.0f, 0.88f, 0.45f));
+            if (bulbOnMat.HasProperty("_Color")) bulbOnMat.SetColor("_Color", new Color(1.0f, 0.88f, 0.45f));
             if (bulbOnMat.HasProperty("_EmissionColor"))
             {
-                bulbOnMat.SetColor("_EmissionColor", new Color(1.0f, 0.88f, 0.45f) * 2.5f);
+                bulbOnMat.SetColor("_EmissionColor", new Color(1.0f, 0.88f, 0.45f) * 3.5f);
                 bulbOnMat.EnableKeyword("_EMISSION");
             }
+            bulbOnMat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
 
             bulbOffMat = new Material(shader) { name = "LampBulb_OFF", color = new Color(0.35f, 0.35f, 0.38f) };
             if (bulbOffMat.HasProperty("_BaseColor")) bulbOffMat.SetColor("_BaseColor", new Color(0.35f, 0.35f, 0.38f));
+            if (bulbOffMat.HasProperty("_Color")) bulbOffMat.SetColor("_Color", new Color(0.35f, 0.35f, 0.38f));
 
-            // 2. Çevre Binaların Camları (Gece İçi Aydınlatmalı Işıyan Sarı Cam)
-            windowGlowOnMat = new Material(shader) { name = "WindowGlass_ON", color = new Color(1.0f, 0.85f, 0.40f, 0.95f) };
-            if (windowGlowOnMat.HasProperty("_BaseColor")) windowGlowOnMat.SetColor("_BaseColor", new Color(1.0f, 0.85f, 0.40f, 0.95f));
+            // 2. Çevre Binaların Camları (Gece İçi Aydınlatmalı Işıyan Sıcak Sarı Cam)
+            windowGlowOnMat = new Material(shader) { name = "WindowGlass_ON", color = new Color(1.0f, 0.88f, 0.35f, 1.0f) };
+            if (windowGlowOnMat.HasProperty("_BaseColor")) windowGlowOnMat.SetColor("_BaseColor", new Color(1.0f, 0.88f, 0.35f, 1.0f));
+            if (windowGlowOnMat.HasProperty("_Color")) windowGlowOnMat.SetColor("_Color", new Color(1.0f, 0.88f, 0.35f, 1.0f));
             if (windowGlowOnMat.HasProperty("_EmissionColor"))
             {
-                windowGlowOnMat.SetColor("_EmissionColor", new Color(1.0f, 0.80f, 0.35f) * 2.0f);
+                windowGlowOnMat.SetColor("_EmissionColor", new Color(1.0f, 0.85f, 0.30f) * 1.20f);
                 windowGlowOnMat.EnableKeyword("_EMISSION");
             }
+            windowGlowOnMat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
 
-            windowGlowOffMat = new Material(shader) { name = "WindowGlass_OFF", color = new Color(0.40f, 0.75f, 0.95f, 0.75f) };
-            if (windowGlowOffMat.HasProperty("_BaseColor")) windowGlowOffMat.SetColor("_BaseColor", new Color(0.40f, 0.75f, 0.95f, 0.75f));
+            windowGlowOffMat = new Material(shader) { name = "WindowGlass_OFF", color = new Color(0.20f, 0.35f, 0.50f, 0.90f) };
+            if (windowGlowOffMat.HasProperty("_BaseColor")) windowGlowOffMat.SetColor("_BaseColor", new Color(0.20f, 0.35f, 0.50f, 0.90f));
+            if (windowGlowOffMat.HasProperty("_Color")) windowGlowOffMat.SetColor("_Color", new Color(0.20f, 0.35f, 0.50f, 0.90f));
 
             // 3. Araba Farları (Gece Yanan Parlak Beyaz-Sarı)
             headlightOnMat = new Material(shader) { name = "Headlight_ON", color = new Color(1.0f, 0.98f, 0.85f) };
             if (headlightOnMat.HasProperty("_BaseColor")) headlightOnMat.SetColor("_BaseColor", new Color(1.0f, 0.98f, 0.85f));
+            if (headlightOnMat.HasProperty("_Color")) headlightOnMat.SetColor("_Color", new Color(1.0f, 0.98f, 0.85f));
             if (headlightOnMat.HasProperty("_EmissionColor"))
             {
-                headlightOnMat.SetColor("_EmissionColor", new Color(1.0f, 0.98f, 0.85f) * 3.0f);
+                headlightOnMat.SetColor("_EmissionColor", new Color(1.0f, 0.98f, 0.85f) * 3.5f);
                 headlightOnMat.EnableKeyword("_EMISSION");
             }
+            headlightOnMat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
 
             headlightOffMat = new Material(shader) { name = "Headlight_OFF", color = new Color(0.85f, 0.85f, 0.88f) };
             if (headlightOffMat.HasProperty("_BaseColor")) headlightOffMat.SetColor("_BaseColor", new Color(0.85f, 0.85f, 0.88f));
+            if (headlightOffMat.HasProperty("_Color")) headlightOffMat.SetColor("_Color", new Color(0.85f, 0.85f, 0.88f));
         }
 
         public void RegisterStreetLamp(GameObject bulbObj, Light pLight)
@@ -177,6 +190,32 @@ namespace Farm2Shelf.Environment
             }
         }
 
+        public void RegisterApartmentWindow(GameObject winObj, bool isLitTonight)
+        {
+            if (winObj == null) return;
+            Renderer r = winObj.GetComponent<Renderer>();
+            if (r == null) return;
+
+            if (isLitTonight)
+            {
+                if (!buildingWindows.Contains(r))
+                {
+                    buildingWindows.Add(r);
+                }
+                if (isNight && windowGlowOnMat != null)
+                {
+                    r.sharedMaterial = windowGlowOnMat;
+                }
+            }
+            else
+            {
+                if (windowGlowOffMat != null)
+                {
+                    r.sharedMaterial = windowGlowOffMat;
+                }
+            }
+        }
+
         public void ClearStoreInteriorLights()
         {
             storeInteriorLights.Clear();
@@ -184,15 +223,18 @@ namespace Farm2Shelf.Environment
 
         private void ScanAndCollectSceneNightObjects()
         {
-            // Sahnedeki binaların camlarını tara (Rastgele %65'i gece ışıldasın)
             Renderer[] allRenderers = Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None);
             foreach (var r in allRenderers)
             {
                 if (r == null || r.gameObject == null) continue;
                 string n = r.gameObject.name;
-                if ((n.Contains("Window_Glass_Pane") || n.Contains("Window_Glass_Pane_Side") || n.Contains("Window_Glass_Pane_Back")) && !buildingWindows.Contains(r))
+                if ((n.Contains("Window_Glass_Pane") || n.Contains("Apartment_Window_Glass_Lit")) && !buildingWindows.Contains(r))
                 {
-                    if (Random.value < 0.70f)
+                    if (n.Contains("Apartment_Window_Glass_Lit"))
+                    {
+                        buildingWindows.Add(r);
+                    }
+                    else if (Random.value < 0.70f)
                     {
                         buildingWindows.Add(r);
                     }

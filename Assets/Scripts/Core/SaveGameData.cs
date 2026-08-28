@@ -159,10 +159,12 @@ namespace Farm2Shelf.Core
         // Palette Bekleyen Teslimat Kolileri (Mağaza)
         public List<string> pendingDeliveryBoxes = new List<string>();
 
-        // Personel Kadrosu (Mağaza & Çiftlik)
+        // Personel Kadrosu (Mağaza, Çiftlik & Online Market Kuryeleri)
         public int activeStaffCount;
         public List<StaffSaveData> staffList = new List<StaffSaveData>();
         public List<StaffSaveData> farmStaffList = new List<StaffSaveData>();
+        public List<StaffSaveData> courierStaffList = new List<StaffSaveData>();
+        public int ownedMotorcycleCount;
 
         // Tarladaki Ekinler
         public List<CropSaveData> fieldCrops = new List<CropSaveData>();

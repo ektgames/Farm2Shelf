@@ -95,11 +95,11 @@ namespace Farm2Shelf.Environment
             GameObject root = new GameObject("Customer_" + type.ToString());
             Transform tRoot = root.transform;
 
-            // Fiziksel Çarpışma ve Kapı Algılama Bileşenleri
+            // Fiziksel Çarpışma ve Kapı/Tıklama Algılama Bileşenleri (Mobil Dokunmatik Uyumlu Geniş Alan)
             CapsuleCollider col = root.AddComponent<CapsuleCollider>();
-            col.center = new Vector3(0f, 0.9f, 0f);
-            col.radius = 0.35f;
-            col.height = 1.8f;
+            col.center = new Vector3(0f, 1.0f, 0f);
+            col.radius = 0.55f;
+            col.height = 2.0f;
 
             Rigidbody rb = root.AddComponent<Rigidbody>();
             rb.isKinematic = true;

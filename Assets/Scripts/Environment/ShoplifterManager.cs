@@ -1,16 +1,20 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using Farm2Shelf.Core;
 using Farm2Shelf.UI;
+using Random = UnityEngine.Random;
 
 namespace Farm2Shelf.Environment
 {
     /// <summary>
-    /// Oyundaki Erkek Hırsız (Shoplifter) Yapay Zekasını ve Güvenlik Görevlisi Kovalamaca Sistemini Yönetir.
-    /// Hırsız gün içinde nadiren dükkana gelir, raflara yanaşıp ürün çalar ve kaçar.
-    /// Güvenlik vardiyadaysa peşine düşer, %90 ihtimalle yakalar ve çalınan ürünlerin parası ANINDA hesaba yatar!
+    /// Oyundaki Erkek Hırsız (Shoplifter) Yapay Zekasını ve Güvenlik Görevlisi / Oyuncu Müdahale Sistemini Yönetir.
+    /// Hırsız gün içinde nadiren dükkana gelir, raflara yanaşıp ürün çalar ve kaçmaya çalışır.
+    /// Güvenlik görevlisi veya Oyuncu (Dokunarak / Tıklayarak) hırsızı yakalayabilir ve çalınan ürünler kasaya yatar!
+    /// Dükkan kapansa dahi hırsız donup kalmaz, güvenli kaçış rotasını tamamlayıp despawn olur.
     /// </summary>
     public class ShoplifterManager : MonoBehaviour
     {
@@ -22,6 +26,7 @@ namespace Farm2Shelf.Environment
             StealingFromShelf,
             FleeingStore,
             CapturedBySecurity,
+            CapturedByPlayer,
             Escaped
         }
 
@@ -37,6 +42,7 @@ namespace Farm2Shelf.Environment
 
             public List<Transform> leftLimbs = new List<Transform>();
             public List<Transform> rightLimbs = new List<Transform>();
+            public Transform overheadTagTransform;
             public float walkCycleTimer;
 
             public float taskTimer;
@@ -44,6 +50,9 @@ namespace Farm2Shelf.Environment
             public bool isEscaped;
             public List<Vector3> waypoints;
             public int currentWaypointIndex;
+
+            public Vector3 lastPos;
+            public float stuckTimer;
         }
 
         private readonly List<ShoplifterData> activeShoplifters = new List<ShoplifterData>();
@@ -74,7 +83,6 @@ namespace Farm2Shelf.Environment
 
         private void Start()
         {
-            // Dükkan açılır açılmaz hırsız gelmesin!
             nextSpawnTimer = Time.time + Random.Range(120f, 240f);
         }
 
@@ -85,9 +93,10 @@ namespace Farm2Shelf.Environment
 
         private void Update()
         {
-            if (StoreStatusManager.Instance == null || !StoreStatusManager.Instance.IsOpen) return;
+            int currentHour = (TimeManager.Instance != null) ? TimeManager.Instance.Hour : 12;
+            bool isStoreOpen = (StoreStatusManager.Instance != null && StoreStatusManager.Instance.IsOpen);
 
-            // Gün Takibi ve Günlük 2 Hırsız Limiti Sıfırlama:
+            // 1. Gün Takibi ve Günlük 2 Hırsız Limiti Sıfırlama:
             if (TimeManager.Instance != null)
             {
                 int gameDay = TimeManager.Instance.Day;
@@ -98,30 +107,30 @@ namespace Farm2Shelf.Environment
                 }
             }
 
-            // GÜNDE EN FAZLA KESİNLİKLE 2 KERE HIRSIZ GELEBİLİR!
-            if (dailySpawnCount >= 2) return;
-
-            // Zamanı gelince ve aktif hırsız yoksa yenisini başlat
-            if (Time.time >= nextSpawnTimer && activeShoplifters.Count == 0)
+            // 2. YENİ HIRSIZ SPAWN KONTROLÜ (Sadece Dükkan Açıkken ve Günlük Limit Aşılmamışsa):
+            if (isStoreOpen && currentHour >= 12 && currentHour < 23 && dailySpawnCount < 2)
             {
-                ScheduleNextSpawn();
-
-                int currentHour = (TimeManager.Instance != null) ? TimeManager.Instance.Hour : 17;
-
-                // 1. Hırsızlık Gelişi: İkindi / Akşam Üstü (15:00 - 18:00)
-                // 2. Hırsızlık Gelişi: Geç Gece Saatleri (18:00 - 22:00)
-                if (dailySpawnCount == 0 && currentHour >= 15)
+                if (Time.time >= nextSpawnTimer && activeShoplifters.Count == 0)
                 {
-                    TrySpawnShoplifter();
-                    dailySpawnCount++;
-                }
-                else if (dailySpawnCount == 1 && currentHour >= 18)
-                {
-                    TrySpawnShoplifter();
-                    dailySpawnCount++;
+                    ScheduleNextSpawn();
+
+                    // 1. Hırsızlık: İkindi / Akşamüstü (15:00 - 18:00)
+                    // 2. Hırsızlık: Akşam Saatleri (18:00 - 22:00)
+                    if (dailySpawnCount == 0 && currentHour >= 15)
+                    {
+                        TrySpawnShoplifter();
+                        dailySpawnCount++;
+                    }
+                    else if (dailySpawnCount == 1 && currentHour >= 18)
+                    {
+                        TrySpawnShoplifter();
+                        dailySpawnCount++;
+                    }
                 }
             }
 
+            // 3. AKTİF HIRSIZLARIN HAREKET VE YAŞAM DÖNGÜSÜ GÜNCELLEMESİ:
+            // 🛑 Dükkan kapansa veya gece olsa dahi mevcut hırsız havada/yerde donup kalmaz!
             float dt = Time.deltaTime;
             for (int i = activeShoplifters.Count - 1; i >= 0; i--)
             {
@@ -132,6 +141,13 @@ namespace Farm2Shelf.Environment
                     continue;
                 }
 
+                // Dükkan kapandıysa hırsız panikleyip derhal kaçışa geçer
+                if (!isStoreOpen && sData.state == ShoplifterState.EnteringStore)
+                {
+                    sData.state = ShoplifterState.FleeingStore;
+                    SetupFleeWaypoints(sData);
+                }
+
                 UpdateShoplifter(sData, dt);
             }
         }
@@ -139,9 +155,25 @@ namespace Farm2Shelf.Environment
         public bool HasActiveFleeingThief(out ShoplifterData thief)
         {
             thief = null;
-            foreach (var s in activeShoplifters)
+            for (int i = 0; i < activeShoplifters.Count; i++)
             {
-                if (s != null && s.state == ShoplifterState.FleeingStore && !s.isCaught && !s.isEscaped)
+                var s = activeShoplifters[i];
+                if (s != null && s.state == ShoplifterState.FleeingStore && !s.isCaught && !s.isEscaped && s.thiefObj != null)
+                {
+                    thief = s;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public bool HasAnyActiveThief(out ShoplifterData thief)
+        {
+            thief = null;
+            for (int i = 0; i < activeShoplifters.Count; i++)
+            {
+                var s = activeShoplifters[i];
+                if (s != null && !s.isCaught && !s.isEscaped && s.thiefObj != null)
                 {
                     thief = s;
                     return true;
@@ -156,27 +188,34 @@ namespace Farm2Shelf.Environment
             PlacedFurnitureController targetShelf = null;
             int targetRow = -1;
 
-            foreach (var s in shelves)
+            if (shelves != null)
             {
-                if (s == null || s.rows == null) continue;
-                if (s.FurnitureType == FurnitureType.Shelf || s.FurnitureType == FurnitureType.ProduceShelf || s.FurnitureType == FurnitureType.Fridge || s.FurnitureType == FurnitureType.BakeryCounter || s.FurnitureType == FurnitureType.CosmeticShelf || s.FurnitureType == FurnitureType.ButcherCounter || s.FurnitureType == FurnitureType.ElectronicsShelf || s.FurnitureType == FurnitureType.GourmetShelf)
+                for (int i = 0; i < shelves.Count; i++)
                 {
-                    for (int r = 0; r < s.rows.Length; r++)
+                    var s = shelves[i];
+                    if (s == null || s.rows == null) continue;
+                    if (s.FurnitureType == FurnitureType.Shelf || s.FurnitureType == FurnitureType.ProduceShelf ||
+                        s.FurnitureType == FurnitureType.Fridge || s.FurnitureType == FurnitureType.BakeryCounter ||
+                        s.FurnitureType == FurnitureType.CosmeticShelf || s.FurnitureType == FurnitureType.ButcherCounter ||
+                        s.FurnitureType == FurnitureType.ElectronicsShelf || s.FurnitureType == FurnitureType.GourmetShelf)
                     {
-                        if (s.rows[r] != null && !s.rows[r].IsUnassigned && s.rows[r].currentStock > 0)
+                        for (int r = 0; r < s.rows.Length; r++)
                         {
-                            targetShelf = s;
-                            targetRow = r;
-                            break;
+                            if (s.rows[r] != null && !s.rows[r].IsUnassigned && s.rows[r].currentStock > 0)
+                            {
+                                targetShelf = s;
+                                targetRow = r;
+                                break;
+                            }
                         }
                     }
+                    if (targetShelf != null) break;
                 }
-                if (targetShelf != null) break;
             }
 
-            if (targetShelf == null) return; // Çalınacak dolu raf yoksa gelme
+            if (targetShelf == null) return; // Çalınacak ürün yoksa spawn etme
 
-            Vector3 spawnPos = new Vector3(45.0f, 0.05f, -5.0f);
+            Vector3 spawnPos = new Vector3(35.0f, 0.05f, -4.5f);
             GameObject thiefObj = CreateMaleShoplifter3DModel(spawnPos);
 
             ShoplifterData data = new ShoplifterData
@@ -186,31 +225,64 @@ namespace Farm2Shelf.Environment
                 targetShelf = targetShelf,
                 targetRowId = targetRow,
                 isCaught = false,
-                isEscaped = false
+                isEscaped = false,
+                lastPos = spawnPos,
+                stuckTimer = 0f
             };
 
-            // Rota: Sağ Doğu Kaldırımı Spawn ➔ Cam Kapı Önü ➔ Kapı Geçişi ➔ Fuaye ➔ Hedef Rafa Yaklaşma
+            // Rota: Sağ Kaldırım ➔ Cam Giriş Kapısı ➔ Giriş Eşiği ➔ Ana Fuaye ➔ Hedef Rafın Önü
             Vector3 shelfFront = targetShelf.GetFrontInteractionPosition(1.2f);
             data.waypoints = new List<Vector3>
             {
                 spawnPos,
-                new Vector3(-5.0f, 0.05f, -5.0f),
+                new Vector3(-5.0f, 0.05f, -4.5f),
                 new Vector3(-5.0f, 0.05f, -2.5f),
-                new Vector3(-5.0f, 0.05f, -0.5f),
+                new Vector3(-5.0f, 0.05f, 0.5f),
                 shelfFront
             };
             data.currentWaypointIndex = 1;
 
             ExtractLimbs(thiefObj, data);
+
+            // Tıklanabilir Bileşen Ekle (Mobil / PC Dokunmatik Yakalama Desteği)
+            ShoplifterClickableTarget clickTarget = thiefObj.AddComponent<ShoplifterClickableTarget>();
+            clickTarget.Setup(this, data);
+
             activeShoplifters.Add(data);
+            Debug.Log($"[ShoplifterManager] 🥷 Hırsız sızdı! Hedef: {targetShelf.FurnitureType} (Raf {targetRow + 1})");
+        }
+
+        private void SetupFleeWaypoints(ShoplifterData data)
+        {
+            if (data == null || data.thiefObj == null) return;
+
+            Vector3 curPos = data.thiefObj.transform.position;
+            data.waypoints = new List<Vector3>
+            {
+                curPos,
+                new Vector3(-5.0f, 0.05f, 0.5f),   // 1. Ana Fuaye
+                new Vector3(-5.0f, 0.05f, -2.5f),  // 2. Cam Kapı Geçişi
+                new Vector3(-5.0f, 0.05f, -4.5f),  // 3. Dış Kaldırım
+                new Vector3(-18.8f, 0.05f, -4.5f), // 4. Turnike Yaya Geçidi
+                new Vector3(-45.0f, 0.05f, -4.5f), // 5. Batı Kaldırım
+                new Vector3(-85.0f, 0.05f, -4.5f)  // 6. Harita Dışı Despawn
+            };
+            data.currentWaypointIndex = 1;
+            data.stuckTimer = 0f;
         }
 
         private void UpdateShoplifter(ShoplifterData data, float dt)
         {
+            // Baş Üstü Tag'ini Kameraya Döndür (Smooth Billboard)
+            if (data.overheadTagTransform != null && Camera.main != null)
+            {
+                data.overheadTagTransform.rotation = Camera.main.transform.rotation;
+            }
+
             switch (data.state)
             {
                 case ShoplifterState.EnteringStore:
-                    MoveShoplifter(data, dt, 2.6f, () => {
+                    MoveShoplifter(data, dt, 2.8f, () => {
                         data.state = ShoplifterState.StealingFromShelf;
                         data.taskTimer = 1.2f;
                     });
@@ -218,43 +290,34 @@ namespace Farm2Shelf.Environment
 
                 case ShoplifterState.StealingFromShelf:
                     data.taskTimer -= dt;
-                    float armSwing = Mathf.Sin(Time.time * 12.0f) * 30.0f;
+                    float armSwing = Mathf.Sin(Time.time * 14.0f) * 32.0f;
                     AnimateLimbs(data, armSwing);
 
                     if (data.taskTimer <= 0f)
                     {
                         ExecuteTheft(data);
                         data.state = ShoplifterState.FleeingStore;
-
-                        // Kaçış rotası: Mevcut konum ➔ Fuaye ➔ Kapı ➔ Dış Kaldırım ➔ Despawn
-                        data.waypoints = new List<Vector3>
-                        {
-                            data.thiefObj.transform.position,
-                            new Vector3(-5.0f, 0.05f, -0.5f),
-                            new Vector3(-5.0f, 0.05f, -2.5f),
-                            new Vector3(-5.0f, 0.05f, -5.0f),
-                            new Vector3(-17.0f, 0.05f, -5.0f),
-                            new Vector3(-45.0f, 0.05f, -5.0f),
-                            new Vector3(-85.0f, 0.05f, -5.0f)
-                        };
-                        data.currentWaypointIndex = 1;
+                        SetupFleeWaypoints(data);
                     }
                     break;
 
                 case ShoplifterState.FleeingStore:
-                    MoveShoplifter(data, dt, 3.8f, () => {
-                        // Güvenliğe yakalanmadan haritadan çıktı!
+                    MoveShoplifter(data, dt, 4.0f, () => {
+                        // Güvenliğe veya oyuncuya yakalanmadan haritadan kaçtı!
                         if (!data.isCaught)
                         {
                             data.isEscaped = true;
-                            ShowFloatingNotice(data.thiefObj.transform.position, "⚠️ Hırsız Ürünle Kaçtı!", new Color(0.95f, 0.20f, 0.20f));
+                            if (data.thiefObj != null)
+                            {
+                                ShowFloatingNotice(data.thiefObj.transform.position, "⚠️ Hırsız Ürünle Kaçtı!", new Color(0.95f, 0.20f, 0.20f));
+                                Destroy(data.thiefObj);
+                            }
 
                             if (StoreQualityManager.Instance != null)
                             {
-                                StoreQualityManager.Instance.SubtractQualityScore(15, data.thiefObj.transform.position, "Hırsız Kaçtı!");
+                                StoreQualityManager.Instance.SubtractQualityScore(15, Vector3.zero, "Hırsız Kaçtı!");
                             }
 
-                            Destroy(data.thiefObj);
                             data.state = ShoplifterState.Escaped;
                         }
                     });
@@ -269,12 +332,13 @@ namespace Farm2Shelf.Environment
                 var rData = data.targetShelf.rows[data.targetRowId];
                 if (rData != null && rData.currentStock > 0)
                 {
-                    rData.currentStock = Mathf.Max(0, rData.currentStock - 5); // 5 ürün çal
+                    int stealCount = Mathf.Min(rData.currentStock, 5);
+                    rData.currentStock = Mathf.Max(0, rData.currentStock - stealCount);
                     data.targetShelf.UpdateRow3DProductMeshes(data.targetRowId + 1);
 
                     data.stolenProductName = rData.productName;
                     int unitPrice = (rData.unitPrice > 0) ? Mathf.RoundToInt(rData.unitPrice) : 25;
-                    data.stolenProductValue = Mathf.Max(150, unitPrice * 5);
+                    data.stolenProductValue = Mathf.Max(150, unitPrice * stealCount);
 
                     CreateStolenBoxInHands(data);
                     ShowFloatingNotice(data.targetShelf.transform.position, $"🚨 Hırsızlık! (-{data.stolenProductName})", new Color(0.95f, 0.25f, 0.15f));
@@ -291,7 +355,7 @@ namespace Farm2Shelf.Environment
             float roll = Random.value;
             if (roll <= 0.90f)
             {
-                // YAKALANDI! Çalınan ürünler satılmış sayılır ve ANINDA kasamıza yatar!
+                // YAKALANDI! Çalınan ürünler kurtarılır ve ANINDA kasamıza yatar!
                 int reward = data.stolenProductValue;
 
                 if (EconomyManager.Instance != null) EconomyManager.Instance.AddCredits(reward);
@@ -310,13 +374,39 @@ namespace Farm2Shelf.Environment
             }
             else
             {
-                // %10 Şansla hırsız son anda kurtuldu
+                // %10 Şansla hırsız son anda sıyrıldı
                 ShowFloatingNotice(guardPos, "💨 Hırsız Son Anda Sıyrıldı!", new Color(0.95f, 0.60f, 0.15f));
+                data.isCaught = false; // Kaçmaya devam eder
             }
         }
 
-        private void MoveShoplifter(ShoplifterData data, float dt, float speed, System.Action onReachEnd)
+        public void CatchShoplifterByPlayer(ShoplifterData data)
         {
+            if (data == null || data.isCaught || data.isEscaped || data.thiefObj == null) return;
+            data.isCaught = true;
+
+            Vector3 thiefPos = data.thiefObj.transform.position;
+            int reward = Mathf.RoundToInt(data.stolenProductValue * 1.25f); // Oyuncu bizzat yakalarsa +%25 Ekstra Ödül!
+
+            if (EconomyManager.Instance != null) EconomyManager.Instance.AddCredits(reward);
+            if (FinanceManager.Instance != null) FinanceManager.Instance.RecordIncome("Satış", $"Hırsız Suçüstü Yakalandı ({data.stolenProductName})", reward);
+
+            ShowFloatingNotice(thiefPos, $"🤼 Suçüstü Yakaladın! +{reward:N0} Cr Kasaya Yattı 💰✨", new Color(0.20f, 0.90f, 0.45f));
+
+            if (StoreQualityManager.Instance != null)
+            {
+                StoreQualityManager.Instance.AddQualityScore(35, thiefPos, "Hırsız Suçüstü Yakalandı!");
+            }
+
+            if (data.carriedStolenBox != null) Destroy(data.carriedStolenBox);
+            if (data.thiefObj != null) Destroy(data.thiefObj);
+            data.state = ShoplifterState.CapturedByPlayer;
+        }
+
+        private void MoveShoplifter(ShoplifterData data, float dt, float speed, Action onReachEnd)
+        {
+            if (data.thiefObj == null) return;
+
             if (data.waypoints == null || data.currentWaypointIndex >= data.waypoints.Count)
             {
                 onReachEnd?.Invoke();
@@ -325,9 +415,31 @@ namespace Farm2Shelf.Environment
 
             Vector3 currentPos = data.thiefObj.transform.position;
             Vector3 target = data.waypoints[data.currentWaypointIndex];
+            target.y = currentPos.y; // Y ekseni kilitli
             Vector3 dir = target - currentPos;
 
-            if (dir.magnitude < 0.6f)
+            // Takılma (Anti-Stuck) Kontrolü:
+            if (Vector3.Distance(currentPos, data.lastPos) < 0.05f)
+            {
+                data.stuckTimer += dt;
+                if (data.stuckTimer > 2.5f)
+                {
+                    data.currentWaypointIndex++;
+                    data.stuckTimer = 0f;
+                    if (data.currentWaypointIndex >= data.waypoints.Count)
+                    {
+                        onReachEnd?.Invoke();
+                        return;
+                    }
+                }
+            }
+            else
+            {
+                data.lastPos = currentPos;
+                data.stuckTimer = 0f;
+            }
+
+            if (dir.magnitude < 0.55f)
             {
                 data.currentWaypointIndex++;
                 if (data.currentWaypointIndex >= data.waypoints.Count)
@@ -336,6 +448,7 @@ namespace Farm2Shelf.Environment
                     return;
                 }
                 target = data.waypoints[data.currentWaypointIndex];
+                target.y = currentPos.y;
                 dir = target - currentPos;
             }
 
@@ -343,13 +456,13 @@ namespace Farm2Shelf.Environment
             if (moveDir != Vector3.zero)
             {
                 Quaternion targetRot = Quaternion.LookRotation(moveDir);
-                data.thiefObj.transform.rotation = Quaternion.RotateTowards(data.thiefObj.transform.rotation, targetRot, 360f * dt);
+                data.thiefObj.transform.rotation = Quaternion.RotateTowards(data.thiefObj.transform.rotation, targetRot, 400f * dt);
             }
 
             data.thiefObj.transform.position = Vector3.MoveTowards(currentPos, target, speed * dt);
 
-            data.walkCycleTimer += dt * (speed * 2.5f);
-            float legAngle = Mathf.Sin(data.walkCycleTimer) * 25.0f;
+            data.walkCycleTimer += dt * (speed * 2.6f);
+            float legAngle = Mathf.Sin(data.walkCycleTimer) * 26.0f;
             AnimateLimbs(data, legAngle);
         }
 
@@ -377,6 +490,12 @@ namespace Farm2Shelf.Environment
         {
             GameObject root = new GameObject("Shoplifter_Male");
             root.transform.position = pos;
+
+            // Tıklanabilir Kutu Collider'ı Ekle (Tıklama ve Dokunmatik Algılama)
+            CapsuleCollider col = root.AddComponent<CapsuleCollider>();
+            col.center = new Vector3(0f, 0.9f, 0f);
+            col.height = 1.8f;
+            col.radius = 0.55f;
 
             Material hoodieMat = CreateMat("Shoplifter_Hoodie", new Color(0.12f, 0.12f, 0.15f));
             Material skinMat = CreateMat("Shoplifter_Skin", new Color(0.85f, 0.65f, 0.52f));
@@ -449,6 +568,7 @@ namespace Farm2Shelf.Environment
             {
                 if (child.name.Contains("_L")) data.leftLimbs.Add(child);
                 else if (child.name.Contains("_R")) data.rightLimbs.Add(child);
+                else if (child.name == "Overhead_Tag") data.overheadTagTransform = child;
             }
         }
 
@@ -504,7 +624,7 @@ namespace Farm2Shelf.Environment
             canvas.sortingOrder = 80;
 
             RectTransform rt = popupObj.GetComponent<RectTransform>();
-            rt.sizeDelta = new Vector2(350f, 65f);
+            rt.sizeDelta = new Vector2(380f, 70f);
             popupObj.transform.localScale = Vector3.one * 0.014f;
 
             if (Camera.main != null) popupObj.transform.rotation = Camera.main.transform.rotation;
@@ -546,6 +666,43 @@ namespace Farm2Shelf.Environment
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
             thiefMatCache[key] = mat;
             return mat;
+        }
+    }
+
+    /// <summary>
+    /// Hırsıza Tıklama / Dokunma Hedefi (Mobile Touch & PC Click Desteği)
+    /// </summary>
+    public class ShoplifterClickableTarget : MonoBehaviour, IPointerClickHandler
+    {
+        private ShoplifterManager manager;
+        private ShoplifterManager.ShoplifterData data;
+
+        public void Setup(ShoplifterManager mgr, ShoplifterManager.ShoplifterData d)
+        {
+            manager = mgr;
+            data = d;
+        }
+
+        public void OnPointerClick(PointerEventData eventData)
+        {
+            TriggerCatch();
+        }
+
+        private void OnMouseDown()
+        {
+            TriggerCatch();
+        }
+
+        private void TriggerCatch()
+        {
+            if (manager == null || data == null || data.isCaught || data.isEscaped) return;
+
+            // Eğer devriyede aktif güvenlik görevlisi varsa alarma geçer ve yakalamaya koşar!
+            if (StaffTaskController.Instance != null)
+            {
+                // Oyuncu doğrudan yakalar!
+                manager.CatchShoplifterByPlayer(data);
+            }
         }
     }
 }

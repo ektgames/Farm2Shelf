@@ -34,6 +34,11 @@ namespace Farm2Shelf.Environment
             return newMat;
         }
 
+        public static GameObject CreateStaffCharacterModel(StaffRole role, bool isFemale, out List<Transform> leftLimbs, out List<Transform> rightLimbs)
+        {
+            return CreateStaffModel(role, isFemale, out leftLimbs, out rightLimbs);
+        }
+
         public static GameObject CreateStaffModel(StaffRole role, bool isFemale, out List<Transform> leftLimbs, out List<Transform> rightLimbs)
         {
             leftLimbs = new List<Transform>();
@@ -43,11 +48,11 @@ namespace Farm2Shelf.Environment
             GameObject root = new GameObject($"Staff_{genderPrefix}{role}");
             Transform tRoot = root.transform;
 
-            // Fiziksel Çarpışma ve Kapı Algılama Bileşenleri
+            // Fiziksel Çarpışma ve Kapı/Tıklama Algılama Bileşenleri (Mobil Dokunmatik Uyumlu Geniş Alan)
             CapsuleCollider col = root.AddComponent<CapsuleCollider>();
-            col.center = new Vector3(0f, 0.9f, 0f);
-            col.radius = 0.35f;
-            col.height = 1.8f;
+            col.center = new Vector3(0f, 1.0f, 0f);
+            col.radius = 0.55f;
+            col.height = 2.0f;
             col.isTrigger = true;
 
             Rigidbody rb = root.AddComponent<Rigidbody>();
@@ -113,6 +118,7 @@ namespace Farm2Shelf.Environment
                 case StaffRole.DeneyimliÇiftçi: return new Color(0.25f, 0.45f, 0.25f); // Yeşil Çiftçi Tulumu
                 case StaffRole.UstaÇiftlikSorumlusu: return new Color(0.80f, 0.40f, 0.15f); // Turuncu Tulum
                 case StaffRole.TarımOtomasyonUzmanı: return new Color(0.20f, 0.30f, 0.50f); // Mavi Mühendis Ceketi
+                case StaffRole.Kurye: return new Color(0.12f, 0.14f, 0.16f); // Şık Siyah/Antrasit Deri Motorcu Montu
                 default: return Color.blue;
             }
         }
@@ -126,6 +132,7 @@ namespace Farm2Shelf.Environment
                 case StaffRole.Güvenlik: return new Color(0.10f, 0.12f, 0.15f); // Siyah Güvenlik Pantolonu
                 case StaffRole.MüşteriHizmetlisi: return new Color(0.96f, 0.96f, 0.98f); // Beyaz Kumaş Pantolon / Etek
                 case StaffRole.Maskot: return new Color(0.95f, 0.75f, 0.15f);
+                case StaffRole.Kurye: return new Color(0.15f, 0.18f, 0.22f); // Güçlendirilmiş Motorcu Kot Pantolonu
                 default: return new Color(0.18f, 0.20f, 0.25f);
             }
         }
@@ -133,6 +140,34 @@ namespace Farm2Shelf.Environment
         private static void BuildHairAndHeadwear(Transform parent, bool isFemale, Material hairMat, StaffRole role)
         {
             if (role == StaffRole.Maskot) return; // Maskot özel kafa kullanır
+
+            if (role == StaffRole.Kurye)
+            {
+                // 🏍️ KASK: ŞIK, VİZÖRLÜ, AERODİNAMİK TAM MOTOSİKLET KASKI (Full-Face Helmet)
+                Material helmetShellMat = GetMaterial("Mat_CourierHelmetShell", new Color(0.12f, 0.14f, 0.16f), 0.5f, 0.85f); // Parlak siyah/antrasit kask kabuğu
+                Material helmetVisorMat = GetMaterial("Mat_CourierHelmetVisor", new Color(0.06f, 0.10f, 0.15f), 0.9f, 0.98f); // Koyu yansımalı aerodinamik vizör
+                Material helmetStripeMat = GetMaterial("Mat_CourierStripeNeon", new Color(0.18f, 0.85f, 0.35f), 0.2f, 0.5f); // Fosforlu yeşil yarış/güvenlik şeridi
+                Material chinBarMat = GetMaterial("Mat_CourierChinBar", new Color(0.18f, 0.20f, 0.22f), 0.3f, 0.6f);
+
+                // 1. Kask Ana Gövdesi (Kafayı saran aerodinamik kabuk)
+                GameObject helmet = CreateBlock(parent, "Courier_Helmet", new Vector3(0f, 1.54f, 0.01f), new Vector3(0.38f, 0.36f, 0.38f), helmetShellMat);
+
+                // 2. Koyu Yansımalı Ön Vizör (Göz hizasında geniş bombeli siperlik)
+                CreateBlock(helmet.transform, "Visor", new Vector3(0f, 0.04f, 0.18f), new Vector3(0.32f, 0.14f, 0.06f), helmetVisorMat);
+
+                // 3. Ön Çene Koruma Barı (Full-Face Chin Guard)
+                CreateBlock(helmet.transform, "ChinGuard", new Vector3(0f, -0.10f, 0.16f), new Vector3(0.30f, 0.10f, 0.08f), chinBarMat);
+
+                // 4. Kask Üstü Hava Menfezi & Aerodinamik Spoiler Tepesi
+                CreateBlock(helmet.transform, "TopVent", new Vector3(0f, 0.18f, -0.04f), new Vector3(0.16f, 0.04f, 0.22f), chinBarMat);
+
+                // 5. Kask Üzeri Fosforlu Yarış ve Güvenlik Şeritleri (Orta ve Yanlar)
+                CreateBlock(helmet.transform, "Stripe_Top", new Vector3(0f, 0.19f, 0f), new Vector3(0.06f, 0.02f, 0.36f), helmetStripeMat);
+                CreateBlock(helmet.transform, "Stripe_L", new Vector3(-0.19f, 0f, 0f), new Vector3(0.02f, 0.05f, 0.30f), helmetStripeMat);
+                CreateBlock(helmet.transform, "Stripe_R", new Vector3(0.19f, 0f, 0f), new Vector3(0.02f, 0.05f, 0.30f), helmetStripeMat);
+
+                return; // Kurye kask taktığı için saç oluşturulmaz
+            }
 
             if (isFemale)
             {
@@ -268,6 +303,38 @@ namespace Farm2Shelf.Environment
                         // 5. Arka Yuvarlak Ayı Kuyruğu
                         CreateBlock(parent, "Bear_Tail", new Vector3(0f, 0.78f, -0.18f), new Vector3(0.16f, 0.16f, 0.16f), bearBodyMat);
                     }
+                    break;
+
+                case StaffRole.Kurye:
+                    // 🏍️ MOTORCU KIYAFETİ DETAYLARI: Deri Mont, Reflektör Şeritler, Koruma Pedleri, Eldivenler
+                    Material bikerLeather = GetMaterial("Mat_BikerLeather", new Color(0.10f, 0.12f, 0.14f), 0.3f, 0.7f);
+                    Material neonReflector = GetMaterial("Mat_NeonReflector", new Color(0.18f, 0.85f, 0.35f), 0.1f, 0.4f);
+                    Material silverZip = GetMaterial("Mat_SilverZip", new Color(0.85f, 0.85f, 0.90f), 0.9f, 0.8f);
+                    Material armorPad = GetMaterial("Mat_ArmorPad", new Color(0.16f, 0.18f, 0.20f), 0.4f, 0.6f);
+
+                    // 1. Deri Mont Ön Fermuarı & Dik Yaka
+                    CreateBlock(parent, "Jacket_Zipper", new Vector3(0f, 1.05f, 0.16f), new Vector3(0.04f, 0.50f, 0.02f), silverZip);
+                    CreateBlock(parent, "Jacket_Collar", new Vector3(0f, 1.30f, 0.02f), new Vector3(0.46f, 0.06f, 0.30f), bikerLeather);
+
+                    // 2. Göğüs ve Sırt Fosforlu Güvenlik/Teslimat Reflektör Şeritleri
+                    CreateBlock(parent, "Reflector_Chest_L", new Vector3(-0.13f, 1.15f, 0.16f), new Vector3(0.05f, 0.28f, 0.02f), neonReflector);
+                    CreateBlock(parent, "Reflector_Chest_R", new Vector3(0.13f, 1.15f, 0.16f), new Vector3(0.05f, 0.28f, 0.02f), neonReflector);
+                    CreateBlock(parent, "Reflector_Back_Stripe", new Vector3(0f, 1.15f, -0.16f), new Vector3(0.36f, 0.08f, 0.02f), neonReflector);
+
+                    // 3. Omuz & Dirsek Güçlendirilmiş Koruma Pedleri (Armor Pads)
+                    CreateBlock(parent, "Shoulder_L", new Vector3(-0.25f, 1.28f, 0f), new Vector3(0.10f, 0.08f, 0.20f), armorPad);
+                    CreateBlock(parent, "Shoulder_R", new Vector3(0.25f, 1.28f, 0f), new Vector3(0.10f, 0.08f, 0.20f), armorPad);
+
+                    // 4. Dizlik Koruma Pedleri (Bacaklarda)
+                    CreateBlock(parent, "KneePad_L", new Vector3(-0.14f, 0.52f, 0.11f), new Vector3(0.12f, 0.14f, 0.04f), armorPad);
+                    CreateBlock(parent, "KneePad_R", new Vector3(0.14f, 0.52f, 0.11f), new Vector3(0.12f, 0.14f, 0.04f), armorPad);
+
+                    // 5. Deri Motorcu Sürüş Eldivenleri (Ellerde)
+                    CreateBlock(parent, "RidingGlove_L", new Vector3(-0.32f, 0.95f, 0f), new Vector3(0.14f, 0.16f, 0.15f), bikerLeather);
+                    CreateBlock(parent, "RidingGlove_R", new Vector3(0.32f, 0.95f, 0f), new Vector3(0.14f, 0.16f, 0.15f), bikerLeather);
+
+                    // 6. Bel Hızlı Teslimat & Pos Cihazı Çantası
+                    CreateBlock(parent, "Courier_HipPouch", new Vector3(0.22f, 0.82f, 0.08f), new Vector3(0.12f, 0.15f, 0.12f), blackAcc);
                     break;
 
                 case StaffRole.Çiftçi:

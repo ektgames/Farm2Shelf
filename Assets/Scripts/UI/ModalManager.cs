@@ -48,8 +48,6 @@ namespace Farm2Shelf.UI
             if (Farm2Shelf.Environment.FieldPlotController.IsRadialMenuOpen) return true;
             if (BarnInventoryModalUI.IsBarnModalOpen) return true;
             if (PalletStorageInventoryModalUI.IsModalOpen) return true;
-            if (StaffProfileModalUI.Instance != null && StaffProfileModalUI.Instance.IsModalOpen) return true;
-            if (CustomerProfileModalUI.Instance != null && CustomerProfileModalUI.Instance.IsModalOpen) return true;
             if (EndOfDayReportModalUI.IsReportModalOpen) return true;
             if (FurnitureInfoModalUI.IsFurnitureModalOpen) return true;
             if (CalendarPopupUI.IsCalendarModalOpen) return true;

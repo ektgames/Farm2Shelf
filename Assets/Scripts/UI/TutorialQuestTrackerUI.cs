@@ -566,8 +566,8 @@ namespace Farm2Shelf.UI
                     return $"• {cStr}\n• {rStr}\n• {early}";
 
                 case TutorialStep.Step4_AssignStoreShifts:
-                    bool shMorn = tm.HasStoreShift("Sabah") || tm.HasStoreShift("Gündüz") || tm.HasStoreShift("08:00") || tm.HasStoreShift("06:00") || tm.HasStoreShift("Morning");
-                    bool shEve = tm.HasStoreShift("Akşam") || tm.HasStoreShift("16:00") || tm.HasStoreShift("14:00") || tm.HasStoreShift("Gece") || tm.HasStoreShift("22:00") || tm.HasStoreShift("Evening");
+                    bool shMorn = tm.HasStoreShift("Sabah") || tm.HasStoreShift("Gündüz") || tm.HasStoreShift("08:00") || tm.HasStoreShift("Morning");
+                    bool shEve = tm.HasStoreShift("Akşam") || tm.HasStoreShift("16:00 - 24:00") || tm.HasStoreShift("24:00") || tm.HasStoreShift("Gece") || tm.HasStoreShift("Evening");
                     string sHeader = (shMorn && shEve) 
                         ? "<color=#00FFA3>✅ [✓] Personel Vardiyalarını Ayarla (Tamamlandı)</color>" 
                         : "<color=#FFD700>⏳ [ ] Personellerin Vardiyalarını Ayarla</color>";
@@ -605,15 +605,15 @@ namespace Farm2Shelf.UI
                 case TutorialStep.Step8_HireFarmStaffAndShifts:
                     int farm = tm.GetFarmRoleCount(StaffRole.Çiftçi);
                     string fStr2 = (farm >= 2) ? $"<color=#00FFA3>✅ [✓] 2 Çiftçi İşe Alındı ({farm}/2)</color>" : $"<color=#FFD700>⏳ [ ] 2 Çiftçi İşe Al ({farm}/2)</color>";
-                    bool fMorn = tm.HasFarmShift("Sabah") || tm.HasFarmShift("Gündüz") || tm.HasFarmShift("08:00") || tm.HasFarmShift("06:00") || tm.HasFarmShift("Morning");
-                    bool fEve = tm.HasFarmShift("Akşam") || tm.HasFarmShift("16:00") || tm.HasFarmShift("14:00") || tm.HasFarmShift("Gece") || tm.HasFarmShift("22:00") || tm.HasFarmShift("Evening");
+                    bool fMorn = tm.HasFarmShift("Sabah") || tm.HasFarmShift("Gündüz") || tm.HasFarmShift("08:00") || tm.HasFarmShift("Morning");
+                    bool fEve = tm.HasFarmShift("Akşam") || tm.HasFarmShift("16:00 - 24:00") || tm.HasFarmShift("24:00") || tm.HasFarmShift("Gece") || tm.HasFarmShift("Evening");
                     string fSh = (fMorn && fEve) ? "<color=#00FFA3>✅ [✓] Çiftlik Vardiyaları Düzenlendi (Sabah 08-16 / Akşam 16-24)</color>" : "<color=#FFD700>⏳ [ ] Çiftçileri Sabah ve Akşam Vardiyalarına Dağıt</color>";
                     return $"• {fStr2}\n• {fSh}";
 
                 case TutorialStep.Step9_BuyStartingSeeds:
-                    bool hasTomato = tm.DidBuyTomatoSeed || (GardenSeedInventoryManager.Instance != null && GardenSeedInventoryManager.Instance.GetSeedCount("tomato") > 0);
-                    bool hasCucumber = tm.DidBuyCucumberSeed || (GardenSeedInventoryManager.Instance != null && GardenSeedInventoryManager.Instance.GetSeedCount("cucumber") > 0);
-                    bool hasLettuce = tm.DidBuyLettuceSeed || (GardenSeedInventoryManager.Instance != null && GardenSeedInventoryManager.Instance.GetSeedCount("lettuce") > 0);
+                    bool hasTomato = tm.DidBuyTomatoSeed || (GardenSeedInventoryManager.Instance != null && GardenSeedInventoryManager.Instance.GetSeedCount("spring_tomato") > 0);
+                    bool hasCucumber = tm.DidBuyCucumberSeed || (GardenSeedInventoryManager.Instance != null && GardenSeedInventoryManager.Instance.GetSeedCount("spring_cucumber") > 0);
+                    bool hasLettuce = tm.DidBuyLettuceSeed || (GardenSeedInventoryManager.Instance != null && GardenSeedInventoryManager.Instance.GetSeedCount("spring_lettuce") > 0);
                     string st1 = hasTomato ? "<color=#00FFA3>✅ [✓] 1x Domates Tohumu 🍅</color>" : "<color=#FFD700>⏳ [ ] 1x Domates Tohumu 🍅</color>";
                     string st2 = hasCucumber ? "<color=#00FFA3>✅ [✓] 1x Salatalık Tohumu 🥒</color>" : "<color=#FFD700>⏳ [ ] 1x Salatalık Tohumu 🥒</color>";
                     string st3 = hasLettuce ? "<color=#00FFA3>✅ [✓] 1x Marul Tohumu 🥬</color>" : "<color=#FFD700>⏳ [ ] 1x Marul Tohumu 🥬</color>";

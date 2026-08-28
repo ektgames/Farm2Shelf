@@ -10,15 +10,15 @@ namespace Farm2Shelf.Environment
 
         private void Start()
         {
-            // Tıklama tespiti için CapsuleCollider kontrolü
+            // Tıklama tespiti için CapsuleCollider kontrolü ve mobil uyumlu genişletilmiş boyut
             CapsuleCollider col = GetComponent<CapsuleCollider>();
             if (col == null)
             {
                 col = gameObject.AddComponent<CapsuleCollider>();
-                col.center = new Vector3(0f, 0.95f, 0f);
-                col.radius = 0.45f;
-                col.height = 1.9f;
             }
+            col.center = new Vector3(0f, 1.0f, 0f);
+            col.radius = Mathf.Max(col.radius, 0.55f);
+            col.height = Mathf.Max(col.height, 2.0f);
         }
 
         private void Update()
@@ -29,13 +29,15 @@ namespace Farm2Shelf.Environment
         public void OnPointerClick(PointerEventData eventData)
         {
             if (eventData != null && eventData.dragging) return;
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || Time.unscaledTime - ModalManager.LastModalCloseTime < 0.35f) return;
+            bool isPauseOpen = (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen);
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || isPauseOpen) return;
             OnCustomerClicked();
         }
 
         public void OnCustomerClicked()
         {
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || Time.unscaledTime - ModalManager.LastModalCloseTime < 0.35f) return;
+            bool isPauseOpen = (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen);
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || isPauseOpen) return;
             if (profileData == null) return;
 
             if (CustomerProfileModalUI.Instance == null)

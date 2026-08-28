@@ -35,7 +35,7 @@ namespace Farm2Shelf.Utils
         private static float lastGlobalDispatchTime = 0f;
 
         public const float MaxTapDuration = 0.95f;
-        public const float MaxTapDragDistance = 38f; // Ekran pikselleri (Hafif parmak titremelerinde de tıklamayı yakalar)
+        public const float MaxTapDragDistance = 55f; // Ekran pikselleri (Hafif parmak titremelerinde ve hızlı tıklamalarda da tıklamayı %100 yakalar)
 
         private static GameObject runnerObj;
 
@@ -124,9 +124,10 @@ namespace Farm2Shelf.Utils
                         cleanTapTriggeredThisFrame = true;
                         lastTapPosition = (pressPosition.sqrMagnitude > 0.001f) ? pressPosition : effectiveReleasePos;
 
-                        // UI üzerinde değilse ve Modal açık değilse doğrudan 3D nesneleri tetikle
+                        // UI üzerinde değilse, Modal açık değilse ve Mobilya Yerleştirme modunda değilse 3D nesneleri tetikle
                         bool isPauseOpen = (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen);
-                        if (!ModalManager.IsModalOpen && !EKTPhoneManager.IsTabletOpen && !isPauseOpen && !IsPointerOverUI(lastTapPosition))
+                        bool isPlacing = (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing);
+                        if (!ModalManager.IsModalOpen && !EKTPhoneManager.IsTabletOpen && !isPauseOpen && !isPlacing && !IsPointerOverUI(lastTapPosition))
                         {
                             Dispatch3DClick(lastTapPosition);
                         }
@@ -139,15 +140,16 @@ namespace Farm2Shelf.Utils
         }
 
         /// <summary>
-        /// 3D dünyadaki nesneleri (Raf, Tarla, Ahır, Personel, Müşteri, Teslimat Kolisi)
-        /// kameraya olan mesafelerine göre en yakından uzağa sıralayarak pürüzsüzce tıklar.
+        /// 3D dünyadaki nesneleri (Personel, Müşteri, Teslimat Kolisi, Raf, Tarla, Ahır)
+        /// mobil dokunmatik öncelik sırasına göre pürüzsüzce tıklar.
         /// </summary>
         public static bool Dispatch3DClick(Vector2 screenPos)
         {
             bool isPauseOpen = (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen);
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || isPauseOpen || IsPointerOverUI(screenPos)) return false;
-            if (Time.unscaledTime - lastGlobalDispatchTime < 0.20f) return false;
-            if (Time.unscaledTime - ModalManager.LastModalCloseTime < 0.35f) return false;
+            bool isPlacing = (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing);
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || isPauseOpen || isPlacing || IsPointerOverUI(screenPos)) return false;
+            if (Time.unscaledTime - lastGlobalDispatchTime < 0.10f) return false;
+            if (Time.unscaledTime - ModalManager.LastModalCloseTime < 0.08f) return false;
             if (screenPos == Vector2.zero) return false;
 
             Camera cam = Camera.main;
@@ -155,140 +157,211 @@ namespace Farm2Shelf.Utils
 
             Ray ray = cam.ScreenPointToRay(screenPos);
             RaycastHit[] hits = Physics.RaycastAll(ray, 250f);
-            if (hits == null || hits.Length == 0) return false;
-
-            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
 
             // ÖNCELİK 0: Teslimat Kolisi veya Palet Tıklaması (Doğrudan ve Hızlı Erişim)
-            foreach (var hit in hits)
+            if (hits != null && hits.Length > 0)
             {
-                if (hit.collider == null) continue;
-                GameObject go = hit.collider.gameObject;
-
-                DeliveryBoxController box = go.GetComponentInParent<DeliveryBoxController>();
-                if (box == null) box = go.GetComponent<DeliveryBoxController>();
-                if (box != null)
+                foreach (var hit in hits)
                 {
-                    lastGlobalDispatchTime = Time.unscaledTime;
-                    box.TriggerPlacement();
-                    return true;
-                }
+                    if (hit.collider == null) continue;
+                    GameObject go = hit.collider.gameObject;
 
-                WorkshopPalletClickable wsPallet = go.GetComponentInParent<WorkshopPalletClickable>();
-                if (wsPallet == null) wsPallet = go.GetComponent<WorkshopPalletClickable>();
-                if (wsPallet != null || go.name.Contains("Workshop_Pallet") || (go.transform.parent != null && go.transform.parent.name.Contains("Workshop_Pallet")))
-                {
-                    lastGlobalDispatchTime = Time.unscaledTime;
-                    PalletStorageInventoryModalUI.ShowModal(isWorkshopMode: true);
-                    return true;
-                }
+                    DeliveryBoxController box = go.GetComponentInParent<DeliveryBoxController>();
+                    if (box == null) box = go.GetComponent<DeliveryBoxController>();
+                    if (box != null)
+                    {
+                        lastGlobalDispatchTime = Time.unscaledTime;
+                        CloseAnyOpenProfileCard();
+                        box.TriggerPlacement();
+                        return true;
+                    }
 
-                DeliveryPalletClickable pallet = go.GetComponentInParent<DeliveryPalletClickable>();
-                if (pallet == null) pallet = go.GetComponent<DeliveryPalletClickable>();
-                if (pallet != null || go.name.Contains("Pallet") || go.name.Contains("Delivery") || go.name.Contains("Cargo") ||
-                    (go.transform.parent != null && (go.transform.parent.name.Contains("Pallet") || go.transform.parent.name.Contains("Delivery") || go.transform.parent.name.Contains("Cargo"))) ||
-                    (go.transform.root != null && (go.transform.root.name.Contains("Pallet") || go.transform.root.name.Contains("Delivery"))))
-                {
-                    lastGlobalDispatchTime = Time.unscaledTime;
-                    PalletStorageInventoryModalUI.ShowModal(isWorkshopMode: false);
-                    return true;
+                    WorkshopPalletClickable wsPallet = go.GetComponentInParent<WorkshopPalletClickable>();
+                    if (wsPallet == null) wsPallet = go.GetComponent<WorkshopPalletClickable>();
+                    if (wsPallet != null || go.name.Contains("Workshop_Pallet") || (go.transform.parent != null && go.transform.parent.name.Contains("Workshop_Pallet")))
+                    {
+                        lastGlobalDispatchTime = Time.unscaledTime;
+                        CloseAnyOpenProfileCard();
+                        PalletStorageInventoryModalUI.ShowModal(isWorkshopMode: true);
+                        return true;
+                    }
+
+                    DeliveryPalletClickable pallet = go.GetComponentInParent<DeliveryPalletClickable>();
+                    if (pallet == null) pallet = go.GetComponent<DeliveryPalletClickable>();
+                    if (pallet != null || go.name.Contains("Pallet") || go.name.Contains("Delivery") || go.name.Contains("Cargo") ||
+                        (go.transform.parent != null && (go.transform.parent.name.Contains("Pallet") || go.transform.parent.name.Contains("Delivery") || go.transform.parent.name.Contains("Cargo"))) ||
+                        (go.transform.root != null && (go.transform.root.name.Contains("Pallet") || go.transform.root.name.Contains("Delivery"))))
+                    {
+                        lastGlobalDispatchTime = Time.unscaledTime;
+                        CloseAnyOpenProfileCard();
+                        PalletStorageInventoryModalUI.ShowModal(isWorkshopMode: false);
+                        return true;
+                    }
                 }
             }
 
-            foreach (var hit in hits)
+            // ÖNCELİK 1: Karakterler (Personel & Müşteri) - Doğrudan Raycast ve Mobil Dokunmatik Toleransı (SphereCast)
+            // 1.a Doğrudan Raycast ile Karakter Kontrolü
+            if (hits != null && hits.Length > 0)
             {
-                if (hit.collider == null) continue;
-                GameObject go = hit.collider.gameObject;
-
-                // 1. Reyon / Raf / Dolap / Kasa / Depo Mobilyası
-                PlacedFurnitureController furniture = go.GetComponentInParent<PlacedFurnitureController>();
-                if (furniture == null) furniture = go.GetComponent<PlacedFurnitureController>();
-                if (furniture != null)
+                System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+                foreach (var hit in hits)
                 {
-                    lastGlobalDispatchTime = Time.unscaledTime;
-                    furniture.OnClickDetected();
-                    return true;
-                }
+                    if (hit.collider == null) continue;
+                    GameObject go = hit.collider.gameObject;
 
-                // 2. Tarla / Ekim Alanı (Field Plot)
-                FieldPlotController plot = go.GetComponentInParent<FieldPlotController>();
-                if (plot == null) plot = go.GetComponent<FieldPlotController>();
-                if (plot != null)
-                {
-                    lastGlobalDispatchTime = Time.unscaledTime;
-                    plot.OnPlotClicked();
-                    return true;
-                }
+                    StaffClickableTarget staff = go.GetComponentInParent<StaffClickableTarget>() ?? go.GetComponent<StaffClickableTarget>();
+                    if (staff != null)
+                    {
+                        lastGlobalDispatchTime = Time.unscaledTime;
+                        staff.OnStaffClicked();
+                        return true;
+                    }
 
-                // 3. Ahır (Barn)
-                BarnController barn = go.GetComponentInParent<BarnController>();
-                if (barn == null) barn = go.GetComponent<BarnController>();
-                if (barn != null)
-                {
-                    lastGlobalDispatchTime = Time.unscaledTime;
-                    barn.OnBarnClicked();
-                    return true;
-                }
-
-                // 4. Personel (Staff)
-                StaffClickableTarget staff = go.GetComponentInParent<StaffClickableTarget>();
-                if (staff == null) staff = go.GetComponent<StaffClickableTarget>();
-                if (staff != null)
-                {
-                    lastGlobalDispatchTime = Time.unscaledTime;
-                    staff.OnStaffClicked();
-                    return true;
-                }
-
-                // 5. Müşteri (Customer)
-                CustomerClickableTarget customer = go.GetComponentInParent<CustomerClickableTarget>();
-                if (customer == null) customer = go.GetComponent<CustomerClickableTarget>();
-                if (customer != null)
-                {
-                    lastGlobalDispatchTime = Time.unscaledTime;
-                    customer.OnCustomerClicked();
-                    return true;
-                }
-
-                // 6. Teslimat Kolisi / Palet Kutu (Delivery Box)
-                DeliveryBoxController box = go.GetComponentInParent<DeliveryBoxController>();
-                if (box == null) box = go.GetComponent<DeliveryBoxController>();
-                if (box != null)
-                {
-                    lastGlobalDispatchTime = Time.unscaledTime;
-                    box.TriggerPlacement();
-                    return true;
-                }
-
-                // 7. Teslimat Paleti (Delivery Pallet)
-                DeliveryPalletClickable pallet = go.GetComponentInParent<DeliveryPalletClickable>();
-                if (pallet == null) pallet = go.GetComponent<DeliveryPalletClickable>();
-                if (pallet != null)
-                {
-                    lastGlobalDispatchTime = Time.unscaledTime;
-                    PalletStorageInventoryModalUI.ShowModal(isWorkshopMode: false);
-                    return true;
-                }
-
-                // 7.b Atölye Hammadde Paleti (Workshop Pallet)
-                WorkshopPalletClickable wsPallet = go.GetComponentInParent<WorkshopPalletClickable>();
-                if (wsPallet == null) wsPallet = go.GetComponent<WorkshopPalletClickable>();
-                if (wsPallet != null || go.name.Contains("Workshop_Pallet") || (go.transform.parent != null && go.transform.parent.name.Contains("Workshop_Pallet")))
-                {
-                    lastGlobalDispatchTime = Time.unscaledTime;
-                    PalletStorageInventoryModalUI.ShowModal(isWorkshopMode: true);
-                    return true;
-                }
-
-                if (go.name.Contains("Pallet") || (go.transform.parent != null && go.transform.parent.name.Contains("Pallet")))
-                {
-                    lastGlobalDispatchTime = Time.unscaledTime;
-                    PalletStorageInventoryModalUI.ShowModal(isWorkshopMode: false);
-                    return true;
+                    CustomerClickableTarget customer = go.GetComponentInParent<CustomerClickableTarget>() ?? go.GetComponent<CustomerClickableTarget>();
+                    if (customer != null)
+                    {
+                        lastGlobalDispatchTime = Time.unscaledTime;
+                        customer.OnCustomerClicked();
+                        return true;
+                    }
                 }
             }
 
+            // 1.b Mobil Dokunmatik Hassasiyeti için SphereCast (Küçük/hareketli karakterleri kaçırmaz)
+            RaycastHit[] sphereHits = Physics.SphereCastAll(ray, 0.45f, 250f);
+            if (sphereHits != null && sphereHits.Length > 0)
+            {
+                System.Array.Sort(sphereHits, (a, b) => a.distance.CompareTo(b.distance));
+                foreach (var sHit in sphereHits)
+                {
+                    if (sHit.collider == null) continue;
+                    GameObject sGo = sHit.collider.gameObject;
+
+                    StaffClickableTarget staff = sGo.GetComponentInParent<StaffClickableTarget>() ?? sGo.GetComponent<StaffClickableTarget>();
+                    if (staff != null)
+                    {
+                        lastGlobalDispatchTime = Time.unscaledTime;
+                        staff.OnStaffClicked();
+                        return true;
+                    }
+
+                    CustomerClickableTarget customer = sGo.GetComponentInParent<CustomerClickableTarget>() ?? sGo.GetComponent<CustomerClickableTarget>();
+                    if (customer != null)
+                    {
+                        lastGlobalDispatchTime = Time.unscaledTime;
+                        customer.OnCustomerClicked();
+                        return true;
+                    }
+                }
+            }
+
+            // ÖNCELİK 2: Mobilyalar, Reyonlar, Tarlalar ve Ahır
+            if (hits != null && hits.Length > 0)
+            {
+                foreach (var hit in hits)
+                {
+                    if (hit.collider == null) continue;
+                    GameObject go = hit.collider.gameObject;
+
+                    // Reyon / Raf / Dolap / Kasa / Depo Mobilyası
+                    PlacedFurnitureController furniture = go.GetComponentInParent<PlacedFurnitureController>() ?? go.GetComponent<PlacedFurnitureController>();
+                    if (furniture != null)
+                    {
+                        lastGlobalDispatchTime = Time.unscaledTime;
+                        CloseAnyOpenProfileCard();
+                        furniture.OnClickDetected();
+                        return true;
+                    }
+
+                    // Tarla / Ekim Alanı (Field Plot)
+                    FieldPlotController plot = go.GetComponentInParent<FieldPlotController>() ?? go.GetComponent<FieldPlotController>();
+                    if (plot != null)
+                    {
+                        lastGlobalDispatchTime = Time.unscaledTime;
+                        CloseAnyOpenProfileCard();
+                        plot.OnPlotClicked();
+                        return true;
+                    }
+
+                    // Ahır (Barn)
+                    BarnController barn = go.GetComponentInParent<BarnController>() ?? go.GetComponent<BarnController>();
+                    if (barn != null)
+                    {
+                        lastGlobalDispatchTime = Time.unscaledTime;
+                        CloseAnyOpenProfileCard();
+                        barn.OnBarnClicked();
+                        return true;
+                    }
+                }
+            }
+
+            // 2.b Dokunmatik & Tıklama Hassasiyeti için SphereCast (Mobilya & Palet Toleransı)
+            if (sphereHits != null && sphereHits.Length > 0)
+            {
+                foreach (var sHit in sphereHits)
+                {
+                    if (sHit.collider == null) continue;
+                    GameObject sGo = sHit.collider.gameObject;
+
+                    // Teslimat Paleti
+                    DeliveryPalletClickable pallet = sGo.GetComponentInParent<DeliveryPalletClickable>() ?? sGo.GetComponent<DeliveryPalletClickable>();
+                    if (pallet != null || sGo.name.Contains("Pallet") || sGo.name.Contains("Delivery") ||
+                        (sGo.transform.parent != null && sGo.transform.parent.name.Contains("Pallet")))
+                    {
+                        lastGlobalDispatchTime = Time.unscaledTime;
+                        CloseAnyOpenProfileCard();
+                        PalletStorageInventoryModalUI.ShowModal(isWorkshopMode: false);
+                        return true;
+                    }
+
+                    // Mobilya / Raf / Depo Palet Rafı
+                    PlacedFurnitureController furniture = sGo.GetComponentInParent<PlacedFurnitureController>() ?? sGo.GetComponent<PlacedFurnitureController>();
+                    if (furniture != null)
+                    {
+                        lastGlobalDispatchTime = Time.unscaledTime;
+                        CloseAnyOpenProfileCard();
+                        furniture.OnClickDetected();
+                        return true;
+                    }
+
+                    // Tarla
+                    FieldPlotController plot = sGo.GetComponentInParent<FieldPlotController>() ?? sGo.GetComponent<FieldPlotController>();
+                    if (plot != null)
+                    {
+                        lastGlobalDispatchTime = Time.unscaledTime;
+                        CloseAnyOpenProfileCard();
+                        plot.OnPlotClicked();
+                        return true;
+                    }
+
+                    // Ahır
+                    BarnController barn = sGo.GetComponentInParent<BarnController>() ?? sGo.GetComponent<BarnController>();
+                    if (barn != null)
+                    {
+                        lastGlobalDispatchTime = Time.unscaledTime;
+                        CloseAnyOpenProfileCard();
+                        barn.OnBarnClicked();
+                        return true;
+                    }
+                }
+            }
+
+            // Boş dünyaya (zemin, kaldırım vb.) tıklandığında açık olan profil kartını pürüzsüzce kapat
+            CloseAnyOpenProfileCard();
             return false;
+        }
+
+        private static void CloseAnyOpenProfileCard()
+        {
+            if (CustomerProfileModalUI.Instance != null && CustomerProfileModalUI.Instance.IsModalOpen)
+            {
+                CustomerProfileModalUI.Instance.HideModal();
+            }
+            if (StaffProfileModalUI.Instance != null && StaffProfileModalUI.Instance.IsModalOpen)
+            {
+                StaffProfileModalUI.Instance.HideModal();
+            }
         }
 
         public static int GetTouchCount()

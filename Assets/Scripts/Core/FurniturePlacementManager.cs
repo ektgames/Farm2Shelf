@@ -36,6 +36,7 @@ namespace Farm2Shelf.Core
         private Vector3 originalReplacementPos;
         private Quaternion originalReplacementRot;
         private ShelfRowData[] savedReplacementRows;
+        private WorkshopMachineState savedReplacementMachineState;
         private bool isReinstalling = false;
 
         private void Awake()
@@ -59,6 +60,7 @@ namespace Farm2Shelf.Core
             PalletStorageInventoryModalUI.HideModal();
             ModalManager.SetModalOpen(false);
             if (FurnitureInfoModalUI.Instance != null) FurnitureInfoModalUI.Instance.CloseModal();
+            if (WorkshopMachineModalUI.Instance != null) WorkshopMachineModalUI.Instance.HideModal();
 
             if (isPlacing) CancelPlacement();
 
@@ -66,6 +68,8 @@ namespace Farm2Shelf.Core
             this.sourceBox = boxController;
             this.isPlacing = true;
             this.isReinstalling = false;
+            this.savedReplacementRows = null;
+            this.savedReplacementMachineState = null;
             this.currentYRotation = 0f;
             this.placementStartTime = Time.time;
 
@@ -113,10 +117,17 @@ namespace Farm2Shelf.Core
             }
         }
 
-        public void StartReplacement(FurnitureType type, Vector3 origPos, Quaternion origRot, ShelfRowData[] existingRows = null)
+        public void StartReplacement(
+            FurnitureType type, 
+            Vector3 origPos, 
+            Quaternion origRot, 
+            ShelfRowData[] existingRows = null, 
+            WorkshopMachineState machineState = null
+        )
         {
             ModalManager.SetModalOpen(false);
             if (FurnitureInfoModalUI.Instance != null) FurnitureInfoModalUI.Instance.CloseModal();
+            if (WorkshopMachineModalUI.Instance != null) WorkshopMachineModalUI.Instance.HideModal();
 
             if (isPlacing) CancelPlacement();
 
@@ -127,6 +138,7 @@ namespace Farm2Shelf.Core
             this.originalReplacementPos = origPos;
             this.originalReplacementRot = origRot;
             this.savedReplacementRows = existingRows;
+            this.savedReplacementMachineState = machineState;
             this.currentYRotation = origRot.eulerAngles.y;
             this.placementStartTime = Time.time;
 
@@ -141,7 +153,10 @@ namespace Farm2Shelf.Core
             FurnitureItemDef def = FurnitureDatabase.GetDef(type);
             if (infoStatusText != null && def != null)
             {
-                infoStatusText.text = $"🛠️ {def.name} Taşınıyor\nEkrana dokunarak taşıyın | Paneldeki [✅ Kur] butonuna basarak kurun";
+                string stateNote = (machineState != null && (machineState.isProducing || machineState.isReadyToCollect)) 
+                    ? " (Üretim Korunuyor ⏳)" 
+                    : "";
+                infoStatusText.text = $"🛠️ {def.LocalizedName}{stateNote} Taşınıyor\nEkrana dokunarak taşıyın | Paneldeki [✅ Kur] butonuna basarak kurun";
             }
         }
 
@@ -158,13 +173,14 @@ namespace Farm2Shelf.Core
 
             if (ghostObj == null) return;
 
-            Camera mainCam = Camera.main;
+            Camera mainCam = (IsometricCameraSetup.Instance != null && IsometricCameraSetup.Instance.Cam != null)
+                ? IsometricCameraSetup.Instance.Cam
+                : Camera.main;
+
             if (mainCam != null)
             {
-                // 1. DOKUNMA VEYA FARE TIKLAMASI/SÜRÜKLEMESİ:
-                // Ekrana dokunulduğunda veya tıklandığında anında o konuma taşınır.
-                // Parmağı/fareyi bıraktığınızda mobilya tam olarak orada kalır!
-                if (IsAnyPointerPressed(out Vector2 pointerPos, out bool isTouchInput))
+                // 1. DOKUNMA, TIKLAMA, SÜRÜKLEME VEYA FARE HAREKETİ İLE ÖNİZLEMEYİ DOĞRUDAN KONUMLANDIR:
+                if (GetActivePointerScreenPosition(out Vector2 pointerPos))
                 {
                     if (!IsPointerOverUIButton(pointerPos))
                     {
@@ -178,24 +194,9 @@ namespace Farm2Shelf.Core
                             hitPoint.z = Mathf.Round(hitPoint.z * 4f) / 4f;
                             hitPoint.y = 0.01f;
 
-                            FurnitureItemDef currentDef = FurnitureDatabase.GetDef(currentType);
-                            if (currentDef != null && currentDef.zone == FurnitureZone.WorkshopOnly)
-                            {
-                                int wsLevel = (WorkshopManager.Instance != null) ? WorkshopManager.Instance.CurrentWorkshopLevel : 1;
-                                float wsDepth = (wsLevel == 1) ? 18.0f : ((wsLevel == 2) ? 27.0f : 36.0f);
-                                hitPoint.x = Mathf.Clamp(hitPoint.x, -68.0f, -42.0f);
-                                hitPoint.z = Mathf.Clamp(hitPoint.z, -3.5f, -3.0f + wsDepth + 1.0f);
-                            }
-                            else if (currentDef != null && currentDef.zone == FurnitureZone.StorageOnly)
-                            {
-                                hitPoint.x = Mathf.Clamp(hitPoint.x, 2.5f, 11.5f);
-                                hitPoint.z = Mathf.Clamp(hitPoint.z, -3.5f, 38.0f);
-                            }
-                            else
-                            {
-                                hitPoint.x = Mathf.Clamp(hitPoint.x, -14.0f, 12.0f);
-                                hitPoint.z = Mathf.Clamp(hitPoint.z, -3.5f, 38.0f);
-                            }
+                            // Geniş harita sınırları dahilinde (Dükkan, Depo, Atölye ve Tarla) serbest ve hassas konumlandırma
+                            hitPoint.x = Mathf.Clamp(hitPoint.x, -85.0f, 35.0f);
+                            hitPoint.z = Mathf.Clamp(hitPoint.z, -35.0f, 65.0f);
 
                             ghostObj.transform.position = hitPoint;
                         }
@@ -302,94 +303,75 @@ namespace Farm2Shelf.Core
         }
 
         // --- HİBRİT INPUT SYSTEM & LEGACY INPUT OKUYUCULARI ---
-        private bool IsAnyPointerPressed(out Vector2 pointerPos, out bool isTouch)
+        private bool GetActivePointerScreenPosition(out Vector2 screenPos)
         {
-            pointerPos = Vector2.zero;
-            isTouch = false;
+            screenPos = Vector2.zero;
 
-#if ENABLE_INPUT_SYSTEM
-            if (UnityEngine.InputSystem.Mouse.current != null)
-            {
-                if (UnityEngine.InputSystem.Mouse.current.leftButton.isPressed || UnityEngine.InputSystem.Mouse.current.leftButton.wasPressedThisFrame)
-                {
-                    pointerPos = UnityEngine.InputSystem.Mouse.current.position.ReadValue();
-                    isTouch = false;
-                    if (pointerPos.sqrMagnitude > 1f) return true;
-                }
-            }
-
-            if (UnityEngine.InputSystem.Touchscreen.current != null && Application.isMobilePlatform)
-            {
-                var touch = UnityEngine.InputSystem.Touchscreen.current.primaryTouch;
-                if (touch.press.isPressed || touch.press.wasPressedThisFrame)
-                {
-                    pointerPos = touch.position.ReadValue();
-                    isTouch = true;
-                    if (pointerPos.sqrMagnitude > 1f) return true;
-                }
-            }
-
-            if (UnityEngine.InputSystem.Pointer.current != null)
-            {
-                if (UnityEngine.InputSystem.Pointer.current.press.isPressed || UnityEngine.InputSystem.Pointer.current.press.wasPressedThisFrame)
-                {
-                    pointerPos = UnityEngine.InputSystem.Pointer.current.position.ReadValue();
-                    if (pointerPos.sqrMagnitude > 1f) return true;
-                }
-            }
-#endif
+            // 1. Dokunmatik Kontrol (Touch)
             try
             {
-                if (Input.GetMouseButton(0) || Input.GetMouseButtonDown(0))
+                if (Input.touchCount > 0)
                 {
-                    pointerPos = (Vector2)Input.mousePosition;
-                    isTouch = false;
-                    return true;
+                    screenPos = Input.GetTouch(0).position;
+                    if (screenPos.sqrMagnitude > 1f) return true;
                 }
-                if (Input.touchCount == 1)
+            }
+            catch {}
+
+            // 2. Standart Fare Kontrolü (PC Mouse)
+            try
+            {
+                Vector3 mPos = Input.mousePosition;
+                if (mPos.sqrMagnitude > 1f)
                 {
-                    pointerPos = Input.GetTouch(0).position;
-                    isTouch = true;
+                    screenPos = new Vector2(mPos.x, mPos.y);
                     return true;
                 }
             }
             catch {}
 
-            return false;
-        }
-
-        private Vector2 GetPointerPosition()
-        {
 #if ENABLE_INPUT_SYSTEM
-            if (UnityEngine.InputSystem.Touchscreen.current != null)
-            {
-                var touch = UnityEngine.InputSystem.Touchscreen.current.primaryTouch;
-                if (touch.press.isPressed)
-                {
-                    return touch.position.ReadValue();
-                }
-            }
-            if (UnityEngine.InputSystem.Mouse.current != null)
-            {
-                Vector2 mPos = UnityEngine.InputSystem.Mouse.current.position.ReadValue();
-                if (mPos.sqrMagnitude > 0.01f) return mPos;
-            }
-            if (UnityEngine.InputSystem.Pointer.current != null)
-            {
-                Vector2 pPos = UnityEngine.InputSystem.Pointer.current.position.ReadValue();
-                if (pPos.sqrMagnitude > 0.01f) return pPos;
-            }
-#else
+            // 3. New Input System Touchscreen
             try
             {
-                if (Input.touchCount > 0) return Input.GetTouch(0).position;
-                Vector3 mPos = Input.mousePosition;
-                if (mPos.sqrMagnitude > 0.01f) return new Vector2(mPos.x, mPos.y);
+                if (UnityEngine.InputSystem.Touchscreen.current != null)
+                {
+                    Vector2 tPos = UnityEngine.InputSystem.Touchscreen.current.primaryTouch.position.ReadValue();
+                    if (tPos.sqrMagnitude > 1f)
+                    {
+                        screenPos = tPos;
+                        return true;
+                    }
+                }
             }
-            catch { }
+            catch {}
+
+            // 4. New Input System Mouse / Pointer
+            try
+            {
+                if (UnityEngine.InputSystem.Mouse.current != null)
+                {
+                    Vector2 mPos = UnityEngine.InputSystem.Mouse.current.position.ReadValue();
+                    if (mPos.sqrMagnitude > 1f)
+                    {
+                        screenPos = mPos;
+                        return true;
+                    }
+                }
+                if (UnityEngine.InputSystem.Pointer.current != null)
+                {
+                    Vector2 pPos = UnityEngine.InputSystem.Pointer.current.position.ReadValue();
+                    if (pPos.sqrMagnitude > 1f)
+                    {
+                        screenPos = pPos;
+                        return true;
+                    }
+                }
+            }
+            catch {}
 #endif
 
-            return Vector2.zero;
+            return false;
         }
 
         private bool IsKeyHeld(KeyCode code)
@@ -562,17 +544,17 @@ namespace Farm2Shelf.Core
         {
             if (!isPlacing) return;
 
-            InstantiatePlacedFurniture(currentType, pos, rot, savedReplacementRows);
+            InstantiatePlacedFurniture(currentType, pos, rot, savedReplacementRows, savedReplacementMachineState);
 
             if (sourceBox != null && FurnitureDeliveryManager.Instance != null)
             {
                 FurnitureDeliveryManager.Instance.RemoveBox(sourceBox);
             }
-            else if (IsWorkshopMachine(currentType, out _) && WorkshopPalletManager.Instance != null)
+            else if (IsWorkshopMachine(currentType, out _) && !isReinstalling && WorkshopPalletManager.Instance != null)
             {
                 WorkshopPalletManager.Instance.RemoveOneMachineBox(currentType);
             }
-            else if (FurnitureDeliveryManager.Instance != null)
+            else if (!isReinstalling && FurnitureDeliveryManager.Instance != null)
             {
                 FurnitureDeliveryManager.Instance.RemoveOneBoxOfType(currentType);
             }
@@ -581,6 +563,7 @@ namespace Farm2Shelf.Core
             isPlacing = false;
             isReinstalling = false;
             savedReplacementRows = null;
+            savedReplacementMachineState = null;
             SetFloorGridVisible(false);
             if (placementHUDCanvas != null) placementHUDCanvas.SetActive(false);
 
@@ -813,12 +796,24 @@ namespace Farm2Shelf.Core
             return false;
         }
 
-        public void SpawnRestoredFurniture(FurnitureType type, Vector3 pos, Quaternion rot, ShelfRowData[] existingRows = null)
+        public void SpawnRestoredFurniture(
+            FurnitureType type, 
+            Vector3 pos, 
+            Quaternion rot, 
+            ShelfRowData[] existingRows = null, 
+            WorkshopMachineState machineState = null
+        )
         {
-            InstantiatePlacedFurniture(type, pos, rot, existingRows);
+            InstantiatePlacedFurniture(type, pos, rot, existingRows, machineState);
         }
 
-        private void InstantiatePlacedFurniture(FurnitureType type, Vector3 pos, Quaternion rot, ShelfRowData[] existingRows = null)
+        private void InstantiatePlacedFurniture(
+            FurnitureType type, 
+            Vector3 pos, 
+            Quaternion rot, 
+            ShelfRowData[] existingRows = null, 
+            WorkshopMachineState machineState = null
+        )
         {
             GameObject realFurniture = FurnitureModelBuilder.CreateFurnitureModel(type, isGhost: false);
             realFurniture.name = type.ToString() + "_" + System.Guid.NewGuid().ToString().Substring(0, 5);
@@ -838,6 +833,10 @@ namespace Farm2Shelf.Core
             {
                 WorkshopMachineController wsCtrl = realFurniture.AddComponent<WorkshopMachineController>();
                 wsCtrl.machineType = mType;
+                if (machineState != null)
+                {
+                    machineState.ApplyTo(wsCtrl);
+                }
             }
         }
 
@@ -873,9 +872,10 @@ namespace Farm2Shelf.Core
         {
             if (isReinstalling)
             {
-                InstantiatePlacedFurniture(currentType, originalReplacementPos, originalReplacementRot, savedReplacementRows);
+                InstantiatePlacedFurniture(currentType, originalReplacementPos, originalReplacementRot, savedReplacementRows, savedReplacementMachineState);
                 isReinstalling = false;
                 savedReplacementRows = null;
+                savedReplacementMachineState = null;
             }
 
             CleanupGhost();
@@ -922,7 +922,11 @@ namespace Farm2Shelf.Core
 
         private bool IsPointerOverUI()
         {
-            return IsPointerOverUIButton(GetPointerPosition());
+            if (GetActivePointerScreenPosition(out Vector2 pointerPos))
+            {
+                return IsPointerOverUIButton(pointerPos);
+            }
+            return false;
         }
 
         public void ConfirmCurrentPlacement()

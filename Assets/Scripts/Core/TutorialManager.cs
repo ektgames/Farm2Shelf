@@ -260,8 +260,8 @@ namespace Farm2Shelf.Core
                            DidCallRestockerEarly;
 
                 case TutorialStep.Step4_AssignStoreShifts:
-                    bool shMorn = HasStoreShift("Sabah") || HasStoreShift("08:00") || HasStoreShift("Gündüz") || HasStoreShift("06:00") || HasStoreShift("Morning");
-                    bool shEve = HasStoreShift("Akşam") || HasStoreShift("16:00") || HasStoreShift("14:00") || HasStoreShift("Gece") || HasStoreShift("22:00") || HasStoreShift("Evening");
+                    bool shMorn = HasStoreShift("Sabah") || HasStoreShift("08:00") || HasStoreShift("Gündüz") || HasStoreShift("Morning");
+                    bool shEve = HasStoreShift("Akşam") || HasStoreShift("16:00 - 24:00") || HasStoreShift("24:00") || HasStoreShift("Gece") || HasStoreShift("Evening");
                     return shMorn && shEve;
 
                 case TutorialStep.Step5_BuyInitialFurniture:
@@ -285,14 +285,14 @@ namespace Farm2Shelf.Core
 
                 case TutorialStep.Step8_HireFarmStaffAndShifts:
                     int farmers = GetFarmRoleCount(StaffRole.Çiftçi);
-                    bool fMorn = HasFarmShift("Sabah") || HasFarmShift("08:00") || HasFarmShift("Gündüz") || HasFarmShift("06:00") || HasFarmShift("Morning");
-                    bool fEve = HasFarmShift("Akşam") || HasFarmShift("16:00") || HasFarmShift("14:00") || HasFarmShift("Gece") || HasFarmShift("22:00") || HasFarmShift("Evening");
+                    bool fMorn = HasFarmShift("Sabah") || HasFarmShift("08:00") || HasFarmShift("Gündüz") || HasFarmShift("Morning");
+                    bool fEve = HasFarmShift("Akşam") || HasFarmShift("16:00 - 24:00") || HasFarmShift("24:00") || HasFarmShift("Gece") || HasFarmShift("Evening");
                     return farmers >= 2 && fMorn && fEve;
 
                 case TutorialStep.Step9_BuyStartingSeeds:
-                    bool hasTomato = DidBuyTomatoSeed || (GardenSeedInventoryManager.Instance != null && GardenSeedInventoryManager.Instance.GetSeedCount("tomato") > 0);
-                    bool hasCucumber = DidBuyCucumberSeed || (GardenSeedInventoryManager.Instance != null && GardenSeedInventoryManager.Instance.GetSeedCount("cucumber") > 0);
-                    bool hasLettuce = DidBuyLettuceSeed || (GardenSeedInventoryManager.Instance != null && GardenSeedInventoryManager.Instance.GetSeedCount("lettuce") > 0);
+                    bool hasTomato = DidBuyTomatoSeed || (GardenSeedInventoryManager.Instance != null && GardenSeedInventoryManager.Instance.GetSeedCount("spring_tomato") > 0);
+                    bool hasCucumber = DidBuyCucumberSeed || (GardenSeedInventoryManager.Instance != null && GardenSeedInventoryManager.Instance.GetSeedCount("spring_cucumber") > 0);
+                    bool hasLettuce = DidBuyLettuceSeed || (GardenSeedInventoryManager.Instance != null && GardenSeedInventoryManager.Instance.GetSeedCount("spring_lettuce") > 0);
                     return hasTomato && hasCucumber && hasLettuce;
 
                 case TutorialStep.Step10_PlantSeedsAndOpenStore:

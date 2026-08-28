@@ -740,6 +740,14 @@ namespace Farm2Shelf.Core
             OnFeedUpdated?.Invoke();
         }
 
+        public void PostCustomerReview(string customerName, string trText, string enText, int rating = 5)
+        {
+            TweetSentiment sentiment = (rating >= 4) ? TweetSentiment.Praise : TweetSentiment.Complaint;
+            string emoji = (rating >= 4) ? "⭐" : "📦";
+            Color color = (rating >= 4) ? new Color(0.20f, 0.85f, 0.40f) : new Color(0.90f, 0.40f, 0.40f);
+            AddCustomerTweet(customerName, emoji, color, rating == 5, sentiment, trText, enText);
+        }
+
         /// <summary>
         /// Gün içinde markete gelen gerçek müşterilerin attığı iyi veya kötü twitleri akışa ekler.
         /// İyi twitler takipçi kazandırır, kötü twitler takipçi kaybettirir!

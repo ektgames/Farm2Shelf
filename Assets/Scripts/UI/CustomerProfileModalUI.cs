@@ -103,7 +103,7 @@ namespace Farm2Shelf.UI
             rootRect.offsetMin = Vector2.zero;
             rootRect.offsetMax = Vector2.zero;
 
-            // Arka Plan Karartma (Overlay Backdrop - Dışarıya Tıklayınca Kapatır)
+            // Arka Plan Karartma (Overlay Backdrop - Şeffaf ve 3D Tıklamaları Engellemez)
             GameObject backdropObj = new GameObject("Backdrop");
             backdropObj.transform.SetParent(modalContainer.transform, false);
             RectTransform bdRect = backdropObj.AddComponent<RectTransform>();
@@ -113,12 +113,8 @@ namespace Farm2Shelf.UI
             bdRect.offsetMax = Vector2.zero;
 
             Image bdImg = backdropObj.AddComponent<Image>();
-            bdImg.color = new Color(0.04f, 0.06f, 0.10f, 0.45f);
-            bdImg.raycastTarget = true;
-
-            Button bdBtn = backdropObj.AddComponent<Button>();
-            bdBtn.targetGraphic = bdImg;
-            bdBtn.onClick.AddListener(HideModal);
+            bdImg.color = new Color(0.04f, 0.06f, 0.10f, 0.20f);
+            bdImg.raycastTarget = false; // 3D dünyadaki müşteri, personel ve nesne tıklamalarını KESİNLİKLE engellemez
 
             // Müşteri Kartı Paneli (Sol Alt Taraf - Safe Area Desteğiyle)
             cardPanel = new GameObject("Customer_Profile_CardPanel");
@@ -459,7 +455,6 @@ namespace Farm2Shelf.UI
 
             if (closeButtonTransform != null) closeButtonTransform.SetAsLastSibling();
             modalContainer.SetActive(true);
-            ModalManager.SetModalOpen(true);
 
             // 1. Gerçekçi Profil Fotoğrafı (Vesikalık)
             Sprite avatarSprite = ProfileAvatarDatabase.GetCustomerAvatar(profile);
@@ -507,7 +502,6 @@ namespace Farm2Shelf.UI
             {
                 modalContainer.SetActive(false);
             }
-            ModalManager.SetModalOpen(false);
         }
     }
 }

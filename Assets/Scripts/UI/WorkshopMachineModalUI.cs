@@ -107,15 +107,15 @@ namespace Farm2Shelf.UI
             bdBtn.targetGraphic = bdImg;
             bdBtn.onClick.AddListener(HideModal);
 
-            // 2. Ana Modal Paneli (880x680)
+            // 2. Ana Modal Paneli (900x700)
             GameObject panelObj = new GameObject("Modal_Panel");
             panelObj.transform.SetParent(backdrop.transform, false);
             RectTransform pRect = panelObj.AddComponent<RectTransform>();
             pRect.anchoredPosition = Vector2.zero;
-            pRect.sizeDelta = new Vector2(880f, 680f);
+            pRect.sizeDelta = new Vector2(900f, 700f);
 
             Image pBg = panelObj.AddComponent<Image>();
-            pBg.sprite = UIStyleUtility.CreateOutlinePillSprite(880, 680, 18, 3, new Color(0.95f, 0.65f, 0.15f), new Color(0.12f, 0.15f, 0.20f, 0.98f));
+            pBg.sprite = UIStyleUtility.CreateOutlinePillSprite(900, 700, 18, 3, new Color(0.95f, 0.65f, 0.15f), new Color(0.12f, 0.15f, 0.20f, 0.98f));
             pBg.raycastTarget = true;
 
             WorkshopMachineDef mDef = WorkshopMachineDatabase.GetMachineByType(activeMachine.machineType);
@@ -125,13 +125,13 @@ namespace Farm2Shelf.UI
             GameObject titleObj = new GameObject("Title");
             titleObj.transform.SetParent(panelObj.transform, false);
             RectTransform tRect = titleObj.AddComponent<RectTransform>();
-            tRect.anchoredPosition = new Vector2(-120f, 290f);
-            tRect.sizeDelta = new Vector2(560f, 45f);
+            tRect.anchoredPosition = new Vector2(-40f, 300f);
+            tRect.sizeDelta = new Vector2(720f, 48f);
 
             machineTitleText = titleObj.AddComponent<Text>();
             machineTitleText.font = font;
             machineTitleText.text = mTitle;
-            machineTitleText.fontSize = 22;
+            machineTitleText.fontSize = 25;
             machineTitleText.fontStyle = FontStyle.Bold;
             machineTitleText.color = new Color(1.0f, 0.85f, 0.30f);
             machineTitleText.alignment = TextAnchor.MiddleLeft;
@@ -140,11 +140,11 @@ namespace Farm2Shelf.UI
             GameObject closeObj = new GameObject("CloseBtn");
             closeObj.transform.SetParent(panelObj.transform, false);
             RectTransform clRect = closeObj.AddComponent<RectTransform>();
-            clRect.anchoredPosition = new Vector2(400f, 290f);
-            clRect.sizeDelta = new Vector2(44f, 44f);
+            clRect.anchoredPosition = new Vector2(405f, 300f);
+            clRect.sizeDelta = new Vector2(48f, 48f);
 
             Image clBg = closeObj.AddComponent<Image>();
-            clBg.sprite = UIStyleUtility.CreateRoundedPillSprite(44, 44, 22, new Color(0.92f, 0.18f, 0.20f, 1f));
+            clBg.sprite = UIStyleUtility.CreateRoundedPillSprite(48, 48, 24, new Color(0.92f, 0.18f, 0.20f, 1f));
 
             Button clBtn = closeObj.AddComponent<Button>();
             clBtn.targetGraphic = clBg;
@@ -159,7 +159,7 @@ namespace Farm2Shelf.UI
             Text clTxt = clTxtObj.AddComponent<Text>();
             clTxt.font = font;
             clTxt.text = "✖";
-            clTxt.fontSize = 24;
+            clTxt.fontSize = 26;
             clTxt.fontStyle = FontStyle.Bold;
             clTxt.alignment = TextAnchor.MiddleCenter;
             clTxt.color = Color.white;
@@ -168,11 +168,11 @@ namespace Farm2Shelf.UI
             GameObject statusObj = new GameObject("StatusBar");
             statusObj.transform.SetParent(panelObj.transform, false);
             RectTransform sRect = statusObj.AddComponent<RectTransform>();
-            sRect.anchoredPosition = new Vector2(0f, 240f);
-            sRect.sizeDelta = new Vector2(820f, 38f);
+            sRect.anchoredPosition = new Vector2(0f, 245f);
+            sRect.sizeDelta = new Vector2(840f, 44f);
 
             Image sBg = statusObj.AddComponent<Image>();
-            sBg.sprite = UIStyleUtility.CreateOutlinePillSprite(820, 38, 12, 1, new Color(0.25f, 0.40f, 0.55f), new Color(0.14f, 0.18f, 0.24f, 0.95f));
+            sBg.sprite = UIStyleUtility.CreateOutlinePillSprite(840, 44, 14, 1, new Color(0.25f, 0.40f, 0.55f), new Color(0.14f, 0.18f, 0.24f, 0.95f));
 
             GameObject stObj = new GameObject("StatusText");
             stObj.transform.SetParent(statusObj.transform, false);
@@ -182,7 +182,7 @@ namespace Farm2Shelf.UI
 
             statusHeaderText = stObj.AddComponent<Text>();
             statusHeaderText.font = font;
-            statusHeaderText.fontSize = 15;
+            statusHeaderText.fontSize = 17;
             statusHeaderText.fontStyle = FontStyle.Bold;
             statusHeaderText.alignment = TextAnchor.MiddleCenter;
             statusHeaderText.color = Color.white;
@@ -194,7 +194,7 @@ namespace Farm2Shelf.UI
             scrollObj.transform.SetParent(panelObj.transform, false);
             RectTransform sAreaRect = scrollObj.AddComponent<RectTransform>();
             sAreaRect.anchoredPosition = new Vector2(0f, -25f);
-            sAreaRect.sizeDelta = new Vector2(820f, 460f);
+            sAreaRect.sizeDelta = new Vector2(840f, 470f);
 
             ScrollRect scrollRect = scrollObj.AddComponent<ScrollRect>();
             scrollRect.horizontal = false;
@@ -289,22 +289,22 @@ namespace Farm2Shelf.UI
                 cardObj.transform.SetParent(listContentTransform, false);
 
                 LayoutElement lElem = cardObj.AddComponent<LayoutElement>();
-                lElem.minHeight = 92f;
-                lElem.preferredHeight = 92f;
+                lElem.minHeight = 104f;
+                lElem.preferredHeight = 104f;
 
                 Image cardBg = cardObj.AddComponent<Image>();
                 Color borderColor = hasEnoughCrops ? new Color(0.20f, 0.85f, 0.40f) : new Color(0.40f, 0.45f, 0.50f);
-                cardBg.sprite = UIStyleUtility.CreateOutlinePillSprite(800, 92, 14, 2, borderColor, new Color(0.14f, 0.17f, 0.23f, 0.95f));
+                cardBg.sprite = UIStyleUtility.CreateOutlinePillSprite(820, 104, 16, 2, borderColor, new Color(0.14f, 0.17f, 0.23f, 0.95f));
 
-                // 1. Sol Emoji Kutusu
+                // 1. Sol Emoji Kutusu (Büyük ve Belirgin)
                 GameObject iconBox = new GameObject("IconBox");
                 iconBox.transform.SetParent(cardObj.transform, false);
                 RectTransform ibRect = iconBox.AddComponent<RectTransform>();
-                ibRect.anchoredPosition = new Vector2(-340f, 0f);
-                ibRect.sizeDelta = new Vector2(56f, 56f);
+                ibRect.anchoredPosition = new Vector2(-345f, 0f);
+                ibRect.sizeDelta = new Vector2(66f, 66f);
 
                 Image ibBg = iconBox.AddComponent<Image>();
-                ibBg.sprite = UIStyleUtility.CreateRoundedPillSprite(56, 56, 12, new Color(0.22f, 0.28f, 0.38f));
+                ibBg.sprite = UIStyleUtility.CreateRoundedPillSprite(66, 66, 14, new Color(0.22f, 0.28f, 0.38f));
 
                 GameObject iconTxtObj = new GameObject("Emoji");
                 iconTxtObj.transform.SetParent(iconBox.transform, false);
@@ -315,15 +315,15 @@ namespace Farm2Shelf.UI
                 Text iconTxt = iconTxtObj.AddComponent<Text>();
                 iconTxt.font = font;
                 iconTxt.text = rDef.iconEmoji;
-                iconTxt.fontSize = 28;
+                iconTxt.fontSize = 36;
                 iconTxt.alignment = TextAnchor.MiddleCenter;
 
                 // 2. Orta Bilgiler (Ürün Adı, Gerekli Hammadde vs Paletteki Stok, Süre, Satış Değeri)
                 GameObject infoObj = new GameObject("Info");
                 infoObj.transform.SetParent(cardObj.transform, false);
                 RectTransform infRect = infoObj.AddComponent<RectTransform>();
-                infRect.anchoredPosition = new Vector2(-30f, 0f);
-                infRect.sizeDelta = new Vector2(520f, 74f);
+                infRect.anchoredPosition = new Vector2(-40f, 0f);
+                infRect.sizeDelta = new Vector2(500f, 85f);
 
                 Text infTxt = infoObj.AddComponent<Text>();
                 infTxt.font = font;
@@ -333,25 +333,25 @@ namespace Farm2Shelf.UI
                 string rawFmt = LocalizationManager.L("WS_Card_RawFmt", "🌾 Gerekli: <b>{0} KG {1}</b> | Palette: <color={2}><b>{3} KG</b></color>", "🌾 Required: <b>{0} KG {1}</b> | Pallet: <color={2}><b>{3} KG</b></color>");
                 string timeFmt = LocalizationManager.L("WS_Card_TimeFmt", "⏳ Süre: <b>{0} dk</b> | 💰 Değer: <color=#FFD700><b>{1}C</b></color> (Paket: {2} Adet)", "⏳ Time: <b>{0} min</b> | 💰 Value: <color=#FFD700><b>{1}C</b></color> (Pack: {2} Pcs)");
 
-                string infoStr = $"<size=18><b>{rDef.LocalizedName}</b></size>\n" +
+                string infoStr = $"<size=20><b>{rDef.LocalizedName}</b></size>\n" +
                                  string.Format(rawFmt, rDef.requiredCropKg, cropName, stockColor, palletCropCount) + "\n" +
                                  string.Format(timeFmt, durationMins, rDef.unitSalePrice, rDef.outputPackCount);
 
                 infTxt.text = infoStr;
-                infTxt.fontSize = 13;
+                infTxt.fontSize = 15;
                 infTxt.alignment = TextAnchor.MiddleLeft;
                 infTxt.color = Color.white;
 
-                // 3. Sağ "ÜRETİME BAŞLA" Butonu
+                // 3. Sağ "ÜRETİME BAŞLA" Butonu (Genişletilmiş ve Büyütülmüş)
                 GameObject startBtnObj = new GameObject("StartBtn");
                 startBtnObj.transform.SetParent(cardObj.transform, false);
                 RectTransform sbRect = startBtnObj.AddComponent<RectTransform>();
-                sbRect.anchoredPosition = new Vector2(305f, 0f);
-                sbRect.sizeDelta = new Vector2(145f, 48f);
+                sbRect.anchoredPosition = new Vector2(300f, 0f);
+                sbRect.sizeDelta = new Vector2(175f, 54f);
 
                 Image sbBg = startBtnObj.AddComponent<Image>();
-                Color btnColor = hasEnoughCrops ? new Color(0.18f, 0.75f, 0.35f) : new Color(0.35f, 0.40f, 0.45f);
-                sbBg.sprite = UIStyleUtility.CreateRoundedPillSprite(145, 48, 10, btnColor);
+                Color btnColor = hasEnoughCrops ? new Color(0.18f, 0.75f, 0.35f) : new Color(0.32f, 0.36f, 0.42f);
+                sbBg.sprite = UIStyleUtility.CreateRoundedPillSprite(175, 54, 12, btnColor);
 
                 Button sbBtn = startBtnObj.AddComponent<Button>();
                 sbBtn.targetGraphic = sbBg;
@@ -374,7 +374,7 @@ namespace Farm2Shelf.UI
                 Text sbtTxt = sbtObj.AddComponent<Text>();
                 sbtTxt.font = font;
                 sbtTxt.text = hasEnoughCrops ? LocalizationManager.L("WS_BtnStart", "⚙️ ÜRETİME BAŞLA", "⚙️ START CRAFT") : LocalizationManager.L("WS_BtnNoStock", "❌ YETERSİZ HAMMADDE", "❌ NO CROPS");
-                sbtTxt.fontSize = 12;
+                sbtTxt.fontSize = 14;
                 sbtTxt.fontStyle = FontStyle.Bold;
                 sbtTxt.alignment = TextAnchor.MiddleCenter;
                 sbtTxt.color = Color.white;
@@ -390,23 +390,23 @@ namespace Farm2Shelf.UI
             cardObj.transform.SetParent(listContentTransform, false);
 
             LayoutElement lElem = cardObj.AddComponent<LayoutElement>();
-            lElem.minHeight = 320f;
-            lElem.preferredHeight = 320f;
+            lElem.minHeight = 330f;
+            lElem.preferredHeight = 330f;
 
             Image cardBg = cardObj.AddComponent<Image>();
-            cardBg.sprite = UIStyleUtility.CreateOutlinePillSprite(800, 320, 16, 2, new Color(0.95f, 0.70f, 0.20f), new Color(0.14f, 0.17f, 0.24f, 0.98f));
+            cardBg.sprite = UIStyleUtility.CreateOutlinePillSprite(820, 330, 16, 2, new Color(0.95f, 0.70f, 0.20f), new Color(0.14f, 0.17f, 0.24f, 0.98f));
 
             // Büyük Emoji
             GameObject emojiObj = new GameObject("BigEmoji");
             emojiObj.transform.SetParent(cardObj.transform, false);
             RectTransform eRect = emojiObj.AddComponent<RectTransform>();
-            eRect.anchoredPosition = new Vector2(0f, 90f);
-            eRect.sizeDelta = new Vector2(100f, 80f);
+            eRect.anchoredPosition = new Vector2(0f, 95f);
+            eRect.sizeDelta = new Vector2(120f, 90f);
 
             Text eTxt = emojiObj.AddComponent<Text>();
             eTxt.font = font;
             eTxt.text = rDef.iconEmoji;
-            eTxt.fontSize = 54;
+            eTxt.fontSize = 64;
             eTxt.alignment = TextAnchor.MiddleCenter;
 
             // Açıklama Metni
@@ -414,11 +414,11 @@ namespace Farm2Shelf.UI
             descObj.transform.SetParent(cardObj.transform, false);
             RectTransform dRect = descObj.AddComponent<RectTransform>();
             dRect.anchoredPosition = new Vector2(0f, 15f);
-            dRect.sizeDelta = new Vector2(700f, 60f);
+            dRect.sizeDelta = new Vector2(720f, 65f);
 
             Text dTxt = descObj.AddComponent<Text>();
             dTxt.font = font;
-            dTxt.fontSize = 17;
+            dTxt.fontSize = 20;
             dTxt.alignment = TextAnchor.MiddleCenter;
             dTxt.color = Color.white;
 
@@ -432,10 +432,10 @@ namespace Farm2Shelf.UI
                 collectBtnObj.transform.SetParent(cardObj.transform, false);
                 RectTransform cbRect = collectBtnObj.AddComponent<RectTransform>();
                 cbRect.anchoredPosition = new Vector2(0f, -80f);
-                cbRect.sizeDelta = new Vector2(280f, 54f);
+                cbRect.sizeDelta = new Vector2(320f, 58f);
 
                 Image cbBg = collectBtnObj.AddComponent<Image>();
-                cbBg.sprite = UIStyleUtility.CreateRoundedPillSprite(280, 54, 12, new Color(0.10f, 0.85f, 0.35f));
+                cbBg.sprite = UIStyleUtility.CreateRoundedPillSprite(320, 58, 14, new Color(0.10f, 0.85f, 0.35f));
 
                 Button cbBtn = collectBtnObj.AddComponent<Button>();
                 cbBtn.targetGraphic = cbBg;
@@ -456,7 +456,7 @@ namespace Farm2Shelf.UI
                 Text cbtTxt = cbtObj.AddComponent<Text>();
                 cbtTxt.font = font;
                 cbtTxt.text = LocalizationManager.L("WS_Btn_CollectBarn", "📦 ÜRÜNLERİ AHIRA TOPLA", "📦 COLLECT TO BARN");
-                cbtTxt.fontSize = 16;
+                cbtTxt.fontSize = 18;
                 cbtTxt.fontStyle = FontStyle.Bold;
                 cbtTxt.alignment = TextAnchor.MiddleCenter;
                 cbtTxt.color = Color.white;

@@ -754,18 +754,46 @@ namespace Farm2Shelf.UI
         private void StartNewGame()
         {
             HideMenu();
-            if (EconomyManager.Instance != null) EconomyManager.Instance.SetCredits(400000);
+            if (EconomyManager.Instance != null) EconomyManager.Instance.SetCredits(50000);
             if (StoreStatusManager.Instance != null) StoreStatusManager.Instance.CloseStore();
             if (StaffVisualManager.Instance != null) StaffVisualManager.Instance.ClearAllStaffModels();
             if (StaffManager.Instance != null)
             {
                 StaffManager.Instance.SetStaffList(new List<StaffMember>());
                 StaffManager.Instance.SetFarmStaffList(new List<StaffMember>());
+                StaffManager.Instance.SetCourierStaffList(new List<StaffMember>());
+            }
+            if (CourierManager.Instance != null)
+            {
+                CourierManager.Instance.ResetFleet();
             }
             if (CustomerShoppingManager.Instance != null)
             {
                 CustomerShoppingManager.Instance.ClearAllCustomers();
             }
+            if (GardenSeedInventoryManager.Instance != null)
+            {
+                GardenSeedInventoryManager.Instance.ClearBarnInventory();
+                GardenSeedInventoryManager.Instance.RestoreOwnedSeeds(new Dictionary<string, int>());
+            }
+            if (WorkshopPalletManager.Instance != null)
+            {
+                WorkshopPalletManager.Instance.ClearAll();
+            }
+            if (FurnitureDeliveryManager.Instance != null)
+            {
+                FurnitureDeliveryManager.Instance.ClearPendingBoxes();
+            }
+            if (WholesaleTruckManager.Instance != null)
+            {
+                WholesaleTruckManager.Instance.ClearAllPackages();
+            }
+            if (GreenTruckDeliveryManager.Instance != null)
+            {
+                GreenTruckDeliveryManager.Instance.ClearPendingDeliveries();
+            }
+
+            FieldPlotController.ResetAllPlotsToEmpty();
 
             if (TutorialManager.Instance != null)
             {

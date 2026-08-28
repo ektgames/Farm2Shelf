@@ -37,7 +37,12 @@ namespace Farm2Shelf.Core
             "Çiftlikte Hasat Şenliği 🌽",
             "Bahçeni Büyüt 🌸",
             "Kırsal Country Ritimleri 🪕",
-            "Gece Pazarı Melodileri 🌙"
+            "Gece Pazarı Melodileri 🌙",
+            "Neşeli Çiftlik Ritimleri 🌾",
+            "Enerjik Kasaba Funky 🎺",
+            "Ritmik Mağaza Yürüyüşü 🛒",
+            "Modern Market Melodisi 🛍️",
+            "Büyük Hasat Coşkusu 🎉"
         };
 
         private readonly string[] trackTitlesEn = new string[]
@@ -53,7 +58,12 @@ namespace Farm2Shelf.Core
             "Farm Harvest Festival 🌽",
             "Grow Your Garden 🌸",
             "Rural Country Beats 🪕",
-            "Night Market Melodies 🌙"
+            "Night Market Melodies 🌙",
+            "Joyful Farm Beats 🌾",
+            "Upbeat Town Funk 🎺",
+            "Rhythmic Store Walk 🛒",
+            "Modern Market Melody 🛍️",
+            "Grand Harvest Celebration 🎉"
         };
 
         [Header("Audio State")]
@@ -121,8 +131,8 @@ namespace Farm2Shelf.Core
             bgmTracks.Clear();
             sfxClips.Clear();
 
-            // Masaüstünden entegre edilen 12 Gerçek MP3 Müzik Parçasını Yükle
-            for (int i = 1; i <= 12; i++)
+            // Masaüstünden entegre edilen 17 Gerçek MP3 Müzik Parçasını Yükle
+            for (int i = 1; i <= 17; i++)
             {
                 string path = $"Audio/BGM/track_{i:D2}";
                 AudioClip clip = Resources.Load<AudioClip>(path);
@@ -190,7 +200,7 @@ namespace Farm2Shelf.Core
                 }
                 string title = GetCurrentTrackTitle();
                 OnTrackChanged?.Invoke(currentTrackIndex + 1, title);
-                Debug.Log($"[AudioManager] Çalan Parça ({currentTrackIndex + 1}/10): {title}");
+                Debug.Log($"[AudioManager] Çalan Parça ({currentTrackIndex + 1}/{bgmTracks.Count}): {title}");
             }
         }
 
@@ -456,7 +466,7 @@ namespace Farm2Shelf.Core
         public bool IsBGMMuted => isBgmMuted;
         public bool IsSFXMuted => isSfxMuted;
         public int CurrentTrackIndex => currentTrackIndex + 1;
-        public int TotalTracks => bgmTracks.Count > 0 ? bgmTracks.Count : 10;
+        public int TotalTracks => bgmTracks.Count > 0 ? bgmTracks.Count : 17;
 
         public string GetCurrentTrackTitle()
         {

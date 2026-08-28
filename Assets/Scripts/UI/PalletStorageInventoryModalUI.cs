@@ -118,10 +118,10 @@ namespace Farm2Shelf.UI
 
             RectTransform boxRect = boxObj.AddComponent<RectTransform>();
             boxRect.anchoredPosition = Vector2.zero;
-            boxRect.sizeDelta = new Vector2(980f, 620f);
+            boxRect.sizeDelta = new Vector2(1000f, 650f);
 
             Image boxBg = boxObj.AddComponent<Image>();
-            boxBg.sprite = UIStyleUtility.CreateOutlinePillSprite(980, 620, 24, 2, new Color(0.95f, 0.70f, 0.20f), new Color(0.10f, 0.13f, 0.18f, 0.98f));
+            boxBg.sprite = UIStyleUtility.CreateOutlinePillSprite(1000, 650, 24, 2, new Color(0.95f, 0.70f, 0.20f), new Color(0.10f, 0.13f, 0.18f, 0.98f));
             boxBg.raycastTarget = true; // Kutu içindeki tıklamaların arkaya geçmesini önle
 
             // 3. Üst Başlık ve Arama Çubuğu Barı
@@ -143,22 +143,22 @@ namespace Farm2Shelf.UI
             headerObj.transform.SetParent(parent, false);
 
             RectTransform hRect = headerObj.AddComponent<RectTransform>();
-            hRect.anchoredPosition = new Vector2(0f, 260f);
-            hRect.sizeDelta = new Vector2(920f, 60f);
+            hRect.anchoredPosition = new Vector2(0f, 280f);
+            hRect.sizeDelta = new Vector2(940f, 60f);
 
             // Başlık
             GameObject titleObj = new GameObject("Title_Text");
             titleObj.transform.SetParent(headerObj.transform, false);
             RectTransform tRect = titleObj.AddComponent<RectTransform>();
-            tRect.anchoredPosition = new Vector2(-230f, 0f);
-            tRect.sizeDelta = new Vector2(440f, 50f);
+            tRect.anchoredPosition = new Vector2(-235f, 0f);
+            tRect.sizeDelta = new Vector2(460f, 50f);
 
             Text titleText = titleObj.AddComponent<Text>();
             titleText.font = globalFont;
             titleText.text = isWorkshop
                 ? LocalizationManager.L("PalletModal_WorkshopTitle", "🏭 ATÖLYE PALETİ (MAKİNELER & HAMMADDELER)", "🏭 WORKSHOP PALLET (MACHINES & RAW CROPS)")
                 : LocalizationManager.L("PalletModal_Title", "📦 PALET RAFI MOBİLYA DEPOSU", "📦 PALLET RACK FURNITURE STORAGE");
-            titleText.fontSize = 20;
+            titleText.fontSize = 22;
             titleText.fontStyle = FontStyle.Bold;
             titleText.alignment = TextAnchor.MiddleLeft;
             titleText.color = isWorkshop ? new Color(0.95f, 0.65f, 0.20f) : new Color(1.0f, 0.85f, 0.30f);
@@ -168,11 +168,11 @@ namespace Farm2Shelf.UI
             GameObject searchObj = new GameObject("Search_InputField");
             searchObj.transform.SetParent(headerObj.transform, false);
             RectTransform sRect = searchObj.AddComponent<RectTransform>();
-            sRect.anchoredPosition = new Vector2(170f, 0f);
-            sRect.sizeDelta = new Vector2(280f, 40f);
+            sRect.anchoredPosition = new Vector2(175f, 0f);
+            sRect.sizeDelta = new Vector2(300f, 44f);
 
             Image searchBg = searchObj.AddComponent<Image>();
-            searchBg.sprite = UIStyleUtility.CreateOutlinePillSprite(280, 40, 20, 1, new Color(0.25f, 0.40f, 0.55f), new Color(0.14f, 0.18f, 0.24f, 0.90f));
+            searchBg.sprite = UIStyleUtility.CreateOutlinePillSprite(300, 44, 22, 1, new Color(0.25f, 0.40f, 0.55f), new Color(0.14f, 0.18f, 0.24f, 0.90f));
             searchBg.raycastTarget = true;
 
             searchInputField = searchObj.AddComponent<InputField>();
@@ -190,7 +190,7 @@ namespace Farm2Shelf.UI
             phText.text = isWorkshop
                 ? LocalizationManager.L("PalletModal_SearchWorkshopPlaceholder", "🔍 Makine veya mahsul ara...", "🔍 Search machine or crop...")
                 : LocalizationManager.L("PalletModal_SearchPlaceholder", "🔍 Mobilya ara...", "🔍 Search furniture...");
-            phText.fontSize = 14;
+            phText.fontSize = 15;
             phText.fontStyle = FontStyle.Italic;
             phText.color = new Color(0.55f, 0.65f, 0.75f, 0.70f);
             phText.alignment = TextAnchor.MiddleLeft;
@@ -206,7 +206,7 @@ namespace Farm2Shelf.UI
 
             Text inputText = textObj.AddComponent<Text>();
             inputText.font = globalFont;
-            inputText.fontSize = 14;
+            inputText.fontSize = 15;
             inputText.fontStyle = FontStyle.Bold;
             inputText.color = Color.white;
             inputText.alignment = TextAnchor.MiddleLeft;
@@ -223,11 +223,11 @@ namespace Farm2Shelf.UI
             GameObject closeBtnObj = new GameObject("Close_Button");
             closeBtnObj.transform.SetParent(headerObj.transform, false);
             RectTransform cRect = closeBtnObj.AddComponent<RectTransform>();
-            cRect.anchoredPosition = new Vector2(430f, 0f);
-            cRect.sizeDelta = new Vector2(46f, 46f);
+            cRect.anchoredPosition = new Vector2(440f, 0f);
+            cRect.sizeDelta = new Vector2(48f, 48f);
 
             Image closeBg = closeBtnObj.AddComponent<Image>();
-            closeBg.sprite = UIStyleUtility.CreateRoundedPillSprite(46, 46, 23, new Color(0.92f, 0.18f, 0.20f, 1f));
+            closeBg.sprite = UIStyleUtility.CreateRoundedPillSprite(48, 48, 24, new Color(0.92f, 0.18f, 0.20f, 1f));
             closeBg.raycastTarget = true;
 
             Button closeBtn = closeBtnObj.AddComponent<Button>();
@@ -244,7 +244,7 @@ namespace Farm2Shelf.UI
             Text closeTxt = closeTxtObj.AddComponent<Text>();
             closeTxt.font = globalFont;
             closeTxt.text = "✖";
-            closeTxt.fontSize = 26;
+            closeTxt.fontSize = 28;
             closeTxt.fontStyle = FontStyle.Bold;
             closeTxt.alignment = TextAnchor.MiddleCenter;
             closeTxt.color = Color.white;
@@ -263,8 +263,8 @@ namespace Farm2Shelf.UI
             scrollObj.transform.SetParent(parent, false);
 
             RectTransform sRect = scrollObj.AddComponent<RectTransform>();
-            sRect.anchoredPosition = new Vector2(0f, -30f);
-            sRect.sizeDelta = new Vector2(920f, 480f);
+            sRect.anchoredPosition = new Vector2(0f, -25f);
+            sRect.sizeDelta = new Vector2(940f, 510f);
 
             ScrollRect scrollRect = scrollObj.AddComponent<ScrollRect>();
             scrollRect.horizontal = false;
@@ -272,7 +272,7 @@ namespace Farm2Shelf.UI
             scrollRect.scrollSensitivity = 25f;
 
             Image sBg = scrollObj.AddComponent<Image>();
-            sBg.sprite = UIStyleUtility.CreateRoundedPillSprite(920, 480, 16, new Color(0.07f, 0.09f, 0.13f, 0.70f));
+            sBg.sprite = UIStyleUtility.CreateRoundedPillSprite(940, 510, 16, new Color(0.07f, 0.09f, 0.13f, 0.70f));
             sBg.raycastTarget = true;
 
             // Viewport
@@ -571,14 +571,14 @@ namespace Farm2Shelf.UI
             headerObj.transform.SetParent(cardsContainer, false);
 
             RectTransform hRect = headerObj.AddComponent<RectTransform>();
-            hRect.sizeDelta = new Vector2(890f, 38f);
+            hRect.sizeDelta = new Vector2(910f, 42f);
 
             LayoutElement elem = headerObj.AddComponent<LayoutElement>();
-            elem.minHeight = 38f;
-            elem.preferredHeight = 38f;
+            elem.minHeight = 42f;
+            elem.preferredHeight = 42f;
 
             Image hBg = headerObj.AddComponent<Image>();
-            hBg.sprite = UIStyleUtility.CreateOutlinePillSprite(890, 38, 10, 1, accentColor, new Color(0.08f, 0.12f, 0.18f, 0.95f));
+            hBg.sprite = UIStyleUtility.CreateOutlinePillSprite(910, 42, 10, 1, accentColor, new Color(0.08f, 0.12f, 0.18f, 0.95f));
 
             GameObject tObj = new GameObject("Text");
             tObj.transform.SetParent(headerObj.transform, false);
@@ -591,7 +591,7 @@ namespace Farm2Shelf.UI
             Text txt = tObj.AddComponent<Text>();
             txt.font = globalFont;
             txt.text = $"<b>{title}</b>";
-            txt.fontSize = 15;
+            txt.fontSize = 16;
             txt.alignment = TextAnchor.MiddleLeft;
             txt.color = accentColor;
             txt.raycastTarget = false;
@@ -603,14 +603,14 @@ namespace Farm2Shelf.UI
             emptyObj.transform.SetParent(cardsContainer, false);
 
             RectTransform eRect = emptyObj.AddComponent<RectTransform>();
-            eRect.sizeDelta = new Vector2(890f, 48f);
+            eRect.sizeDelta = new Vector2(910f, 52f);
 
             LayoutElement elem = emptyObj.AddComponent<LayoutElement>();
-            elem.minHeight = 48f;
-            elem.preferredHeight = 48f;
+            elem.minHeight = 52f;
+            elem.preferredHeight = 52f;
 
             Image eBg = emptyObj.AddComponent<Image>();
-            eBg.sprite = UIStyleUtility.CreateRoundedPillSprite(890, 48, 10, new Color(0.08f, 0.10f, 0.14f, 0.85f));
+            eBg.sprite = UIStyleUtility.CreateRoundedPillSprite(910, 52, 10, new Color(0.08f, 0.10f, 0.14f, 0.85f));
 
             GameObject tObj = new GameObject("Text");
             tObj.transform.SetParent(emptyObj.transform, false);
@@ -621,7 +621,7 @@ namespace Farm2Shelf.UI
             Text txt = tObj.AddComponent<Text>();
             txt.font = globalFont;
             txt.text = message;
-            txt.fontSize = 14;
+            txt.fontSize = 15;
             txt.fontStyle = FontStyle.Italic;
             txt.alignment = TextAnchor.MiddleCenter;
             txt.color = new Color(0.65f, 0.72f, 0.80f);
@@ -638,21 +638,21 @@ namespace Farm2Shelf.UI
             rowObj.transform.SetParent(cardsContainer, false);
 
             RectTransform rRect = rowObj.AddComponent<RectTransform>();
-            rRect.sizeDelta = new Vector2(890f, 64f);
+            rRect.sizeDelta = new Vector2(910f, 78f);
 
             LayoutElement elem = rowObj.AddComponent<LayoutElement>();
-            elem.minHeight = 64f;
-            elem.preferredHeight = 64f;
+            elem.minHeight = 78f;
+            elem.preferredHeight = 78f;
 
             Image rBg = rowObj.AddComponent<Image>();
-            rBg.sprite = UIStyleUtility.CreateOutlinePillSprite(890, 64, 12, 1, new Color(0.30f, 0.70f, 0.40f, 0.7f), new Color(0.12f, 0.16f, 0.22f, 0.95f));
+            rBg.sprite = UIStyleUtility.CreateOutlinePillSprite(910, 78, 14, 1, new Color(0.30f, 0.70f, 0.40f, 0.7f), new Color(0.12f, 0.16f, 0.22f, 0.95f));
 
             // Sol İkon Kutusu
             GameObject iconObj = new GameObject("Icon_Box");
             iconObj.transform.SetParent(rowObj.transform, false);
             RectTransform iRect = iconObj.AddComponent<RectTransform>();
-            iRect.anchoredPosition = new Vector2(-390f, 0f);
-            iRect.sizeDelta = new Vector2(48f, 48f);
+            iRect.anchoredPosition = new Vector2(-400f, 0f);
+            iRect.sizeDelta = new Vector2(56f, 56f);
 
             Image iconBg = iconObj.AddComponent<Image>();
             iconBg.sprite = UIStyleUtility.CreateSeedIconSprite(cropId, emoji, new Color(0.35f, 0.85f, 0.40f));
@@ -662,13 +662,13 @@ namespace Farm2Shelf.UI
             GameObject infoObj = new GameObject("Info_Panel");
             infoObj.transform.SetParent(rowObj.transform, false);
             RectTransform inRect = infoObj.AddComponent<RectTransform>();
-            inRect.anchoredPosition = new Vector2(-75f, 0f);
-            inRect.sizeDelta = new Vector2(530f, 52f);
+            inRect.anchoredPosition = new Vector2(-70f, 0f);
+            inRect.sizeDelta = new Vector2(550f, 62f);
 
             Text infoTxt = infoObj.AddComponent<Text>();
             infoTxt.font = globalFont;
             string subText = LocalizationManager.L("PalletModal_CropSubtitle", "Atölye Makinelerinde Kullanıma Hazır Depolanan Hammadde", "Raw Material Ready for Workshop Machine Processing");
-            infoTxt.text = $"<b>{emoji} {cropName}</b>  <color=#00E676><b>[Hammadde]</b></color>\n<size=13><color=#85A5B8>{subText}</color></size>";
+            infoTxt.text = $"<size=17><b>{emoji} {cropName}</b></size>  <color=#00E676><b>[Hammadde]</b></color>\n<size=14><color=#85A5B8>{subText}</color></size>";
             infoTxt.fontSize = 15;
             infoTxt.alignment = TextAnchor.MiddleLeft;
             infoTxt.color = Color.white;
@@ -678,11 +678,11 @@ namespace Farm2Shelf.UI
             GameObject countObj = new GameObject("Count_Panel");
             countObj.transform.SetParent(rowObj.transform, false);
             RectTransform cRect = countObj.AddComponent<RectTransform>();
-            cRect.anchoredPosition = new Vector2(345f, 0f);
-            cRect.sizeDelta = new Vector2(150f, 44f);
+            cRect.anchoredPosition = new Vector2(355f, 0f);
+            cRect.sizeDelta = new Vector2(160f, 48f);
 
             Image cBg = countObj.AddComponent<Image>();
-            cBg.sprite = UIStyleUtility.CreateOutlinePillSprite(150, 44, 10, 1, new Color(0.95f, 0.65f, 0.20f), new Color(0.20f, 0.16f, 0.08f, 0.90f));
+            cBg.sprite = UIStyleUtility.CreateOutlinePillSprite(160, 48, 12, 1, new Color(0.95f, 0.65f, 0.20f), new Color(0.20f, 0.16f, 0.08f, 0.90f));
 
             GameObject ctObj = new GameObject("Count_Txt");
             ctObj.transform.SetParent(countObj.transform, false);
@@ -693,7 +693,7 @@ namespace Farm2Shelf.UI
             Text cTxt = ctObj.AddComponent<Text>();
             cTxt.font = globalFont;
             cTxt.text = $"<color=#FFD700><b>{count} KG</b></color>";
-            cTxt.fontSize = 17;
+            cTxt.fontSize = 19;
             cTxt.fontStyle = FontStyle.Bold;
             cTxt.alignment = TextAnchor.MiddleCenter;
             cTxt.color = Color.white;
@@ -706,22 +706,22 @@ namespace Farm2Shelf.UI
             cardObj.transform.SetParent(cardsContainer, false);
 
             RectTransform cRect = cardObj.AddComponent<RectTransform>();
-            cRect.sizeDelta = new Vector2(890f, 76f);
+            cRect.sizeDelta = new Vector2(910f, 88f);
 
             LayoutElement elem = cardObj.AddComponent<LayoutElement>();
-            elem.minHeight = 76f;
-            elem.preferredHeight = 76f;
+            elem.minHeight = 88f;
+            elem.preferredHeight = 88f;
 
             Image bg = cardObj.AddComponent<Image>();
-            bg.sprite = UIStyleUtility.CreateRoundedPillSprite(890, 76, 14, new Color(0.12f, 0.16f, 0.22f, 0.95f));
+            bg.sprite = UIStyleUtility.CreateRoundedPillSprite(910, 88, 14, new Color(0.12f, 0.16f, 0.22f, 0.95f));
             bg.raycastTarget = true;
 
             // 1. İkon Kutusu (TrendyShop Mağaza Görseli)
             GameObject iconObj = new GameObject("Icon_Box");
             iconObj.transform.SetParent(cardObj.transform, false);
             RectTransform iRect = iconObj.AddComponent<RectTransform>();
-            iRect.anchoredPosition = new Vector2(-390f, 0f);
-            iRect.sizeDelta = new Vector2(56f, 56f);
+            iRect.anchoredPosition = new Vector2(-400f, 0f);
+            iRect.sizeDelta = new Vector2(64f, 64f);
 
             Image iconBg = iconObj.AddComponent<Image>();
             iconBg.sprite = UIStyleUtility.CreateFurnitureIconSprite(def.type);
@@ -731,8 +731,8 @@ namespace Farm2Shelf.UI
             GameObject infoObj = new GameObject("Info_Panel");
             infoObj.transform.SetParent(cardObj.transform, false);
             RectTransform inRect = infoObj.AddComponent<RectTransform>();
-            inRect.anchoredPosition = new Vector2(-75f, 0f);
-            inRect.sizeDelta = new Vector2(530f, 60f);
+            inRect.anchoredPosition = new Vector2(-70f, 0f);
+            inRect.sizeDelta = new Vector2(550f, 68f);
 
             Text infoTxt = infoObj.AddComponent<Text>();
             infoTxt.font = globalFont;
@@ -740,7 +740,7 @@ namespace Farm2Shelf.UI
             string zoneTag = $"<color={zoneColorHex}><b>[{def.GetZoneText()}]</b></color>";
             string qtyTag = (quantity > 1) ? $" <color=#FFD700><b>(x{quantity} Adet)</b></color>" : "";
 
-            infoTxt.text = $"<b>{def.LocalizedName}</b>{qtyTag}  |  {zoneTag}\n<size=13><color=#90A0B5>{def.LocalizedDescription}</color></size>";
+            infoTxt.text = $"<size=17><b>{def.LocalizedName}</b></size>{qtyTag}  |  {zoneTag}\n<size=14><color=#90A0B5>{def.LocalizedDescription}</color></size>";
             infoTxt.fontSize = 15;
             infoTxt.alignment = TextAnchor.MiddleLeft;
             infoTxt.color = Color.white;
@@ -751,11 +751,11 @@ namespace Farm2Shelf.UI
             assembleBtnObj.transform.SetParent(cardObj.transform, false);
 
             RectTransform bRect = assembleBtnObj.AddComponent<RectTransform>();
-            bRect.anchoredPosition = new Vector2(345f, 0f);
-            bRect.sizeDelta = new Vector2(150f, 44f);
+            bRect.anchoredPosition = new Vector2(355f, 0f);
+            bRect.sizeDelta = new Vector2(160f, 52f);
 
             Image bBg = assembleBtnObj.AddComponent<Image>();
-            bBg.sprite = UIStyleUtility.CreateOutlinePillSprite(150, 44, 22, 2, new Color(0.20f, 0.85f, 0.40f), new Color(0.12f, 0.42f, 0.22f, 0.95f));
+            bBg.sprite = UIStyleUtility.CreateOutlinePillSprite(160, 52, 26, 2, new Color(0.20f, 0.85f, 0.40f), new Color(0.12f, 0.42f, 0.22f, 0.95f));
             bBg.raycastTarget = true;
 
             Button btn = assembleBtnObj.AddComponent<Button>();
@@ -789,7 +789,7 @@ namespace Farm2Shelf.UI
             Text btnTxt = btObj.AddComponent<Text>();
             btnTxt.font = globalFont;
             btnTxt.text = LocalizationManager.L("Btn_AssembleFurniture", "🔨 KUR", "🔨 ASSEMBLE");
-            btnTxt.fontSize = 15;
+            btnTxt.fontSize = 19;
             btnTxt.fontStyle = FontStyle.Bold;
             btnTxt.alignment = TextAnchor.MiddleCenter;
             btnTxt.color = Color.white;

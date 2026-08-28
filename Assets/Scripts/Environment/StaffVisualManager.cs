@@ -152,32 +152,45 @@ namespace Farm2Shelf.Environment
 
             int currentHour = TimeManager.Instance != null ? TimeManager.Instance.Hour : 6;
             int currentMinute = TimeManager.Instance != null ? TimeManager.Instance.Minute : 0;
-            bool isStoreOpen = StoreStatusManager.Instance != null && StoreStatusManager.Instance.IsOpen;
+            int totalMins = currentHour * 60 + currentMinute;
 
             List<StaffMember> activeStaffList = StaffManager.Instance.GetActiveStaff();
             List<StaffMember> farmStaffList = StaffManager.Instance.GetFarmStaffList();
 
-            HashSet<string> eligibleStaffIds = new HashSet<string>();
-
-            // Erken mesaiye çağrılan personelleri ekle (Dükkan kapalı olsa bile sahnede olurlar)
-            foreach (var id in earlyCalledStaffIds)
+            // 1. Vardiya bitiş saatini geçmiş erken çağrıları temizle (Sabah personeli: 16:00 / 960 dk, Akşam personeli: 24:00 / 1440 dk)
+            if (earlyCalledStaffIds.Count > 0 && activeStaffList != null)
             {
-                eligibleStaffIds.Add(id);
+                List<string> idsToClear = new List<string>();
+                foreach (var id in earlyCalledStaffIds)
+                {
+                    var s = activeStaffList.Find(x => x.id == id);
+                    if (s == null && farmStaffList != null) s = farmStaffList.Find(x => x.id == id);
+                    if (s != null)
+                    {
+                        string sft = s.shiftHours ?? "";
+                        bool isEve = sft.Contains("Akşam") || sft.Contains("Evening") || sft.Contains("Gece") || sft.Contains("Night") || sft.Contains("16:00 - 24:00") || sft.Contains("24:00");
+                        if (!isEve && totalMins >= 960) idsToClear.Add(id); // Sabah vardiyası bitti (16:00)
+                        else if (isEve && totalMins >= 1440) idsToClear.Add(id); // Akşam vardiyası bitti (24:00)
+                    }
+                }
+                foreach (var id in idsToClear) earlyCalledStaffIds.Remove(id);
             }
 
-            int activeCustCount = (CustomerShoppingManager.Instance != null) ? CustomerShoppingManager.Instance.ActiveCustomerCount : 0;
-            bool isTruckWaiting = (WholesaleTruckManager.Instance != null && WholesaleTruckManager.Instance.IsTruckAtDockWaitingForUnload) ||
-                                  (GreenTruckDeliveryManager.Instance != null && GreenTruckDeliveryManager.Instance.IsTruckAtDockWaitingForUnload);
+            HashSet<string> eligibleStaffIds = new HashSet<string>();
 
-            // Dükkan açıkken veya vardiya saatinde (30 dk erken geliş dahil) veya personel elindeki koliyi/işi bırakırken sahnede aktif kalır!
+            // 2. DÜKKAN PERSONELİ (Kasiyer, Reyoncu, Temizlikçi, Güvenlik, Danışma, Maskot)
             if (activeStaffList != null)
             {
                 foreach (var s in activeStaffList)
                 {
                     if (s == null || !s.isActive) continue;
 
+                    bool isLeaving = (StaffTaskController.Instance != null && StaffTaskController.Instance.IsStaffLeavingShift(s.id));
+                    if (isLeaving) continue; // Çıkış yapan veya ayrılan personel asla tekrar spawn edilemez!
+
                     bool isCarrying = (StaffTaskController.Instance != null && StaffTaskController.Instance.IsStaffCarryingInHandTask(s.id));
                     bool isEligible = StaffTaskController.IsStaffShiftActive(s, currentHour, currentMinute, out _);
+
                     if (isEligible || isCarrying)
                     {
                         eligibleStaffIds.Add(s.id);
@@ -185,14 +198,19 @@ namespace Farm2Shelf.Environment
                 }
             }
 
+            // 3. ÇİFTLİK PERSONELİ (Çiftçiler)
             if (farmStaffList != null)
             {
                 foreach (var s in farmStaffList)
                 {
                     if (s == null || !s.isActive) continue;
 
+                    bool isLeaving = (StaffTaskController.Instance != null && StaffTaskController.Instance.IsStaffLeavingShift(s.id));
+                    if (isLeaving) continue;
+
                     bool isCarrying = (StaffTaskController.Instance != null && StaffTaskController.Instance.IsStaffCarryingInHandTask(s.id));
                     bool isEligible = StaffTaskController.IsStaffShiftActive(s, currentHour, currentMinute, out _);
+
                     if (isEligible || isCarrying)
                     {
                         eligibleStaffIds.Add(s.id);
@@ -210,7 +228,7 @@ namespace Farm2Shelf.Environment
                 }
             }
 
-            // Vardiyası Biten veya Dükkan Kapandığında Ayrılan Modelleri Dışarı Çıkar (Exit Route)
+            // Vardiyası Biten veya Dükkandan Ayrılan Modelleri Dışarı Çıkar (Exit Route)
             List<string> idsToExit = new List<string>();
             foreach (var kvp in activeStaffModels)
             {
@@ -232,6 +250,9 @@ namespace Farm2Shelf.Environment
 
         private void SpawnStaff3DModel(StaffMember staff)
         {
+            if (staff == null) return;
+            if (StaffTaskController.Instance != null && StaffTaskController.Instance.IsStaffLeavingShift(staff.id)) return;
+
             bool isFemale = staff.isFemale || StaffManager.IsFemaleName(staff.name);
             GameObject modelObj = ProceduralStaffModelBuilder.CreateStaffModel(staff.role, isFemale, out List<Transform> leftLimbs, out List<Transform> rightLimbs);
             modelObj.transform.SetParent(staffGroupTransform, false);

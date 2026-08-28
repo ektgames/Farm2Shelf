@@ -12,6 +12,7 @@ namespace Farm2Shelf.Core
         Güvenlik,
         MüşteriHizmetlisi,
         Maskot,
+        Kurye,
         Çiftçi,
         DeneyimliÇiftçi,
         UstaÇiftlikSorumlusu,
@@ -52,6 +53,9 @@ namespace Farm2Shelf.Core
         [Header("Personel Kadrosu")]
         private List<StaffMember> activeStaffList = new List<StaffMember>();
 
+        [Header("Kurye Personel Kadrosu (Online Market)")]
+        private List<StaffMember> courierStaffList = new List<StaffMember>();
+
         private static readonly string[] maleFirstNamesTr = new string[] {
             "Ahmet", "Mehmet", "Burak", "Caner", "Murat", "Emre", "Oğuz", "Kaan", "Serkan", "Volkan", "Mert", "Hakan", "Bora", "Cem", "Yusuf"
         };
@@ -74,6 +78,7 @@ namespace Farm2Shelf.Core
         };
 
         public event Action OnStaffListChanged;
+        public event Action OnCourierStaffListChanged;
 
         private void Awake()
         {
@@ -100,7 +105,7 @@ namespace Farm2Shelf.Core
                 paidSalariesToday = true;
                 PayDailySalaries();
             }
-            else if (hour != 12)
+            else if (hour == 0 && minute == 0)
             {
                 paidSalariesToday = false;
             }
@@ -158,6 +163,7 @@ namespace Farm2Shelf.Core
                 case StaffRole.Güvenlik: return 150;
                 case StaffRole.MüşteriHizmetlisi: return 130;
                 case StaffRole.Maskot: return 180;
+                case StaffRole.Kurye: return 120;
                 case StaffRole.Çiftçi: return 250;
                 case StaffRole.DeneyimliÇiftçi: return 450;
                 case StaffRole.UstaÇiftlikSorumlusu: return 850;
@@ -176,6 +182,7 @@ namespace Farm2Shelf.Core
                 case StaffRole.Güvenlik: return 600;
                 case StaffRole.MüşteriHizmetlisi: return 550;
                 case StaffRole.Maskot: return 800;
+                case StaffRole.Kurye: return 0;
                 case StaffRole.Çiftçi: return 1200;
                 case StaffRole.DeneyimliÇiftçi: return 2500;
                 case StaffRole.UstaÇiftlikSorumlusu: return 5000;
@@ -295,6 +302,90 @@ namespace Farm2Shelf.Core
             }
         }
 
+        public List<StaffMember> GetCourierStaffList() => courierStaffList;
+
+        public void SetCourierStaffList(List<StaffMember> newList)
+        {
+            courierStaffList.Clear();
+            if (newList != null)
+            {
+                foreach (var cs in newList)
+                {
+                    if (cs != null)
+                    {
+                        cs.shiftHours = NormalizeShift(cs.shiftHours);
+                        courierStaffList.Add(cs);
+                    }
+                }
+            }
+            OnStaffListChanged?.Invoke();
+            OnCourierStaffListChanged?.Invoke();
+        }
+
+        public StaffMember HireCourier(bool isFemale)
+        {
+            string randomName = GenerateUniqueCourierName(isFemale);
+            string newId = "CR" + UnityEngine.Random.Range(100, 999);
+            string defaultShift = "☀️ Sabah (08:00 - 16:00)";
+            int dailySalary = GetRoleDailySalary(StaffRole.Kurye);
+
+            StaffMember newStaff = new StaffMember(newId, randomName, StaffRole.Kurye, defaultShift, dailySalary, true, isFemale);
+            courierStaffList.Add(newStaff);
+
+            OnStaffListChanged?.Invoke();
+            OnCourierStaffListChanged?.Invoke();
+
+            Debug.Log($"[Online Market İşe Alım] Yeni Kurye İşe Alındı: {newStaff.name} ({(isFemale ? "Kadın" : "Erkek")} - Günlük Maaş: {dailySalary} Cr)");
+            return newStaff;
+        }
+
+        public void FireCourier(string staffId)
+        {
+            StaffMember staff = courierStaffList.Find(s => s.id == staffId);
+            if (staff != null)
+            {
+                courierStaffList.Remove(staff);
+                OnStaffListChanged?.Invoke();
+                OnCourierStaffListChanged?.Invoke();
+                Debug.Log($"[StaffManager] Kurye {staff.name} işten çıkarıldı.");
+            }
+        }
+
+        public void UpdateCourierShift(string staffId, string newShift)
+        {
+            StaffMember staff = courierStaffList.Find(s => s.id == staffId);
+            if (staff != null)
+            {
+                staff.shiftHours = NormalizeShift(newShift);
+                OnStaffListChanged?.Invoke();
+                OnCourierStaffListChanged?.Invoke();
+                Debug.Log($"[StaffManager] Kurye {staff.name} vardiyası güncellendi: {staff.shiftHours}");
+            }
+        }
+
+        private string GenerateUniqueCourierName(bool isFemale)
+        {
+            bool isEnglish = LocalizationManager.Instance != null && LocalizationManager.Instance.CurrentLanguage == GameLanguage.English;
+            string[] maleNames = isEnglish ? maleFirstNamesEn : maleFirstNamesTr;
+            string[] femaleNames = isEnglish ? femaleFirstNamesEn : femaleFirstNamesTr;
+            string[] surnames = isEnglish ? lastNamesEn : lastNamesTr;
+
+            for (int i = 0; i < 50; i++)
+            {
+                string fName = isFemale
+                    ? femaleNames[UnityEngine.Random.Range(0, femaleNames.Length)]
+                    : maleNames[UnityEngine.Random.Range(0, maleNames.Length)];
+                string lName = surnames[UnityEngine.Random.Range(0, surnames.Length)];
+
+                string candidateName = $"{fName} {lName}";
+                if (!courierStaffList.Exists(s => s.name == candidateName))
+                {
+                    return candidateName;
+                }
+            }
+            return isEnglish ? $"Courier {UnityEngine.Random.Range(100, 999)}" : $"Kurye {UnityEngine.Random.Range(100, 999)}";
+        }
+
         public void PayDailySalaries()
         {
             int totalPayroll = 0;
@@ -313,6 +404,14 @@ namespace Farm2Shelf.Core
             }
             totalPayroll += farmPayroll;
 
+            // 3. Kurye Personeli Maaşları (Online Market)
+            int courierPayroll = 0;
+            foreach (var courier in courierStaffList)
+            {
+                if (courier.isActive) courierPayroll += courier.dailySalary;
+            }
+            totalPayroll += courierPayroll;
+
             if (totalPayroll > 0 && EconomyManager.Instance != null)
             {
                 bool paid = EconomyManager.Instance.SpendCredits(totalPayroll);
@@ -320,9 +419,9 @@ namespace Farm2Shelf.Core
                 {
                     if (FinanceManager.Instance != null)
                     {
-                        FinanceManager.Instance.RecordExpense("Maaş", $"Gece Yarısı Maaş Ödemesi ({activeStaffList.Count} Mağaza, {farmStaffList.Count} Çiftçi)", totalPayroll);
+                        FinanceManager.Instance.RecordExpense("Maaş", $"Gece Yarısı Maaş Ödemesi ({activeStaffList.Count} Mağaza, {farmStaffList.Count} Çiftçi, {courierStaffList.Count} Kurye)", totalPayroll);
                     }
-                    Debug.Log($"[GECE YARISI MAAŞ ÖDEMESİ 00:00] {activeStaffList.Count} Mağaza + {farmStaffList.Count} Çiftlik çalışanına toplam {totalPayroll} Credit günlük maaş ödendi.");
+                    Debug.Log($"[GECE YARISI MAAŞ ÖDEMESİ 00:00] {activeStaffList.Count} Mağaza + {farmStaffList.Count} Çiftlik + {courierStaffList.Count} Kurye çalışanına toplam {totalPayroll} Credit günlük maaş ödendi.");
                 }
                 else
                 {

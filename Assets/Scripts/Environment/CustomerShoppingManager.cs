@@ -77,6 +77,7 @@ namespace Farm2Shelf.Environment
 
             // Çoklu Raf & Çeşitli Ürün Alışveriş Takip Verileri (1-20 Ürün & Kısmi Alışveriş)
             public HashSet<PlacedFurnitureController> visitedShelvesSet = new HashSet<PlacedFurnitureController>();
+            public HashSet<string> boughtProductNames = new HashSet<string>();
             public int targetBasketGoal = 1;
             public int targetShelfCount = 1;
             public int missedShelvesCount = 0;
@@ -172,15 +173,15 @@ namespace Farm2Shelf.Environment
         private bool IsShiftActive(string shift, int currentHour)
         {
             if (string.IsNullOrEmpty(shift)) return true;
-            if (shift.Contains("Sabah") || shift.Contains("Gündüz") || shift.Contains("08:00") || shift.Contains("06:00"))
+            bool isEve = shift.Contains("Akşam") || shift.Contains("Evening") || shift.Contains("Gece") || shift.Contains("Night") || shift.Contains("16:00 - 24:00") || shift.Contains("24:00");
+            if (!isEve)
             {
                 return (currentHour >= 8 && currentHour < 16);
             }
-            if (shift.Contains("Akşam") || shift.Contains("16:00") || shift.Contains("14:00") || shift.Contains("Gece") || shift.Contains("22:00"))
+            else
             {
                 return (currentHour >= 16 && (currentHour < 24 || activeCustomers.Count > 0));
             }
-            return true;
         }
 
         private void FindParkingBarriers()
@@ -383,12 +384,13 @@ namespace Farm2Shelf.Environment
             return 1;
         }
 
-        public static bool IsGourmetProduct(string productName)
+        public static bool IsGourmetProduct(string productName) => IsWorkshopOrGourmet(productName);
+
+        public static bool IsWorkshopOrGourmet(string productName)
         {
             if (string.IsNullOrEmpty(productName)) return false;
             if (productName.StartsWith("gourmet_", System.StringComparison.OrdinalIgnoreCase)) return true;
-            var r = WorkshopMachineDatabase.GetRecipeByOutputId(productName);
-            if (r != null) return true;
+            if (WorkshopMachineDatabase.GetRecipeByOutputId(productName) != null) return true;
             var allRecipes = WorkshopMachineDatabase.GetAllRecipes();
             if (allRecipes != null)
             {
@@ -407,30 +409,110 @@ namespace Farm2Shelf.Environment
             return false;
         }
 
+        public static bool IsFarmCropProduct(string productName)
+        {
+            if (string.IsNullOrEmpty(productName)) return false;
+            if (GardenSeedDatabase.GetSeedById(productName) != null) return true;
+            var seedList = GardenSeedDatabase.GetAllSeeds();
+            if (seedList != null)
+            {
+                foreach (var s in seedList)
+                {
+                    if (s == null) continue;
+                    string cropName = s.name.Replace(" Tohumu", "").Replace(" Seeds", "").Trim();
+                    if (string.Equals(s.name, productName, System.StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(s.nameEn, productName, System.StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(s.id, productName, System.StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(cropName, productName, System.StringComparison.OrdinalIgnoreCase) ||
+                        productName.IndexOf(cropName, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        public static bool IsProductOverpriced(string productId, string productName, float currentUnitPrice)
+        {
+            if (currentUnitPrice <= 0f) return false;
+
+            // 1. Toptan Ürün Kontrolü
+            WholesaleProductDef pDef = WholesaleDatabase.GetProductById(productId);
+            if (pDef == null && !string.IsNullOrEmpty(productName))
+            {
+                var all = WholesaleDatabase.GetAllProducts();
+                pDef = all.Find(p => p != null && (string.Equals(p.name, productName, System.StringComparison.OrdinalIgnoreCase) ||
+                                                    string.Equals(p.nameEn, productName, System.StringComparison.OrdinalIgnoreCase) ||
+                                                    string.Equals(p.id, productName, System.StringComparison.OrdinalIgnoreCase) ||
+                                                    productName.IndexOf(p.name, System.StringComparison.OrdinalIgnoreCase) >= 0));
+            }
+            if (pDef != null)
+            {
+                float baseCost = pDef.wholesaleUnitPrice;
+                if (baseCost > 0)
+                {
+                    float maxAcceptable = (pDef.targetShelfType == FurnitureType.GourmetShelf || pDef.profitMarginPercent >= 70f)
+                        ? (baseCost * 1.95f)
+                        : (baseCost * 1.30f);
+                    return currentUnitPrice > maxAcceptable;
+                }
+            }
+
+            // 2. Çiftlik / Hasat Mahsulü Kontrolü
+            GardenSeedDef sDef = GardenSeedDatabase.GetSeedById(productId);
+            if (sDef == null && !string.IsNullOrEmpty(productName))
+            {
+                var allSeeds = GardenSeedDatabase.GetAllSeeds();
+                sDef = allSeeds.Find(s => s != null && (string.Equals(s.name, productName, System.StringComparison.OrdinalIgnoreCase) ||
+                                                        string.Equals(s.nameEn, productName, System.StringComparison.OrdinalIgnoreCase) ||
+                                                        productName.IndexOf(s.name.Replace(" Tohumu", ""), System.StringComparison.OrdinalIgnoreCase) >= 0));
+            }
+            if (sDef != null)
+            {
+                float fairPrice = sDef.unitSalePrice;
+                if (fairPrice > 0)
+                {
+                    return currentUnitPrice > (fairPrice * 1.35f);
+                }
+            }
+
+            return false;
+        }
+
         public static bool IsProductMatchingCustomerTier(string productName, int customerTier)
         {
-            // Lüks Gurme Ürünleri: HER SEVİYEDEKİ (1, 2, 3) tüm müşteri gruplarınca serbestçe alınabilir ve talep edilebilir!
-            if (IsGourmetProduct(productName))
+            if (string.IsNullOrEmpty(productName) || productName == "Boş" || productName.StartsWith("Ürün"))
+                return false;
+
+            // 1. TÜM ATÖLYE & GURME ÜRÜNLERİ: Her seviyedeki (1, 2, 3) tüm müşteri gruplarınca serbestçe alınabilir!
+            if (IsWorkshopOrGourmet(productName))
             {
                 return true;
             }
 
-            // Standart ve Çiftlik Ürünleri: Müşteri seviyesi ile ürün seviyesi BİREBİR eşleşir!
+            // 2. TÜM TARIM & ÇİFTLİK MAHSULLERİ: Her seviyedeki (1, 2, 3) tüm müşteri gruplarınca serbestçe alınabilir!
+            if (IsFarmCropProduct(productName))
+            {
+                return true;
+            }
+
+            // 3. TOPTAN MARKET ÜRÜNLERİ (p1..p60): Müşteri seviyesine göre kademeli açılır
             int productLevel = GetProductLevel(productName);
             if (customerTier == 1)
             {
-                // 1. Seviye müşterisi SADECE 1. seviye ürünleri talep eder ve alır
-                return productLevel == 1;
+                // 1. Seviye Müşteri: 1. Seviye toptan ürünleri alır
+                return productLevel <= 1;
             }
             else if (customerTier == 2)
             {
-                // 2. Seviye müşterisi SADECE 2. seviye ürünleri talep eder ve alır
-                return productLevel == 2;
+                // 2. Seviye Müşteri: 1. ve 2. Seviye toptan ürünleri alır
+                return productLevel <= 2;
             }
             else // Tier 3
             {
-                // 3. Seviye müşterisi SADECE 3. seviye ürünleri talep eder ve alır
-                return productLevel == 3;
+                // 3. Seviye Müşteri: 1., 2. ve 3. Seviye toptan ürünlerinin tamamını alır
+                return productLevel <= 3;
             }
         }
 
@@ -763,19 +845,7 @@ namespace Farm2Shelf.Environment
 
             if (validShelves.Count > 0)
             {
-                // Seviyeye öncelik ver (Müşterinin kendi seviyesindeki ve Gurme ürün raflarını başa al)
-                validShelves.Sort((a, b) =>
-                {
-                    int aMaxLvl = GetMaxProductLevelOnShelf(a);
-                    int bMaxLvl = GetMaxProductLevelOnShelf(b);
-                    bool aIsGourmet = (a.FurnitureType == FurnitureType.GourmetShelf);
-                    bool bIsGourmet = (b.FurnitureType == FurnitureType.GourmetShelf);
-                    int aScore = (aMaxLvl == customerTier || aIsGourmet) ? 10 : 0;
-                    int bScore = (bMaxLvl == customerTier || bIsGourmet) ? 10 : 0;
-                    return bScore.CompareTo(aScore);
-                });
-
-                // Kendi seviyesi içinde karıştır (Fisher-Yates Shuffle)
+                // Rafları kategorilerine ve ürün çeşitliliğine göre karıştır (Fisher-Yates Shuffle)
                 for (int i = 0; i < validShelves.Count; i++)
                 {
                     var temp = validShelves[i];
@@ -784,8 +854,9 @@ namespace Farm2Shelf.Environment
                     validShelves[randIdx] = temp;
                 }
 
-                // Hedef sepet büyüklüğüne göre uğranacak raf sayısı (1 ile validShelves.Count arası)
-                int desiredShelves = Mathf.Clamp(Mathf.CeilToInt(targetBasketGoal / 2.5f), 1, 10);
+                // Hedef sepet büyüklüğüne göre mağazada gezilecek raf sayısı
+                // Sepetini zenginleştirmesi ve farklı reyonlardan ürün alabilmesi için çoklu raf rotası:
+                int desiredShelves = Mathf.Clamp(Mathf.CeilToInt(targetBasketGoal / 1.5f), 1, 10);
                 targetShelfCount = Mathf.Clamp(desiredShelves, 1, validShelves.Count);
 
                 for (int i = 0; i < targetShelfCount; i++)
@@ -2518,30 +2589,65 @@ namespace Farm2Shelf.Environment
                 return;
             }
 
-            // Kendi seviyesindeki ürünlere ve Gurme ürünlere öncelik ver
+            // Çeşitlilik için sırala: Daha önce sepete konmamış farklı ürünleri en başa al
             populatedRows.Sort((a, b) =>
             {
+                bool aAlreadyBought = (cData.boughtProductNames != null && cData.boughtProductNames.Contains(a.productName));
+                bool bAlreadyBought = (cData.boughtProductNames != null && cData.boughtProductNames.Contains(b.productName));
+                if (aAlreadyBought != bAlreadyBought)
+                {
+                    return aAlreadyBought ? 1 : -1; // Henüz alınmamış farklı ürünler öne geçer
+                }
+
                 int aLvl = GetProductLevel(a.productName);
                 int bLvl = GetProductLevel(b.productName);
-                bool aIsGourmet = IsGourmetProduct(a.productName);
-                bool bIsGourmet = IsGourmetProduct(b.productName);
-                int aScore = (aLvl == customerTier || aIsGourmet) ? 10 : aLvl;
-                int bScore = (bLvl == customerTier || bIsGourmet) ? 10 : bLvl;
+                bool aIsSpecial = IsWorkshopOrGourmet(a.productName) || IsFarmCropProduct(a.productName);
+                bool bIsSpecial = IsWorkshopOrGourmet(b.productName) || IsFarmCropProduct(b.productName);
+                int aScore = (aLvl == customerTier || aIsSpecial) ? 10 : aLvl;
+                int bScore = (bLvl == customerTier || bIsSpecial) ? 10 : bLvl;
                 return bScore.CompareTo(aScore);
             });
 
-            // Kalan hedefine göre raftan kaç ürün alacağını dinamik hesapla
-            int rowsToPick = Mathf.Min(Random.Range(1, 4), populatedRows.Count);
-            for (int i = 0; i < rowsToPick; i++)
+            // Rafta kaç farklı sıraya bakacağını belirle
+            int rowsToInspect = Mathf.Min(Random.Range(1, populatedRows.Count + 1), populatedRows.Count);
+            for (int i = 0; i < rowsToInspect; i++)
             {
                 if (cData.totalItemsBought >= cData.targetBasketGoal && cData.totalItemsBought >= 1) break;
 
                 var rData = populatedRows[i];
-                int remainingInGoal = Mathf.Max(1, cData.targetBasketGoal - cData.totalItemsBought);
-                int desiredFromRow = Mathf.Clamp(Mathf.CeilToInt((float)remainingInGoal / Mathf.Max(1, rowsToPick - i)), 1, 6);
-                if (cData.visitedCustomerServiceDesk) desiredFromRow += 1;
+                if (rData == null || rData.currentStock <= 0) continue;
+
+                // ÇEŞİTLİLİK KURALI: Eğer müşteri bu üründen zaten sepete atmışsa ve rafta başka seçenek varsa,
+                // tekrar aynı ürünü almak yerine başka ürünlere baksın!
+                bool alreadyHasThisProduct = (cData.boughtProductNames != null && cData.boughtProductNames.Contains(rData.productName));
+                if (alreadyHasThisProduct && populatedRows.Count > 1)
+                {
+                    continue;
+                }
+
+                // FİYAT TEPKİSİ KONTROLÜ (Tepki Çeker / Yüksek Fiyat):
+                // Eğer ürün fahiş fiyattan satılıyorsa müşteri %70 ihtimalle pahalı bulup almaktan vazgeçer (satış hızı yavaşlar)
+                bool isOverpriced = IsProductOverpriced(rData.productId, rData.productName, rData.unitPrice);
+                if (isOverpriced)
+                {
+                    string tName = cData.type.ToString();
+                    bool isWealthy = tName.Contains("VIP") || tName.Contains("Billionaire") || tName.Contains("Business");
+                    if (!isWealthy && Random.value < 0.70f)
+                    {
+                        ShowShoppingPickPopup(cData.customerObj.transform.position, $"💸 {rData.productName} (Çok Pahalı!)");
+                        continue;
+                    }
+                }
+
+                // Her bir üründen 1 veya 2 adet alır (böylece sepet tek tip ürünle dolmaz, farklı ürünlerle zenginleşir)
+                int desiredFromRow = (cData.targetBasketGoal > 8) ? Random.Range(1, 3) : 1;
+                if (cData.visitedCustomerServiceDesk && Random.value < 0.35f) desiredFromRow += 1;
 
                 int buyCount = Mathf.Min(desiredFromRow, rData.currentStock);
+                int remainingToGoal = cData.targetBasketGoal - cData.totalItemsBought;
+                if (remainingToGoal > 0) buyCount = Mathf.Min(buyCount, remainingToGoal);
+                buyCount = Mathf.Max(1, buyCount);
+                buyCount = Mathf.Min(buyCount, rData.currentStock);
 
                 if (buyCount > 0)
                 {
@@ -2554,6 +2660,8 @@ namespace Farm2Shelf.Environment
                     cData.totalCartValue += cost;
                     cData.totalItemsBought += buyCount;
                     cData.isShopping = true;
+                    if (cData.boughtProductNames == null) cData.boughtProductNames = new HashSet<string>();
+                    cData.boughtProductNames.Add(rData.productName);
 
                     if (cData.hasShoppingCart)
                     {
