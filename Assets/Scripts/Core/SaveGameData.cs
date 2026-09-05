@@ -90,6 +90,31 @@ namespace Farm2Shelf.Core
         public int count;
     }
 
+    [Serializable]
+    public class CustomPriceSaveData
+    {
+        public string productId;
+        public int price;
+    }
+
+    [Serializable]
+    public class OnlineOrderSaveData
+    {
+        public string orderId;
+        public string customerName;
+        public string customerHandle;
+        public string destinationNameTr;
+        public string destinationNameEn;
+        public float targetX, targetY, targetZ;
+        public List<string> productIds = new List<string>();
+        public List<int> requestedQuantities = new List<int>();
+        public List<int> gatheredQuantities = new List<int>();
+        public int totalEstimatedValue;
+        public int courierDeliveryFee;
+        public bool isGatheringCompleted;
+        public int assignedMotorcycleSlot = -1;
+    }
+
     /// <summary>
     /// Oyuncunun TÜM OYUN DURUMUNU (Borsa Hisseleri & Portföy, Finans Kayıtları & İşlem Dökümü,
     /// Banka Kredileri, Sosyal Medya & Takipçiler, Bakiye, Mağaza Seviyesi, Saat, Gün, Mevsim, Yıl,
@@ -100,9 +125,11 @@ namespace Farm2Shelf.Core
     [Serializable]
     public class SaveGameData
     {
+        public int saveFormatVersion;
         public int slotIndex;
         public string saveTimestamp;       // ör. 18.08.2026 - 15:30
         public bool isEmptySlot = true;
+        [NonSerialized] public bool hasLoadError;
 
         // Oyun Durumu Özeti
         public string playerName = "Çiftçi Ali";
@@ -165,6 +192,11 @@ namespace Farm2Shelf.Core
         public List<StaffSaveData> farmStaffList = new List<StaffSaveData>();
         public List<StaffSaveData> courierStaffList = new List<StaffSaveData>();
         public int ownedMotorcycleCount;
+        public List<OnlineOrderSaveData> onlineOrders = new List<OnlineOrderSaveData>();
+        public List<string> wholesaleTruckPackageIds = new List<string>();
+        public List<string> greenTruckPackageIds = new List<string>();
+        public DeliveryTruckSaveData activeDeliveryTruck;
+        public List<CustomPriceSaveData> customProductPrices = new List<CustomPriceSaveData>();
 
         // Tarladaki Ekinler
         public List<CropSaveData> fieldCrops = new List<CropSaveData>();
@@ -174,5 +206,29 @@ namespace Farm2Shelf.Core
 
         // Eğitim & Başlangıç Görevleri
         public string tutorialStep = "None";
+    }
+
+    public enum DeliveryTruckPhase
+    {
+        Approaching = 0,
+        TurningToDock = 1,
+        EnteringDock = 2,
+        Unloading = 3,
+        LeavingDock = 4,
+        TurningToDepart = 5,
+        Departing = 6
+    }
+
+    [Serializable]
+    public class DeliveryTruckSaveData
+    {
+        public bool isActive;
+        public string truckKind;
+        public string phase;
+        public float posX, posY, posZ;
+        public float rotX, rotY, rotZ;
+        public List<string> remainingPackageIds = new List<string>();
+        public List<string> originalPackageIds = new List<string>();
+        public bool doorsOpen;
     }
 }

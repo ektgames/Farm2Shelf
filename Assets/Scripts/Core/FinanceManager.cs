@@ -82,6 +82,7 @@ namespace Farm2Shelf.Core
             if (TimeManager.Instance != null)
             {
                 TimeManager.Instance.OnMidnightRollover += HandleMidnightRollover;
+                TimeManager.Instance.OnNewDayStarted += HandleNewDayStarted;
             }
         }
 
@@ -148,10 +149,30 @@ namespace Farm2Shelf.Core
             OnFinanceUpdated?.Invoke();
         }
 
+        private void HandleNewDayStarted(TimeManager.Season season, int day, int year)
+        {
+            if (day != 1) return;
+            monthlyRevenue = 0;
+            monthlyExpenses = 0;
+            OnFinanceUpdated?.Invoke();
+        }
+
         public void ResetDailyStats()
         {
             dailyRevenue = 0;
             dailyExpenses = 0;
+            OnFinanceUpdated?.Invoke();
+        }
+
+        public void ResetToDefaults()
+        {
+            totalRevenue = 0;
+            totalExpenses = 0;
+            dailyRevenue = 0;
+            dailyExpenses = 0;
+            monthlyRevenue = 0;
+            monthlyExpenses = 0;
+            transactionLog.Clear();
             OnFinanceUpdated?.Invoke();
         }
 
@@ -177,6 +198,7 @@ namespace Farm2Shelf.Core
             if (TimeManager.Instance != null)
             {
                 TimeManager.Instance.OnMidnightRollover -= HandleMidnightRollover;
+                TimeManager.Instance.OnNewDayStarted -= HandleNewDayStarted;
             }
         }
     }

@@ -54,7 +54,7 @@ namespace Farm2Shelf.Environment
 
             if (staffMember == null) return;
 
-            string liveStatusText = "Mağaza Görevinde";
+            string liveStatusText = LocalizationManager.L("StaffStatus_StoreDuty", "Mağaza Görevinde", "On Store Duty");
 
             if (staffMember.role == StaffRole.Kurye)
             {
@@ -68,28 +68,28 @@ namespace Farm2Shelf.Environment
                     switch (courierMoto.CurrentState)
                     {
                         case MotorcycleState.ParkedInBay:
-                            liveStatusText = "Motor Park Yuvasında Yeni Sipariş Bekliyor 🛵";
+                            liveStatusText = LocalizationManager.L("StaffStatus_CourierParked", "Motor Park Yuvasında Yeni Sipariş Bekliyor 🛵", "Waiting for a New Order at the Motorcycle Bay 🛵");
                             break;
                         case MotorcycleState.WaitingForStocker:
-                            liveStatusText = "Reyoncunun Sipariş Kolilerini Motora Yüklemesini Bekliyor 📦🛵";
+                            liveStatusText = LocalizationManager.L("StaffStatus_CourierLoading", "Reyoncunun Sipariş Kolilerini Motora Yüklemesini Bekliyor 📦🛵", "Waiting for the Stocker to Load Order Boxes 📦🛵");
                             break;
                         case MotorcycleState.EnRouteDelivery:
-                            liveStatusText = "Müşterinin Adresine Motorsikletle Hızlı Teslimatta ⚡🛵";
+                            liveStatusText = LocalizationManager.L("StaffStatus_CourierEnRoute", "Müşterinin Adresine Motorsikletle Hızlı Teslimatta ⚡🛵", "Making an Express Delivery to the Customer ⚡🛵");
                             break;
                         case MotorcycleState.DeliveringAtDoorstep:
-                            liveStatusText = "Bina Kapısında Sipariş Paketini Müşteriye Teslim Ediyor 🏡✨";
+                            liveStatusText = LocalizationManager.L("StaffStatus_CourierDoorstep", "Bina Kapısında Sipariş Paketini Müşteriye Teslim Ediyor 🏡✨", "Delivering the Order at the Customer's Door 🏡✨");
                             break;
                         case MotorcycleState.ReturningToStore:
-                            liveStatusText = "Teslimatı Tamamladı, Dükkana Geri Dönüyor 🏪🛵";
+                            liveStatusText = LocalizationManager.L("StaffStatus_CourierReturning", "Teslimatı Tamamladı, Dükkana Geri Dönüyor 🏪🛵", "Delivery Complete, Returning to the Store 🏪🛵");
                             break;
                         default:
-                            liveStatusText = "Online Market Teslimat Görevinde 🛵";
+                            liveStatusText = LocalizationManager.L("StaffStatus_CourierDuty", "Online Market Teslimat Görevinde 🛵", "On Online Market Delivery Duty 🛵");
                             break;
                     }
                 }
                 else
                 {
-                    liveStatusText = "Online Market Teslimat Görevinde 🛵";
+                    liveStatusText = LocalizationManager.L("StaffStatus_CourierDuty", "Online Market Teslimat Görevinde 🛵", "On Online Market Delivery Duty 🛵");
                 }
             }
             else if (taskData != null)
@@ -98,33 +98,33 @@ namespace Farm2Shelf.Environment
                 {
                     case StaffTaskController.StaffAIState.WorkingOnTask:
                         if (staffMember.role == StaffRole.Kasiyer)
-                            liveStatusText = "Kasada Ödeme Alıyor & Müşteriye Hizmet Ediyor 💳";
+                            liveStatusText = LocalizationManager.L("StaffStatus_CashierWorking", "Kasada Ödeme Alıyor & Müşteriye Hizmet Ediyor 💳", "Processing Payments and Serving Customers 💳");
                         else if (staffMember.role == StaffRole.Reyoncu)
-                            liveStatusText = "Depo Rafından Kolileri Alıp Dükkan Raflarını Düzenliyor 📦";
+                            liveStatusText = LocalizationManager.L("StaffStatus_StockerWorking", "Depo Rafından Kolileri Alıp Dükkan Raflarını Düzenliyor 📦", "Restocking Store Shelves from the Warehouse 📦");
                         else if (staffMember.role == StaffRole.Temizlikçi)
-                            liveStatusText = "Mağaza Zeminini ve Çevreyi Temizliyor 🧹";
+                            liveStatusText = LocalizationManager.L("StaffStatus_CleanerWorking", "Mağaza Zeminini ve Çevreyi Temizliyor 🧹", "Cleaning the Store Floor and Surroundings 🧹");
                         else if (staffMember.role == StaffRole.Güvenlik)
-                            liveStatusText = "Mağaza İçi ve Otopark Güvenlik Devriyesinde 🛡️";
+                            liveStatusText = LocalizationManager.L("StaffStatus_GuardWorking", "Mağaza İçi ve Otopark Güvenlik Devriyesinde 🛡️", "Patrolling the Store and Parking Lot 🛡️");
                         else
-                            liveStatusText = "Müşteri Hizmetleri Masasında Destek Veriyor 💁‍♀️";
+                            liveStatusText = LocalizationManager.L("StaffStatus_SupportWorking", "Müşteri Hizmetleri Masasında Destek Veriyor 💁‍♀️", "Assisting Customers at the Service Desk 💁‍♀️");
                         break;
                     case StaffTaskController.StaffAIState.WaitingInBreakRoom:
-                        liveStatusText = "Personel Odasında Kahve Molasında ve Dinleniyor ☕";
+                        liveStatusText = LocalizationManager.L("StaffStatus_OnBreak", "Personel Odasında Kahve Molasında ve Dinleniyor ☕", "Taking a Coffee Break in the Staff Room ☕");
                         break;
                     case StaffTaskController.StaffAIState.WalkingToBreakRoom:
-                        liveStatusText = "Vardiya Sonrası Personel Odasına Yürüyor 🚶‍♂️";
+                        liveStatusText = LocalizationManager.L("StaffStatus_ToBreakRoom", "Vardiya Sonrası Personel Odasına Yürüyor 🚶‍♂️", "Walking to the Staff Room After the Shift 🚶‍♂️");
                         break;
                     case StaffTaskController.StaffAIState.ProceedingToTask:
-                        liveStatusText = "Vardiya Başlangıcı Görev Yerine İlerliyor 💼";
+                        liveStatusText = LocalizationManager.L("StaffStatus_ToTask", "Vardiya Başlangıcı Görev Yerine İlerliyor 💼", "Heading to the Workstation at Shift Start 💼");
                         break;
                     case StaffTaskController.StaffAIState.HandingOverShift:
-                        liveStatusText = "Kasa Başında Yeni Kasiyere Devir Teslim Yapıyor 🤝";
+                        liveStatusText = LocalizationManager.L("StaffStatus_Handover", "Kasa Başında Yeni Kasiyere Devir Teslim Yapıyor 🤝", "Handing Over the Checkout to the Next Cashier 🤝");
                         break;
                     case StaffTaskController.StaffAIState.WalkingToLeftExit:
-                        liveStatusText = "Mesai Bitti, Evine Doğru Yürüyor 🏡";
+                        liveStatusText = LocalizationManager.L("StaffStatus_Leaving", "Mesai Bitti, Evine Doğru Yürüyor 🏡", "Shift Over, Heading Home 🏡");
                         break;
                     default:
-                        liveStatusText = "Görev Alanında Çalışıyor 📋";
+                        liveStatusText = LocalizationManager.L("StaffStatus_Working", "Görev Alanında Çalışıyor 📋", "Working at the Assigned Station 📋");
                         break;
                 }
             }

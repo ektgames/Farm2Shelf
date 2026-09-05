@@ -155,7 +155,7 @@ namespace Farm2Shelf.UI
             tex.wrapMode = TextureWrapMode.Clamp;
             tex.Apply();
 
-            Sprite sprite = Sprite.Create(tex, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f));
+            Sprite sprite = Sprite.Create(tex, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
             pillSpriteCache[cacheKey] = sprite;
             return sprite;
         }
@@ -215,7 +215,7 @@ namespace Farm2Shelf.UI
             tex.wrapMode = TextureWrapMode.Clamp;
             tex.Apply();
 
-            Sprite sprite = Sprite.Create(tex, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f));
+            Sprite sprite = Sprite.Create(tex, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
             outlineSpriteCache[cacheKey] = sprite;
             return sprite;
         }

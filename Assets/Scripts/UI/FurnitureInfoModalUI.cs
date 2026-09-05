@@ -35,6 +35,7 @@ namespace Farm2Shelf.UI
         {
             if (LocalizationManager.Instance != null)
             {
+                LocalizationManager.Instance.OnLanguageChanged -= HandleLanguageChanged;
                 LocalizationManager.Instance.OnLanguageChanged += HandleLanguageChanged;
             }
         }
@@ -142,10 +143,11 @@ namespace Farm2Shelf.UI
                 Image hImg = header.AddComponent<Image>();
                 hImg.color = (furniture.FurnitureType == FurnitureType.StorageShelf) ? new Color(0.85f, 0.40f, 0.10f, 1f) : new Color(0.12f, 0.65f, 0.85f, 1f);
 
-                string titleName = def != null ? def.name : furniture.FurnitureType.ToString();
+                string titleName = def != null ? def.LocalizedName : furniture.FurnitureType.ToString();
                 string iconEmoji = def != null ? def.iconEmoji : "🗄️";
 
-                Text hText = CreateText(header, $"{iconEmoji} {titleName} - Stok & Raf Bilgisi", 24, FontStyle.Bold, Color.white);
+                string headerFmt = LocalizationManager.L("Furniture_StockHeaderFmt", "{0} {1} - Stok & Raf Bilgisi", "{0} {1} - Stock & Shelf Info");
+                Text hText = CreateText(header, string.Format(headerFmt, iconEmoji, titleName), 24, FontStyle.Bold, Color.white);
                 hText.alignment = TextAnchor.MiddleCenter;
 
                 CreateHeaderCloseButton(header, CloseModal);
@@ -173,9 +175,12 @@ namespace Farm2Shelf.UI
                 shRect.sizeDelta = new Vector2(-20, 35);
 
                 int numRows = furniture.rows != null ? furniture.rows.Length : 4;
-                string zoneStr = (furniture.FurnitureType == FurnitureType.StorageShelf) ? $"📦 Depo ({numRows} Sıra x 50)" : $"📍 Mağaza ({numRows} Sıra x 50)";
+                string zoneStr = (furniture.FurnitureType == FurnitureType.StorageShelf)
+                    ? string.Format(LocalizationManager.L("Furniture_StorageZoneFmt", "📦 Depo ({0} Sıra x 50)", "📦 Warehouse ({0} Rows x 50)"), numRows)
+                    : string.Format(LocalizationManager.L("Furniture_StoreZoneFmt", "📍 Mağaza ({0} Sıra x 50)", "📍 Store ({0} Rows x 50)"), numRows);
                 float fillRatio = totalCapacity > 0 ? ((float)totalStock / totalCapacity * 100f) : 0f;
-                Text shText = CreateText(subHeader, $"{zoneStr} | Toplam Stok: {totalStock} / {totalCapacity} Adet (%{fillRatio:F0} Dolu)", 16, FontStyle.Bold, new Color(0.85f, 0.90f, 0.95f));
+                string stockFmt = LocalizationManager.L("Furniture_TotalStockFmt", "{0} | Toplam Stok: {1} / {2} Adet (%{3:F0} Dolu)", "{0} | Total Stock: {1} / {2} Pcs ({3:F0}% Full)");
+                Text shText = CreateText(subHeader, string.Format(stockFmt, zoneStr, totalStock, totalCapacity, fillRatio), 16, FontStyle.Bold, new Color(0.85f, 0.90f, 0.95f));
                 shText.alignment = TextAnchor.MiddleCenter;
 
                 // Raf Kat Kartları Konteyneri (Maskeli Kaydırılabilir Liste)
@@ -263,7 +268,7 @@ namespace Farm2Shelf.UI
             Image hImg = header.AddComponent<Image>();
             hImg.color = new Color(0.55f, 0.20f, 0.70f, 1f);
 
-            Text hText = CreateText(header, $"🎨 {def.iconEmoji} {def.name} - Pasif Gelir & Etkileşim", 22, FontStyle.Bold, Color.white);
+            Text hText = CreateText(header, string.Format(LocalizationManager.L("Furniture_DecorationHeaderFmt", "🎨 {0} {1} - Pasif Gelir & Etkileşim", "🎨 {0} {1} - Passive Income & Interaction"), def.iconEmoji, def.LocalizedName), 22, FontStyle.Bold, Color.white);
             hText.alignment = TextAnchor.MiddleCenter;
 
             CreateHeaderCloseButton(header, CloseModal);
@@ -285,16 +290,16 @@ namespace Farm2Shelf.UI
             if (def.passiveIncomePerUse > 0)
             {
                 // Ticari Satış / Otomat Cihazları
-                BuildInfoCard(contentBox, "💰 Müşteri Satış / Kullanım Geliri", $"+{def.passiveIncomePerUse:N0}C / Kullanım", new Color(0.30f, 0.85f, 0.45f));
-                BuildInfoCard(contentBox, "📊 Kazanılan Toplam Pasif Gelir", $"+{furniture.TotalEarnedPassiveIncome:N0}C", new Color(0.95f, 0.80f, 0.25f));
-                BuildInfoCard(contentBox, "⚡ Durum ve Otomat Türü", "🟢 Aktif Ticari Otomat (Otomatik Satış)", new Color(0.20f, 0.85f, 0.95f));
+                BuildInfoCard(contentBox, LocalizationManager.L("Furniture_UseIncome", "💰 Müşteri Satış / Kullanım Geliri", "💰 Customer Sale / Use Income"), string.Format(LocalizationManager.L("Furniture_PerUseFmt", "+{0:N0}C / Kullanım", "+{0:N0}C / Use"), def.passiveIncomePerUse), new Color(0.30f, 0.85f, 0.45f));
+                BuildInfoCard(contentBox, LocalizationManager.L("Furniture_TotalPassive", "📊 Kazanılan Toplam Pasif Gelir", "📊 Total Passive Income Earned"), $"+{furniture.TotalEarnedPassiveIncome:N0}C", new Color(0.95f, 0.80f, 0.25f));
+                BuildInfoCard(contentBox, LocalizationManager.L("Furniture_VendingStatusTitle", "⚡ Durum ve Otomat Türü", "⚡ Status and Vending Type"), LocalizationManager.L("Furniture_VendingStatus", "🟢 Aktif Ticari Otomat (Otomatik Satış)", "🟢 Active Commercial Vending Machine (Automatic Sales)"), new Color(0.20f, 0.85f, 0.95f));
             }
             else
             {
                 // Görsel / Hizmet Amaçlı Standart Dekorasyonlar (Bank, Çöp Kovası, ATM, Bitki vb.)
-                BuildInfoCard(contentBox, "🎨 Dekorasyon Amacı", "Mağaza Görseli & Müşteri Konfor Alanı", new Color(0.85f, 0.90f, 0.95f));
-                BuildInfoCard(contentBox, "✨ Mağaza Prestij Katkısı", "Şık Mağaza Görünümü & Ambiyans", new Color(0.95f, 0.75f, 0.30f));
-                BuildInfoCard(contentBox, "⚡ Durum", "🟢 Aktif Dekoratif Öğe", new Color(0.20f, 0.85f, 0.95f));
+                BuildInfoCard(contentBox, LocalizationManager.L("Furniture_DecorPurpose", "🎨 Dekorasyon Amacı", "🎨 Decoration Purpose"), LocalizationManager.L("Furniture_DecorPurposeValue", "Mağaza Görseli & Müşteri Konfor Alanı", "Store Appearance & Customer Comfort Area"), new Color(0.85f, 0.90f, 0.95f));
+                BuildInfoCard(contentBox, LocalizationManager.L("Furniture_Prestige", "✨ Mağaza Prestij Katkısı", "✨ Store Prestige Contribution"), LocalizationManager.L("Furniture_PrestigeValue", "Şık Mağaza Görünümü & Ambiyans", "Stylish Store Appearance & Ambience"), new Color(0.95f, 0.75f, 0.30f));
+                BuildInfoCard(contentBox, LocalizationManager.L("Label_Status", "⚡ Durum", "⚡ Status"), LocalizationManager.L("Furniture_DecorActive", "🟢 Aktif Dekoratif Öğe", "🟢 Active Decorative Item"), new Color(0.20f, 0.85f, 0.95f));
             }
 
             // Alt Butonlar Barı (Taşı, Sat, Kapat)
@@ -327,7 +332,7 @@ namespace Farm2Shelf.UI
             Image hImg = header.AddComponent<Image>();
             hImg.color = new Color(0.12f, 0.65f, 0.85f, 1f);
 
-            Text hText = CreateText(header, "💁‍♂️ Müşteri Hizmetleri Masası - İstasyon Bilgisi", 22, FontStyle.Bold, Color.white);
+            Text hText = CreateText(header, LocalizationManager.L("Furniture_ServiceDeskHeader", "💁‍♂️ Müşteri Hizmetleri Masası - İstasyon Bilgisi", "💁‍♂️ Customer Service Desk - Station Info"), 22, FontStyle.Bold, Color.white);
             hText.alignment = TextAnchor.MiddleCenter;
 
             CreateHeaderCloseButton(header, CloseModal);
@@ -346,9 +351,9 @@ namespace Farm2Shelf.UI
             vlg.childControlWidth = true;
             vlg.childControlHeight = true;
 
-            BuildInfoCard(contentBox, "ℹ️ İstasyon Tanımı & Amacı", "Müşteri Hizmetleri Masası, dükkana gelen müşterilerin danışmanlık aldığı özel istasyondur.", new Color(0.90f, 0.95f, 1.0f));
-            BuildInfoCard(contentBox, "⚡ Vardiya & Çalışan Görevi", "Vardiyadaki Müşteri Hizmetleri çalışanı bu masada oturarak gelen müşterilere rehberlik eder.", new Color(0.95f, 0.80f, 0.25f));
-            BuildInfoCard(contentBox, "🚀 Müşteri Avantajları", "Danışmadan bilgi alan müşteriler %25 daha hızlı yürür ve sepetlerine ekstra 1-2 ürün eklerler.", new Color(0.30f, 0.85f, 0.45f));
+            BuildInfoCard(contentBox, LocalizationManager.L("Furniture_StationPurpose", "ℹ️ İstasyon Tanımı & Amacı", "ℹ️ Station Description & Purpose"), LocalizationManager.L("Furniture_StationPurposeValue", "Müşteri Hizmetleri Masası, dükkana gelen müşterilerin danışmanlık aldığı özel istasyondur.", "The Customer Service Desk is a dedicated station where shoppers receive assistance."), new Color(0.90f, 0.95f, 1.0f));
+            BuildInfoCard(contentBox, LocalizationManager.L("Furniture_ShiftDuty", "⚡ Vardiya & Çalışan Görevi", "⚡ Shift & Employee Duty"), LocalizationManager.L("Furniture_ShiftDutyValue", "Vardiyadaki Müşteri Hizmetleri çalışanı bu masada oturarak gelen müşterilere rehberlik eder.", "The on-duty customer service employee assists shoppers from this desk."), new Color(0.95f, 0.80f, 0.25f));
+            BuildInfoCard(contentBox, LocalizationManager.L("Furniture_CustomerBenefits", "🚀 Müşteri Avantajları", "🚀 Customer Benefits"), LocalizationManager.L("Furniture_CustomerBenefitsValue", "Danışmadan bilgi alan müşteriler %25 daha hızlı yürür ve sepetlerine ekstra 1-2 ürün eklerler.", "Assisted customers walk 25% faster and add 1-2 extra products to their carts."), new Color(0.30f, 0.85f, 0.45f));
 
             // Alt Butonlar Barı (Taşı, Sat, Kapat)
             BuildFooterButtonsBar(panel, furniture, def);
@@ -405,7 +410,7 @@ namespace Farm2Shelf.UI
             Image lbImg = labelBox.AddComponent<Image>();
             lbImg.color = new Color(0.22f, 0.28f, 0.38f, 1f);
 
-            Text lbText = CreateText(labelBox, $"{rData.rowId}. Raf", 20, FontStyle.Bold, Color.yellow);
+            Text lbText = CreateText(labelBox, string.Format(LocalizationManager.L("Furniture_RowFmt", "{0}. Raf", "Shelf {0}"), rData.rowId), 20, FontStyle.Bold, Color.yellow);
             lbText.alignment = TextAnchor.MiddleCenter;
 
             // Orta Taraf: Ürün İsmi & Stok Bilgisi & İlerleme Çubuğu
@@ -562,7 +567,10 @@ namespace Farm2Shelf.UI
             }
             else
             {
-                ModalManager.ShowModal("Uygun Mağaza Rafı Yok! ⚠️", "Dükkanda bu ürünü koyabileceğin boş veya uygun bir reyon rafı bulunamadı!", "Tamam");
+                ModalManager.ShowModal(
+                    LocalizationManager.L("Furniture_NoShelfTitle", "Uygun Mağaza Rafı Yok! ⚠️", "No Suitable Store Shelf! ⚠️"),
+                    LocalizationManager.L("Furniture_NoShelfBody", "Dükkanda bu ürünü koyabileceğin boş veya uygun bir reyon rafı bulunamadı!", "No empty or suitable store shelf was found for this product!"),
+                    LocalizationManager.L("Btn_OK", "Tamam", "OK"));
             }
         }
 
@@ -610,8 +618,8 @@ namespace Farm2Shelf.UI
             hImg.color = new Color(0.12f, 0.55f, 0.85f, 1f);
 
             FurnitureItemDef fDef = FurnitureDatabase.GetDef(furniture.FurnitureType);
-            string shelfName = fDef != null ? fDef.name : furniture.FurnitureType.ToString();
-            Text hText = CreateText(header, $"📦 {shelfName} - {rData.rowId}. Rafa Ürün Atama", 20, FontStyle.Bold, Color.white);
+            string shelfName = fDef != null ? fDef.LocalizedName : furniture.FurnitureType.ToString();
+            Text hText = CreateText(header, string.Format(LocalizationManager.L("Furniture_AssignHeaderFmt", "📦 {0} - {1}. Rafa Ürün Atama", "📦 {0} - Assign Product to Shelf {1}"), shelfName, rData.rowId), 20, FontStyle.Bold, Color.white);
             hText.alignment = TextAnchor.MiddleCenter;
 
             // 2. Üst Kontrol & Filtre Barı (Arama & Atanmışları Gizle Toggle - Height 55)
@@ -636,7 +644,7 @@ namespace Farm2Shelf.UI
             scRect.offsetMin = Vector2.zero;
             scRect.offsetMax = Vector2.zero;
 
-            InputField searchInput = CreateInputField(searchContainer, "🔍 Ürün Ara...", null);
+            InputField searchInput = CreateInputField(searchContainer, LocalizationManager.L("Placeholder_SearchProduct", "🔍 Ürün Ara...", "🔍 Search Product..."), null);
             RectTransform inputRt = searchInput.GetComponent<RectTransform>();
             inputRt.anchorMin = Vector2.zero;
             inputRt.anchorMax = Vector2.one;
@@ -644,7 +652,9 @@ namespace Farm2Shelf.UI
             inputRt.offsetMax = Vector2.zero;
 
             // Atanmış Ürünleri Gizle Butonu (Sağ Taraf)
-            string initialToggleLabel = globalIsHideAssignedActive ? "👁️ Atanmışları Gizle: EVET" : "👁️ Atanmışları Gizle: HAYIR";
+            string initialToggleLabel = globalIsHideAssignedActive
+                ? LocalizationManager.L("Furniture_HideAssignedYes", "👁️ Atanmışları Gizle: EVET", "👁️ Hide Assigned: YES")
+                : LocalizationManager.L("Furniture_HideAssignedNo", "👁️ Atanmışları Gizle: HAYIR", "👁️ Hide Assigned: NO");
             Color initialToggleColor = globalIsHideAssignedActive ? new Color(0.85f, 0.50f, 0.15f) : new Color(0.20f, 0.30f, 0.42f);
 
             GameObject hideToggleObj = CreateButton(filterBar, initialToggleLabel, initialToggleColor, null);
@@ -670,7 +680,7 @@ namespace Farm2Shelf.UI
             Image sfImg = subFooter.AddComponent<Image>();
             sfImg.color = new Color(0.06f, 0.09f, 0.14f, 1f);
 
-            GameObject closeBtn = CreateButton(subFooter, "❌ İptal / Kapat", new Color(0.45f, 0.50f, 0.55f), () => Destroy(subBackdrop));
+            GameObject closeBtn = CreateButton(subFooter, LocalizationManager.L("Btn_CancelClose", "❌ İptal / Kapat", "❌ Cancel / Close"), new Color(0.45f, 0.50f, 0.55f), () => Destroy(subBackdrop));
             RectTransform cbRect = closeBtn.GetComponent<RectTransform>();
             cbRect.anchorMin = new Vector2(0.30f, 0.18f);
             cbRect.anchorMax = new Vector2(0.70f, 0.82f);
@@ -827,13 +837,13 @@ namespace Farm2Shelf.UI
                     Image uBg = unassignCard.AddComponent<Image>();
                     uBg.color = new Color(0.28f, 0.16f, 0.18f, 1f);
 
-                    Text uText = CreateText(unassignCard, "🚫 Rafı Boş Bırak (Ürün Atamasını Kaldır)", 15, FontStyle.Bold, new Color(0.95f, 0.60f, 0.60f));
+                    Text uText = CreateText(unassignCard, LocalizationManager.L("Furniture_UnassignShelf", "🚫 Rafı Boş Bırak (Ürün Atamasını Kaldır)", "🚫 Leave Shelf Empty (Remove Assignment)"), 15, FontStyle.Bold, new Color(0.95f, 0.60f, 0.60f));
                     RectTransform utRect = uText.GetComponent<RectTransform>();
                     utRect.anchorMin = new Vector2(0.03f, 0f);
                     utRect.anchorMax = new Vector2(0.70f, 1f);
                     uText.alignment = TextAnchor.MiddleLeft;
 
-                    GameObject unassignBtn = CreateButton(unassignCard, "🧹 Boşalt", new Color(0.75f, 0.25f, 0.25f), () => {
+                    GameObject unassignBtn = CreateButton(unassignCard, LocalizationManager.L("Btn_EmptyShelf", "🧹 Boşalt", "🧹 Empty"), new Color(0.75f, 0.25f, 0.25f), () => {
                         int stock = rData.currentStock;
                         if (stock > 0 && !rData.IsUnassigned)
                         {
@@ -841,8 +851,10 @@ namespace Farm2Shelf.UI
                             if (availableSpace < stock)
                             {
                                 ShowStorageWarningModal(
-                                    "⚠️ Depoda Yeterli Yer Yok!",
-                                    $"Rafta kalan <b>{stock} adet {rData.productName}</b> ürününü aktarabilmek için depoda yeterli boş alan bulunmuyor!\n\n<i>(Mevcut Boş Depo Kapasitesi: {availableSpace} Adet)</i>\n\nLütfen önce depoda yer açın veya yeni bir Depo Rafı kurun."
+                                    LocalizationManager.L("Furniture_StorageFullTitle", "⚠️ Depoda Yeterli Yer Yok!", "⚠️ Not Enough Warehouse Space!"),
+                                    string.Format(
+                                        LocalizationManager.L("Furniture_StorageFullBodyFmt", "Rafta kalan <b>{0} adet {1}</b> ürününü aktarabilmek için depoda yeterli boş alan bulunmuyor!\n\n<i>(Mevcut Boş Depo Kapasitesi: {2} Adet)</i>\n\nLütfen önce depoda yer açın veya yeni bir Depo Rafı kurun.", "There is not enough warehouse space to transfer the remaining <b>{0} units of {1}</b>!\n\n<i>(Available Warehouse Capacity: {2} Units)</i>\n\nFree up space or install a new Storage Shelf first."),
+                                        stock, rData.productName, availableSpace)
                                 );
                                 return;
                             }
@@ -936,7 +948,7 @@ namespace Farm2Shelf.UI
                         pText.alignment = TextAnchor.MiddleLeft;
 
                         var selectedProd = prod;
-                        GameObject selectBtn = CreateButton(prodCard, "✅ Rafa Koy", new Color(0.18f, 0.65f, 0.35f), () => {
+                        GameObject selectBtn = CreateButton(prodCard, LocalizationManager.L("Btn_AssignShelf", "✅ Rafa Koy", "✅ Assign to Shelf"), new Color(0.18f, 0.65f, 0.35f), () => {
                             rData.productName = selectedProd.name;
                             rData.productId = selectedProd.id;
                             rData.unitPrice = selectedProd.SalePricePerUnit;
@@ -970,7 +982,9 @@ namespace Farm2Shelf.UI
                     globalIsHideAssignedActive = !globalIsHideAssignedActive;
                     if (hideBtnText != null)
                     {
-                        hideBtnText.text = globalIsHideAssignedActive ? "👁️ Atanmışları Gizle: EVET" : "👁️ Atanmışları Gizle: HAYIR";
+                        hideBtnText.text = globalIsHideAssignedActive
+                            ? LocalizationManager.L("Furniture_HideAssignedYes", "👁️ Atanmışları Gizle: EVET", "👁️ Hide Assigned: YES")
+                            : LocalizationManager.L("Furniture_HideAssignedNo", "👁️ Atanmışları Gizle: HAYIR", "👁️ Hide Assigned: NO");
                     }
                     if (hideBtnImg != null)
                     {
@@ -1009,7 +1023,7 @@ namespace Farm2Shelf.UI
             Image hImg = header.AddComponent<Image>();
             hImg.color = new Color(0.15f, 0.60f, 0.85f, 1f);
 
-            string titleName = def != null ? def.name : furniture.FurnitureType.ToString();
+            string titleName = def != null ? def.LocalizedName : furniture.FurnitureType.ToString();
             string iconEmoji = def != null ? def.iconEmoji : "🏬";
 
             Text hText = CreateText(header, $"{iconEmoji} {titleName}", 24, FontStyle.Bold, Color.white);
@@ -1028,8 +1042,9 @@ namespace Farm2Shelf.UI
             Image cImg = cardObj.AddComponent<Image>();
             cImg.color = new Color(0.14f, 0.18f, 0.26f, 0.90f);
 
-            string desc = def != null ? def.description : "Mağaza alanı stantı.";
-            Text cardText = CreateText(cardObj, $"{desc}\n\n📍 Seviye: 1 | Durum: Aktif & Hizmette\n🏬 Fonksiyon: Mağaza Standı / Hizmet Noktası", 18, FontStyle.Normal, new Color(0.90f, 0.95f, 1.0f));
+            string desc = def != null ? def.LocalizedDescription : LocalizationManager.L("Furniture_GenericDescription", "Mağaza alanı stantı.", "Store floor fixture.");
+            string genericInfo = LocalizationManager.L("Furniture_GenericInfo", "📍 Seviye: 1 | Durum: Aktif & Hizmette\n🏬 Fonksiyon: Mağaza Standı / Hizmet Noktası", "📍 Level: 1 | Status: Active & In Service\n🏬 Function: Store Fixture / Service Point");
+            Text cardText = CreateText(cardObj, $"{desc}\n\n{genericInfo}", 18, FontStyle.Normal, new Color(0.90f, 0.95f, 1.0f));
             cardText.alignment = TextAnchor.UpperLeft;
             cardText.horizontalOverflow = HorizontalWrapMode.Wrap;
             cardText.verticalOverflow = VerticalWrapMode.Truncate;
@@ -1055,7 +1070,7 @@ namespace Farm2Shelf.UI
             int refundPrice = Mathf.Max(10, Mathf.RoundToInt(price * 0.50f));
 
             // 1. Sol Buton: Mobilyayı Sök & Taşı (Turuncu/Amber)
-            GameObject moveBtnObj = CreateButton(footer, "🛠️ Taşı", new Color(0.85f, 0.50f, 0.15f), () => {
+            GameObject moveBtnObj = CreateButton(footer, LocalizationManager.L("Btn_Move", "🛠️ Taşı", "🛠️ Move"), new Color(0.85f, 0.50f, 0.15f), () => {
                 CloseModal();
                 if (furniture != null) furniture.PickUpFurniture();
             });
@@ -1066,7 +1081,7 @@ namespace Farm2Shelf.UI
             mbRect.offsetMax = Vector2.zero;
 
             // 2. Orta Buton: Mobilyayı Sat (KIRMIZI / 50% İADE)
-            GameObject sellBtnObj = CreateButton(footer, $"💰 Sat ({refundPrice:N0} Cr)", new Color(0.85f, 0.20f, 0.15f), () => {
+            GameObject sellBtnObj = CreateButton(footer, string.Format(LocalizationManager.L("Btn_SellRefundFmt", "💰 Sat ({0:N0} Cr)", "💰 Sell ({0:N0} Cr)"), refundPrice), new Color(0.85f, 0.20f, 0.15f), () => {
                 PromptSellFurnitureConfirmation(furniture, def, refundPrice);
             });
             RectTransform sbRect = sellBtnObj.GetComponent<RectTransform>();
@@ -1076,7 +1091,7 @@ namespace Farm2Shelf.UI
             sbRect.offsetMax = Vector2.zero;
 
             // 3. Sağ Buton: Kapat (Koyu Gri)
-            GameObject closeBtnObj = CreateButton(footer, "❌ Kapat", new Color(0.35f, 0.40f, 0.45f), CloseModal);
+            GameObject closeBtnObj = CreateButton(footer, LocalizationManager.L("Btn_CloseIcon", "❌ Kapat", "❌ Close"), new Color(0.35f, 0.40f, 0.45f), CloseModal);
             RectTransform cbRect = closeBtnObj.GetComponent<RectTransform>();
             cbRect.anchorMin = new Vector2(0.69f, 0.18f);
             cbRect.anchorMax = new Vector2(0.97f, 0.82f);
@@ -1126,7 +1141,7 @@ namespace Farm2Shelf.UI
         private void PromptSellFurnitureConfirmation(PlacedFurnitureController furniture, FurnitureItemDef def, int refundPrice)
         {
             if (furniture == null) return;
-            string itemName = def != null ? def.name : furniture.FurnitureType.ToString();
+            string itemName = def != null ? def.LocalizedName : furniture.FurnitureType.ToString();
 
             GameObject confirmCanvas = new GameObject("Sell_Confirm_Modal_Canvas");
             Canvas canvas = confirmCanvas.AddComponent<Canvas>();
@@ -1173,7 +1188,7 @@ namespace Farm2Shelf.UI
             Image hImg = header.AddComponent<Image>();
             hImg.color = new Color(0.85f, 0.20f, 0.15f, 1f);
 
-            Text hText = CreateText(header, "⚠️ Mobilya Satış Onayı", 22, FontStyle.Bold, Color.white);
+            Text hText = CreateText(header, LocalizationManager.L("Furniture_SellConfirmTitle", "⚠️ Mobilya Satış Onayı", "⚠️ Furniture Sale Confirmation"), 22, FontStyle.Bold, Color.white);
             hText.alignment = TextAnchor.MiddleCenter;
 
             // Mesaj Metni
@@ -1186,7 +1201,8 @@ namespace Farm2Shelf.UI
             bRect.anchoredPosition = new Vector2(0, -75);
             bRect.sizeDelta = new Vector2(-50, 180);
 
-            Text bText = CreateText(bodyObj, $"<b>{itemName}</b> nesnesini %50 iade fiyatıyla <b>+{refundPrice:N0}C</b> karşılığında satmak istediğinize emin misiniz?\n\n<i>(Bu işlem geri alınamaz ve mobilya haritadan kaldırılır)</i>", 18, FontStyle.Normal, new Color(0.92f, 0.95f, 0.98f));
+            string sellBodyFmt = LocalizationManager.L("Furniture_SellConfirmBodyFmt", "<b>{0}</b> nesnesini %50 iade fiyatıyla <b>+{1:N0}C</b> karşılığında satmak istediğinize emin misiniz?\n\n<i>(Bu işlem geri alınamaz ve mobilya haritadan kaldırılır)</i>", "Sell <b>{0}</b> for a 50% refund of <b>+{1:N0}C</b>?\n\n<i>(This cannot be undone and the furniture will be removed)</i>");
+            Text bText = CreateText(bodyObj, string.Format(sellBodyFmt, itemName, refundPrice), 18, FontStyle.Normal, new Color(0.92f, 0.95f, 0.98f));
             bText.alignment = TextAnchor.MiddleCenter;
             bText.horizontalOverflow = HorizontalWrapMode.Wrap;
 
@@ -1200,7 +1216,7 @@ namespace Farm2Shelf.UI
             cfRect.sizeDelta = new Vector2(0, 75);
 
             // 1. EVET, SAT BUTONU
-            GameObject yesBtn = CreateButton(confirmFooter, $"Evet, Sat (+{refundPrice:N0} Cr)", new Color(0.85f, 0.20f, 0.15f), () => {
+            GameObject yesBtn = CreateButton(confirmFooter, string.Format(LocalizationManager.L("Btn_ConfirmSellFmt", "Evet, Sat (+{0:N0} Cr)", "Yes, Sell (+{0:N0} Cr)"), refundPrice), new Color(0.85f, 0.20f, 0.15f), () => {
                 Destroy(confirmCanvas);
                 CloseModal();
 
@@ -1208,7 +1224,12 @@ namespace Farm2Shelf.UI
                 {
                     Vector3 pos = furniture.transform.position;
                     if (EconomyManager.Instance != null) EconomyManager.Instance.AddCredits(refundPrice);
-                    if (FinanceManager.Instance != null) FinanceManager.Instance.RecordIncome("Satış", $"{itemName} Satışı (%50 İade)", refundPrice);
+                    if (FinanceManager.Instance != null)
+                    {
+                        string category = LocalizationManager.L("FinCat_Sales", "Satış", "Sales");
+                        string description = string.Format(LocalizationManager.L("FinDesc_FurnitureSaleFmt", "{0} Satışı (%50 İade)", "{0} Sale (50% Refund)"), itemName);
+                        FinanceManager.Instance.RecordIncome(category, description, refundPrice);
+                    }
 
                     ShowFloatingSellNotice(pos, refundPrice);
                     Destroy(furniture.gameObject);
@@ -1221,7 +1242,7 @@ namespace Farm2Shelf.UI
             yRect.offsetMax = Vector2.zero;
 
             // 2. İPTAL BUTONU
-            GameObject noBtn = CreateButton(confirmFooter, "İptal", new Color(0.35f, 0.40f, 0.48f), () => {
+            GameObject noBtn = CreateButton(confirmFooter, LocalizationManager.L("Btn_Cancel", "İptal", "Cancel"), new Color(0.35f, 0.40f, 0.48f), () => {
                 Destroy(confirmCanvas);
             });
             RectTransform nRect = noBtn.GetComponent<RectTransform>();
@@ -1255,7 +1276,7 @@ namespace Farm2Shelf.UI
 
             Text txt = textObj.AddComponent<Text>();
             txt.font = UIStyleUtility.GetGlobalFont(22);
-            txt.text = $"+{amount:N0} Cr İade Edildi 💰";
+            txt.text = string.Format(LocalizationManager.L("Furniture_RefundPopupFmt", "+{0:N0} Cr İade Edildi 💰", "+{0:N0} Cr Refunded 💰"), amount);
             txt.fontSize = 22;
             txt.fontStyle = FontStyle.Bold;
             txt.alignment = TextAnchor.MiddleCenter;
@@ -1577,7 +1598,7 @@ namespace Farm2Shelf.UI
             cfRect.pivot = new Vector2(0.5f, 0);
             cfRect.sizeDelta = new Vector2(0, 75);
 
-            GameObject okBtn = CreateButton(confirmFooter, "🆗 Anladım", new Color(0.18f, 0.55f, 0.85f), () => {
+            GameObject okBtn = CreateButton(confirmFooter, LocalizationManager.L("Btn_Understood", "🆗 Anladım", "🆗 Understood"), new Color(0.18f, 0.55f, 0.85f), () => {
                 Destroy(warnCanvas);
             });
             RectTransform oRect = okBtn.GetComponent<RectTransform>();

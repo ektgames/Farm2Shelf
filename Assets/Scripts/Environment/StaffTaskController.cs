@@ -1307,7 +1307,9 @@ namespace Farm2Shelf.Environment
             {
                 data.lastMascotCheerTime = Time.time;
                 bool isFemale = (data.staffMember != null && (data.staffMember.isFemale || StaffManager.IsFemaleName(data.staffMember.name)));
-                string mascotText = isFemale ? "✨ Sevimli Tavşan Dans Ediyor! 🐰 ✨" : "✨ Neşeli Ayı Dans Ediyor! 🐻 ✨";
+                string mascotText = isFemale
+                    ? LocalizationManager.L("StaffPopup_BunnyDance", "✨ Sevimli Tavşan Dans Ediyor! 🐰 ✨", "✨ Cute Bunny Is Dancing! 🐰 ✨")
+                    : LocalizationManager.L("StaffPopup_BearDance", "✨ Neşeli Ayı Dans Ediyor! 🐻 ✨", "✨ Cheerful Bear Is Dancing! 🐻 ✨");
                 ShowStockPopup(data.staffObj.transform.position, mascotText);
             }
         }
@@ -1693,8 +1695,12 @@ namespace Farm2Shelf.Environment
             return new Vector3(-10.0f, 0.05f, 4.0f);
         }
 
-        private void ShowStockPopup(Vector3 pos, string text = "+Stok Tamamlandı 📦")
+        private void ShowStockPopup(Vector3 pos, string text = null)
         {
+            if (string.IsNullOrEmpty(text))
+            {
+                text = LocalizationManager.L("StaffPopup_StockComplete", "+Stok Tamamlandı 📦", "+Stock Refilled 📦");
+            }
             GameObject popupObj = new GameObject("Popup_StockRefill");
             popupObj.transform.position = pos + Vector3.up * 1.8f;
 
@@ -1813,7 +1819,7 @@ namespace Farm2Shelf.Environment
                             }
 
                             Vector3 popupPos = (data.staffObj != null) ? data.staffObj.transform.position : Vector3.zero;
-                            ShowStockPopup(popupPos, "🛵 Sipariş Motora Yüklendi! ✨");
+                            ShowStockPopup(popupPos, LocalizationManager.L("StaffPopup_OrderLoaded", "🛵 Sipariş Motora Yüklendi! ✨", "🛵 Order Loaded onto Motorcycle! ✨"));
 
                             // Reyoncu işini bitirdi: Derhal Mal Kabul kapısından dükkan/depo içine dönüş rotasını başlat!
                             Vector3 returnRestSpot = GetBreakRoomTargetPosition(data);
@@ -1854,8 +1860,8 @@ namespace Farm2Shelf.Environment
                                                 data.targetOnlineOrder.gatheredQuantities[gatherItem.productIndexInOrder] += actualTake;
                                             }
 
-                                            string prodName = gatherItem.productDef != null ? gatherItem.productDef.LocalizedName : "Ürün";
-                                            ShowStockPopup(data.staffObj.transform.position, $"+{actualTake} {prodName} Toplandı 🛍️");
+                                            string prodName = gatherItem.productDef != null ? gatherItem.productDef.LocalizedName : LocalizationManager.L("Label_Product", "Ürün", "Product");
+                                            ShowStockPopup(data.staffObj.transform.position, string.Format(LocalizationManager.L("StaffPopup_ProductCollectedFmt", "+{0} {1} Toplandı 🛍️", "+{0} {1} Collected 🛍️"), actualTake, prodName));
                                         }
                                     }
                                 }
@@ -1886,7 +1892,7 @@ namespace Farm2Shelf.Environment
 
                             data.waypoints = BuildStructuredStaffWaypoints(data.staffObj.transform.position, motoPos);
                             data.currentWaypointIndex = 1;
-                            ShowStockPopup(data.staffObj.transform.position, "📦 Sipariş Paketlendi -> Motora Gidiyor");
+                            ShowStockPopup(data.staffObj.transform.position, LocalizationManager.L("StaffPopup_OrderPacked", "📦 Sipariş Paketlendi -> Motora Gidiyor", "📦 Order Packed -> Heading to Motorcycle"));
                             return;
                         }
                     }
@@ -1980,7 +1986,7 @@ namespace Farm2Shelf.Environment
                                 data.carriedProduct2 = null;
                             }
 
-                            ShowStockPopup(popupPos, "+Depoya İndirildi 📦");
+                            ShowStockPopup(popupPos, LocalizationManager.L("StaffPopup_UnloadedWarehouse", "+Depoya İndirildi 📦", "+Unloaded to Warehouse 📦"));
                             ClearCarriedBoxesOnStaff(data);
                             data.targetStorageShelfForDeposit = null;
 
@@ -2177,7 +2183,7 @@ namespace Farm2Shelf.Environment
                                 rData1.currentStock = Mathf.Min(rData1.maxCapacity, rData1.currentStock + data.carriedAmount1);
                                 data.targetShelf1.UpdateRow3DProductMeshes(data.targetRowId1);
                                 Vector3 popupPos = data.targetShelf1.GetFrontInteractionPosition(1.2f);
-                                ShowStockPopup(popupPos, $"+{data.carriedAmount1} Stok (1. Koli) 📦");
+                                ShowStockPopup(popupPos, string.Format(LocalizationManager.L("StaffPopup_FirstBoxFmt", "+{0} Stok (1. Koli) 📦", "+{0} Stock (Box 1) 📦"), data.carriedAmount1));
                             }
                         }
 
@@ -2220,7 +2226,7 @@ namespace Farm2Shelf.Environment
                                 rData2.currentStock = Mathf.Min(rData2.maxCapacity, rData2.currentStock + data.carriedAmount2);
                                 data.targetShelf2.UpdateRow3DProductMeshes(data.targetRowId2);
                                 Vector3 popupPos = data.targetShelf2.GetFrontInteractionPosition(1.2f);
-                                ShowStockPopup(popupPos, $"+{data.carriedAmount2} Stok (2. Koli) 📦");
+                                ShowStockPopup(popupPos, string.Format(LocalizationManager.L("StaffPopup_SecondBoxFmt", "+{0} Stok (2. Koli) 📦", "+{0} Stock (Box 2) 📦"), data.carriedAmount2));
                             }
                         }
 
@@ -2277,7 +2283,10 @@ namespace Farm2Shelf.Environment
                     if (Time.time - lastStorageWarningTime > 12f)
                     {
                         lastStorageWarningTime = Time.time;
-                        ModalManager.ShowModal("Depo Rafı Gerekli! ⚠️", "Toptancı kamyonundaki kolilerin indirilebilmesi için mağazanıza en az 1 adet Depo Rafı (Storage Shelf) kurulmalıdır!\n\nReyoncu çalışan depo rafı kurulana kadar kamyonu boşaltamaz.", "Tamam");
+                        ModalManager.ShowModal(
+                            LocalizationManager.L("Modal_StorageShelfRequired_Title", "Depo Rafı Gerekli! ⚠️", "Storage Shelf Required! ⚠️"),
+                            LocalizationManager.L("Modal_StorageShelfRequired_Body", "Toptancı kamyonundaki kolilerin indirilebilmesi için mağazanıza en az 1 adet Depo Rafı (Storage Shelf) kurulmalıdır!\n\nReyoncu çalışan depo rafı kurulana kadar kamyonu boşaltamaz.", "At least one Storage Shelf must be installed before boxes can be unloaded from the truck.\n\nThe stocker cannot unload it until a storage shelf is available."),
+                            LocalizationManager.L("Btn_OK", "Tamam", "OK"));
                     }
                     ResetLimbsToRest(data);
                     return;
@@ -2447,7 +2456,9 @@ namespace Farm2Shelf.Environment
                     {
                         var reqProd = onlineOrder.requestedProducts[p];
                         int reqQty = onlineOrder.requestedQuantities[p];
-                        int plannedGather = 0;
+                        int plannedGather = (onlineOrder.gatheredQuantities != null && p < onlineOrder.gatheredQuantities.Count)
+                            ? Mathf.Clamp(onlineOrder.gatheredQuantities[p], 0, reqQty)
+                            : 0;
 
                         // 1. Önce Mağaza Raflarından ara, sonra Depo Raflarından ara
                         foreach (var f in shelves)
@@ -2494,7 +2505,7 @@ namespace Farm2Shelf.Environment
                         Vector3 firstShelfPos = firstItem.shelf.GetFrontInteractionPosition(1.2f);
                         data.waypoints = BuildStructuredStaffWaypoints(data.staffObj.transform.position, firstShelfPos);
                         data.currentWaypointIndex = 1;
-                        ShowStockPopup(data.staffObj.transform.position, "🛍️ Sipariş Raflardan Toplanıyor...");
+                        ShowStockPopup(data.staffObj.transform.position, LocalizationManager.L("StaffPopup_GatheringOrder", "🛍️ Sipariş Raflardan Toplanıyor...", "🛍️ Gathering Order from Shelves..."));
                         return;
                     }
                     else
@@ -2507,7 +2518,7 @@ namespace Farm2Shelf.Environment
                             : new Vector3(13.0f, 0.05f, 8.0f);
                         data.waypoints = BuildStructuredStaffWaypoints(data.staffObj.transform.position, motoPos);
                         data.currentWaypointIndex = 1;
-                        ShowStockPopup(data.staffObj.transform.position, "📦 Sipariş Paketi -> Motora Gidiyor");
+                        ShowStockPopup(data.staffObj.transform.position, LocalizationManager.L("StaffPopup_OrderToMotorcycle", "📦 Sipariş Paketi -> Motora Gidiyor", "📦 Order Package -> Heading to Motorcycle"));
                         return;
                     }
                 }
@@ -2552,7 +2563,8 @@ namespace Farm2Shelf.Environment
 
                         if (StoreQualityManager.Instance != null)
                         {
-                            StoreQualityManager.Instance.AddQualityScore(5, trashPos, "Çöp Temizlendi!");
+                            string reason = LocalizationManager.L("Quality_TrashCleaned", "Çöp Temizlendi!", "Trash Cleaned!");
+                            StoreQualityManager.Instance.AddQualityScore(5, trashPos, reason);
                         }
                     }
                     data.targetTrashObj = null;

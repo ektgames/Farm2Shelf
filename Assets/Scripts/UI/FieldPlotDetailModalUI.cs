@@ -110,7 +110,7 @@ namespace Farm2Shelf.UI
             }
             else
             {
-                string cropName = (sDef != null) ? sDef.LocalizedName : "Ekin";
+                string cropName = (sDef != null) ? sDef.LocalizedName : LocalizationManager.L("Plot_CropFallback", "Ekin", "Crop");
                 titleStr = $"{sDef?.iconEmoji} <b>{cropName}</b>";
             }
 
@@ -358,12 +358,14 @@ namespace Farm2Shelf.UI
             string seasonStr = (TimeManager.Instance != null) ? TimeManager.Instance.GetLocalizedSeasonName(sDef.season) : sDef.season.ToString();
 
             string waterLine = plot.NeedsWater
-                ? "<color=#FF5252>☀️ <b>Kuru Toprak (Su Bekliyor!)</b></color>"
-                : "<color=#00FFA3>💧 <b>Sulanmış (Nemli & Islak Toprak)</b></color>";
+                ? LocalizationManager.L("Plot_WaterDry", "<color=#FF5252>☀️ <b>Kuru Toprak (Su Bekliyor!)</b></color>", "<color=#FF5252>☀️ <b>Dry Soil (Needs Water!)</b></color>")
+                : LocalizationManager.L("Plot_Watered", "<color=#00FFA3>💧 <b>Sulanmış (Nemli & Islak Toprak)</b></color>", "<color=#00FFA3>💧 <b>Watered (Moist Soil)</b></color>");
 
             string growthLine = (plot.State == PlotState.RipeReadyToHarvest)
-                ? "<color=#FFD700>🎉 <b>HASATA HAZIR! (%100 Olgunlaştı)</b></color>"
-                : $"<b>Kalan Büyüme Süresi:</b> <color=#00FFA3>{remainingDays} Gün</color> (İlerleme: {plot.CurrentGrowthDay}/{plot.TotalGrowthDays} Gün)";
+                ? LocalizationManager.L("Plot_GrowthReady", "<color=#FFD700>🎉 <b>HASATA HAZIR! (%100 Olgunlaştı)</b></color>", "<color=#FFD700>🎉 <b>READY TO HARVEST! (100% Ripe)</b></color>")
+                : string.Format(
+                    LocalizationManager.L("Plot_GrowthRemainingFmt", "<b>Kalan Büyüme Süresi:</b> <color=#00FFA3>{0} Gün</color> (İlerleme: {1}/{2} Gün)", "<b>Remaining Growth Time:</b> <color=#00FFA3>{0} Days</color> (Progress: {1}/{2} Days)"),
+                    remainingDays, plot.CurrentGrowthDay, plot.TotalGrowthDays);
 
             int totalRevenue = sDef.yieldPerPlot * sDef.unitSalePrice;
 

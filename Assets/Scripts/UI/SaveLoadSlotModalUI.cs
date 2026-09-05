@@ -332,6 +332,14 @@ namespace Farm2Shelf.UI
                             LocalizationManager.L("Btn_OK", "Tamam", "OK")
                         );
                     }
+                    else
+                    {
+                        ModalManager.ShowModal(
+                            LocalizationManager.L("Save_Error_Title", "Kayıt Başarısız! ⚠️", "Save Failed! ⚠️"),
+                            LocalizationManager.L("Save_Error_Body", "Oyun kaydedilemedi. Lütfen tekrar deneyin.", "The game could not be saved. Please try again."),
+                            LocalizationManager.L("Btn_OK", "Tamam", "OK")
+                        );
+                    }
                 }
             }
             else
@@ -349,6 +357,14 @@ namespace Farm2Shelf.UI
                             LocalizationManager.L("Btn_OK", "Tamam", "OK")
                         );
                         onCompleteCallback?.Invoke();
+                    }
+                    else
+                    {
+                        ModalManager.ShowModal(
+                            LocalizationManager.L("Load_Error_Title", "Kayıt Yüklenemedi! ⚠️", "Load Failed! ⚠️"),
+                            LocalizationManager.L("Load_Error_Body", "Bu kayıt okunamadı. Güvenli yedek de kullanılamıyor olabilir.", "This save could not be read. Its safety backup may also be unavailable."),
+                            LocalizationManager.L("Btn_OK", "Tamam", "OK")
+                        );
                     }
                 }
             }

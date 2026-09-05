@@ -78,6 +78,13 @@ namespace Farm2Shelf.Core
         public void OpenStore() => SetStoreStatus(true);
         public void CloseStore() => SetStoreStatus(false);
 
+        public void RestoreStoreStatus(bool status)
+        {
+            if (isOpen == status) return;
+            isOpen = status;
+            OnStoreStatusChanged?.Invoke(isOpen);
+        }
+
         public bool IsOpen => isOpen;
         public bool IsStoreOpen => isOpen;
     }

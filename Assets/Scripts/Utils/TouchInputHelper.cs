@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 using Farm2Shelf.Core;
 using Farm2Shelf.Environment;
 using Farm2Shelf.UI;
@@ -125,6 +126,7 @@ namespace Farm2Shelf.Utils
                         lastTapPosition = (pressPosition.sqrMagnitude > 0.001f) ? pressPosition : effectiveReleasePos;
 
                         // UI üzerinde değilse, Modal açık değilse ve Mobilya Yerleştirme modunda değilse 3D nesneleri tetikle
+                        ModalManager.CloseWorldBlockingOverlays();
                         bool isPauseOpen = (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen);
                         bool isPlacing = (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing);
                         if (!ModalManager.IsModalOpen && !EKTPhoneManager.IsTabletOpen && !isPauseOpen && !isPlacing && !IsPointerOverUI(lastTapPosition))
@@ -145,6 +147,7 @@ namespace Farm2Shelf.Utils
         /// </summary>
         public static bool Dispatch3DClick(Vector2 screenPos)
         {
+            ModalManager.CloseWorldBlockingOverlays();
             bool isPauseOpen = (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen);
             bool isPlacing = (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing);
             if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || isPauseOpen || isPlacing || IsPointerOverUI(screenPos)) return false;
@@ -157,8 +160,14 @@ namespace Farm2Shelf.Utils
 
             Ray ray = cam.ScreenPointToRay(screenPos);
             RaycastHit[] hits = Physics.RaycastAll(ray, 250f);
+            RaycastHit[] palletSphereHits = Physics.SphereCastAll(ray, 0.85f, 250f);
 
             // ÖNCELİK 0: Teslimat Kolisi veya Palet Tıklaması (Doğrudan ve Hızlı Erişim)
+            if (TryDispatchPalletOrBox(hits) || TryDispatchPalletOrBox(palletSphereHits))
+            {
+                return true;
+            }
+
             if (hits != null && hits.Length > 0)
             {
                 foreach (var hit in hits)
@@ -173,28 +182,6 @@ namespace Farm2Shelf.Utils
                         lastGlobalDispatchTime = Time.unscaledTime;
                         CloseAnyOpenProfileCard();
                         box.TriggerPlacement();
-                        return true;
-                    }
-
-                    WorkshopPalletClickable wsPallet = go.GetComponentInParent<WorkshopPalletClickable>();
-                    if (wsPallet == null) wsPallet = go.GetComponent<WorkshopPalletClickable>();
-                    if (wsPallet != null || go.name.Contains("Workshop_Pallet") || (go.transform.parent != null && go.transform.parent.name.Contains("Workshop_Pallet")))
-                    {
-                        lastGlobalDispatchTime = Time.unscaledTime;
-                        CloseAnyOpenProfileCard();
-                        PalletStorageInventoryModalUI.ShowModal(isWorkshopMode: true);
-                        return true;
-                    }
-
-                    DeliveryPalletClickable pallet = go.GetComponentInParent<DeliveryPalletClickable>();
-                    if (pallet == null) pallet = go.GetComponent<DeliveryPalletClickable>();
-                    if (pallet != null || go.name.Contains("Pallet") || go.name.Contains("Delivery") || go.name.Contains("Cargo") ||
-                        (go.transform.parent != null && (go.transform.parent.name.Contains("Pallet") || go.transform.parent.name.Contains("Delivery") || go.transform.parent.name.Contains("Cargo"))) ||
-                        (go.transform.root != null && (go.transform.root.name.Contains("Pallet") || go.transform.root.name.Contains("Delivery"))))
-                    {
-                        lastGlobalDispatchTime = Time.unscaledTime;
-                        CloseAnyOpenProfileCard();
-                        PalletStorageInventoryModalUI.ShowModal(isWorkshopMode: false);
                         return true;
                     }
                 }
@@ -352,6 +339,50 @@ namespace Farm2Shelf.Utils
             return false;
         }
 
+        private static bool TryDispatchPalletOrBox(RaycastHit[] hits)
+        {
+            if (hits == null || hits.Length == 0) return false;
+
+            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+            for (int i = 0; i < hits.Length; i++)
+            {
+                if (hits[i].collider == null) continue;
+                GameObject go = hits[i].collider.gameObject;
+
+                DeliveryBoxController box = go.GetComponentInParent<DeliveryBoxController>() ?? go.GetComponent<DeliveryBoxController>();
+                if (box != null)
+                {
+                    lastGlobalDispatchTime = Time.unscaledTime;
+                    CloseAnyOpenProfileCard();
+                    box.TriggerPlacement();
+                    return true;
+                }
+
+                WorkshopPalletClickable wsPallet = go.GetComponentInParent<WorkshopPalletClickable>() ?? go.GetComponent<WorkshopPalletClickable>();
+                if (wsPallet != null || go.name.Contains("Workshop_Pallet") ||
+                    (go.transform.parent != null && go.transform.parent.name.Contains("Workshop_Pallet")))
+                {
+                    lastGlobalDispatchTime = Time.unscaledTime;
+                    CloseAnyOpenProfileCard();
+                    PalletStorageInventoryModalUI.ShowModal(isWorkshopMode: true);
+                    return true;
+                }
+
+                DeliveryPalletClickable pallet = go.GetComponentInParent<DeliveryPalletClickable>() ?? go.GetComponent<DeliveryPalletClickable>();
+                if (pallet != null || go.name.Contains("Pallet") || go.name.Contains("Delivery") || go.name.Contains("Cargo") ||
+                    (go.transform.parent != null && (go.transform.parent.name.Contains("Pallet") || go.transform.parent.name.Contains("Delivery") || go.transform.parent.name.Contains("Cargo"))) ||
+                    (go.transform.root != null && (go.transform.root.name.Contains("Pallet") || go.transform.root.name.Contains("Delivery"))))
+                {
+                    lastGlobalDispatchTime = Time.unscaledTime;
+                    CloseAnyOpenProfileCard();
+                    PalletStorageInventoryModalUI.ShowModal(isWorkshopMode: false);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private static void CloseAnyOpenProfileCard()
         {
             if (CustomerProfileModalUI.Instance != null && CustomerProfileModalUI.Instance.IsModalOpen)
@@ -397,6 +428,31 @@ namespace Farm2Shelf.Utils
 
         public static Vector2 GetCurrentPointerPosition()
         {
+#if ENABLE_INPUT_SYSTEM
+            try
+            {
+                if (Touchscreen.current != null)
+                {
+                    var touch = Touchscreen.current.primaryTouch;
+                    if (touch.press.isPressed)
+                    {
+                        Vector2 touchPos = touch.position.ReadValue();
+                        if (touchPos.sqrMagnitude > 0.001f) return touchPos;
+                    }
+                }
+                if (Mouse.current != null)
+                {
+                    Vector2 mPos = Mouse.current.position.ReadValue();
+                    if (mPos.sqrMagnitude > 0.001f) return mPos;
+                }
+                if (Pointer.current != null && Pointer.current.press.isPressed)
+                {
+                    Vector2 pPos = Pointer.current.position.ReadValue();
+                    if (pPos.sqrMagnitude > 0.001f) return pPos;
+                }
+            }
+            catch { }
+#endif
             try
             {
                 if (Input.touchCount > 0)
@@ -411,28 +467,95 @@ namespace Farm2Shelf.Utils
             }
             catch { }
 
+            return Vector2.zero;
+        }
+
+        public static bool IsPointerHeld()
+        {
 #if ENABLE_INPUT_SYSTEM
             try
             {
-                if (Touchscreen.current != null)
+                if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.isPressed) return true;
+                if (Mouse.current != null && Mouse.current.leftButton.isPressed) return true;
+                if (Pointer.current != null && Pointer.current.press.isPressed) return true;
+            }
+            catch { }
+#endif
+            try
+            {
+                if (Input.GetMouseButton(0)) return true;
+                if (Input.touchCount > 0)
                 {
-                    var touchPos = Touchscreen.current.primaryTouch.position.ReadValue();
-                    if (touchPos.sqrMagnitude > 0.001f) return touchPos;
+                    UnityEngine.TouchPhase phase = Input.GetTouch(0).phase;
+                    if (phase == UnityEngine.TouchPhase.Began || phase == UnityEngine.TouchPhase.Moved || phase == UnityEngine.TouchPhase.Stationary)
+                    {
+                        return true;
+                    }
                 }
-                if (Pointer.current != null)
+            }
+            catch { }
+
+            return false;
+        }
+
+        public static bool TryGetPressedPointerPosition(out Vector2 screenPos)
+        {
+            screenPos = Vector2.zero;
+            if (!IsPointerHeld() && !WasPointerPressedThisFrame()) return false;
+
+#if ENABLE_INPUT_SYSTEM
+            try
+            {
+                if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.isPressed)
                 {
-                    var pPos = Pointer.current.position.ReadValue();
-                    if (pPos.sqrMagnitude > 0.001f) return pPos;
+                    Vector2 touchPos = Touchscreen.current.primaryTouch.position.ReadValue();
+                    if (touchPos.sqrMagnitude > 1f)
+                    {
+                        screenPos = touchPos;
+                        return true;
+                    }
                 }
-                if (Mouse.current != null)
+                if (Mouse.current != null && Mouse.current.leftButton.isPressed)
                 {
-                    var mPos = Mouse.current.position.ReadValue();
-                    if (mPos.sqrMagnitude > 0.001f) return mPos;
+                    Vector2 mPos = Mouse.current.position.ReadValue();
+                    if (mPos.sqrMagnitude > 1f)
+                    {
+                        screenPos = mPos;
+                        return true;
+                    }
+                }
+                if (Pointer.current != null && Pointer.current.press.isPressed)
+                {
+                    Vector2 pPos = Pointer.current.position.ReadValue();
+                    if (pPos.sqrMagnitude > 1f)
+                    {
+                        screenPos = pPos;
+                        return true;
+                    }
                 }
             }
             catch { }
 #endif
-            return Vector2.zero;
+            try
+            {
+                if (Input.touchCount > 0)
+                {
+                    screenPos = Input.GetTouch(0).position;
+                    if (screenPos.sqrMagnitude > 1f) return true;
+                }
+                if (Input.GetMouseButton(0))
+                {
+                    Vector3 mPos = Input.mousePosition;
+                    if (mPos.sqrMagnitude > 1f)
+                    {
+                        screenPos = new Vector2(mPos.x, mPos.y);
+                        return true;
+                    }
+                }
+            }
+            catch { }
+
+            return false;
         }
 
         public static bool WasPointerPressedThisFrame()
@@ -495,30 +618,37 @@ namespace Farm2Shelf.Utils
             for (int i = 0; i < count; i++)
             {
                 var result = cachedRaycastResults[i];
-                if (result.gameObject != null)
+                if (result.gameObject == null || IsPhysicsWorldHit(result))
                 {
-                    GameObject go = result.gameObject;
+                    continue;
+                }
 
-                    // 1. Herhangi bir modal, tablet veya pause menüsü açıksa tüm UI arkasını kilitler
-                    if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen))
-                    {
-                        return true;
-                    }
+                GameObject go = result.gameObject;
 
-                    // 2. Modal açık değilken sadece tıklanabilir interaktif buton/UI öğeleri 3D tıklamayı engeller
-                    if (go.GetComponentInParent<UnityEngine.UI.Selectable>() != null ||
-                        go.GetComponentInParent<UnityEngine.UI.Button>() != null ||
-                        go.GetComponentInParent<UnityEngine.UI.Toggle>() != null ||
-                        go.GetComponentInParent<UnityEngine.UI.Slider>() != null ||
-                        go.GetComponentInParent<UnityEngine.UI.InputField>() != null ||
-                        go.GetComponentInParent<UnityEngine.UI.ScrollRect>() != null)
-                    {
-                        return true;
-                    }
+                // 1. Gerçek UI grafiği + açık modal/tablet/pause: dünya tıklamasını kilitle
+                if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen))
+                {
+                    return true;
+                }
+
+                // 2. Modal açık değilken sadece tıklanabilir interaktif buton/UI öğeleri 3D tıklamayı engeller
+                if (go.GetComponentInParent<Selectable>() != null ||
+                    go.GetComponentInParent<Button>() != null ||
+                    go.GetComponentInParent<Toggle>() != null ||
+                    go.GetComponentInParent<Slider>() != null ||
+                    go.GetComponentInParent<InputField>() != null ||
+                    go.GetComponentInParent<ScrollRect>() != null)
+                {
+                    return true;
                 }
             }
 
             return false;
+        }
+
+        private static bool IsPhysicsWorldHit(RaycastResult result)
+        {
+            return result.module is PhysicsRaycaster || result.module is Physics2DRaycaster;
         }
     }
 

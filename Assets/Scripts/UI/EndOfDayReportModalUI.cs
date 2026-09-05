@@ -49,28 +49,42 @@ namespace Farm2Shelf.UI
 
         private void HandleLanguageChanged(GameLanguage lang)
         {
-            if (IsReportModalOpen && canvasObj != null)
+            if (IsReportModalOpen)
             {
-                IsReportModalOpen = false;
-                ShowReport();
+                BuildReportCanvas();
+            }
+        }
+
+        private void Update()
+        {
+            if (!IsReportModalOpen) return;
+
+            if (canvasObj == null || !canvasObj.activeInHierarchy)
+            {
+                BuildReportCanvas();
             }
         }
 
         public void ShowReport()
         {
-            if (IsReportModalOpen) return;
+            if (IsReportModalOpen && canvasObj != null && canvasObj.activeInHierarchy) return;
+            BuildReportCanvas();
+        }
 
+        private void BuildReportCanvas()
+        {
             IsReportModalOpen = true;
             ModalManager.SetModalOpen(true);
 
-            // Eski canvas varsa temizle
+            if (canvasObj != null) Destroy(canvasObj);
+
             GameObject existing = GameObject.Find("Global_EndOfDay_ZReport_Canvas");
             if (existing != null) DestroyImmediate(existing);
 
             canvasObj = new GameObject("Global_EndOfDay_ZReport_Canvas");
             Canvas canvas = canvasObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 998;
+            canvas.sortingOrder = 3500;
 
             CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -212,42 +226,6 @@ namespace Farm2Shelf.UI
             btnTxt.color = new Color(0.30f, 0.98f, 0.50f);
 
             btn.onClick.AddListener(OnStartNewDayClicked);
-
-            // 5. Kapat (X) Butonu
-            GameObject closeBtnObj = new GameObject("CloseButton_X");
-            closeBtnObj.transform.SetParent(boxObj.transform, false);
-            RectTransform cRect = closeBtnObj.AddComponent<RectTransform>();
-            cRect.anchoredPosition = new Vector2(325f, 275f);
-            cRect.sizeDelta = new Vector2(46f, 46f);
-
-            Image cBg = closeBtnObj.AddComponent<Image>();
-            cBg.sprite = UIStyleUtility.CreateRoundedPillSprite(46, 46, 23, new Color(0.92f, 0.18f, 0.20f, 1f));
-            cBg.raycastTarget = true;
-
-            Button cBtn = closeBtnObj.AddComponent<Button>();
-            cBtn.targetGraphic = cBg;
-            cBtn.onClick.AddListener(CloseReport);
-
-            GameObject cxObj = new GameObject("X");
-            cxObj.transform.SetParent(closeBtnObj.transform, false);
-            RectTransform cxRect = cxObj.AddComponent<RectTransform>();
-            cxRect.anchorMin = Vector2.zero;
-            cxRect.anchorMax = Vector2.one;
-
-            Text cxText = cxObj.AddComponent<Text>();
-            cxText.font = titleText.font;
-            cxText.text = "✖";
-            cxText.fontSize = 26;
-            cxText.fontStyle = FontStyle.Bold;
-            cxText.alignment = TextAnchor.MiddleCenter;
-            cxText.color = Color.white;
-            cxText.raycastTarget = false;
-
-            Outline cxOutline = cxObj.AddComponent<Outline>();
-            cxOutline.effectColor = new Color(0f, 0f, 0f, 0.85f);
-            cxOutline.effectDistance = new Vector2(1.5f, -1.5f);
-
-            closeBtnObj.transform.SetAsLastSibling();
         }
 
         private void CreateMetricCard(Transform parent, Vector2 pos, string header, string value, Color valColor)
@@ -295,33 +273,34 @@ namespace Farm2Shelf.UI
 
         private void OnStartNewDayClicked()
         {
-            CloseReport();
+            if (canvasObj != null)
+            {
+                Destroy(canvasObj);
+                canvasObj = null;
+            }
+            IsReportModalOpen = false;
+            ModalManager.SetModalOpen(false);
 
-            // 1. Dükkan Durumunu Kapalıya Çek
             if (StoreStatusManager.Instance != null && StoreStatusManager.Instance.IsOpen)
             {
                 StoreStatusManager.Instance.CloseStore();
             }
 
-            // 2. Günlük Gelir/Gider Sayaçlarını Sıfırla / Yeni Güne Devret
             if (FinanceManager.Instance != null)
             {
                 FinanceManager.Instance.ResetDailyStats();
             }
 
-            // 3. Tahliye Durumu Bayrağını Sıfırla
             if (GameHUDManager.Instance != null)
             {
                 GameHUDManager.Instance.SetWaitingForEvacuation(false);
             }
 
-            // 4. Zamanı Sabah 06:00'ya Geçir ve Günlük İlerlemeyi Yap
             if (TimeManager.Instance != null)
             {
                 TimeManager.Instance.SkipToNextDay06AM();
             }
 
-            // 5. Personellerin sabah modellerini senkronize et
             if (StaffVisualManager.Instance != null)
             {
                 StaffVisualManager.Instance.SyncStaff3DModels();
@@ -330,9 +309,7 @@ namespace Farm2Shelf.UI
 
         public void CloseReport()
         {
-            if (canvasObj != null) Destroy(canvasObj);
-            IsReportModalOpen = false;
-            ModalManager.SetModalOpen(false);
+            // Z raporu yalnızca "Ertesi Güne Atla" ile kapanır.
         }
     }
 }

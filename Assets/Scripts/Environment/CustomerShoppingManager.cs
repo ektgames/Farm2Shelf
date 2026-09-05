@@ -1470,7 +1470,7 @@ namespace Farm2Shelf.Environment
 
             UnityEngine.UI.Text txt = textObj.AddComponent<UnityEngine.UI.Text>();
             txt.font = UIStyleUtility.GetGlobalFont(18);
-            txt.text = "🏷️ BİP!";
+            txt.text = LocalizationManager.L("Checkout_Beep", "🏷️ BİP!", "🏷️ BEEP!");
             txt.fontSize = 18;
             txt.fontStyle = FontStyle.Bold;
             txt.alignment = TextAnchor.MiddleCenter;

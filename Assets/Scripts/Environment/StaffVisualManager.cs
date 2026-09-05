@@ -15,6 +15,8 @@ namespace Farm2Shelf.Environment
         private readonly Dictionary<string, GameObject> activeStaffModels = new Dictionary<string, GameObject>();
         private Transform staffGroupTransform;
         private Action<int, int> timeUpdateHandler;
+        private Action<bool> storeStatusChangedHandler;
+        private Action midnightRolloverHandler;
 
         private void Awake()
         {
@@ -71,13 +73,20 @@ namespace Farm2Shelf.Environment
 
             if (EconomyManager.Instance != null && EconomyManager.Instance.Credits < 50)
             {
-                ModalManager.ShowModal("Yetersiz Bakiye! ⚠️", "Erken mesai çağırısı için en az 50C bakiye gereklidir.", "Tamam");
+                ModalManager.ShowModal(
+                    LocalizationManager.L("EarlyShift_NoFunds_Title", "Yetersiz Bakiye! ⚠️", "Insufficient Funds! ⚠️"),
+                    LocalizationManager.L("EarlyShift_NoFunds_Body", "Erken mesai çağırısı için en az 50C bakiye gereklidir.", "At least 50C is required to call an employee in early."),
+                    LocalizationManager.L("Btn_OK", "Tamam", "OK"));
                 return false;
             }
 
             if (earlyCalledStaffIds.Contains(staff.id))
             {
-                ModalManager.ShowModal("Zaten Görevde! ℹ️", $"{staff.name} zaten dükkan kapalıyken göreve çağrılmıştır.", "Tamam");
+                string bodyFormat = LocalizationManager.L("EarlyShift_AlreadyWorking_Body", "{0} zaten dükkan kapalıyken göreve çağrılmıştır.", "{0} has already been called in while the store is closed.");
+                ModalManager.ShowModal(
+                    LocalizationManager.L("EarlyShift_AlreadyWorking_Title", "Zaten Görevde! ℹ️", "Already Working! ℹ️"),
+                    string.Format(bodyFormat, staff.name),
+                    LocalizationManager.L("Btn_OK", "Tamam", "OK"));
                 return false;
             }
 
@@ -93,9 +102,11 @@ namespace Farm2Shelf.Environment
             }
 
             ModalManager.ShowModal(
-                "⚡ Erken Mesai Başlatıldı!",
-                $"{staff.name} 50 CR mesai ücreti ödenerek dükkan kapalıyken ön hazırlık için göreve çağrıldı!\n\nPersonel odasında üstünü değiştirip dükkan ve reyon hazırlıklarına başladı.",
-                "Tamam"
+                LocalizationManager.L("EarlyShift_Started_Title", "⚡ Erken Mesai Başlatıldı!", "⚡ Early Shift Started!"),
+                string.Format(
+                    LocalizationManager.L("EarlyShift_Started_Body", "{0}, 50C mesai ücreti ödenerek dükkan kapalıyken ön hazırlık için göreve çağrıldı!\n\nPersonel odasında üstünü değiştirip dükkan ve reyon hazırlıklarına başladı.", "{0} was called in for preparation while the store is closed for a 50C overtime fee.\n\nThe employee changed in the staff room and started preparing the store and shelves."),
+                    staff.name),
+                LocalizationManager.L("Btn_OK", "Tamam", "OK")
             );
 
             SyncStaff3DModels();
@@ -115,7 +126,8 @@ namespace Farm2Shelf.Environment
 
             if (StoreStatusManager.Instance != null)
             {
-                StoreStatusManager.Instance.OnStoreStatusChanged += (isOpen) => SyncStaff3DModels();
+                storeStatusChangedHandler = _ => SyncStaff3DModels();
+                StoreStatusManager.Instance.OnStoreStatusChanged += storeStatusChangedHandler;
             }
 
             if (TimeManager.Instance != null)
@@ -124,10 +136,11 @@ namespace Farm2Shelf.Environment
                     if (min % 5 == 0) SyncStaff3DModels();
                 };
                 TimeManager.Instance.OnTimeUpdated += timeUpdateHandler;
-                TimeManager.Instance.OnMidnightRollover += () => {
+                midnightRolloverHandler = () => {
                     earlyCalledStaffIds.Clear();
                     SyncStaff3DModels();
                 };
+                TimeManager.Instance.OnMidnightRollover += midnightRolloverHandler;
             }
 
             SyncStaff3DModels();
@@ -143,6 +156,16 @@ namespace Farm2Shelf.Environment
             if (TimeManager.Instance != null && timeUpdateHandler != null)
             {
                 TimeManager.Instance.OnTimeUpdated -= timeUpdateHandler;
+            }
+
+            if (TimeManager.Instance != null && midnightRolloverHandler != null)
+            {
+                TimeManager.Instance.OnMidnightRollover -= midnightRolloverHandler;
+            }
+
+            if (StoreStatusManager.Instance != null && storeStatusChangedHandler != null)
+            {
+                StoreStatusManager.Instance.OnStoreStatusChanged -= storeStatusChangedHandler;
             }
         }
 

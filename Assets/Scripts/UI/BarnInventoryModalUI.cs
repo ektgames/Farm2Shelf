@@ -42,6 +42,7 @@ namespace Farm2Shelf.UI
         {
             if (LocalizationManager.Instance != null)
             {
+                LocalizationManager.Instance.OnLanguageChanged -= HandleLanguageChanged;
                 LocalizationManager.Instance.OnLanguageChanged += HandleLanguageChanged;
             }
         }
@@ -608,7 +609,7 @@ namespace Farm2Shelf.UI
                 int rawCost = (sDef != null) ? Mathf.Max(1, Mathf.RoundToInt(sDef.unitSalePrice / 1.40f)) : Mathf.Max(1, Mathf.RoundToInt(wRecipe.unitSalePrice / 1.80f));
                 int salePrice = (sDef != null) ? sDef.unitSalePrice : wRecipe.unitSalePrice;
                 int quickSellUnitPrice = Mathf.Max(1, Mathf.RoundToInt(rawCost * 1.20f));
-                string unitLabel = (sDef != null) ? "KG" : "Adet";
+                string unitLabel = (sDef != null) ? "KG" : LocalizationManager.L("Unit_Pieces", "Adet", "Pcs");
                 string itemShortName = (sDef != null) ? sDef.LocalizedName.Replace(" Tohumu", "").Replace(" Seeds", "").Replace(" Seed", "") : wRecipe.LocalizedName;
 
                 GameObject rowObj = new GameObject("Row_" + seedId);
@@ -633,7 +634,8 @@ namespace Farm2Shelf.UI
                 if (wRecipe != null)
                 {
                     string gourmetDetailFmt = LocalizationManager.L("Barn_GourmetRowDetailFmt", "Market: <b>{0}C</b> (%80 Kâr) | Hızlı Satış: <b>{1}C</b> (%20 Kâr)", "Store: <b>{0}C</b> (+80%) | Quick Sell: <b>{1}C</b> (+20%)");
-                    txt.text = $"{itemEmoji}  <b><size=16>{itemShortName}</size></b> <color=#FFD700><size=12>(🌟 Lüks Gurme Ürün)</size></color>\n<color=#80D8FF><size=12>{string.Format(gourmetDetailFmt, salePrice, quickSellUnitPrice)}</size></color>";
+                    string gourmetTag = LocalizationManager.L("Barn_GourmetTag", "(🌟 Lüks Gurme Ürün)", "(🌟 Premium Gourmet Product)");
+                    txt.text = $"{itemEmoji}  <b><size=16>{itemShortName}</size></b> <color=#FFD700><size=12>{gourmetTag}</size></color>\n<color=#80D8FF><size=12>{string.Format(gourmetDetailFmt, salePrice, quickSellUnitPrice)}</size></color>";
                 }
                 else
                 {
@@ -723,7 +725,7 @@ namespace Farm2Shelf.UI
             Font font = UIStyleUtility.GetGlobalFont(16);
             string cropShortName = (sDef != null) ? sDef.LocalizedName.Replace(" Tohumu", "").Replace(" Seeds", "").Replace(" Seed", "") : wRecipe.LocalizedName;
             string itemEmoji = (sDef != null) ? sDef.iconEmoji : wRecipe.iconEmoji;
-            string unitLabel = (sDef != null) ? "KG" : "Adet";
+            string unitLabel = (sDef != null) ? "KG" : LocalizationManager.L("Unit_Pieces", "Adet", "Pcs");
 
             distributionModalObj = new GameObject("Distribution_Modal_Backdrop");
             distributionModalObj.transform.SetParent(canvasObj.transform, false);
@@ -1107,7 +1109,7 @@ namespace Farm2Shelf.UI
 
                 HideModal();
                 string cropShortName = (sDef != null) ? sDef.LocalizedName.Replace(" Tohumu", "").Replace(" Seeds", "").Replace(" Seed", "") : wRecipe.LocalizedName;
-                string unitLabel = (sDef != null) ? "KG" : "Adet";
+                string unitLabel = (sDef != null) ? "KG" : LocalizationManager.L("Unit_Pieces", "Adet", "Pcs");
                 string greenTitle = LocalizationManager.L("Modal_GreenTruck_Title", "Yeşil Kamyon Yola Çıktı! 🚛", "Green Truck Dispatched! 🚛");
                 string greenBodyFmt = LocalizationManager.L("Modal_SingleCrop_GreenTruck_Body", "<b>{0} {1} {2}</b> Yeşil Kamyona yüklendi!\n\nKamyon dükkanın Mal Kabul kapısına yanaşıyor.", "<b>{0} {1} {2}</b> loaded onto Green Truck!\n\nThe truck is approaching the delivery dock.");
                 ModalManager.ShowModal(greenTitle, string.Format(greenBodyFmt, amount, unitLabel, cropShortName), btnGreat);

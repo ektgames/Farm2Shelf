@@ -136,11 +136,24 @@ namespace Farm2Shelf.Core
         public void RestoreSocialMediaData(int followers, List<SocialTweetData> feed)
         {
             this.followerCount = Mathf.Max(0, followers > 0 ? followers : 500);
+            this.tweetFeed.Clear();
             if (feed != null && feed.Count > 0)
             {
-                this.tweetFeed.Clear();
                 this.tweetFeed.AddRange(feed);
             }
+            OnFeedUpdated?.Invoke();
+        }
+
+        public void ResetToDefaults()
+        {
+            followerCount = 500;
+            tweetFeed.Clear();
+            cachedDayForTrends = -1;
+            cachedTrendsTextTr = "";
+            cachedTrendsTextEn = "";
+            lastProcessedHour = -1;
+            lastProcessedDay = -1;
+            InitializeDefaultTweets();
             OnFeedUpdated?.Invoke();
         }
 

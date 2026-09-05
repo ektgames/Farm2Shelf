@@ -88,6 +88,11 @@ namespace Farm2Shelf.Core
             {
                 TimeManager.Instance.OnDateUpdated += HandleDateUpdatedForSeasonBadge;
             }
+            if (LocalizationManager.Instance != null)
+            {
+                LocalizationManager.Instance.OnLanguageChanged -= HandleLanguageChanged;
+                LocalizationManager.Instance.OnLanguageChanged += HandleLanguageChanged;
+            }
         }
 
         private void OnDisable()
@@ -110,6 +115,10 @@ namespace Farm2Shelf.Core
             {
                 TimeManager.Instance.OnDateUpdated -= HandleDateUpdatedForSeasonBadge;
             }
+            if (LocalizationManager.Instance != null)
+            {
+                LocalizationManager.Instance.OnLanguageChanged -= HandleLanguageChanged;
+            }
         }
 
         private void OnDestroy()
@@ -118,6 +127,11 @@ namespace Farm2Shelf.Core
         }
 
         private void HandleDateUpdatedForSeasonBadge(TimeManager.Season season, int day, int year)
+        {
+            UpdateSeasonWarningBadge();
+        }
+
+        private void HandleLanguageChanged(GameLanguage language)
         {
             UpdateSeasonWarningBadge();
         }
@@ -408,7 +422,9 @@ namespace Farm2Shelf.Core
                 }
                 if (FinanceManager.Instance != null)
                 {
-                    FinanceManager.Instance.RecordIncome("Pasif Gelir", $"Pasif Satış ({def.name})", income);
+                    string category = LocalizationManager.L("FinCat_PassiveIncome", "Pasif Gelir", "Passive Income");
+                    string description = string.Format(LocalizationManager.L("FinDesc_PassiveSaleFmt", "Pasif Satış ({0})", "Passive Sale ({0})"), def.LocalizedName);
+                    FinanceManager.Instance.RecordIncome(category, description, income);
                 }
 
                 // 3D Süzülen Metin Efekti Göster
@@ -531,7 +547,7 @@ namespace Farm2Shelf.Core
 
             UnityEngine.UI.Text txt = textObj.AddComponent<UnityEngine.UI.Text>();
             txt.font = UIStyleUtility.GetGlobalFont(22);
-            txt.text = "🛠️ Mobilya Taşınıyor";
+            txt.text = LocalizationManager.L("Popup_MovingFurniture", "🛠️ Mobilya Taşınıyor", "🛠️ Moving Furniture");
             txt.fontSize = 22;
             txt.fontStyle = FontStyle.Bold;
             txt.alignment = TextAnchor.MiddleCenter;
@@ -992,11 +1008,19 @@ namespace Farm2Shelf.Core
 
                     UnityEngine.UI.Text txt = textObj.AddComponent<UnityEngine.UI.Text>();
                     txt.font = UIStyleUtility.GetGlobalFont(20);
-                    txt.text = "⚠️ MEVSİM DEĞİŞTİ!\n(Yeni Ürünleri Düzenleyin)";
+                    txt.text = LocalizationManager.L("Furniture_SeasonChangedBadge", "⚠️ MEVSİM DEĞİŞTİ!\n(Yeni Ürünleri Düzenleyin)", "⚠️ SEASON CHANGED!\n(Update the Products)");
                     txt.fontSize = 20;
                     txt.fontStyle = FontStyle.Bold;
                     txt.alignment = TextAnchor.MiddleCenter;
                     txt.color = Color.yellow;
+                }
+                else
+                {
+                    UnityEngine.UI.Text txt = seasonWarningCanvasObj.GetComponentInChildren<UnityEngine.UI.Text>();
+                    if (txt != null)
+                    {
+                        txt.text = LocalizationManager.L("Furniture_SeasonChangedBadge", "⚠️ MEVSİM DEĞİŞTİ!\n(Yeni Ürünleri Düzenleyin)", "⚠️ SEASON CHANGED!\n(Update the Products)");
+                    }
                 }
             }
             else

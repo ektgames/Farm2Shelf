@@ -4,6 +4,7 @@ using UnityEngine.UI;
 using Farm2Shelf.Environment;
 using Farm2Shelf.UI;
 using Farm2Shelf.CameraSystem;
+using Farm2Shelf.Utils;
 
 namespace Farm2Shelf.Core
 {
@@ -54,10 +55,35 @@ namespace Farm2Shelf.Core
             CreatePlacementHUDUI();
         }
 
+        private void OnEnable()
+        {
+            if (LocalizationManager.Instance != null)
+            {
+                LocalizationManager.Instance.OnLanguageChanged -= HandleLanguageChanged;
+                LocalizationManager.Instance.OnLanguageChanged += HandleLanguageChanged;
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (LocalizationManager.Instance != null)
+            {
+                LocalizationManager.Instance.OnLanguageChanged -= HandleLanguageChanged;
+            }
+        }
+
+        private void HandleLanguageChanged(GameLanguage language)
+        {
+            bool wasVisible = isPlacing && placementHUDCanvas != null && placementHUDCanvas.activeSelf;
+            CreatePlacementHUDUI();
+            if (placementHUDCanvas != null) placementHUDCanvas.SetActive(wasVisible);
+        }
+
         public void StartPlacement(FurnitureType type, DeliveryBoxController boxController)
         {
             if (EKTPhoneManager.Instance != null) EKTPhoneManager.Instance.ClosePhoneTabletInstant();
             PalletStorageInventoryModalUI.HideModal();
+            ModalManager.CloseWorldBlockingOverlays();
             ModalManager.SetModalOpen(false);
             if (FurnitureInfoModalUI.Instance != null) FurnitureInfoModalUI.Instance.CloseModal();
             if (WorkshopMachineModalUI.Instance != null) WorkshopMachineModalUI.Instance.HideModal();
@@ -71,9 +97,10 @@ namespace Farm2Shelf.Core
             this.savedReplacementRows = null;
             this.savedReplacementMachineState = null;
             this.currentYRotation = 0f;
-            this.placementStartTime = Time.time;
+            this.placementStartTime = Time.unscaledTime;
 
             ghostObj = FurnitureModelBuilder.CreateFurnitureModel(type, isGhost: true);
+            ConfigureGhostForPlacement(ghostObj);
             ghostObj.name = "Ghost_" + type.ToString();
 
             FurnitureItemDef def = FurnitureDatabase.GetDef(type);
@@ -83,7 +110,17 @@ namespace Farm2Shelf.Core
                     ? new Vector3(-55.0f, 0.01f, 5.0f)
                     : new Vector3(-5.0f, 0.01f, 4.0f));
 
-            ghostObj.transform.position = startPos;
+            if (FurnitureDatabase.IsWallMountedDecoration(type))
+            {
+                GetStoreWallFaces(out _, out _, out _, out float backWallFace);
+                if (TrySnapToStoreWall(new Vector3(-5.0f, 0.01f, backWallFace), out Vector3 wallStart, out float wallYaw))
+                {
+                    startPos = wallStart;
+                    currentYRotation = wallYaw;
+                }
+            }
+
+            ghostObj.transform.position = startPos + Vector3.up * 0.04f;
             ghostObj.transform.rotation = Quaternion.Euler(0f, currentYRotation, 0f);
 
             // Kamerayı otomatik olarak ilgili binaya odakla
@@ -91,15 +128,15 @@ namespace Farm2Shelf.Core
             {
                 if (def.zone == FurnitureZone.WorkshopOnly)
                 {
-                    IsometricCameraSetup.Instance.FocusOn(new Vector3(-55.0f, 0f, 6.0f));
+                    IsometricCameraSetup.Instance.FocusOn(new Vector3(-55.0f, 0f, 6.0f), true);
                 }
                 else if (def.zone == FurnitureZone.StorageOnly)
                 {
-                    IsometricCameraSetup.Instance.FocusOn(new Vector3(7.0f, 0f, 5.0f));
+                    IsometricCameraSetup.Instance.FocusOn(new Vector3(7.0f, 0f, 5.0f), true);
                 }
                 else
                 {
-                    IsometricCameraSetup.Instance.FocusOn(new Vector3(-5.0f, 0f, 5.0f));
+                    IsometricCameraSetup.Instance.FocusOn(new Vector3(-5.0f, 0f, 5.0f), true);
                 }
             }
 
@@ -125,6 +162,7 @@ namespace Farm2Shelf.Core
             WorkshopMachineState machineState = null
         )
         {
+            ModalManager.CloseWorldBlockingOverlays();
             ModalManager.SetModalOpen(false);
             if (FurnitureInfoModalUI.Instance != null) FurnitureInfoModalUI.Instance.CloseModal();
             if (WorkshopMachineModalUI.Instance != null) WorkshopMachineModalUI.Instance.HideModal();
@@ -140,9 +178,10 @@ namespace Farm2Shelf.Core
             this.savedReplacementRows = existingRows;
             this.savedReplacementMachineState = machineState;
             this.currentYRotation = origRot.eulerAngles.y;
-            this.placementStartTime = Time.time;
+            this.placementStartTime = Time.unscaledTime;
 
             ghostObj = FurnitureModelBuilder.CreateFurnitureModel(type, isGhost: true);
+            ConfigureGhostForPlacement(ghostObj);
             ghostObj.name = "Ghost_" + type.ToString();
             ghostObj.transform.position = origPos;
             ghostObj.transform.rotation = origRot;
@@ -153,11 +192,44 @@ namespace Farm2Shelf.Core
             FurnitureItemDef def = FurnitureDatabase.GetDef(type);
             if (infoStatusText != null && def != null)
             {
-                string stateNote = (machineState != null && (machineState.isProducing || machineState.isReadyToCollect)) 
-                    ? " (Üretim Korunuyor ⏳)" 
+                string stateNote = (machineState != null && (machineState.isProducing || machineState.isReadyToCollect))
+                    ? LocalizationManager.L("HUD_ProductionPreserved", " (Üretim Korunuyor ⏳)", " (Production Preserved ⏳)")
                     : "";
-                infoStatusText.text = $"🛠️ {def.LocalizedName}{stateNote} Taşınıyor\nEkrana dokunarak taşıyın | Paneldeki [✅ Kur] butonuna basarak kurun";
+                string moveFmt = LocalizationManager.L(
+                    "HUD_MovingInfoFmt",
+                    "🛠️ {0}{1} Taşınıyor\nEkrana dokunarak taşıyın | Paneldeki [✅ Kur] butonuna basarak kurun",
+                    "🛠️ Moving {0}{1}\nDrag on screen to move | Tap [✅ Assemble] to place"
+                );
+                infoStatusText.text = string.Format(moveFmt, def.LocalizedName, stateNote);
             }
+        }
+
+        private static void ConfigureGhostForPlacement(GameObject ghost)
+        {
+            if (ghost == null) return;
+            ghost.SetActive(true);
+
+            foreach (Transform child in ghost.GetComponentsInChildren<Transform>(true))
+            {
+                child.gameObject.layer = 2; // Ignore Raycast
+            }
+
+            foreach (Collider collider in ghost.GetComponentsInChildren<Collider>(true))
+            {
+                if (collider == null) continue;
+                collider.enabled = false;
+                UnityEngine.Object.Destroy(collider);
+            }
+
+            foreach (Renderer renderer in ghost.GetComponentsInChildren<Renderer>(true))
+            {
+                if (renderer == null) continue;
+                renderer.enabled = true;
+                renderer.forceRenderingOff = false;
+                renderer.sortingOrder = 50;
+            }
+
+            FurnitureModelBuilder.ApplyGhostMaterial(ghost, FurnitureModelBuilder.ValidGhostMaterial);
         }
 
         private float lastKeyMoveTime = 0f;
@@ -179,27 +251,27 @@ namespace Farm2Shelf.Core
 
             if (mainCam != null)
             {
-                // 1. DOKUNMA, TIKLAMA, SÜRÜKLEME VEYA FARE HAREKETİ İLE ÖNİZLEMEYİ DOĞRUDAN KONUMLANDIR:
-                if (GetActivePointerScreenPosition(out Vector2 pointerPos))
+                // Kur tıklamasının eski ekran konumu hayaleti yola kilitlemesin.
+                bool placementClickSettled = Time.unscaledTime - placementStartTime > 0.12f;
+                if (placementClickSettled &&
+                    TouchInputHelper.TryGetPressedPointerPosition(out Vector2 pointerPos) &&
+                    !IsPointerOverUIButton(pointerPos))
                 {
-                    if (!IsPointerOverUIButton(pointerPos))
+                    Ray ray = mainCam.ScreenPointToRay(pointerPos);
+                    Plane floorPlane = new Plane(Vector3.up, new Vector3(0f, 0.01f, 0f));
+
+                    if (floorPlane.Raycast(ray, out float enter))
                     {
-                        Ray ray = mainCam.ScreenPointToRay(pointerPos);
-                        Plane floorPlane = new Plane(Vector3.up, new Vector3(0f, 0.01f, 0f));
+                        Vector3 hitPoint = ray.GetPoint(enter);
+                        hitPoint.x = Mathf.Round(hitPoint.x * 4f) / 4f; // 0.25m hassas ızgara yapışması
+                        hitPoint.z = Mathf.Round(hitPoint.z * 4f) / 4f;
+                        hitPoint.y = 0.01f;
 
-                        if (floorPlane.Raycast(ray, out float enter))
-                        {
-                            Vector3 hitPoint = ray.GetPoint(enter);
-                            hitPoint.x = Mathf.Round(hitPoint.x * 4f) / 4f; // 0.25m hassas ızgara yapışması
-                            hitPoint.z = Mathf.Round(hitPoint.z * 4f) / 4f;
-                            hitPoint.y = 0.01f;
+                        // Geniş harita sınırları dahilinde (Dükkan, Depo, Atölye ve Tarla) serbest ve hassas konumlandırma
+                        hitPoint.x = Mathf.Clamp(hitPoint.x, -85.0f, 35.0f);
+                        hitPoint.z = Mathf.Clamp(hitPoint.z, -35.0f, 65.0f);
 
-                            // Geniş harita sınırları dahilinde (Dükkan, Depo, Atölye ve Tarla) serbest ve hassas konumlandırma
-                            hitPoint.x = Mathf.Clamp(hitPoint.x, -85.0f, 35.0f);
-                            hitPoint.z = Mathf.Clamp(hitPoint.z, -35.0f, 65.0f);
-
-                            ghostObj.transform.position = hitPoint;
-                        }
+                        ghostObj.transform.position = hitPoint;
                     }
                 }
 
@@ -217,14 +289,33 @@ namespace Farm2Shelf.Core
                 }
             }
 
-            ghostObj.transform.rotation = Quaternion.Euler(0f, currentYRotation, 0f);
-
             FurnitureItemDef def = FurnitureDatabase.GetDef(currentType);
             Vector3 currentGhostPos = ghostObj.transform.position;
-            bool isZoneValid = IsValidPlacementZone(currentGhostPos, def != null ? def.zone : FurnitureZone.StoreOnly);
+            bool isWallMounted = FurnitureDatabase.IsWallMountedDecoration(currentType);
+            bool isOnWall = true;
+            if (isWallMounted)
+            {
+                if (TrySnapToStoreWall(currentGhostPos, out Vector3 wallPos, out float wallYaw))
+                {
+                    currentGhostPos = wallPos;
+                    currentYRotation = wallYaw;
+                    ghostObj.transform.position = wallPos;
+                    isOnWall = true;
+                }
+                else
+                {
+                    isOnWall = false;
+                }
+            }
+
+            ghostObj.transform.rotation = Quaternion.Euler(0f, currentYRotation, 0f);
+
+            bool isZoneValid = isWallMounted
+                ? isOnWall
+                : IsValidPlacementZone(currentGhostPos, def != null ? def.zone : FurnitureZone.StoreOnly);
             bool isOverlapping = IsOverlappingAnyObject(currentGhostPos, currentYRotation, currentType);
 
-            bool isValid = isZoneValid && !isOverlapping;
+            bool isValid = isZoneValid && !isOverlapping && isOnWall;
 
             Material targetGhostMat = isValid ? FurnitureModelBuilder.ValidGhostMaterial : FurnitureModelBuilder.InvalidGhostMaterial;
             FurnitureModelBuilder.ApplyGhostMaterial(ghostObj, targetGhostMat);
@@ -240,6 +331,16 @@ namespace Farm2Shelf.Core
                     );
                     infoStatusText.text = okMsg;
                     infoStatusText.color = Color.white;
+                }
+                else if (isWallMounted && !isOnWall)
+                {
+                    string wallMsg = LocalizationManager.L(
+                        "HUD_WallOnlyErr",
+                        "⚠️ SADECE DUVAR! Neon Duvar Saati yalnızca dükkan duvarına asılabilir.\nDuvara yaklaştırın",
+                        "⚠️ WALL ONLY! The Neon Wall Clock can only be hung on a store wall.\nMove it closer to a wall"
+                    );
+                    infoStatusText.text = wallMsg;
+                    infoStatusText.color = new Color(1.0f, 0.45f, 0.45f);
                 }
                 else if (!isZoneValid)
                 {
@@ -305,73 +406,7 @@ namespace Farm2Shelf.Core
         // --- HİBRİT INPUT SYSTEM & LEGACY INPUT OKUYUCULARI ---
         private bool GetActivePointerScreenPosition(out Vector2 screenPos)
         {
-            screenPos = Vector2.zero;
-
-            // 1. Dokunmatik Kontrol (Touch)
-            try
-            {
-                if (Input.touchCount > 0)
-                {
-                    screenPos = Input.GetTouch(0).position;
-                    if (screenPos.sqrMagnitude > 1f) return true;
-                }
-            }
-            catch {}
-
-            // 2. Standart Fare Kontrolü (PC Mouse)
-            try
-            {
-                Vector3 mPos = Input.mousePosition;
-                if (mPos.sqrMagnitude > 1f)
-                {
-                    screenPos = new Vector2(mPos.x, mPos.y);
-                    return true;
-                }
-            }
-            catch {}
-
-#if ENABLE_INPUT_SYSTEM
-            // 3. New Input System Touchscreen
-            try
-            {
-                if (UnityEngine.InputSystem.Touchscreen.current != null)
-                {
-                    Vector2 tPos = UnityEngine.InputSystem.Touchscreen.current.primaryTouch.position.ReadValue();
-                    if (tPos.sqrMagnitude > 1f)
-                    {
-                        screenPos = tPos;
-                        return true;
-                    }
-                }
-            }
-            catch {}
-
-            // 4. New Input System Mouse / Pointer
-            try
-            {
-                if (UnityEngine.InputSystem.Mouse.current != null)
-                {
-                    Vector2 mPos = UnityEngine.InputSystem.Mouse.current.position.ReadValue();
-                    if (mPos.sqrMagnitude > 1f)
-                    {
-                        screenPos = mPos;
-                        return true;
-                    }
-                }
-                if (UnityEngine.InputSystem.Pointer.current != null)
-                {
-                    Vector2 pPos = UnityEngine.InputSystem.Pointer.current.position.ReadValue();
-                    if (pPos.sqrMagnitude > 1f)
-                    {
-                        screenPos = pPos;
-                        return true;
-                    }
-                }
-            }
-            catch {}
-#endif
-
-            return false;
+            return TouchInputHelper.TryGetPressedPointerPosition(out screenPos);
         }
 
         private bool IsKeyHeld(KeyCode code)
@@ -535,6 +570,70 @@ namespace Farm2Shelf.Core
             }
         }
 
+        private void GetStoreWallFaces(out float leftX, out float rightX, out float frontZ, out float backZ)
+        {
+            EnvironmentBuilder env = EnvironmentBuilder.Instance;
+            int level = (env != null) ? env.CurrentUpgradeLevel : 1;
+            const float wallHalfThickness = 0.20f;
+            float frontWallZ = -3.0f;
+            float storeDepth = (level == 1) ? 18.0f : ((level == 2) ? 27.0f : 36.0f);
+            float backWallZ = frontWallZ + storeDepth;
+            leftX = -13.0f + wallHalfThickness;
+            rightX = 3.0f - wallHalfThickness;
+            frontZ = frontWallZ + wallHalfThickness;
+            backZ = backWallZ - wallHalfThickness;
+        }
+
+        private bool TrySnapToStoreWall(Vector3 desired, out Vector3 snapped, out float facingYaw)
+        {
+            snapped = desired;
+            facingYaw = currentYRotation;
+            GetStoreWallFaces(out float leftX, out float rightX, out float frontZ, out float backZ);
+
+            float dLeft = Mathf.Abs(desired.x - leftX);
+            float dRight = Mathf.Abs(desired.x - rightX);
+            float dFront = Mathf.Abs(desired.z - frontZ);
+            float dBack = Mathf.Abs(desired.z - backZ);
+            float best = Mathf.Min(dLeft, Mathf.Min(dRight, Mathf.Min(dFront, dBack)));
+            const float maxSnapDistance = 1.75f;
+            if (best > maxSnapDistance) return false;
+
+            float alongMinZ = frontZ + 0.75f;
+            float alongMaxZ = backZ - 0.75f;
+            float alongMinX = leftX + 0.75f;
+            float alongMaxX = rightX - 0.75f;
+
+            if (best == dLeft || Mathf.Approximately(best, dLeft))
+            {
+                snapped = new Vector3(leftX, 0.01f, Mathf.Clamp(desired.z, alongMinZ, alongMaxZ));
+                facingYaw = 90f;
+            }
+            else if (best == dRight || Mathf.Approximately(best, dRight))
+            {
+                snapped = new Vector3(rightX, 0.01f, Mathf.Clamp(desired.z, alongMinZ, alongMaxZ));
+                facingYaw = -90f;
+            }
+            else if (best == dFront || Mathf.Approximately(best, dFront))
+            {
+                snapped = new Vector3(Mathf.Clamp(desired.x, alongMinX, alongMaxX), 0.01f, frontZ);
+                facingYaw = 0f;
+            }
+            else
+            {
+                snapped = new Vector3(Mathf.Clamp(desired.x, alongMinX, alongMaxX), 0.01f, backZ);
+                facingYaw = 180f;
+            }
+
+            // Kökü 2 cm duvarın içine çek: saat sırtı duvara gömülür, havada asılı durmaz.
+            const float wallEmbed = 0.02f;
+            Vector3 intoRoom = Quaternion.Euler(0f, facingYaw, 0f) * Vector3.forward;
+            snapped -= intoRoom * wallEmbed;
+
+            if (snapped.z <= -1.8f && snapped.x >= -5.8f && snapped.x <= -4.2f) return false;
+            if (snapped.x >= 2.35f && snapped.z >= 0.8f && snapped.z <= 3.4f) return false;
+            return true;
+        }
+
         public void RotatePlacement(float deltaAngle = 90f)
         {
             currentYRotation = (currentYRotation + deltaAngle + 360f) % 360f;
@@ -632,6 +731,9 @@ namespace Farm2Shelf.Core
                 case FurnitureType.IceCreamCart:
                     return new Vector2(1.2f, 0.9f);
 
+                case FurnitureType.WallClock:
+                    return new Vector2(0.70f, 0.10f);
+
                 case FurnitureType.WelcomeMat:
                 case FurnitureType.RedCarpet:
                     return new Vector2(1.5f, 1.0f);
@@ -654,10 +756,11 @@ namespace Farm2Shelf.Core
 
             float halfW = (width / 2f);
             float halfD = (depth / 2f);
+            bool isWallMounted = FurnitureDatabase.IsWallMountedDecoration(type);
 
             Bounds ghostBounds = new Bounds(
-                new Vector3(pos.x, 0.9f, pos.z),
-                new Vector3(Mathf.Max(0.1f, width - 0.10f), 1.8f, Mathf.Max(0.1f, depth - 0.10f))
+                new Vector3(pos.x, isWallMounted ? 1.85f : 0.9f, pos.z),
+                new Vector3(Mathf.Max(0.1f, width - 0.10f), isWallMounted ? 0.7f : 1.8f, Mathf.Max(0.1f, depth - 0.10f))
             );
 
             // 1. DUVAR VE ODA SINIRLARI KONTROLÜ
@@ -669,8 +772,8 @@ namespace Farm2Shelf.Core
             float backWallZ = frontWallZ + storeDepth;
             float storageBackZ = frontWallZ + storageDepth;
 
-            // Ara bölme duvarı (X: 2.85 .. 3.15 arası)
-            if (pos.x + halfW > 2.85f && pos.x - halfW < 3.15f)
+            // Ara bölme duvarı (X: 2.85 .. 3.15 arası). Duvar saati bu duvara asılabilir.
+            if (!isWallMounted && pos.x + halfW > 2.85f && pos.x - halfW < 3.15f)
             {
                 return true;
             }
@@ -713,18 +816,27 @@ namespace Farm2Shelf.Core
             else if (pos.x <= 2.85f)
             {
                 // MAĞAZA ALANI SINIRLARI
-                float minX = -12.6f + halfW;
-                float maxX = 2.6f - halfW;
-                float minZ = -2.6f + halfD;
-                float maxZ = (backWallZ - 0.4f) - halfD;
-
-                if (pos.x < minX || pos.x > maxX || pos.z < minZ || pos.z > maxZ)
+                if (!isWallMounted)
                 {
-                    return true;
+                    float minX = -12.6f + halfW;
+                    float maxX = 2.6f - halfW;
+                    float minZ = -2.6f + halfD;
+                    float maxZ = (backWallZ - 0.4f) - halfD;
+
+                    if (pos.x < minX || pos.x > maxX || pos.z < minZ || pos.z > maxZ)
+                    {
+                        return true;
+                    }
                 }
 
                 // Ana Dış Giriş Kapısı Ağzı (Geçişi tıkamamak için: X: -5.8 .. -4.2, Z: <= -1.8)
                 if (pos.z <= -1.8f && pos.x >= -5.8f && pos.x <= -4.2f)
+                {
+                    return true;
+                }
+
+                // Mağaza-depo geçiş kapısı (doğu duvarı)
+                if (isWallMounted && pos.x >= 2.2f && pos.z >= 0.8f && pos.z <= 3.4f)
                 {
                     return true;
                 }
@@ -748,7 +860,7 @@ namespace Farm2Shelf.Core
                     return true;
                 }
             }
-            else
+            else if (!isWallMounted)
             {
                 return true;
             }
@@ -815,6 +927,13 @@ namespace Farm2Shelf.Core
             WorkshopMachineState machineState = null
         )
         {
+            if (FurnitureDatabase.IsWallMountedDecoration(type) &&
+                TrySnapToStoreWall(pos, out Vector3 wallPos, out float wallYaw))
+            {
+                pos = wallPos;
+                rot = Quaternion.Euler(0f, wallYaw, 0f);
+            }
+
             GameObject realFurniture = FurnitureModelBuilder.CreateFurnitureModel(type, isGhost: false);
             realFurniture.name = type.ToString() + "_" + System.Guid.NewGuid().ToString().Substring(0, 5);
             realFurniture.transform.SetParent(placedFurnitureContainer, false);
@@ -823,8 +942,16 @@ namespace Farm2Shelf.Core
 
             Vector2 footprint = GetFurnitureFootprintSize(type);
             BoxCollider col = realFurniture.AddComponent<BoxCollider>();
-            col.center = new Vector3(0f, 0.9f, 0f);
-            col.size = new Vector3(footprint.x, 1.8f, footprint.y);
+            if (FurnitureDatabase.IsWallMountedDecoration(type))
+            {
+                col.center = new Vector3(0f, 1.85f, 0.04f);
+                col.size = new Vector3(footprint.x, 0.7f, 0.12f);
+            }
+            else
+            {
+                col.center = new Vector3(0f, 0.9f, 0f);
+                col.size = new Vector3(footprint.x, 1.8f, footprint.y);
+            }
 
             PlacedFurnitureController placedCtrl = realFurniture.AddComponent<PlacedFurnitureController>();
             placedCtrl.Setup(type, pos, rot, existingRows);
@@ -908,6 +1035,12 @@ namespace Farm2Shelf.Core
             for (int i = 0; i < uiRaycastResults.Count; i++)
             {
                 var r = uiRaycastResults[i];
+                if (r.module is UnityEngine.EventSystems.PhysicsRaycaster ||
+                    r.module is UnityEngine.EventSystems.Physics2DRaycaster)
+                {
+                    continue;
+                }
+
                 if (r.gameObject != null && r.gameObject.transform.IsChildOf(placementHUDCanvas.transform))
                 {
                     if (r.gameObject.GetComponentInParent<Button>() != null || r.gameObject.GetComponent<Button>() != null)
@@ -937,12 +1070,23 @@ namespace Farm2Shelf.Core
             Quaternion rot = ghostObj.transform.rotation;
 
             FurnitureItemDef def = FurnitureDatabase.GetDef(currentType);
-            bool isZoneValid = IsValidPlacementZone(pos, def != null ? def.zone : FurnitureZone.StoreOnly);
+            bool isWallMounted = FurnitureDatabase.IsWallMountedDecoration(currentType);
+            bool isOnWall = !isWallMounted || TrySnapToStoreWall(pos, out _, out _);
+            bool isZoneValid = isWallMounted
+                ? isOnWall
+                : IsValidPlacementZone(pos, def != null ? def.zone : FurnitureZone.StoreOnly);
             bool isOverlapping = IsOverlappingAnyObject(pos, currentYRotation, currentType);
 
-            if (isZoneValid && !isOverlapping)
+            if (isZoneValid && !isOverlapping && isOnWall)
             {
                 ConfirmPlacement(pos, rot);
+            }
+            else if (isWallMounted && !isOnWall)
+            {
+                string warnTitle = LocalizationManager.L("Modal_WallOnly_Title", "Sadece Duvar! ⚠️", "Wall Only! ⚠️");
+                string warnBody = LocalizationManager.L("Modal_WallOnly_Body", "Neon Duvar Saati yalnızca dükkan duvarına asılabilir.\n\nLütfen saati bir duvara yaklaştırın.", "The Neon Wall Clock can only be hung on a store wall.\n\nPlease move it closer to a wall.");
+                string btnOk = LocalizationManager.L("Btn_OK", "Tamam", "OK");
+                ModalManager.ShowModal(warnTitle, warnBody, btnOk);
             }
             else if (!isZoneValid)
             {
@@ -971,6 +1115,12 @@ namespace Farm2Shelf.Core
             pos.x = Mathf.Round((pos.x + dx) * 4f) / 4f;
             pos.z = Mathf.Round((pos.z + dz) * 4f) / 4f;
             pos.y = 0.01f;
+            if (FurnitureDatabase.IsWallMountedDecoration(currentType) &&
+                TrySnapToStoreWall(pos, out Vector3 wallPos, out float wallYaw))
+            {
+                pos = wallPos;
+                currentYRotation = wallYaw;
+            }
             ghostObj.transform.position = pos;
         }
 

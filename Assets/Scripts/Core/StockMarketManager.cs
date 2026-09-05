@@ -152,6 +152,12 @@ namespace Farm2Shelf.Core
             AddStock(new StockData("BFOD", "BIO-FOOD GIDA A.Ş.", "BIO-FOOD FOOD INC.", "Organik Konserve & İçecek Gıda", "Organic Canned & Beverage Foods", 65.00f, 0.05f));
         }
 
+        public void ResetToDefaults()
+        {
+            InitializeStockMarket();
+            OnStockMarketUpdated?.Invoke();
+        }
+
         private void AddStock(StockData data)
         {
             stocks.Add(data);

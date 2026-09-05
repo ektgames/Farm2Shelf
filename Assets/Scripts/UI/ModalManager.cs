@@ -38,6 +38,12 @@ namespace Farm2Shelf.UI
                 Object.Destroy(currentGlobalPopupCanvas);
                 currentGlobalPopupCanvas = null;
             }
+
+            if (EndOfDayReportModalUI.IsReportModalOpen)
+            {
+                return;
+            }
+
             SetModalOpen(false);
         }
 
@@ -58,7 +64,58 @@ namespace Farm2Shelf.UI
             if (HowToPlayModalUI.Instance != null && HowToPlayModalUI.Instance.IsModalOpen) return true;
             if (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen) return true;
 
-            return modalState;
+            return false;
+        }
+
+        public static void ClearStaleModalState()
+        {
+            if (modalState && !IsAnyModalCanvasActive())
+            {
+                SetModalOpen(false);
+            }
+        }
+
+        /// <summary>
+        /// Ana menü Ayarlar / Rehber katmanları oyun sahnesine sızarsa
+        /// 3D tıklamayı (palet, koli, raf) tamamen kilitler. Yerleştirme ve dünya
+        /// etkileşiminden önce bu artıkları kapatır.
+        /// </summary>
+        public static void CloseWorldBlockingOverlays()
+        {
+            if (MainMenuUI.IsMenuVisible)
+            {
+                ClearStaleModalState();
+                return;
+            }
+
+            if (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen)
+            {
+                ClearStaleModalState();
+                return;
+            }
+
+            if (SettingsModalUI.Instance != null && SettingsModalUI.Instance.IsSettingsOpen)
+            {
+                SettingsModalUI.Instance.HideModal();
+            }
+            if (HowToPlayModalUI.Instance != null && HowToPlayModalUI.Instance.IsModalOpen)
+            {
+                HowToPlayModalUI.Instance.HideModal();
+            }
+
+            DestroyOrphanCanvas("Settings_Modal_Canvas");
+            DestroyOrphanCanvas("HowToPlay_Modal_Canvas");
+            ClearStaleModalState();
+        }
+
+        private static void DestroyOrphanCanvas(string objectName)
+        {
+            GameObject leftover = GameObject.Find(objectName);
+            if (leftover != null)
+            {
+                leftover.SetActive(false);
+                Object.Destroy(leftover);
+            }
         }
 
         /// <summary>

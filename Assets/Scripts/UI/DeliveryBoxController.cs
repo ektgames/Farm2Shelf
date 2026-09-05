@@ -20,6 +20,7 @@ namespace Farm2Shelf.UI
 
         private void OnMouseDown()
         {
+            ModalManager.CloseWorldBlockingOverlays();
             if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen)) return;
             TriggerPlacement();
         }
@@ -27,6 +28,7 @@ namespace Farm2Shelf.UI
         public void OnPointerDown(PointerEventData eventData)
         {
             if (eventData != null && eventData.dragging) return;
+            ModalManager.CloseWorldBlockingOverlays();
             if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen)) return;
             TriggerPlacement();
         }
@@ -34,12 +36,14 @@ namespace Farm2Shelf.UI
         public void OnPointerClick(PointerEventData eventData)
         {
             if (eventData != null && eventData.dragging) return;
+            ModalManager.CloseWorldBlockingOverlays();
             if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen)) return;
             TriggerPlacement();
         }
 
         public void TriggerPlacement()
         {
+            ModalManager.CloseWorldBlockingOverlays();
             if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen)) return;
             PalletStorageInventoryModalUI.ShowModal();
         }

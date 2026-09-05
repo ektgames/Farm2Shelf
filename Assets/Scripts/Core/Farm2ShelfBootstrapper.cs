@@ -21,10 +21,19 @@ namespace Farm2Shelf.Core
 
         private void Awake()
         {
+            ConfigureMobilePerformance();
             if (autoBuildOnStart)
             {
                 InitializeGameWorld();
             }
+        }
+
+        private static void ConfigureMobilePerformance()
+        {
+#if UNITY_IOS || UNITY_ANDROID
+            QualitySettings.vSyncCount = 0;
+            Application.targetFrameRate = 60;
+#endif
         }
 
         public static void InitializeGameWorld()
@@ -50,6 +59,12 @@ namespace Farm2Shelf.Core
 
             if (managersObj.GetComponent<StaffManager>() == null)
                 managersObj.AddComponent<StaffManager>();
+
+            if (FindFirstObjectByType<CourierManager>() == null)
+            {
+                GameObject courierGo = new GameObject("CourierManager");
+                courierGo.AddComponent<CourierManager>();
+            }
 
             if (managersObj.GetComponent<FinanceManager>() == null)
                 managersObj.AddComponent<FinanceManager>();

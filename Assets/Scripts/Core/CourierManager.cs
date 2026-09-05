@@ -98,21 +98,49 @@ namespace Farm2Shelf.Core
             }
         }
 
+        private void OnEnable()
+        {
+            BindRuntimeListeners();
+        }
+
         private void Start()
+        {
+            BindRuntimeListeners();
+            SyncCouriersWithTime(true);
+        }
+
+        private void BindRuntimeListeners()
         {
             if (TimeManager.Instance != null)
             {
+                TimeManager.Instance.OnTimeUpdated -= HandleTimeCheckForCouriers;
                 TimeManager.Instance.OnTimeUpdated += HandleTimeCheckForCouriers;
+                TimeManager.Instance.OnMidnightRollover -= HandleMidnightRollover;
+                TimeManager.Instance.OnMidnightRollover += HandleMidnightRollover;
             }
 
             if (StaffManager.Instance != null)
             {
+                StaffManager.Instance.OnCourierStaffListChanged -= HandleCourierListOrShiftChanged;
                 StaffManager.Instance.OnCourierStaffListChanged += HandleCourierListOrShiftChanged;
+                StaffManager.Instance.OnStaffListChanged -= HandleCourierListOrShiftChanged;
                 StaffManager.Instance.OnStaffListChanged += HandleCourierListOrShiftChanged;
             }
+        }
 
-            // Yeni oyunda veya ilk açılışta sıfır motor ile başlar (Kayıt yüklendiğinde SaveSystemManager geri yükler)
-            SyncCouriersWithTime(true);
+        private void HandleMidnightRollover()
+        {
+            for (int i = 0; i < spawnedMotorcycles.Count; i++)
+            {
+                var moto = spawnedMotorcycles[i];
+                if (moto == null) continue;
+                var state = GetStateForMotorcycle(moto);
+                if (state.dutyState == CourierDutyState.MountedOnMotorcycle && moto.CourierRiderObj == null)
+                {
+                    state.dutyState = CourierDutyState.OffDuty;
+                }
+            }
+            SyncCouriersWithTime(false);
         }
 
         public void RestoreOwnedMotorcycles(int targetCount)
@@ -172,6 +200,7 @@ namespace Farm2Shelf.Core
                     slotStates[i].characterObj = null;
                     slotStates[i].dutyState = CourierDutyState.OffDuty;
                     slotStates[i].assignedCourier = null;
+                    slotStates[i].incomingCourier = null;
                 }
             }
 
@@ -279,6 +308,47 @@ namespace Farm2Shelf.Core
             return IsMotorcycleDrivingOnRoad(moto);
         }
 
+        private static bool SameCourier(StaffMember a, StaffMember b)
+        {
+            if (a == null || b == null) return false;
+            if (ReferenceEquals(a, b)) return true;
+            return !string.IsNullOrEmpty(a.id) && a.id == b.id;
+        }
+
+        private CourierSlotState GetStateForMotorcycle(CourierMotorcycleController moto)
+        {
+            int idx = (moto != null) ? moto.SlotIndex : 0;
+            if (idx < 0 || idx >= MAX_MOTORCYCLES) idx = 0;
+            if (slotStates[idx] == null)
+            {
+                slotStates[idx] = new CourierSlotState { slotIndex = idx };
+            }
+            slotStates[idx].slotIndex = idx;
+            return slotStates[idx];
+        }
+
+        private bool IsCourierVisiblyPresent(CourierSlotState state, CourierMotorcycleController moto)
+        {
+            if (moto != null && moto.CourierRiderObj != null) return true;
+            if (state == null || state.characterObj == null) return false;
+            return state.dutyState == CourierDutyState.WalkingToBay || state.dutyState == CourierDutyState.WaitingAtBay;
+        }
+
+        private void ClearSlotCharacter(CourierSlotState state)
+        {
+            if (state == null) return;
+            if (state.activeRoutine != null)
+            {
+                StopCoroutine(state.activeRoutine);
+                state.activeRoutine = null;
+            }
+            if (state.characterObj != null)
+            {
+                Destroy(state.characterObj);
+                state.characterObj = null;
+            }
+        }
+
         private void SyncCouriersWithTime(bool isInitialLoad)
         {
             if (StaffManager.Instance == null) return;
@@ -292,97 +362,98 @@ namespace Farm2Shelf.Core
                 var moto = spawnedMotorcycles[i];
                 if (moto == null) continue;
 
-                var state = slotStates[i];
-                if (state == null)
-                {
-                    state = new CourierSlotState { slotIndex = i };
-                    slotStates[i] = state;
-                }
-
-                StaffMember scheduledCourier = GetScheduledCourierForSlot(i, couriers, currentHour, currentMinute);
+                var state = GetStateForMotorcycle(moto);
+                StaffMember scheduledCourier = GetScheduledCourierForSlot(moto.SlotIndex, couriers, currentHour, currentMinute);
 
                 if (isInitialLoad)
                 {
+                    ClearSlotCharacter(state);
                     if (scheduledCourier != null)
                     {
                         state.assignedCourier = scheduledCourier;
                         state.incomingCourier = null;
+                        state.dutyState = CourierDutyState.OffDuty;
                         StartCourierArrival(state, scheduledCourier, moto, true);
                     }
                     else
                     {
+                        if (moto.CourierRiderObj != null) moto.UnmountRider();
+                        moto.ClearCourier();
                         state.assignedCourier = null;
                         state.incomingCourier = null;
                         state.dutyState = CourierDutyState.OffDuty;
-                        if (moto.CourierRiderObj != null) moto.UnmountRider();
-                        moto.ClearCourier();
                     }
                     continue;
                 }
 
                 if (scheduledCourier != null)
                 {
-                    if (state.assignedCourier == scheduledCourier)
+                    bool sameAssigned = SameCourier(state.assignedCourier, scheduledCourier);
+                    bool sameIncoming = SameCourier(state.incomingCourier, scheduledCourier);
+
+                    if (IsMotorcycleDrivingOnRoad(moto))
+                    {
+                        if (!sameAssigned && !sameIncoming &&
+                            state.dutyState != CourierDutyState.WalkingToBay &&
+                            state.dutyState != CourierDutyState.WaitingAtBay)
+                        {
+                            state.incomingCourier = scheduledCourier;
+                            StartIncomingCourierArrival(state, scheduledCourier, moto);
+                        }
+                        continue;
+                    }
+
+                    if (sameAssigned && IsCourierVisiblyPresent(state, moto))
                     {
                         state.incomingCourier = null;
-                        // Henüz sahnede değilse başlat
-                        if (state.dutyState == CourierDutyState.OffDuty || (moto.CourierRiderObj == null && state.dutyState != CourierDutyState.WalkingToBay && state.dutyState != CourierDutyState.WaitingAtBay))
-                        {
-                            StartCourierArrival(state, scheduledCourier, moto, false);
-                        }
-                        else if (state.dutyState == CourierDutyState.WaitingAtBay && !IsMotorcycleDrivingOnRoad(moto) && moto.CourierRiderObj == null)
+                        if (state.dutyState == CourierDutyState.WaitingAtBay && moto.CourierRiderObj == null)
                         {
                             MountWaitingCourierOnMotorcycle(state, moto);
                         }
+                        continue;
                     }
-                    else
-                    {
-                        // VARDİYA DEĞİŞİMİ!
-                        if (IsMotorcycleDrivingOnRoad(moto))
-                        {
-                            // 🛑 Motor yolda teslimatta: Kurye dükkana dönene kadar beklenir
-                            if (state.incomingCourier != scheduledCourier && state.dutyState != CourierDutyState.WalkingToBay && state.dutyState != CourierDutyState.WaitingAtBay)
-                            {
-                                state.incomingCourier = scheduledCourier;
-                                StartIncomingCourierArrival(state, scheduledCourier, moto);
-                            }
-                        }
-                        else
-                        {
-                            // Motor park yerinde (kasasında gece kalan ürün olsa dahi): Eski kurye motordan insin ve evine gitsin
-                            PerformCourierDismountAndExit(state, moto);
-                            state.assignedCourier = scheduledCourier;
-                            state.incomingCourier = null;
 
-                            if (state.dutyState == CourierDutyState.WaitingAtBay && state.characterObj != null)
-                            {
-                                MountWaitingCourierOnMotorcycle(state, moto);
-                            }
-                            else if (state.dutyState != CourierDutyState.WalkingToBay)
-                            {
-                                StartCourierArrival(state, scheduledCourier, moto, false);
-                            }
+                    if (!sameAssigned && moto.CourierRiderObj != null)
+                    {
+                        PerformCourierDismountAndExit(state, moto);
+                    }
+                    else if (!IsCourierVisiblyPresent(state, moto))
+                    {
+                        ClearSlotCharacter(state);
+                    }
+
+                    state.assignedCourier = scheduledCourier;
+                    state.incomingCourier = null;
+
+                    if (state.dutyState == CourierDutyState.WaitingAtBay && state.characterObj != null)
+                    {
+                        MountWaitingCourierOnMotorcycle(state, moto);
+                    }
+                    else if (state.dutyState != CourierDutyState.WalkingToBay || state.characterObj == null)
+                    {
+                        if (state.dutyState == CourierDutyState.MountedOnMotorcycle && moto.CourierRiderObj == null)
+                        {
+                            state.dutyState = CourierDutyState.OffDuty;
                         }
+                        StartCourierArrival(state, scheduledCourier, moto, false);
                     }
                 }
                 else
                 {
-                    // Nöbette kurye yok (Dükkan kapandı / 24:00 gece mesai sonu)
                     if (IsMotorcycleDrivingOnRoad(moto))
                     {
-                        // Yoldaki kurye dükkana dönene kadar beklenir, dönünce OnMotorcycleReturnedToBay tetiklenir
+                        continue;
                     }
-                    else
+
+                    if (moto.CourierRiderObj != null)
                     {
-                        // Park halindeki motor: Kurye motordan iner, yaya olarak evine gider (Kasadaki sipariş ertesi güne saklanır)
-                        if (moto.CourierRiderObj != null || state.dutyState != CourierDutyState.OffDuty)
-                        {
-                            PerformCourierDismountAndExit(state, moto);
-                        }
-                        state.assignedCourier = null;
-                        state.incomingCourier = null;
-                        state.dutyState = CourierDutyState.OffDuty;
+                        PerformCourierDismountAndExit(state, moto);
                     }
+                    ClearSlotCharacter(state);
+                    state.assignedCourier = null;
+                    state.incomingCourier = null;
+                    state.dutyState = CourierDutyState.OffDuty;
+                    moto.ClearCourier();
                 }
             }
 
@@ -449,7 +520,8 @@ namespace Farm2Shelf.Core
         private void StartCourierArrival(CourierSlotState state, StaffMember courier, CourierMotorcycleController moto, bool instantSpawn)
         {
             if (state == null || courier == null || moto == null) return;
-            if (state.dutyState == CourierDutyState.WalkingToBay || state.dutyState == CourierDutyState.MountedOnMotorcycle) return;
+            if (state.dutyState == CourierDutyState.WalkingToBay && state.characterObj != null) return;
+            if (state.dutyState == CourierDutyState.MountedOnMotorcycle && moto.CourierRiderObj != null) return;
 
             if (state.characterObj != null)
             {
@@ -637,6 +709,24 @@ namespace Farm2Shelf.Core
                 moto.ClearCourier();
             }
 
+            if (state != null)
+            {
+                if (leavingChar == null && state.characterObj != null &&
+                    (state.dutyState == CourierDutyState.WaitingAtBay || state.dutyState == CourierDutyState.WalkingToBay))
+                {
+                    leavingChar = state.characterObj;
+                    state.characterObj = null;
+                }
+
+                if (state.activeRoutine != null)
+                {
+                    StopCoroutine(state.activeRoutine);
+                    state.activeRoutine = null;
+                }
+
+                state.dutyState = CourierDutyState.WalkingToExit;
+            }
+
             if (leavingChar != null)
             {
                 leavingChar.transform.SetParent(null);
@@ -708,9 +798,10 @@ namespace Farm2Shelf.Core
         {
             if (moto == null) return;
 
-            int slotIdx = moto.SlotIndex;
-            var state = (slotIdx >= 0 && slotIdx < MAX_MOTORCYCLES) ? slotStates[slotIdx] : null;
+            var state = GetStateForMotorcycle(moto);
             if (state == null) return;
+
+            int slotIdx = moto.SlotIndex;
 
             int currentHour = (TimeManager.Instance != null) ? TimeManager.Instance.Hour : 8;
             int currentMinute = (TimeManager.Instance != null) ? TimeManager.Instance.Minute : 0;
@@ -720,9 +811,8 @@ namespace Farm2Shelf.Core
 
             bool isCurrentShiftActive = (state.assignedCourier != null) && StaffTaskController.IsStaffShiftActive(state.assignedCourier, currentHour, currentMinute, out _);
 
-            if (state.assignedCourier != scheduledCourier || !isCurrentShiftActive)
+            if (!SameCourier(state.assignedCourier, scheduledCourier) || !isCurrentShiftActive)
             {
-                // Teslimat bitti -> Eski kurye motordan insin ve çıkışa yürüsün
                 PerformCourierDismountAndExit(state, moto);
 
                 state.assignedCourier = scheduledCourier;
@@ -734,8 +824,9 @@ namespace Farm2Shelf.Core
                     {
                         MountWaitingCourierOnMotorcycle(state, moto);
                     }
-                    else if (state.dutyState != CourierDutyState.WalkingToBay)
+                    else
                     {
+                        state.dutyState = CourierDutyState.OffDuty;
                         StartCourierArrival(state, scheduledCourier, moto, false);
                     }
                 }
@@ -773,6 +864,7 @@ namespace Farm2Shelf.Core
             if (TimeManager.Instance != null)
             {
                 TimeManager.Instance.OnTimeUpdated -= HandleTimeCheckForCouriers;
+                TimeManager.Instance.OnMidnightRollover -= HandleMidnightRollover;
             }
 
             if (StaffManager.Instance != null)

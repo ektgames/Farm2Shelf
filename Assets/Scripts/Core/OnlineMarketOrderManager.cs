@@ -394,6 +394,117 @@ namespace Farm2Shelf.Core
 
         public void NotifyOrderGatheredByStocker(OnlineCustomerOrder order) => NotifyOrderGathered(order);
 
+        public List<OnlineOrderSaveData> CreateSaveSnapshot()
+        {
+            List<OnlineOrderSaveData> result = new List<OnlineOrderSaveData>(pendingOrders.Count);
+            foreach (var order in pendingOrders)
+            {
+                if (order == null) continue;
+                OnlineOrderSaveData data = new OnlineOrderSaveData
+                {
+                    orderId = order.orderId,
+                    customerName = order.customerName,
+                    customerHandle = order.customerHandle,
+                    destinationNameTr = order.destinationNameTr,
+                    destinationNameEn = order.destinationNameEn,
+                    targetX = order.targetDoorstepPosition.x,
+                    targetY = order.targetDoorstepPosition.y,
+                    targetZ = order.targetDoorstepPosition.z,
+                    totalEstimatedValue = order.totalEstimatedValue,
+                    courierDeliveryFee = order.courierDeliveryFee,
+                    isGatheringCompleted = order.isGatheringCompleted,
+                    assignedMotorcycleSlot = order.assignedMotorcycle != null ? order.assignedMotorcycle.SlotIndex : -1
+                };
+
+                foreach (var product in order.requestedProducts)
+                {
+                    data.productIds.Add(product != null ? product.id : "");
+                }
+                data.requestedQuantities.AddRange(order.requestedQuantities);
+                data.gatheredQuantities.AddRange(order.gatheredQuantities);
+                result.Add(data);
+            }
+            return result;
+        }
+
+        public void RestoreOrders(IEnumerable<OnlineOrderSaveData> savedOrders)
+        {
+            pendingOrders.Clear();
+            if (CourierManager.Instance != null)
+            {
+                foreach (var motorcycle in CourierManager.Instance.SpawnedMotorcycles)
+                {
+                    if (motorcycle != null) motorcycle.LoadedOrders.Clear();
+                }
+            }
+
+            if (savedOrders != null)
+            {
+                foreach (var data in savedOrders)
+                {
+                    if (data == null || string.IsNullOrEmpty(data.orderId)) continue;
+                    OnlineCustomerOrder order = new OnlineCustomerOrder
+                    {
+                        orderId = data.orderId,
+                        customerName = data.customerName,
+                        customerHandle = data.customerHandle,
+                        destinationNameTr = data.destinationNameTr,
+                        destinationNameEn = data.destinationNameEn,
+                        targetDoorstepPosition = new Vector3(data.targetX, data.targetY, data.targetZ),
+                        totalEstimatedValue = data.totalEstimatedValue,
+                        courierDeliveryFee = data.courierDeliveryFee > 0 ? data.courierDeliveryFee : 60,
+                        isGatheringCompleted = data.isGatheringCompleted,
+                        isAssignedToStocker = false
+                    };
+
+                    if (data.productIds != null)
+                    {
+                        for (int i = 0; i < data.productIds.Count; i++)
+                        {
+                            WholesaleProductDef product = WholesaleDatabase.GetProductById(data.productIds[i]);
+                            if (product == null) continue;
+                            order.requestedProducts.Add(product);
+                            order.requestedQuantities.Add(data.requestedQuantities != null && i < data.requestedQuantities.Count ? data.requestedQuantities[i] : 1);
+                            order.gatheredQuantities.Add(data.gatheredQuantities != null && i < data.gatheredQuantities.Count ? data.gatheredQuantities[i] : 0);
+                        }
+                    }
+
+                    if (order.requestedProducts.Count == 0) continue;
+                    CourierMotorcycleController motorcycle = null;
+                    if (CourierManager.Instance != null)
+                    {
+                        motorcycle = CourierManager.Instance.SpawnedMotorcycles.Find(m => m != null && m.SlotIndex == data.assignedMotorcycleSlot);
+                    }
+                    order.assignedMotorcycle = motorcycle;
+                    pendingOrders.Add(order);
+                    if (motorcycle != null) motorcycle.AssignOrderToCargo(order);
+                }
+            }
+
+            OnOrdersChanged?.Invoke();
+        }
+
+        public void ResetToDefaults()
+        {
+            RestoreOrders(null);
+            orderTimer = 0f;
+            nextOrderInterval = 25f;
+            destinationDeck.Clear();
+            recentDestinationHistory.Clear();
+        }
+
+        public void ResumeReadyDeliveries()
+        {
+            if (CourierManager.Instance == null) return;
+            foreach (var motorcycle in CourierManager.Instance.SpawnedMotorcycles)
+            {
+                if (motorcycle != null && motorcycle.AssignedCourier != null)
+                {
+                    CourierManager.Instance.CheckAndDispatchOvernightOrders(motorcycle);
+                }
+            }
+        }
+
         public void CompleteOrderDelivery(OnlineCustomerOrder order)
         {
             if (order == null) return;

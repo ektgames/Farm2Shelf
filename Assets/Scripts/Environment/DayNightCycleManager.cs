@@ -40,6 +40,8 @@ namespace Farm2Shelf.Environment
         public bool IsNight => isNight;
 
         private bool isNight = false;
+        private float nextLightingUpdateTime;
+        private const float LIGHTING_UPDATE_INTERVAL = 0.25f;
 
         private void Awake()
         {
@@ -244,6 +246,8 @@ namespace Farm2Shelf.Environment
 
         private void Update()
         {
+            if (Time.unscaledTime < nextLightingUpdateTime) return;
+            nextLightingUpdateTime = Time.unscaledTime + LIGHTING_UPDATE_INTERVAL;
             UpdateLightingImmediate();
         }
 

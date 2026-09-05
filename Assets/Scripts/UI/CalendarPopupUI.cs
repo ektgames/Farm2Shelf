@@ -241,7 +241,7 @@ namespace Farm2Shelf.UI
 
             titleText = headerObj.AddComponent<Text>();
             titleText.font = globalFont;
-            titleText.text = "TAKVİM";
+            titleText.text = LocalizationManager.L("Calendar_Title", "TAKVİM", "CALENDAR");
             titleText.fontSize = 28;
             titleText.fontStyle = FontStyle.Bold;
             titleText.alignment = TextAnchor.MiddleCenter;

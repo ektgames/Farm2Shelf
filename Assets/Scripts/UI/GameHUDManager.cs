@@ -230,6 +230,8 @@ namespace Farm2Shelf.UI
 
         private void OnPauseButtonClicked()
         {
+            if (EndOfDayReportModalUI.IsReportModalOpen) return;
+
             if (PauseMenuUI.Instance == null)
             {
                 GameObject uiObj = GameObject.Find("UI_Manager") ?? new GameObject("UI_Manager");
@@ -503,11 +505,39 @@ namespace Farm2Shelf.UI
         private void HandleMidnightRollover()
         {
             isWaitingForEvacuation = true;
+            int activeCustomers = (CustomerShoppingManager.Instance != null) ? CustomerShoppingManager.Instance.ActiveCustomerCount : 0;
+            if (activeCustomers == 0)
+            {
+                TryOpenEndOfDayReport();
+                return;
+            }
+
             ModalManager.ShowModal(
                 LocalizationManager.L("Midnight_Title", "🌙 Gece 12:00 (Günün Sonu)", "🌙 Midnight 12:00 (End of Day)"),
                 LocalizationManager.L("Midnight_Body", "Saat 24:00 (12:00 AM) oldu! Dükkan otomatik kapatıldı.\n\nİçerideki müşteriler alışverişini bitirip çıktıktan sonra Gün Sonu Z Raporu otomatik açılacaktır.", "It's 12:00 AM! Store has automatically closed.\n\nOnce remaining customers leave, the End of Day Z-Report will open automatically."),
                 LocalizationManager.L("Btn_OK", "Tamam", "OK")
             );
+        }
+
+        private void TryOpenEndOfDayReport()
+        {
+            if (EndOfDayReportModalUI.IsReportModalOpen) return;
+
+            if (ModalManager.IsGlobalPopupOpen)
+            {
+                ModalManager.CloseModal();
+            }
+
+            if (EndOfDayReportModalUI.Instance == null)
+            {
+                GameObject go = new GameObject("EndOfDayReportModalUI");
+                go.AddComponent<EndOfDayReportModalUI>();
+            }
+
+            if (EndOfDayReportModalUI.Instance != null)
+            {
+                EndOfDayReportModalUI.Instance.ShowReport();
+            }
         }
 
         private void HandleTimeUpdated(int hour, int minute)
@@ -641,6 +671,7 @@ namespace Farm2Shelf.UI
             {
                 TimeManager.Instance.OnTimeUpdated -= HandleTimeUpdated;
                 TimeManager.Instance.OnDateUpdated -= HandleDateUpdated;
+                TimeManager.Instance.OnMidnightRollover -= HandleMidnightRollover;
             }
 
             if (EconomyManager.Instance != null)
@@ -709,30 +740,15 @@ namespace Farm2Shelf.UI
                 ScanLowStockItems();
             }
 
-            if (isWaitingForEvacuation)
+            bool dayEndedAtMidnight = TimeManager.Instance != null && TimeManager.Instance.Hour >= 24;
+            bool isStoreClosed = (StoreStatusManager.Instance != null && !StoreStatusManager.Instance.IsOpen);
+            if ((isWaitingForEvacuation || dayEndedAtMidnight) && isStoreClosed && !EndOfDayReportModalUI.IsReportModalOpen)
             {
-                bool isStoreClosed = (StoreStatusManager.Instance != null && !StoreStatusManager.Instance.IsOpen);
                 int activeCustomers = (CustomerShoppingManager.Instance != null) ? CustomerShoppingManager.Instance.ActiveCustomerCount : 0;
-                bool hasStaffInHandTasks = (StaffTaskController.Instance != null && StaffTaskController.Instance.HasActiveInHandTasks());
-
-                if (isStoreClosed && activeCustomers == 0 && !hasStaffInHandTasks)
+                if (activeCustomers == 0)
                 {
-                    if (ModalManager.IsModalOpen)
-                    {
-                        ModalManager.CloseModal();
-                    }
-
-                    isWaitingForEvacuation = false;
-                    if (EndOfDayReportModalUI.Instance == null)
-                    {
-                        GameObject go = new GameObject("EndOfDayReportModalUI");
-                        go.AddComponent<EndOfDayReportModalUI>();
-                    }
-
-                    if (EndOfDayReportModalUI.Instance != null)
-                    {
-                        EndOfDayReportModalUI.Instance.ShowReport();
-                    }
+                    isWaitingForEvacuation = true;
+                    TryOpenEndOfDayReport();
                 }
             }
         }

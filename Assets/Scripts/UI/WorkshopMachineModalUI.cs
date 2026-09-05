@@ -34,6 +34,28 @@ namespace Farm2Shelf.UI
             }
         }
 
+        private void OnEnable()
+        {
+            if (LocalizationManager.Instance != null)
+            {
+                LocalizationManager.Instance.OnLanguageChanged -= HandleLanguageChanged;
+                LocalizationManager.Instance.OnLanguageChanged += HandleLanguageChanged;
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (LocalizationManager.Instance != null)
+            {
+                LocalizationManager.Instance.OnLanguageChanged -= HandleLanguageChanged;
+            }
+        }
+
+        private void HandleLanguageChanged(GameLanguage language)
+        {
+            if (canvasObj != null && activeMachine != null) BuildUI();
+        }
+
         private void Update()
         {
             if (canvasObj != null && activeMachine != null && activeMachine.isProducing)
@@ -119,7 +141,7 @@ namespace Farm2Shelf.UI
             pBg.raycastTarget = true;
 
             WorkshopMachineDef mDef = WorkshopMachineDatabase.GetMachineByType(activeMachine.machineType);
-            string mTitle = mDef != null ? $"{mDef.iconEmoji} {mDef.LocalizedName}" : "🏭 Atölye Makinesi";
+            string mTitle = mDef != null ? $"{mDef.iconEmoji} {mDef.LocalizedName}" : LocalizationManager.L("WS_MachineFallback", "🏭 Atölye Makinesi", "🏭 Workshop Machine");
 
             // Başlık
             GameObject titleObj = new GameObject("Title");
@@ -240,14 +262,14 @@ namespace Farm2Shelf.UI
             if (activeMachine.isReadyToCollect)
             {
                 WorkshopRecipeDef r = WorkshopMachineDatabase.GetRecipeById(activeMachine.activeRecipeId);
-                string rName = r != null ? r.LocalizedName : "Gurme Ürün";
+                string rName = r != null ? r.LocalizedName : LocalizationManager.L("WS_GourmetFallback", "Gurme Ürün", "Gourmet Product");
                 string doneFmt = LocalizationManager.L("WS_Header_DoneFmt", "🎉 {0} Üretimi Tamamlandı! (Toplanmaya Hazır)", "🎉 {0} Craft Completed! (Ready to Collect)");
                 statusHeaderText.text = $"<color=#00E676><b>{string.Format(doneFmt, rName)}</b></color>";
             }
             else if (activeMachine.isProducing)
             {
                 WorkshopRecipeDef r = WorkshopMachineDatabase.GetRecipeById(activeMachine.activeRecipeId);
-                string rName = r != null ? r.LocalizedName : "Üretim";
+                string rName = r != null ? r.LocalizedName : LocalizationManager.L("WS_ProductionFallback", "Üretim", "Production");
                 int mins = Mathf.FloorToInt(activeMachine.remainingSeconds / 60f);
                 int secs = Mathf.FloorToInt(activeMachine.remainingSeconds % 60f);
                 float pct = 1f - (activeMachine.remainingSeconds / Mathf.Max(1f, activeMachine.totalDuration));

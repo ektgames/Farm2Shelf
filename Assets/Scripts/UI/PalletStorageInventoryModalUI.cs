@@ -29,6 +29,31 @@ namespace Farm2Shelf.UI
             else Destroy(gameObject);
         }
 
+        private void OnEnable()
+        {
+            if (LocalizationManager.Instance != null)
+            {
+                LocalizationManager.Instance.OnLanguageChanged -= HandleLanguageChanged;
+                LocalizationManager.Instance.OnLanguageChanged += HandleLanguageChanged;
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (LocalizationManager.Instance != null)
+            {
+                LocalizationManager.Instance.OnLanguageChanged -= HandleLanguageChanged;
+            }
+        }
+
+        private void HandleLanguageChanged(GameLanguage language)
+        {
+            if (currentCanvasObj != null && currentCanvasObj == gameObject)
+            {
+                BuildUI(currentCanvasObj.transform);
+            }
+        }
+
         private bool isWorkshop = false;
 
         public static void ShowModal(bool isWorkshopMode = false)
@@ -96,6 +121,11 @@ namespace Farm2Shelf.UI
 
         private void BuildUI(Transform root)
         {
+            foreach (Transform child in root)
+            {
+                Destroy(child.gameObject);
+            }
+
             // 1. Tam Ekran Karartma ve Tıklama Engelleyici Backdrop
             GameObject backdrop = new GameObject("Modal_Backdrop");
             backdrop.transform.SetParent(root, false);
@@ -668,7 +698,8 @@ namespace Farm2Shelf.UI
             Text infoTxt = infoObj.AddComponent<Text>();
             infoTxt.font = globalFont;
             string subText = LocalizationManager.L("PalletModal_CropSubtitle", "Atölye Makinelerinde Kullanıma Hazır Depolanan Hammadde", "Raw Material Ready for Workshop Machine Processing");
-            infoTxt.text = $"<size=17><b>{emoji} {cropName}</b></size>  <color=#00E676><b>[Hammadde]</b></color>\n<size=14><color=#85A5B8>{subText}</color></size>";
+            string rawTag = LocalizationManager.L("PalletModal_RawTag", "Hammadde", "Raw Material");
+            infoTxt.text = $"<size=17><b>{emoji} {cropName}</b></size>  <color=#00E676><b>[{rawTag}]</b></color>\n<size=14><color=#85A5B8>{subText}</color></size>";
             infoTxt.fontSize = 15;
             infoTxt.alignment = TextAnchor.MiddleLeft;
             infoTxt.color = Color.white;
@@ -738,7 +769,9 @@ namespace Farm2Shelf.UI
             infoTxt.font = globalFont;
             string zoneColorHex = (def.zone == FurnitureZone.WorkshopOnly) ? "#FFA726" : ((def.zone == FurnitureZone.StorageOnly) ? "#FFB03A" : ((def.zone == FurnitureZone.StoreAndStorage) ? "#50E3C2" : "#54D6FF"));
             string zoneTag = $"<color={zoneColorHex}><b>[{def.GetZoneText()}]</b></color>";
-            string qtyTag = (quantity > 1) ? $" <color=#FFD700><b>(x{quantity} Adet)</b></color>" : "";
+            string qtyTag = (quantity > 1)
+                ? string.Format(LocalizationManager.L("PalletModal_QuantityFmt", " <color=#FFD700><b>(x{0} Adet)</b></color>", " <color=#FFD700><b>(x{0} Pcs)</b></color>"), quantity)
+                : "";
 
             infoTxt.text = $"<size=17><b>{def.LocalizedName}</b></size>{qtyTag}  |  {zoneTag}\n<size=14><color=#90A0B5>{def.LocalizedDescription}</color></size>";
             infoTxt.fontSize = 15;

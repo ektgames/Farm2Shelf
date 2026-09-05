@@ -14,26 +14,31 @@ namespace Farm2Shelf.Core
 {
     public class DeliveryPalletClickable : MonoBehaviour, IPointerClickHandler, IPointerDownHandler
     {
+        private static bool CanOpenPallet()
+        {
+            ModalManager.CloseWorldBlockingOverlays();
+            bool isPauseOpen = PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen;
+            bool isPlacing = FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing;
+            return !ModalManager.IsModalOpen && !EKTPhoneManager.IsTabletOpen && !isPauseOpen && !isPlacing;
+        }
+
         public void OnPointerDown(PointerEventData eventData)
         {
             if (eventData != null && eventData.dragging) return;
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen)) return;
-            if (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing) return;
+            if (!CanOpenPallet()) return;
             PalletStorageInventoryModalUI.ShowModal();
         }
 
         public void OnPointerClick(PointerEventData eventData)
         {
             if (eventData != null && eventData.dragging) return;
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen)) return;
-            if (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing) return;
+            if (!CanOpenPallet()) return;
             PalletStorageInventoryModalUI.ShowModal();
         }
 
         private void OnMouseDown()
         {
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen)) return;
-            if (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing) return;
+            if (!CanOpenPallet()) return;
             PalletStorageInventoryModalUI.ShowModal();
         }
     }

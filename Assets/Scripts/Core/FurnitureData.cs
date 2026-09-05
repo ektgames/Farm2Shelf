@@ -372,6 +372,11 @@ namespace Farm2Shelf.Core
             }
             return list;
         }
+
+        public static bool IsWallMountedDecoration(FurnitureType type)
+        {
+            return type == FurnitureType.WallClock;
+        }
     }
 
     [System.Serializable]

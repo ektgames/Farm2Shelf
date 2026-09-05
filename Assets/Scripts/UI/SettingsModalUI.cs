@@ -1,6 +1,10 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using Farm2Shelf.Core;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem.UI;
+#endif
 
 namespace Farm2Shelf.UI
 {
@@ -15,14 +19,24 @@ namespace Farm2Shelf.UI
         public bool IsSettingsOpen => canvasObj != null && canvasObj.activeInHierarchy;
 
         private GameObject canvasObj;
+        private Text titleText;
         private Text currentTrackText;
+        private Text nextTrackButtonText;
         private Text bgmVolText;
         private Text sfxVolText;
         private Image bgmMuteImg;
         private Image sfxMuteImg;
         private Text bgmMuteText;
         private Text sfxMuteText;
+        private Text sfxTitleText;
+        private Text languageTitleText;
+        private Text infoText;
+        private Image turkishButtonImage;
+        private Image englishButtonImage;
         private Transform closeBtnTransform;
+
+        private static readonly Color LanguageSelectedColor = new Color(0.20f, 0.75f, 0.35f, 1f);
+        private static readonly Color LanguageIdleColor = new Color(0.22f, 0.28f, 0.36f, 1f);
 
         private void Awake()
         {
@@ -39,10 +53,15 @@ namespace Farm2Shelf.UI
 
         private void OnEnable()
         {
-            if (LocalizationManager.Instance != null)
-            {
-                LocalizationManager.Instance.OnLanguageChanged += HandleLanguageChanged;
-            }
+            BindLocalization();
+        }
+
+        private void BindLocalization()
+        {
+            LocalizationManager localization = LocalizationManager.EnsureForGameplay();
+            if (localization == null) return;
+            localization.OnLanguageChanged -= HandleLanguageChanged;
+            localization.OnLanguageChanged += HandleLanguageChanged;
         }
 
         private void OnDisable()
@@ -57,15 +76,31 @@ namespace Farm2Shelf.UI
         {
             if (canvasObj != null && canvasObj.activeSelf)
             {
-                BuildUI();
+                RefreshLocalizedTexts();
             }
+        }
+
+        private void SelectLanguage(GameLanguage language)
+        {
+            BindLocalization();
+            LocalizationManager localization = LocalizationManager.EnsureForGameplay();
+            if (localization == null) return;
+
+            if (localization.CurrentLanguage != language)
+            {
+                localization.SetLanguage(language);
+            }
+
+            RefreshLocalizedTexts();
         }
 
         public void ShowModal()
         {
+            BindLocalization();
             BuildUI();
             if (AudioManager.Instance != null)
             {
+                AudioManager.Instance.OnTrackChanged -= HandleTrackChanged;
                 AudioManager.Instance.OnTrackChanged += HandleTrackChanged;
             }
         }
@@ -76,7 +111,27 @@ namespace Farm2Shelf.UI
             {
                 AudioManager.Instance.OnTrackChanged -= HandleTrackChanged;
             }
-            if (canvasObj != null) Destroy(canvasObj);
+            if (canvasObj != null)
+            {
+                canvasObj.SetActive(false);
+                Destroy(canvasObj);
+                canvasObj = null;
+            }
+            titleText = null;
+            currentTrackText = null;
+            nextTrackButtonText = null;
+            bgmVolText = null;
+            sfxVolText = null;
+            bgmMuteImg = null;
+            sfxMuteImg = null;
+            bgmMuteText = null;
+            sfxMuteText = null;
+            sfxTitleText = null;
+            languageTitleText = null;
+            infoText = null;
+            turkishButtonImage = null;
+            englishButtonImage = null;
+            closeBtnTransform = null;
         }
 
         private void HandleTrackChanged(int trackNum, string trackTitle)
@@ -91,7 +146,12 @@ namespace Farm2Shelf.UI
 
         private void BuildUI()
         {
-            if (canvasObj != null) Destroy(canvasObj);
+            if (canvasObj != null)
+            {
+                canvasObj.SetActive(false);
+                Destroy(canvasObj);
+                canvasObj = null;
+            }
 
             canvasObj = new GameObject("Settings_Modal_Canvas");
             Canvas canvas = canvasObj.AddComponent<Canvas>();
@@ -104,6 +164,7 @@ namespace Farm2Shelf.UI
             scaler.matchWidthOrHeight = 0.5f;
 
             canvasObj.AddComponent<GraphicRaycaster>();
+            EnsureEventSystem();
 
             // Arka Plan
             GameObject backdrop = new GameObject("Backdrop");
@@ -129,6 +190,7 @@ namespace Farm2Shelf.UI
 
             Image pBg = panelObj.AddComponent<Image>();
             pBg.sprite = UIStyleUtility.CreateOutlinePillSprite(720, 620, 20, 3, new Color(0.55f, 0.35f, 0.75f), new Color(0.10f, 0.14f, 0.18f, 0.98f));
+            pBg.raycastTarget = false;
 
             // Başlık
             GameObject titleObj = new GameObject("Title");
@@ -137,13 +199,14 @@ namespace Farm2Shelf.UI
             tRect.anchoredPosition = new Vector2(0f, 260f);
             tRect.sizeDelta = new Vector2(500f, 50f);
 
-            Text tText = titleObj.AddComponent<Text>();
-            tText.font = font;
-            tText.text = LocalizationManager.L("Settings_Title", "⚙️ OYUN VE SES AYARLARI", "⚙️ GAME & AUDIO SETTINGS");
-            tText.fontSize = 24;
-            tText.fontStyle = FontStyle.Bold;
-            tText.alignment = TextAnchor.MiddleCenter;
-            tText.color = new Color(0.75f, 0.45f, 0.95f);
+            titleText = titleObj.AddComponent<Text>();
+            titleText.font = font;
+            titleText.text = LocalizationManager.L("Settings_Title", "⚙️ OYUN VE SES AYARLARI", "⚙️ GAME & AUDIO SETTINGS");
+            titleText.fontSize = 24;
+            titleText.fontStyle = FontStyle.Bold;
+            titleText.alignment = TextAnchor.MiddleCenter;
+            titleText.color = new Color(0.75f, 0.45f, 0.95f);
+            titleText.raycastTarget = false;
 
             // Kapat Butonu (X)
             GameObject closeObj = new GameObject("CloseBtn");
@@ -192,7 +255,8 @@ namespace Farm2Shelf.UI
             mbRect.sizeDelta = new Vector2(640f, 105f);
 
             Image mbBg = musicBox.AddComponent<Image>();
-            mbBg.sprite = UIStyleUtility.CreateOutlinePillSprite(640, 105, 12, 1, new Color(0.35f, 0.70f, 0.95f), new Color(0.12f, 0.16f, 0.22f, 0.95f));
+            mbBg.sprite = UIStyleUtility.CreateOutlinePillSprite(640, 105, 18, 2, new Color(0.35f, 0.70f, 0.95f), new Color(0.12f, 0.16f, 0.22f, 0.95f));
+            mbBg.raycastTarget = false;
 
             // Şu an çalan parça metni
             GameObject trackObj = new GameObject("TrackTitle");
@@ -211,6 +275,7 @@ namespace Farm2Shelf.UI
             currentTrackText.fontSize = 16;
             currentTrackText.alignment = TextAnchor.MiddleLeft;
             currentTrackText.color = new Color(0.35f, 0.85f, 0.95f);
+            currentTrackText.raycastTarget = false;
 
             // Sonraki Şarkı Butonu (⏭️)
             GameObject nextTrackBtnObj = new GameObject("NextTrackBtn");
@@ -220,7 +285,8 @@ namespace Farm2Shelf.UI
             ntRect.sizeDelta = new Vector2(140f, 40f);
 
             Image ntBg = nextTrackBtnObj.AddComponent<Image>();
-            ntBg.sprite = UIStyleUtility.CreateRoundedPillSprite(140, 40, 10, new Color(0.20f, 0.65f, 0.90f));
+            ntBg.sprite = UIStyleUtility.CreateRoundedPillSprite(140, 40, 20, new Color(0.20f, 0.65f, 0.90f));
+            ntBg.color = Color.white;
 
             Button ntBtn = nextTrackBtnObj.AddComponent<Button>();
             ntBtn.targetGraphic = ntBg;
@@ -238,14 +304,14 @@ namespace Farm2Shelf.UI
             nttRect.anchorMin = Vector2.zero;
             nttRect.anchorMax = Vector2.one;
 
-            Text ntTxt = ntTxtObj.AddComponent<Text>();
-            ntTxt.font = font;
-            ntTxt.text = LocalizationManager.L("Btn_NextTrack", "⏭️ SONRAKİ", "⏭️ NEXT");
-            ntTxt.fontSize = 14;
-            ntTxt.fontStyle = FontStyle.Bold;
-            ntTxt.alignment = TextAnchor.MiddleCenter;
-            ntTxt.color = Color.white;
-            ntTxt.raycastTarget = false;
+            nextTrackButtonText = ntTxtObj.AddComponent<Text>();
+            nextTrackButtonText.font = font;
+            nextTrackButtonText.text = LocalizationManager.L("Btn_NextTrack", "⏭️ SONRAKİ", "⏭️ NEXT");
+            nextTrackButtonText.fontSize = 14;
+            nextTrackButtonText.fontStyle = FontStyle.Bold;
+            nextTrackButtonText.alignment = TextAnchor.MiddleCenter;
+            nextTrackButtonText.color = Color.white;
+            nextTrackButtonText.raycastTarget = false;
 
             // BGM MUTE / SESSİZ DÜĞMESİ
             GameObject bgmMuteBtnObj = new GameObject("BGMMuteBtn");
@@ -256,7 +322,8 @@ namespace Farm2Shelf.UI
 
             bgmMuteImg = bgmMuteBtnObj.AddComponent<Image>();
             bool isBgmMuted = AudioManager.Instance != null && AudioManager.Instance.IsBGMMuted;
-            bgmMuteImg.sprite = UIStyleUtility.CreateRoundedPillSprite(180, 38, 8, isBgmMuted ? new Color(0.85f, 0.25f, 0.25f) : new Color(0.20f, 0.75f, 0.35f));
+            bgmMuteImg.sprite = UIStyleUtility.CreateRoundedPillSprite(180, 38, 19, isBgmMuted ? new Color(0.85f, 0.25f, 0.25f) : new Color(0.20f, 0.75f, 0.35f));
+            bgmMuteImg.color = Color.white;
 
             Button bmmBtn = bgmMuteBtnObj.AddComponent<Button>();
             bmmBtn.targetGraphic = bgmMuteImg;
@@ -294,6 +361,7 @@ namespace Farm2Shelf.UI
             bgmVolText.fontSize = 15;
             bgmVolText.alignment = TextAnchor.MiddleCenter;
             bgmVolText.color = Color.white;
+            bgmVolText.raycastTarget = false;
 
             GameObject bgmMoreBtn = CreateVolButton(musicBox.transform, new Vector2(180f, -24f), "+", () => ChangeBGMVolume(0.1f));
 
@@ -305,7 +373,8 @@ namespace Farm2Shelf.UI
             sbRect.sizeDelta = new Vector2(640f, 105f);
 
             Image sbBg = sfxBox.AddComponent<Image>();
-            sbBg.sprite = UIStyleUtility.CreateOutlinePillSprite(640, 105, 12, 1, new Color(0.95f, 0.65f, 0.15f), new Color(0.12f, 0.16f, 0.22f, 0.95f));
+            sbBg.sprite = UIStyleUtility.CreateOutlinePillSprite(640, 105, 18, 2, new Color(0.95f, 0.65f, 0.15f), new Color(0.12f, 0.16f, 0.22f, 0.95f));
+            sbBg.raycastTarget = false;
 
             GameObject sfxTitleObj = new GameObject("SFXTitle");
             sfxTitleObj.transform.SetParent(sfxBox.transform, false);
@@ -313,12 +382,13 @@ namespace Farm2Shelf.UI
             stRect.anchoredPosition = new Vector2(-150f, 18f);
             stRect.sizeDelta = new Vector2(300f, 40f);
 
-            Text stTxt = sfxTitleObj.AddComponent<Text>();
-            stTxt.font = font;
-            stTxt.text = LocalizationManager.L("SFX_Title", "🔔 <b>SES EFEKTLERİ (SFX):</b>", "🔔 <b>SOUND EFFECTS (SFX):</b>");
-            stTxt.fontSize = 16;
-            stTxt.alignment = TextAnchor.MiddleLeft;
-            stTxt.color = new Color(0.95f, 0.65f, 0.15f);
+            sfxTitleText = sfxTitleObj.AddComponent<Text>();
+            sfxTitleText.font = font;
+            sfxTitleText.text = LocalizationManager.L("SFX_Title", "🔔 <b>SES EFEKTLERİ (SFX):</b>", "🔔 <b>SOUND EFFECTS (SFX):</b>");
+            sfxTitleText.fontSize = 16;
+            sfxTitleText.alignment = TextAnchor.MiddleLeft;
+            sfxTitleText.color = new Color(0.95f, 0.65f, 0.15f);
+            sfxTitleText.raycastTarget = false;
 
             // SFX MUTE / SESSİZ DÜĞMESİ
             GameObject sfxMuteBtnObj = new GameObject("SFXMuteBtn");
@@ -329,7 +399,8 @@ namespace Farm2Shelf.UI
 
             sfxMuteImg = sfxMuteBtnObj.AddComponent<Image>();
             bool isSfxMuted = AudioManager.Instance != null && AudioManager.Instance.IsSFXMuted;
-            sfxMuteImg.sprite = UIStyleUtility.CreateRoundedPillSprite(180, 38, 8, isSfxMuted ? new Color(0.85f, 0.25f, 0.25f) : new Color(0.20f, 0.75f, 0.35f));
+            sfxMuteImg.sprite = UIStyleUtility.CreateRoundedPillSprite(180, 38, 19, isSfxMuted ? new Color(0.85f, 0.25f, 0.25f) : new Color(0.20f, 0.75f, 0.35f));
+            sfxMuteImg.color = Color.white;
 
             Button smmBtn = sfxMuteBtnObj.AddComponent<Button>();
             smmBtn.targetGraphic = sfxMuteImg;
@@ -365,6 +436,7 @@ namespace Farm2Shelf.UI
             sfxVolText.fontSize = 15;
             sfxVolText.alignment = TextAnchor.MiddleCenter;
             sfxVolText.color = Color.white;
+            sfxVolText.raycastTarget = false;
 
             GameObject sfxMoreBtn = CreateVolButton(sfxBox.transform, new Vector2(180f, -24f), "+", () => ChangeSFXVolume(0.1f));
 
@@ -376,90 +448,27 @@ namespace Farm2Shelf.UI
             lbRect.sizeDelta = new Vector2(640f, 105f);
 
             Image lbBg = langBox.AddComponent<Image>();
-            lbBg.sprite = UIStyleUtility.CreateOutlinePillSprite(640, 105, 12, 1, new Color(0.25f, 0.80f, 0.45f), new Color(0.12f, 0.16f, 0.22f, 0.95f));
+            lbBg.sprite = UIStyleUtility.CreateOutlinePillSprite(640, 105, 18, 2, new Color(0.25f, 0.80f, 0.45f), new Color(0.12f, 0.16f, 0.22f, 0.95f));
+            lbBg.raycastTarget = false;
 
             GameObject langTitleObj = new GameObject("LangTitle");
             langTitleObj.transform.SetParent(langBox.transform, false);
             RectTransform ltRect = langTitleObj.AddComponent<RectTransform>();
-            ltRect.anchoredPosition = new Vector2(0f, 20f);
-            ltRect.sizeDelta = new Vector2(500f, 32f);
+            ltRect.anchoredPosition = new Vector2(0f, 28f);
+            ltRect.sizeDelta = new Vector2(500f, 28f);
 
-            Text ltTxt = langTitleObj.AddComponent<Text>();
-            ltTxt.font = font;
-            ltTxt.text = LocalizationManager.L("Lang_Title", "🌐 <b>OYUN DİLİ / GAME LANGUAGE:</b>", "🌐 <b>GAME LANGUAGE / OYUN DİLİ:</b>");
-            ltTxt.fontSize = 16;
-            ltTxt.alignment = TextAnchor.MiddleCenter;
-            ltTxt.color = new Color(0.35f, 0.90f, 0.55f);
+            languageTitleText = langTitleObj.AddComponent<Text>();
+            languageTitleText.font = font;
+            languageTitleText.text = LocalizationManager.L("Lang_Title", "🌐 <b>OYUN DİLİ / GAME LANGUAGE:</b>", "🌐 <b>GAME LANGUAGE / OYUN DİLİ:</b>");
+            languageTitleText.fontSize = 16;
+            languageTitleText.alignment = TextAnchor.MiddleCenter;
+            languageTitleText.color = new Color(0.35f, 0.90f, 0.55f);
+            languageTitleText.raycastTarget = false;
 
-            bool isTR = LocalizationManager.Instance == null || LocalizationManager.Instance.IsTurkish;
-
-            // 1. TÜRKÇE BUTONU
-            GameObject trBtnObj = new GameObject("TRLangBtn");
-            trBtnObj.transform.SetParent(langBox.transform, false);
-            RectTransform trbRect = trBtnObj.AddComponent<RectTransform>();
-            trbRect.anchoredPosition = new Vector2(-120f, -20f);
-            trbRect.sizeDelta = new Vector2(210f, 44f);
-
-            Image trbBg = trBtnObj.AddComponent<Image>();
-            Color trColor = isTR ? new Color(0.20f, 0.75f, 0.35f) : new Color(0.22f, 0.28f, 0.36f);
-            trbBg.sprite = UIStyleUtility.CreateRoundedPillSprite(210, 44, 10, trColor);
-
-            Button trBtn = trBtnObj.AddComponent<Button>();
-            trBtn.targetGraphic = trbBg;
-            trBtn.onClick.AddListener(() => {
-                if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
-                if (LocalizationManager.Instance != null) LocalizationManager.Instance.SetLanguage(GameLanguage.Turkish);
-                BuildUI();
-            });
-
-            GameObject trTxtObj = new GameObject("Label");
-            trTxtObj.transform.SetParent(trBtnObj.transform, false);
-            RectTransform trtRect = trTxtObj.AddComponent<RectTransform>();
-            trtRect.anchorMin = Vector2.zero;
-            trtRect.anchorMax = Vector2.one;
-
-            Text trTxt = trTxtObj.AddComponent<Text>();
-            trTxt.font = font;
-            trTxt.text = "🇹🇷 Türkçe";
-            trTxt.fontSize = 16;
-            trTxt.fontStyle = FontStyle.Bold;
-            trTxt.alignment = TextAnchor.MiddleCenter;
-            trTxt.color = Color.white;
-            trTxt.raycastTarget = false;
-
-            // 2. İNGİLİZCE BUTONU
-            GameObject enBtnObj = new GameObject("ENLangBtn");
-            enBtnObj.transform.SetParent(langBox.transform, false);
-            RectTransform enbRect = enBtnObj.AddComponent<RectTransform>();
-            enbRect.anchoredPosition = new Vector2(120f, -20f);
-            enbRect.sizeDelta = new Vector2(210f, 44f);
-
-            Image enbBg = enBtnObj.AddComponent<Image>();
-            Color enColor = !isTR ? new Color(0.20f, 0.75f, 0.35f) : new Color(0.22f, 0.28f, 0.36f);
-            enbBg.sprite = UIStyleUtility.CreateRoundedPillSprite(210, 44, 10, enColor);
-
-            Button enBtn = enBtnObj.AddComponent<Button>();
-            enBtn.targetGraphic = enbBg;
-            enBtn.onClick.AddListener(() => {
-                if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
-                if (LocalizationManager.Instance != null) LocalizationManager.Instance.SetLanguage(GameLanguage.English);
-                BuildUI();
-            });
-
-            GameObject enTxtObj = new GameObject("Label");
-            enTxtObj.transform.SetParent(enBtnObj.transform, false);
-            RectTransform entRect = enTxtObj.AddComponent<RectTransform>();
-            entRect.anchorMin = Vector2.zero;
-            entRect.anchorMax = Vector2.one;
-
-            Text enTxt = enTxtObj.AddComponent<Text>();
-            enTxt.font = font;
-            enTxt.text = "🇬🇧 English";
-            enTxt.fontSize = 16;
-            enTxt.fontStyle = FontStyle.Bold;
-            enTxt.alignment = TextAnchor.MiddleCenter;
-            enTxt.color = Color.white;
-            enTxt.raycastTarget = false;
+            Transform languageLayer = CreateLanguageLayer(panelObj.transform);
+            turkishButtonImage = CreateLanguageButton(languageLayer, new Vector2(-155f, -87f), "Türkçe", GameLanguage.Turkish);
+            englishButtonImage = CreateLanguageButton(languageLayer, new Vector2(155f, -87f), "English", GameLanguage.English);
+            RefreshLanguageButtons();
 
             // ==================== BÖLÜM 4: BİLGİ SEKMESİ ====================
             GameObject infoObj = new GameObject("InfoBox");
@@ -468,9 +477,120 @@ namespace Farm2Shelf.UI
             iRect.anchoredPosition = new Vector2(0f, -210f);
             iRect.sizeDelta = new Vector2(640f, 110f);
 
-            Text infoTxt = infoObj.AddComponent<Text>();
-            infoTxt.font = font;
-            infoTxt.text = LocalizationManager.L(
+            infoText = infoObj.AddComponent<Text>();
+            infoText.font = font;
+            infoText.fontSize = 14;
+            infoText.alignment = TextAnchor.MiddleCenter;
+            infoText.color = Color.white;
+            infoText.raycastTarget = false;
+            infoText.supportRichText = true;
+            RefreshInfoText();
+
+            if (turkishButtonImage != null) turkishButtonImage.transform.SetAsLastSibling();
+            if (englishButtonImage != null) englishButtonImage.transform.SetAsLastSibling();
+            if (closeBtnTransform != null) closeBtnTransform.SetAsLastSibling();
+        }
+
+        private static Transform CreateLanguageLayer(Transform parent)
+        {
+            GameObject layer = new GameObject("LanguageButtonLayer");
+            layer.transform.SetParent(parent, false);
+            RectTransform rect = layer.AddComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+
+            Canvas layerCanvas = layer.AddComponent<Canvas>();
+            layerCanvas.overrideSorting = true;
+            layerCanvas.sortingOrder = 1300;
+            layer.AddComponent<GraphicRaycaster>();
+            return layer.transform;
+        }
+
+        private static void EnsureEventSystem()
+        {
+            if (EventSystem.current != null) return;
+
+            GameObject esObj = new GameObject("EventSystem");
+            esObj.AddComponent<EventSystem>();
+#if ENABLE_INPUT_SYSTEM
+            esObj.AddComponent<InputSystemUIInputModule>();
+#else
+            esObj.AddComponent<StandaloneInputModule>();
+#endif
+        }
+
+        private Image CreateLanguageButton(Transform parent, Vector2 pos, string label, GameLanguage language)
+        {
+            GameObject btnObj = new GameObject(language == GameLanguage.Turkish ? "TRLangBtn" : "ENLangBtn");
+            btnObj.transform.SetParent(parent, false);
+
+            RectTransform buttonRect = btnObj.AddComponent<RectTransform>();
+            buttonRect.anchorMin = new Vector2(0.5f, 0.5f);
+            buttonRect.anchorMax = new Vector2(0.5f, 0.5f);
+            buttonRect.pivot = new Vector2(0.5f, 0.5f);
+            buttonRect.anchoredPosition = pos;
+            buttonRect.sizeDelta = new Vector2(280f, 52f);
+
+            Image bg = btnObj.AddComponent<Image>();
+            bg.sprite = UIStyleUtility.CreateRoundedPillSprite(280, 52, 26, LanguageIdleColor);
+            bg.color = Color.white;
+            bg.raycastTarget = true;
+
+            Button btn = btnObj.AddComponent<Button>();
+            btn.targetGraphic = bg;
+            btn.interactable = true;
+            btn.transition = Selectable.Transition.None;
+            btn.navigation = new Navigation { mode = Navigation.Mode.None };
+            btn.onClick.AddListener(() =>
+            {
+                if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
+                SelectLanguage(language);
+            });
+
+            LanguagePickButton picker = btnObj.AddComponent<LanguagePickButton>();
+            picker.Setup(language, SelectLanguage);
+
+            GameObject txtObj = new GameObject("Label");
+            txtObj.transform.SetParent(btnObj.transform, false);
+            RectTransform txtRect = txtObj.AddComponent<RectTransform>();
+            txtRect.anchorMin = Vector2.zero;
+            txtRect.anchorMax = Vector2.one;
+            txtRect.offsetMin = Vector2.zero;
+            txtRect.offsetMax = Vector2.zero;
+
+            Text txt = txtObj.AddComponent<Text>();
+            txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            txt.text = label;
+            txt.fontSize = 22;
+            txt.fontStyle = FontStyle.Bold;
+            txt.alignment = TextAnchor.MiddleCenter;
+            txt.color = Color.white;
+            txt.raycastTarget = false;
+
+            return bg;
+        }
+
+        private void RefreshLanguageButtons()
+        {
+            LocalizationManager loc = LocalizationManager.EnsureForGameplay();
+            bool isTurkish = loc == null || loc.IsTurkish;
+            ApplyLanguageButtonVisual(turkishButtonImage, isTurkish);
+            ApplyLanguageButtonVisual(englishButtonImage, !isTurkish);
+        }
+
+        private static void ApplyLanguageButtonVisual(Image image, bool selected)
+        {
+            if (image == null) return;
+            image.sprite = UIStyleUtility.CreateRoundedPillSprite(280, 52, 26, selected ? LanguageSelectedColor : LanguageIdleColor);
+            image.color = Color.white;
+        }
+
+        private void RefreshInfoText()
+        {
+            if (infoText == null) return;
+            infoText.text = LocalizationManager.L(
                 "Info_Text",
                 "📱 <b>Kontrol & Grafikler:</b> Mobil Dokunmatik (Kaydır / Pinch-Zoom / Döndür)\n" +
                 "🖥️ <b>Grafik Kalitesi:</b> Yüksek (Low-Poly Ultra)\n\n" +
@@ -479,11 +599,68 @@ namespace Farm2Shelf.UI
                 "🖥️ <b>Graphic Quality:</b> High (Low-Poly Ultra)\n\n" +
                 "<color=#80D8FF>💡 All audio, music, and language settings are automatically saved!</color>"
             );
-            infoTxt.fontSize = 14;
-            infoTxt.alignment = TextAnchor.MiddleCenter;
-            infoTxt.color = Color.white;
+        }
 
-            if (closeBtnTransform != null) closeBtnTransform.SetAsLastSibling();
+        private void RefreshLocalizedTexts()
+        {
+            if (titleText != null)
+            {
+                titleText.text = LocalizationManager.L("Settings_Title", "⚙️ OYUN VE SES AYARLARI", "⚙️ GAME & AUDIO SETTINGS");
+            }
+
+            if (currentTrackText != null)
+            {
+                int trNum = AudioManager.Instance != null ? AudioManager.Instance.CurrentTrackIndex : 1;
+                string trTitle = AudioManager.Instance != null ? AudioManager.Instance.GetCurrentTrackTitle() : "İlham Veren Akustik Folk 🌾";
+                string trackTextLabel = LocalizationManager.L("Track_Label", "Parça", "Track");
+                int totalTracksCount = AudioManager.Instance != null ? AudioManager.Instance.TotalTracks : 12;
+                currentTrackText.text = $"🎵 <b>{trackTextLabel} {trNum}/{totalTracksCount}:</b> {trTitle}";
+            }
+
+            if (nextTrackButtonText != null)
+            {
+                nextTrackButtonText.text = LocalizationManager.L("Btn_NextTrack", "⏭️ SONRAKİ", "⏭️ NEXT");
+            }
+
+            bool isBgmMuted = AudioManager.Instance != null && AudioManager.Instance.IsBGMMuted;
+            if (bgmMuteText != null)
+            {
+                bgmMuteText.text = isBgmMuted
+                    ? LocalizationManager.L("BGM_Off", "🔇 MÜZİK: KAPALI", "🔇 MUSIC: OFF")
+                    : LocalizationManager.L("BGM_On", "🔊 MÜZİK: AÇIK", "🔊 MUSIC: ON");
+            }
+
+            bool isSfxMuted = AudioManager.Instance != null && AudioManager.Instance.IsSFXMuted;
+            if (sfxMuteText != null)
+            {
+                sfxMuteText.text = isSfxMuted
+                    ? LocalizationManager.L("SFX_Off", "🔇 EFEKT: KAPALI", "🔇 SFX: OFF")
+                    : LocalizationManager.L("SFX_On", "🔊 EFEKT: AÇIK", "🔊 SFX: ON");
+            }
+
+            if (sfxTitleText != null)
+            {
+                sfxTitleText.text = LocalizationManager.L("SFX_Title", "🔔 <b>SES EFEKTLERİ (SFX):</b>", "🔔 <b>SOUND EFFECTS (SFX):</b>");
+            }
+
+            if (languageTitleText != null)
+            {
+                languageTitleText.text = LocalizationManager.L("Lang_Title", "🌐 <b>OYUN DİLİ / GAME LANGUAGE:</b>", "🌐 <b>GAME LANGUAGE / OYUN DİLİ:</b>");
+            }
+
+            string volWord = LocalizationManager.L("Vol_Word", "Ses", "Vol");
+            string volPercentFmt = LocalizationManager.L("Vol_PercentFmt", "%{0}", "{0}%");
+            if (bgmVolText != null && AudioManager.Instance != null)
+            {
+                bgmVolText.text = $"{volWord}: {string.Format(volPercentFmt, Mathf.RoundToInt(AudioManager.Instance.BGMVolume * 100))}";
+            }
+            if (sfxVolText != null && AudioManager.Instance != null)
+            {
+                sfxVolText.text = $"{volWord}: {string.Format(volPercentFmt, Mathf.RoundToInt(AudioManager.Instance.SFXVolume * 100))}";
+            }
+
+            RefreshInfoText();
+            RefreshLanguageButtons();
         }
 
         private GameObject CreateVolButton(Transform parent, Vector2 pos, string label, System.Action onClick)
@@ -496,7 +673,8 @@ namespace Farm2Shelf.UI
             r.sizeDelta = new Vector2(40f, 38f);
 
             Image bg = btnObj.AddComponent<Image>();
-            bg.sprite = UIStyleUtility.CreateRoundedPillSprite(40, 38, 8, new Color(0.25f, 0.35f, 0.45f));
+            bg.sprite = UIStyleUtility.CreateRoundedPillSprite(40, 38, 19, new Color(0.25f, 0.35f, 0.45f));
+            bg.color = Color.white;
 
             Button btn = btnObj.AddComponent<Button>();
             btn.targetGraphic = bg;
@@ -530,7 +708,11 @@ namespace Farm2Shelf.UI
                 AudioManager.Instance.PlayButtonClick();
                 AudioManager.Instance.ToggleBGMMute();
                 bool isMuted = AudioManager.Instance.IsBGMMuted;
-                bgmMuteImg.color = isMuted ? new Color(0.85f, 0.25f, 0.25f) : new Color(0.20f, 0.75f, 0.35f);
+                if (bgmMuteImg != null)
+                {
+                    bgmMuteImg.sprite = UIStyleUtility.CreateRoundedPillSprite(180, 38, 19, isMuted ? new Color(0.85f, 0.25f, 0.25f) : new Color(0.20f, 0.75f, 0.35f));
+                    bgmMuteImg.color = Color.white;
+                }
                 bgmMuteText.text = isMuted ? LocalizationManager.L("BGM_Off", "🔇 MÜZİK: KAPALI", "🔇 MUSIC: OFF") : LocalizationManager.L("BGM_On", "🔊 MÜZİK: AÇIK", "🔊 MUSIC: ON");
             }
         }
@@ -542,7 +724,11 @@ namespace Farm2Shelf.UI
                 AudioManager.Instance.PlayButtonClick();
                 AudioManager.Instance.ToggleSFXMute();
                 bool isMuted = AudioManager.Instance.IsSFXMuted;
-                sfxMuteImg.color = isMuted ? new Color(0.85f, 0.25f, 0.25f) : new Color(0.20f, 0.75f, 0.35f);
+                if (sfxMuteImg != null)
+                {
+                    sfxMuteImg.sprite = UIStyleUtility.CreateRoundedPillSprite(180, 38, 19, isMuted ? new Color(0.85f, 0.25f, 0.25f) : new Color(0.20f, 0.75f, 0.35f));
+                    sfxMuteImg.color = Color.white;
+                }
                 sfxMuteText.text = isMuted ? LocalizationManager.L("SFX_Off", "🔇 EFEKT: KAPALI", "🔇 SFX: OFF") : LocalizationManager.L("SFX_On", "🔊 EFEKT: AÇIK", "🔊 SFX: ON");
             }
         }
@@ -569,6 +755,35 @@ namespace Farm2Shelf.UI
                 string volPercentFmt = LocalizationManager.L("Vol_PercentFmt", "%{0}", "{0}%");
                 if (sfxVolText != null) sfxVolText.text = $"{volWord}: {string.Format(volPercentFmt, Mathf.RoundToInt(newVol * 100))}";
             }
+        }
+    }
+
+    public class LanguagePickButton : MonoBehaviour, IPointerDownHandler, IPointerClickHandler
+    {
+        private GameLanguage language;
+        private System.Action<GameLanguage> onPicked;
+        private bool pickedThisPress;
+
+        public void Setup(GameLanguage selectedLanguage, System.Action<GameLanguage> callback)
+        {
+            language = selectedLanguage;
+            onPicked = callback;
+        }
+
+        public void OnPointerDown(PointerEventData eventData)
+        {
+            pickedThisPress = true;
+            onPicked?.Invoke(language);
+        }
+
+        public void OnPointerClick(PointerEventData eventData)
+        {
+            if (pickedThisPress)
+            {
+                pickedThisPress = false;
+                return;
+            }
+            onPicked?.Invoke(language);
         }
     }
 }

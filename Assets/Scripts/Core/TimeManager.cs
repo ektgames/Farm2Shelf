@@ -98,6 +98,28 @@ namespace Farm2Shelf.Core
             Debug.Log($"[TimeManager] Zaman {(isTimePaused ? "DURAKLATILDI" : "BAŞLATILDI")}");
         }
 
+        public void RestoreDayFlowState(bool dayActive, bool timePaused)
+        {
+            bool canRun = currentHour < 24;
+            isDayActive = canRun && dayActive;
+            isTimePaused = !isDayActive || timePaused;
+            timer = 0f;
+        }
+
+        public void ResetToDefaults()
+        {
+            currentHour = 6;
+            currentMinute = 0;
+            currentDay = 1;
+            currentYear = 1;
+            currentSeason = Season.İlkbahar;
+            timer = 0f;
+            isTimePaused = true;
+            isDayActive = false;
+            OnTimeUpdated?.Invoke(currentHour, currentMinute);
+            OnDateUpdated?.Invoke(currentSeason, currentDay, currentYear);
+        }
+
         public void SkipToNextDay06AM()
         {
             currentHour = 6;

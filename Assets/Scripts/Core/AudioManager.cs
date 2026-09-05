@@ -73,6 +73,7 @@ namespace Farm2Shelf.Core
         private bool isBgmMuted = false;
         private bool isSfxMuted = false;
         private bool isChangingTrack = false;
+        private const int BGM_TRACK_COUNT = 17;
 
         private const string PREF_BGM_VOL = "Farm2Shelf_BGM_Vol";
         private const string PREF_SFX_VOL = "Farm2Shelf_SFX_Vol";
@@ -116,7 +117,7 @@ namespace Farm2Shelf.Core
 
             UpdateSourceVolumes();
 
-            // 3. Masaüstünden Yüklenen 12 Gerçek MP3 Müzik Parçasını Yükle
+            // 3. BGM yuvalarını hazırla; parçalar yalnızca çalınacağı zaman yüklenir.
             LoadAudioAssets();
 
             // 4. Ana Menüden İtibaren Müziği Başlat
@@ -131,22 +132,9 @@ namespace Farm2Shelf.Core
             bgmTracks.Clear();
             sfxClips.Clear();
 
-            // Masaüstünden entegre edilen 17 Gerçek MP3 Müzik Parçasını Yükle
-            for (int i = 1; i <= 17; i++)
+            for (int i = 0; i < BGM_TRACK_COUNT; i++)
             {
-                string path = $"Audio/BGM/track_{i:D2}";
-                AudioClip clip = Resources.Load<AudioClip>(path);
-                if (clip != null)
-                {
-                    bgmTracks.Add(clip);
-                    Debug.Log($"[AudioManager] Masaüstü MP3 Müziği Yüklendi: {path}");
-                }
-                else
-                {
-                    // Fallback (Yedek Prosedürel Beste)
-                    clip = GenerateProceduralBGMTrack(i - 1);
-                    bgmTracks.Add(clip);
-                }
+                bgmTracks.Add(null);
             }
 
             // SFX Seslerini Yükle
@@ -188,7 +176,8 @@ namespace Farm2Shelf.Core
             if (bgmTracks.Count == 0) return;
             currentTrackIndex = Mathf.Clamp(currentTrackIndex, 0, bgmTracks.Count - 1);
 
-            AudioClip clip = bgmTracks[currentTrackIndex];
+            ReleaseLoadedBGMExcept(currentTrackIndex);
+            AudioClip clip = GetOrLoadBGMTrack(currentTrackIndex);
             if (clip != null && bgmSource != null)
             {
                 bgmSource.Stop();
@@ -201,6 +190,40 @@ namespace Farm2Shelf.Core
                 string title = GetCurrentTrackTitle();
                 OnTrackChanged?.Invoke(currentTrackIndex + 1, title);
                 Debug.Log($"[AudioManager] Çalan Parça ({currentTrackIndex + 1}/{bgmTracks.Count}): {title}");
+            }
+        }
+
+        private AudioClip GetOrLoadBGMTrack(int index)
+        {
+            if (index < 0 || index >= bgmTracks.Count) return null;
+            if (bgmTracks[index] != null) return bgmTracks[index];
+
+            string path = $"Audio/BGM/track_{index + 1:D2}";
+            AudioClip clip = Resources.Load<AudioClip>(path);
+            if (clip == null)
+            {
+                clip = GenerateProceduralBGMTrack(index);
+            }
+            bgmTracks[index] = clip;
+            return clip;
+        }
+
+        private void ReleaseLoadedBGMExcept(int keepIndex)
+        {
+            if (bgmSource != null) bgmSource.Stop();
+            for (int i = 0; i < bgmTracks.Count; i++)
+            {
+                if (i == keepIndex || bgmTracks[i] == null) continue;
+                AudioClip clip = bgmTracks[i];
+                bgmTracks[i] = null;
+                if (!clip.name.StartsWith("procedural_track_"))
+                {
+                    Resources.UnloadAsset(clip);
+                }
+                else
+                {
+                    Destroy(clip);
+                }
             }
         }
 
@@ -466,7 +489,7 @@ namespace Farm2Shelf.Core
         public bool IsBGMMuted => isBgmMuted;
         public bool IsSFXMuted => isSfxMuted;
         public int CurrentTrackIndex => currentTrackIndex + 1;
-        public int TotalTracks => bgmTracks.Count > 0 ? bgmTracks.Count : 17;
+        public int TotalTracks => BGM_TRACK_COUNT;
 
         public string GetCurrentTrackTitle()
         {

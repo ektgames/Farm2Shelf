@@ -86,28 +86,13 @@ namespace Farm2Shelf.Core
             else Destroy(gameObject);
         }
 
-        private bool paidSalariesToday = false;
+        private int lastSalaryPaidDay = -1;
 
         private void Start()
         {
             if (TimeManager.Instance != null)
             {
                 TimeManager.Instance.OnMidnightRollover += PayDailySalaries;
-                TimeManager.Instance.OnTimeUpdated += HandleTimeCheckForSalaries;
-            }
-        }
-
-        private void HandleTimeCheckForSalaries(int hour, int minute)
-        {
-            // Saat 12:00 (Öğle 12:00) olduğunda günlük maaş ödemelerini gerçekleştir
-            if (hour == 12 && minute == 0 && !paidSalariesToday)
-            {
-                paidSalariesToday = true;
-                PayDailySalaries();
-            }
-            else if (hour == 0 && minute == 0)
-            {
-                paidSalariesToday = false;
             }
         }
 
@@ -388,6 +373,14 @@ namespace Farm2Shelf.Core
 
         public void PayDailySalaries()
         {
+            int currentDay = TimeManager.Instance != null ? TimeManager.Instance.Day : -1;
+            if (currentDay >= 0 && lastSalaryPaidDay == currentDay)
+            {
+                Debug.LogWarning($"[StaffManager] Gün {currentDay} maaşı daha önce işlendi; yinelenen ödeme engellendi.");
+                return;
+            }
+
+            lastSalaryPaidDay = currentDay;
             int totalPayroll = 0;
 
             // 1. Mağaza Personeli Maaşları
@@ -496,12 +489,16 @@ namespace Farm2Shelf.Core
             OnStaffListChanged?.Invoke();
         }
 
+        public void ResetSalaryPaymentState()
+        {
+            lastSalaryPaidDay = -1;
+        }
+
         private void OnDestroy()
         {
             if (TimeManager.Instance != null)
             {
                 TimeManager.Instance.OnMidnightRollover -= PayDailySalaries;
-                TimeManager.Instance.OnTimeUpdated -= HandleTimeCheckForSalaries;
             }
         }
     }

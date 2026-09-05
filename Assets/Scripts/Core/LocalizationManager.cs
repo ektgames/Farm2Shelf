@@ -29,30 +29,33 @@ namespace Farm2Shelf.Core
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void AutoInitialize()
         {
-            isQuitting = false;
-            if (instance == null)
-            {
-                instance = UnityEngine.Object.FindFirstObjectByType<LocalizationManager>();
-                if (instance == null && Application.isPlaying)
-                {
-                    GameObject go = new GameObject("[LocalizationManager]");
-                    instance = go.AddComponent<LocalizationManager>();
-                    DontDestroyOnLoad(go);
-                }
-            }
+            if (!CanCreateInstance()) return;
+            GetOrCreateInstance();
         }
 
         public static LocalizationManager Instance
         {
-            get
-            {
-                if (isQuitting) return null;
-                if (instance == null)
-                {
-                    instance = UnityEngine.Object.FindFirstObjectByType<LocalizationManager>();
-                }
-                return instance;
-            }
+            get { return GetOrCreateInstance(); }
+        }
+
+        private static bool CanCreateInstance()
+        {
+            if (isQuitting) return false;
+            return Application.isPlaying;
+        }
+
+        private static LocalizationManager GetOrCreateInstance()
+        {
+            if (instance != null) return instance;
+
+            instance = UnityEngine.Object.FindFirstObjectByType<LocalizationManager>();
+            if (instance != null) return instance;
+            if (!CanCreateInstance()) return null;
+
+            GameObject go = new GameObject("[LocalizationManager]");
+            instance = go.AddComponent<LocalizationManager>();
+            DontDestroyOnLoad(go);
+            return instance;
         }
 
         private const string PREF_KEY_LANGUAGE = "Farm2Shelf_GameLanguage";
@@ -86,6 +89,15 @@ namespace Farm2Shelf.Core
             {
                 instance = null;
             }
+        }
+
+        public static LocalizationManager EnsureForGameplay()
+        {
+            if (Application.isPlaying)
+            {
+                isQuitting = false;
+            }
+            return GetOrCreateInstance();
         }
 
         private void LoadSavedLanguage()

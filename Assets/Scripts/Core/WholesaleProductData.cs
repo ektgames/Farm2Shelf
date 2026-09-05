@@ -241,6 +241,30 @@ namespace Farm2Shelf.Core
             customPrices[productId] = Mathf.Max(minPrice, price);
         }
 
+        public static List<CustomPriceSaveData> ExportCustomPrices()
+        {
+            List<CustomPriceSaveData> result = new List<CustomPriceSaveData>(customPrices.Count);
+            foreach (var entry in customPrices)
+            {
+                result.Add(new CustomPriceSaveData { productId = entry.Key, price = entry.Value });
+            }
+            return result;
+        }
+
+        public static void RestoreCustomPrices(IEnumerable<CustomPriceSaveData> entries)
+        {
+            customPrices.Clear();
+            if (entries == null) return;
+
+            foreach (var entry in entries)
+            {
+                if (entry == null || string.IsNullOrEmpty(entry.productId)) continue;
+                WholesaleProductDef def = GetProductById(entry.productId);
+                if (def == null) continue;
+                customPrices[entry.productId] = Mathf.Max(def.wholesaleUnitPrice, entry.price);
+            }
+        }
+
         public static string GetLocalizedProductName(string rawNameOrId)
         {
             if (string.IsNullOrEmpty(rawNameOrId)) return "";

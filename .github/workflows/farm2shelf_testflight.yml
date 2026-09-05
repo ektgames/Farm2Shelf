@@ -54,6 +54,16 @@ jobs:
           restore-keys: |
             Library-iOS-
 
+      - name: Read App Version
+        run: |
+          APP_VERSION=$(awk '/^  bundleVersion:/ { print $2; exit }' ProjectSettings/ProjectSettings.asset)
+          if [ -z "$APP_VERSION" ]; then
+            echo "Unable to read bundleVersion from ProjectSettings."
+            exit 1
+          fi
+          echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
+          echo "Building Farm2Shelf version $APP_VERSION"
+
       # 4. GameCI Unity iOS Build (Xcode Project Export)
       - name: Unity iOS Build
         uses: game-ci/unity-builder@v4
@@ -167,6 +177,13 @@ jobs:
           fi
 
           echo "✅ Verified 1024x1024 App Store Marketing icon PNG ($ICON_FILENAME) dimensions ($DIMENSIONS)!"
+
+          PRIVACY_MANIFEST=$(find build -name "PrivacyInfo.xcprivacy" -type f | head -n 1)
+          if [ -z "$PRIVACY_MANIFEST" ]; then
+            echo "❌ ERROR: Unity did not generate PrivacyInfo.xcprivacy in the exported Xcode project."
+            exit 1
+          fi
+          echo "✅ Privacy manifest found at $PRIVACY_MANIFEST"
 
       # 7. Apple Certificate & Provisioning Profile Installation
       - name: Install Apple Certificate & Provisioning Profile
@@ -309,6 +326,7 @@ jobs:
       - name: Inspect & Validate IPA
         env:
           EXPECTED_BUILD_NUMBER: ${{ github.event.inputs.build_number || github.run_number }}
+          EXPECTED_VERSION: ${{ env.APP_VERSION }}
         run: |
           set -e
           IPA_PATH=$(find build -name "*.ipa" | head -n 1)
@@ -365,7 +383,6 @@ jobs:
             exit 1
           fi
 
-          EXPECTED_VERSION="0.1.0"
           if [ "$IPA_VERSION" != "$EXPECTED_VERSION" ]; then
             echo "❌ ERROR: IPA Short Version ($IPA_VERSION) does not match expected $EXPECTED_VERSION"
             exit 1

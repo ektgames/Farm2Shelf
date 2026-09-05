@@ -35,6 +35,7 @@ namespace Farm2Shelf.UI
         {
             if (LocalizationManager.Instance != null)
             {
+                LocalizationManager.Instance.OnLanguageChanged -= HandleLanguageChanged;
                 LocalizationManager.Instance.OnLanguageChanged += HandleLanguageChanged;
             }
         }
@@ -340,7 +341,8 @@ namespace Farm2Shelf.UI
 
                 Text txt = txtObj.AddComponent<Text>();
                 txt.font = font;
-                txt.text = $"{emoji}  <b>{cropName}</b>  <color=#B0BEC5>(İşlenmeye Hazır Hammadde / Koli)</color>";
+                string rawMaterialLabel = LocalizationManager.L("WorkshopPallet_RawMaterialLabel", "(İşlenmeye Hazır Hammadde / Koli)", "(Raw Material / Box Ready for Processing)");
+                txt.text = $"{emoji}  <b>{cropName}</b>  <color=#B0BEC5>{rawMaterialLabel}</color>";
                 txt.fontSize = 16;
                 txt.alignment = TextAnchor.MiddleLeft;
                 txt.color = Color.white;

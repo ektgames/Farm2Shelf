@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Farm2Shelf.Environment;
@@ -21,6 +22,11 @@ namespace Farm2Shelf.Core
         public static SaveSystemManager Instance { get; private set; }
 
         private const string SAVE_SLOT_PREFIX = "Farm2Shelf_SaveSlot_";
+        private const string BACKUP_SUFFIX = "_Backup";
+        private const int CURRENT_SAVE_FORMAT_VERSION = 3;
+        private int activeSessionSlot;
+        private float lastAutosaveTime = float.NegativeInfinity;
+        private const float AUTOSAVE_DEBOUNCE_SECONDS = 5f;
 
         private void Awake()
         {
@@ -31,6 +37,17 @@ namespace Farm2Shelf.Core
             }
             Instance = this;
             DontDestroyOnLoad(gameObject);
+        }
+
+        private IEnumerator Start()
+        {
+            while (TimeManager.Instance == null)
+            {
+                yield return null;
+            }
+
+            TimeManager.Instance.OnMidnightRollover -= HandleMidnightAutosave;
+            TimeManager.Instance.OnMidnightRollover += HandleMidnightAutosave;
         }
 
         /// <summary>
@@ -48,23 +65,21 @@ namespace Farm2Shelf.Core
                 };
             }
 
-            try
+            SaveGameData data;
+            if (TryDeserializeSlot(PlayerPrefs.GetString(key), slotIndex, out data))
             {
-                string json = PlayerPrefs.GetString(key);
-                SaveGameData data = JsonUtility.FromJson<SaveGameData>(json);
-                if (data != null)
-                {
-                    data.slotIndex = slotIndex;
-                    data.isEmptySlot = false;
-                    return data;
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[SaveSystemManager] Slot {slotIndex} okuma hatası: " + ex.Message);
+                return data;
             }
 
-            return new SaveGameData { slotIndex = slotIndex, isEmptySlot = true };
+            string backupKey = key + BACKUP_SUFFIX;
+            if (PlayerPrefs.HasKey(backupKey) && TryDeserializeSlot(PlayerPrefs.GetString(backupKey), slotIndex, out data))
+            {
+                Debug.LogWarning($"[SaveSystemManager] Slot {slotIndex} ana kaydı bozuk; güvenli yedek kullanıldı.");
+                return data;
+            }
+
+            Debug.LogError($"[SaveSystemManager] Slot {slotIndex} okunamadı; ana kayıt ve yedek geçersiz.");
+            return new SaveGameData { slotIndex = slotIndex, isEmptySlot = false, hasLoadError = true };
         }
 
         /// <summary>
@@ -76,6 +91,7 @@ namespace Farm2Shelf.Core
 
             SaveGameData saveData = new SaveGameData
             {
+                saveFormatVersion = CURRENT_SAVE_FORMAT_VERSION,
                 slotIndex = slotIndex,
                 isEmptySlot = false,
                 saveTimestamp = DateTime.Now.ToString("dd.MM.yyyy - HH:mm")
@@ -332,6 +348,37 @@ namespace Farm2Shelf.Core
             // 12.b Kurye Motorsiklet Filosu
             saveData.ownedMotorcycleCount = (CourierManager.Instance != null) ? CourierManager.Instance.OwnedMotorcycleCount : 0;
 
+            if (OnlineMarketOrderManager.Instance != null)
+            {
+                saveData.onlineOrders = OnlineMarketOrderManager.Instance.CreateSaveSnapshot();
+            }
+
+            if (WholesaleTruckManager.Instance != null)
+            {
+                foreach (var package in WholesaleTruckManager.Instance.PackagesForSave)
+                {
+                    if (package != null) saveData.wholesaleTruckPackageIds.Add(package.id);
+                }
+            }
+
+            if (GreenTruckDeliveryManager.Instance != null)
+            {
+                foreach (var package in GreenTruckDeliveryManager.Instance.PackagesForSave)
+                {
+                    if (package != null) saveData.greenTruckPackageIds.Add(package.id);
+                }
+            }
+
+            DeliveryTruckSaveData wholesaleSnap = WholesaleTruckManager.Instance != null
+                ? WholesaleTruckManager.Instance.CreateSaveSnapshot()
+                : null;
+            DeliveryTruckSaveData greenSnap = GreenTruckDeliveryManager.Instance != null
+                ? GreenTruckDeliveryManager.Instance.CreateSaveSnapshot()
+                : null;
+            saveData.activeDeliveryTruck = wholesaleSnap != null ? wholesaleSnap : greenSnap;
+
+            saveData.customProductPrices = WholesaleDatabase.ExportCustomPrices();
+
             // 13. TARLADAKİ EKİNLER
             var plots = FieldPlotController.AllPlots;
             if (plots != null)
@@ -406,7 +453,7 @@ namespace Farm2Shelf.Core
                     if (ws == null) continue;
                     saveData.workshopMachines.Add(new WorkshopMachineSaveData
                     {
-                        instanceId = ws.gameObject.name,
+                        instanceId = ws.machineInstanceId,
                         machineType = ws.machineType.ToString(),
                         posX = ws.transform.position.x,
                         posY = ws.transform.position.y,
@@ -431,9 +478,25 @@ namespace Farm2Shelf.Core
             {
                 string json = JsonUtility.ToJson(saveData, true);
                 string key = SAVE_SLOT_PREFIX + slotIndex;
+                string backupKey = key + BACKUP_SUFFIX;
+                if (PlayerPrefs.HasKey(key))
+                {
+                    string previousJson = PlayerPrefs.GetString(key);
+                    SaveGameData previousData;
+                    if (TryDeserializeSlot(previousJson, slotIndex, out previousData))
+                    {
+                        PlayerPrefs.SetString(backupKey, previousJson);
+                    }
+                }
                 PlayerPrefs.SetString(key, json);
+                if (!PlayerPrefs.HasKey(backupKey))
+                {
+                    PlayerPrefs.SetString(backupKey, json);
+                }
                 PlayerPrefs.SetInt("Farm2Shelf_LastPlayedSlot", slotIndex);
                 PlayerPrefs.Save();
+                activeSessionSlot = slotIndex;
+                lastAutosaveTime = Time.realtimeSinceStartup;
 
                 Debug.Log($"[SaveSystemManager] Slot {slotIndex} EKSİKSİZ KAYDEDİLDİ! Bakiye: {saveData.playerMoney}C | Mobilya: {saveData.furnitureList.Count} | Personel: {saveData.staffList.Count} ({saveData.activeStaffCount} Aktif) | Tarla: {saveData.fieldCrops.Count}");
                 return true;
@@ -454,6 +517,11 @@ namespace Farm2Shelf.Core
             if (saveData == null || saveData.isEmptySlot)
             {
                 Debug.LogWarning($"[SaveSystemManager] Slot {slotIndex} boş olduğu için yüklenemedi!");
+                return false;
+            }
+            if (saveData.hasLoadError)
+            {
+                Debug.LogError($"[SaveSystemManager] Slot {slotIndex} bozuk olduğu için güvenli şekilde yükleme iptal edildi.");
                 return false;
             }
 
@@ -545,16 +613,24 @@ namespace Farm2Shelf.Core
                     foreach (var ws in allWsControllers)
                     {
                         if (ws == null) continue;
-                        var mData = saveData.workshopMachines.Find(m => Vector3.Distance(ws.transform.position, new Vector3(m.posX, m.posY, m.posZ)) < 0.5f);
+                        var mData = saveData.workshopMachines.Find(m =>
+                            !string.IsNullOrEmpty(m.instanceId) &&
+                            !string.IsNullOrEmpty(ws.machineInstanceId) &&
+                            m.instanceId == ws.machineInstanceId);
+                        if (mData == null)
+                        {
+                            mData = saveData.workshopMachines.Find(m =>
+                                Vector3.Distance(ws.transform.position, new Vector3(m.posX, m.posY, m.posZ)) < 0.5f);
+                        }
                         if (mData != null)
                         {
-                            ws.isProducing = mData.isProducing;
-                            ws.isReadyToCollect = mData.isReadyToCollect;
-                            ws.activeRecipeId = mData.activeRecipeId;
-                            ws.remainingProductionSeconds = mData.remainingSeconds;
-                            ws.totalProductionSeconds = mData.totalDuration;
-                            ws.UpdateFloatingBadgeVisual();
-                            ws.Update3DStatusDisplay();
+                            if (!string.IsNullOrEmpty(mData.instanceId)) ws.machineInstanceId = mData.instanceId;
+                            ws.RestoreState(
+                                mData.activeRecipeId,
+                                mData.isProducing,
+                                mData.isReadyToCollect,
+                                mData.remainingSeconds,
+                                mData.totalDuration);
                         }
                     }
                 }
@@ -733,6 +809,15 @@ namespace Farm2Shelf.Core
                 CourierManager.Instance.RestoreOwnedMotorcycles(saveData.ownedMotorcycleCount);
             }
 
+            WholesaleDatabase.RestoreCustomPrices(saveData.customProductPrices);
+
+            if (OnlineMarketOrderManager.Instance != null)
+            {
+                OnlineMarketOrderManager.Instance.RestoreOrders(saveData.onlineOrders);
+            }
+
+            RestorePendingTruckDeliveries(saveData);
+
             if (StaffVisualManager.Instance != null)
             {
                 StaffVisualManager.Instance.RestoreEarlyCalledStaff(earlyCalledIds);
@@ -746,14 +831,7 @@ namespace Farm2Shelf.Core
                     StoreStatusManager.Instance.SetPlayerAndCompany(saveData.playerName, saveData.companyName);
                 }
 
-                if (saveData.isStoreOpen && saveData.gameHour < 24)
-                {
-                    StoreStatusManager.Instance.OpenStore();
-                }
-                else
-                {
-                    StoreStatusManager.Instance.CloseStore();
-                }
+                StoreStatusManager.Instance.RestoreStoreStatus(saveData.isStoreOpen && saveData.gameHour < 24);
             }
 
             // 16. Oyun Zamanı, Günü, Mevsimi ve Yılı Yükleme
@@ -768,11 +846,8 @@ namespace Farm2Shelf.Core
                     TimeManager.Instance.SetTime(saveData.gameDay, saveData.gameHour, saveData.gameMinute);
                 }
 
-                // Gece 24:00 (12:00 AM) veya dükkan kapalı durumunda zaman akışını KESİNLİKLE duraklat
-                if (saveData.gameHour >= 24 || (saveData.gameHour == 0 && !saveData.isStoreOpen) || saveData.isTimePaused || !saveData.isStoreOpen)
-                {
-                    TimeManager.Instance.SetTimePaused(true);
-                }
+                bool canResumeDay = saveData.isStoreOpen && saveData.gameHour < 24 && saveData.isDayActive;
+                TimeManager.Instance.RestoreDayFlowState(canResumeDay, saveData.isTimePaused || !saveData.isStoreOpen);
             }
 
             // 17. Tahliye Durumu ve Gece Z Raporu Açılışı
@@ -784,8 +859,7 @@ namespace Farm2Shelf.Core
             if ((saveData.gameHour >= 24 || (saveData.gameHour == 0 && !saveData.isStoreOpen)) && !saveData.isStoreOpen)
             {
                 int activeCustomers = (CustomerShoppingManager.Instance != null) ? CustomerShoppingManager.Instance.ActiveCustomerCount : 0;
-                bool hasStaffInHandTasks = (StaffTaskController.Instance != null && StaffTaskController.Instance.HasActiveInHandTasks());
-                if (activeCustomers == 0 && !hasStaffInHandTasks && EndOfDayReportModalUI.Instance != null)
+                if (activeCustomers == 0 && EndOfDayReportModalUI.Instance != null)
                 {
                     EndOfDayReportModalUI.Instance.ShowReport();
                 }
@@ -796,6 +870,7 @@ namespace Farm2Shelf.Core
             {
                 StaffVisualManager.Instance.SyncStaff3DModels();
             }
+            OnlineMarketOrderManager.Instance?.ResumeReadyDeliveries();
 
             // 19. Eğitim ve Başlangıç Görevleri Yükleme
             if (TutorialManager.Instance != null && !string.IsNullOrEmpty(saveData.tutorialStep))
@@ -818,6 +893,7 @@ namespace Farm2Shelf.Core
 
             PlayerPrefs.SetInt("Farm2Shelf_LastPlayedSlot", slotIndex);
             PlayerPrefs.Save();
+            activeSessionSlot = slotIndex;
 
             Debug.Log($"[SaveSystemManager] Slot {slotIndex} EKSİKSİZ YÜKLENDİ! Bakiye: {saveData.playerMoney}C | Borsa: {saveData.stockMarket?.Count} | Finans: {saveData.transactionLog?.Count} | Mobilya: {saveData.furnitureList?.Count} | Personel: {saveData.staffList?.Count}");
             return true;
@@ -829,11 +905,19 @@ namespace Farm2Shelf.Core
         public void DeleteSlotData(int slotIndex)
         {
             string key = SAVE_SLOT_PREFIX + slotIndex;
+            bool changed = false;
             if (PlayerPrefs.HasKey(key))
             {
                 PlayerPrefs.DeleteKey(key);
-                PlayerPrefs.Save();
+                changed = true;
             }
+            if (PlayerPrefs.HasKey(key + BACKUP_SUFFIX))
+            {
+                PlayerPrefs.DeleteKey(key + BACKUP_SUFFIX);
+                changed = true;
+            }
+            if (changed) PlayerPrefs.Save();
+            if (activeSessionSlot == slotIndex) activeSessionSlot = 0;
         }
 
         public int GetLastPlayedSlot()
@@ -844,7 +928,267 @@ namespace Farm2Shelf.Core
         public bool HasLastPlayedSlot()
         {
             int slot = PlayerPrefs.GetInt("Farm2Shelf_LastPlayedSlot", 0);
-            return slot >= 1 && slot <= 3 && !GetSlotData(slot).isEmptySlot;
+            if (slot < 1 || slot > 3) return false;
+            SaveGameData data = GetSlotData(slot);
+            return !data.isEmptySlot && !data.hasLoadError;
+        }
+
+        public void BeginNewUnsavedSession()
+        {
+            activeSessionSlot = 0;
+        }
+
+        public void ResetRuntimeForNewGame()
+        {
+            BeginNewUnsavedSession();
+            Time.timeScale = 1f;
+
+            StoreStatusManager.Instance?.RestoreStoreStatus(false);
+            CustomerShoppingManager.Instance?.ClearAllCustomers();
+            StaffVisualManager.Instance?.ClearAllStaffModels();
+            StaffTaskController.Instance?.ClearAllStaffAI();
+
+            if (StaffManager.Instance != null)
+            {
+                StaffManager.Instance.SetStaffList(new List<StaffMember>());
+                StaffManager.Instance.SetFarmStaffList(new List<StaffMember>());
+                StaffManager.Instance.SetCourierStaffList(new List<StaffMember>());
+                StaffManager.Instance.ResetSalaryPaymentState();
+            }
+
+            CourierManager.Instance?.ResetFleet();
+            OnlineMarketOrderManager.Instance?.ResetToDefaults();
+            WholesaleTruckManager.Instance?.ClearAllPackages();
+            GreenTruckDeliveryManager.Instance?.ClearPendingDeliveries();
+            FurnitureDeliveryManager.Instance?.ClearPendingBoxes();
+
+            if (GardenSeedInventoryManager.Instance != null)
+            {
+                GardenSeedInventoryManager.Instance.SetBarnUpgradeLevel(1);
+                GardenSeedInventoryManager.Instance.ClearBarnInventory();
+                GardenSeedInventoryManager.Instance.RestoreOwnedSeeds(new Dictionary<string, int>());
+            }
+            WorkshopPalletManager.Instance?.ClearAll();
+            FieldPlotController.ResetAllPlotsToEmpty();
+
+            foreach (var furniture in new List<PlacedFurnitureController>(PlacedFurnitureController.AllPlacedFurniture))
+            {
+                if (furniture == null) continue;
+                PlacedFurnitureController.AllPlacedFurniture.Remove(furniture);
+                Destroy(furniture.gameObject);
+            }
+
+            foreach (var machine in new List<WorkshopMachineController>(WorkshopMachineController.AllPlacedMachines))
+            {
+                if (machine != null) machine.RestoreState("", false, false, 0f, 0f);
+            }
+
+            WholesaleDatabase.ResetAllPricesToDefault();
+            EconomyManager.Instance?.SetCredits(50000);
+            FinanceManager.Instance?.ResetToDefaults();
+            StockMarketManager.Instance?.ResetToDefaults();
+            BankLoanManager.Instance?.RestoreActiveLoans(new List<ActiveLoanData>());
+            SocialMediaManager.Instance?.ResetToDefaults();
+            StoreQualityManager.Instance?.SetQualityData(0, 0);
+
+            if (EnvironmentBuilder.Instance != null)
+            {
+                EnvironmentBuilder.Instance.UpgradeStoreToLevel(1);
+                EnvironmentBuilder.Instance.ApplyWallColor(new Color(0.12f, 0.14f, 0.17f, 1f));
+                EnvironmentBuilder.Instance.ApplyFloorStyle(new Color(0.85f, 0.72f, 0.53f, 1f));
+            }
+            WorkshopManager.Instance?.SetWorkshopLevel(1);
+            TimeManager.Instance?.ResetToDefaults();
+            GameHUDManager.Instance?.SetWaitingForEvacuation(false);
+        }
+
+        private bool TryDeserializeSlot(string json, int slotIndex, out SaveGameData data)
+        {
+            data = null;
+            if (string.IsNullOrWhiteSpace(json)) return false;
+            try
+            {
+                data = JsonUtility.FromJson<SaveGameData>(json);
+                if (data == null) return false;
+                NormalizeSaveData(data);
+                data.slotIndex = slotIndex;
+                data.isEmptySlot = false;
+                data.hasLoadError = false;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[SaveSystemManager] Slot {slotIndex} JSON hatası: {ex.Message}");
+                data = null;
+                return false;
+            }
+        }
+
+        private static void NormalizeSaveData(SaveGameData data)
+        {
+            if (data.saveFormatVersion < 1)
+            {
+                data.saveFormatVersion = 1;
+            }
+            data.customProductPrices ??= new List<CustomPriceSaveData>();
+            data.onlineOrders ??= new List<OnlineOrderSaveData>();
+            data.wholesaleTruckPackageIds ??= new List<string>();
+            data.greenTruckPackageIds ??= new List<string>();
+            if (data.activeDeliveryTruck != null)
+            {
+                data.activeDeliveryTruck.remainingPackageIds ??= new List<string>();
+                data.activeDeliveryTruck.originalPackageIds ??= new List<string>();
+            }
+            data.stockMarket ??= new List<StockSaveItem>();
+            data.transactionLog ??= new List<TransactionRecord>();
+            data.bankLoans ??= new List<ActiveLoanData>();
+            data.socialFeed ??= new List<SocialTweetData>();
+            data.ownedSeeds ??= new List<OwnedSeedSaveData>();
+            data.barnCrops ??= new List<BarnCropSaveData>();
+            data.workshopCrops ??= new List<BarnCropSaveData>();
+            data.workshopMachines ??= new List<WorkshopMachineSaveData>();
+            data.pendingWorkshopMachineBoxes ??= new List<string>();
+            data.pendingDeliveryBoxes ??= new List<string>();
+            data.staffList ??= new List<StaffSaveData>();
+            data.farmStaffList ??= new List<StaffSaveData>();
+            data.courierStaffList ??= new List<StaffSaveData>();
+            data.fieldCrops ??= new List<CropSaveData>();
+            data.furnitureList ??= new List<ShelfSaveData>();
+            data.saveFormatVersion = CURRENT_SAVE_FORMAT_VERSION;
+        }
+
+        private static List<WholesaleProductDef> ResolveProductIds(IEnumerable<string> productIds)
+        {
+            List<WholesaleProductDef> products = new List<WholesaleProductDef>();
+            if (productIds == null) return products;
+            foreach (string productId in productIds)
+            {
+                WholesaleProductDef product = WholesaleDatabase.GetProductById(productId);
+                if (product != null) products.Add(product);
+            }
+            return products;
+        }
+
+        private static void RestorePendingTruckDeliveries(SaveGameData data)
+        {
+            bool hasLeftoverPose = DeliveryTruckVisuals.TryReadLeftoverTruckPose(out Vector3 leftoverPos, out Quaternion leftoverRot);
+
+            if (WholesaleTruckManager.Instance != null) WholesaleTruckManager.Instance.ClearAllPackages();
+            if (GreenTruckDeliveryManager.Instance != null) GreenTruckDeliveryManager.Instance.ClearPendingDeliveries();
+
+            DeliveryTruckSaveData snapshot = data.activeDeliveryTruck;
+            if (snapshot != null && snapshot.isActive)
+            {
+                if (string.Equals(snapshot.truckKind, "Green", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    GreenTruckDeliveryManager.Instance?.RestoreFromSave(snapshot);
+                }
+                else
+                {
+                    WholesaleTruckManager.Instance?.RestoreFromSave(snapshot);
+                }
+                return;
+            }
+
+            List<WholesaleProductDef> wholesalePackages = ResolveProductIds(data.wholesaleTruckPackageIds);
+            List<WholesaleProductDef> greenPackages = ResolveProductIds(data.greenTruckPackageIds);
+
+            if (wholesalePackages.Count > 0 && WholesaleTruckManager.Instance != null)
+            {
+                if (hasLeftoverPose)
+                {
+                    WholesaleTruckManager.Instance.RestoreFromSave(BuildLegacyTruckSnapshot("Wholesale", leftoverPos, leftoverRot, wholesalePackages));
+                }
+                else
+                {
+                    WholesaleTruckManager.Instance.DispatchWholesaleDelivery(wholesalePackages);
+                }
+                return;
+            }
+
+            if (greenPackages.Count > 0 && GreenTruckDeliveryManager.Instance != null)
+            {
+                if (hasLeftoverPose)
+                {
+                    GreenTruckDeliveryManager.Instance.RestoreFromSave(BuildLegacyTruckSnapshot("Green", leftoverPos, leftoverRot, greenPackages));
+                }
+                else
+                {
+                    GreenTruckDeliveryManager.Instance.DispatchFarmDelivery(greenPackages);
+                }
+                return;
+            }
+
+            if (hasLeftoverPose && WholesaleTruckManager.Instance != null)
+            {
+                WholesaleTruckManager.Instance.RestoreFromSave(BuildLegacyTruckSnapshot("Wholesale", leftoverPos, leftoverRot, new List<WholesaleProductDef>()));
+            }
+        }
+
+        private static DeliveryTruckSaveData BuildLegacyTruckSnapshot(
+            string truckKind,
+            Vector3 position,
+            Quaternion rotation,
+            List<WholesaleProductDef> packages)
+        {
+            Vector3 euler = rotation.eulerAngles;
+            DeliveryTruckSaveData snapshot = new DeliveryTruckSaveData
+            {
+                isActive = true,
+                truckKind = truckKind,
+                phase = DeliveryTruckVisuals.InferPhase(position).ToString(),
+                posX = position.x,
+                posY = position.y,
+                posZ = position.z,
+                rotX = euler.x,
+                rotY = euler.y,
+                rotZ = euler.z,
+                doorsOpen = position.z > -3.5f
+            };
+
+            if (packages != null)
+            {
+                foreach (var package in packages)
+                {
+                    if (package == null) continue;
+                    snapshot.remainingPackageIds.Add(package.id);
+                    snapshot.originalPackageIds.Add(package.id);
+                }
+            }
+
+            return snapshot;
+        }
+
+        private void HandleMidnightAutosave()
+        {
+            StartCoroutine(AutosaveAtEndOfFrame());
+        }
+
+        private IEnumerator AutosaveAtEndOfFrame()
+        {
+            yield return new WaitForEndOfFrame();
+            TryAutosave();
+        }
+
+        private void OnApplicationPause(bool paused)
+        {
+            if (paused) TryAutosave();
+        }
+
+        private void TryAutosave()
+        {
+            if (activeSessionSlot < 1 || activeSessionSlot > 3) return;
+            if (Time.realtimeSinceStartup - lastAutosaveTime < AUTOSAVE_DEBOUNCE_SECONDS) return;
+            SaveCurrentGame(activeSessionSlot);
+        }
+
+        private void OnDestroy()
+        {
+            if (TimeManager.Instance != null)
+            {
+                TimeManager.Instance.OnMidnightRollover -= HandleMidnightAutosave;
+            }
+            if (Instance == this) Instance = null;
         }
     }
 }

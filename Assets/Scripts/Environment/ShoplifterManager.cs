@@ -309,7 +309,7 @@ namespace Farm2Shelf.Environment
                             data.isEscaped = true;
                             if (data.thiefObj != null)
                             {
-                                ShowFloatingNotice(data.thiefObj.transform.position, "⚠️ Hırsız Ürünle Kaçtı!", new Color(0.95f, 0.20f, 0.20f));
+                                ShowFloatingNotice(data.thiefObj.transform.position, LocalizationManager.L("Shoplifter_EscapedPopup", "⚠️ Hırsız Ürünle Kaçtı!", "⚠️ Shoplifter Escaped with Goods!"), new Color(0.95f, 0.20f, 0.20f));
                                 Destroy(data.thiefObj);
                             }
 
@@ -341,7 +341,7 @@ namespace Farm2Shelf.Environment
                     data.stolenProductValue = Mathf.Max(150, unitPrice * stealCount);
 
                     CreateStolenBoxInHands(data);
-                    ShowFloatingNotice(data.targetShelf.transform.position, $"🚨 Hırsızlık! (-{data.stolenProductName})", new Color(0.95f, 0.25f, 0.15f));
+                    ShowFloatingNotice(data.targetShelf.transform.position, string.Format(LocalizationManager.L("Shoplifter_TheftPopupFmt", "🚨 Hırsızlık! (-{0})", "🚨 Theft! (-{0})"), data.stolenProductName), new Color(0.95f, 0.25f, 0.15f));
                 }
             }
         }
@@ -359,9 +359,14 @@ namespace Farm2Shelf.Environment
                 int reward = data.stolenProductValue;
 
                 if (EconomyManager.Instance != null) EconomyManager.Instance.AddCredits(reward);
-                if (FinanceManager.Instance != null) FinanceManager.Instance.RecordIncome("Satış", $"Hırsızdan Kurtarılan Ürün ({data.stolenProductName})", reward);
+                if (FinanceManager.Instance != null)
+                {
+                    string category = LocalizationManager.L("FinCat_Sales", "Satış", "Sales");
+                    string description = string.Format(LocalizationManager.L("FinDesc_RecoveredGoodsFmt", "Hırsızdan Kurtarılan Ürün ({0})", "Goods Recovered from Shoplifter ({0})"), data.stolenProductName);
+                    FinanceManager.Instance.RecordIncome(category, description, reward);
+                }
 
-                ShowFloatingNotice(guardPos, $"👮 Hırsız Yakalandı! +{reward:N0} Cr Kasaya Yattı 💰", new Color(0.30f, 0.95f, 0.45f));
+                ShowFloatingNotice(guardPos, string.Format(LocalizationManager.L("Shoplifter_CaughtPopupFmt", "👮 Hırsız Yakalandı! +{0:N0} Cr Kasaya Yattı 💰", "👮 Shoplifter Caught! +{0:N0} Cr Recovered 💰"), reward), new Color(0.30f, 0.95f, 0.45f));
 
                 if (StoreQualityManager.Instance != null)
                 {
@@ -375,7 +380,7 @@ namespace Farm2Shelf.Environment
             else
             {
                 // %10 Şansla hırsız son anda sıyrıldı
-                ShowFloatingNotice(guardPos, "💨 Hırsız Son Anda Sıyrıldı!", new Color(0.95f, 0.60f, 0.15f));
+                ShowFloatingNotice(guardPos, LocalizationManager.L("Shoplifter_SlippedAwayPopup", "💨 Hırsız Son Anda Sıyrıldı!", "💨 Shoplifter Slipped Away!"), new Color(0.95f, 0.60f, 0.15f));
                 data.isCaught = false; // Kaçmaya devam eder
             }
         }
@@ -389,9 +394,14 @@ namespace Farm2Shelf.Environment
             int reward = Mathf.RoundToInt(data.stolenProductValue * 1.25f); // Oyuncu bizzat yakalarsa +%25 Ekstra Ödül!
 
             if (EconomyManager.Instance != null) EconomyManager.Instance.AddCredits(reward);
-            if (FinanceManager.Instance != null) FinanceManager.Instance.RecordIncome("Satış", $"Hırsız Suçüstü Yakalandı ({data.stolenProductName})", reward);
+            if (FinanceManager.Instance != null)
+            {
+                string category = LocalizationManager.L("FinCat_Sales", "Satış", "Sales");
+                string description = string.Format(LocalizationManager.L("FinDesc_PlayerCaughtShoplifterFmt", "Hırsız Suçüstü Yakalandı ({0})", "Shoplifter Caught in the Act ({0})"), data.stolenProductName);
+                FinanceManager.Instance.RecordIncome(category, description, reward);
+            }
 
-            ShowFloatingNotice(thiefPos, $"🤼 Suçüstü Yakaladın! +{reward:N0} Cr Kasaya Yattı 💰✨", new Color(0.20f, 0.90f, 0.45f));
+            ShowFloatingNotice(thiefPos, string.Format(LocalizationManager.L("Shoplifter_PlayerCaughtPopupFmt", "🤼 Suçüstü Yakaladın! +{0:N0} Cr Kasaya Yattı 💰✨", "🤼 Caught in the Act! +{0:N0} Cr Recovered 💰✨"), reward), new Color(0.20f, 0.90f, 0.45f));
 
             if (StoreQualityManager.Instance != null)
             {
@@ -546,7 +556,7 @@ namespace Farm2Shelf.Environment
             CreateLimb(root, "Leg_R", new Vector3( 0.14f, 0.42f, 0f), new Vector3(0.15f, 0.65f, 0.15f), pantsMat);
 
             // Baş Üstü Hırsız Uyarısı Tag'i
-            CreateOverheadTag(root, "🥷 Hırsız!");
+            CreateOverheadTag(root, LocalizationManager.L("Shoplifter_OverheadTag", "🥷 Hırsız!", "🥷 Shoplifter!"));
 
             return root;
         }

@@ -22,7 +22,12 @@ namespace Farm2Shelf.Editor
             PlayerSettings.productName = "Farm2Shelf";
             PlayerSettings.iOS.applicationDisplayName = "Farm2Shelf";
             PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.iOS, "com.ektgames.farm2shelf");
-            PlayerSettings.bundleVersion = "0.1.0";
+            if (string.IsNullOrWhiteSpace(PlayerSettings.bundleVersion))
+            {
+                Debug.LogError("[iOSBuildScript] PlayerSettings.bundleVersion boş olamaz.");
+                EditorApplication.Exit(1);
+                return;
+            }
 
             // iOS Orientation Ayarları (Sadece Yatay / Landscape-only)
             PlayerSettings.allowedAutorotateToPortrait = false;

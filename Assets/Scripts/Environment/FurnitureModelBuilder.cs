@@ -19,7 +19,13 @@ namespace Farm2Shelf.Environment
         private static Material whiteGlossMat;
         private static Material cyanLedMat;
         private static Material pinkLedMat;
+        private static Material amberLedMat;
+        private static Material cyanBeamMat;
+        private static Material pinkBeamMat;
+        private static Material amberBeamMat;
         private static Material blackMat;
+        private static Mesh spotlightConeMesh;
+        private static int spotlightBeamMatVersion;
         private static Material redAccentMat;
         private static Material greenProduceMat;
         private static Material goldMat;
@@ -97,6 +103,53 @@ namespace Farm2Shelf.Environment
             return mat;
         }
 
+        private static Material CreateBeamMaterial(string name, Color color)
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (shader == null) shader = Shader.Find("Unlit/Color");
+            if (shader == null) shader = GetSmartShader();
+
+            Material mat = new Material(shader);
+            mat.name = name;
+            mat.color = color;
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
+            if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);
+            mat.SetFloat("_Surface", 1);
+            mat.SetFloat("_Blend", 0);
+            mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            mat.SetInt("_ZWrite", 0);
+            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            mat.DisableKeyword("_EMISSION");
+            mat.renderQueue = 3000;
+            return mat;
+        }
+
+        private static void EnsureSpotlightBeamMaterials()
+        {
+            const int currentVersion = 3;
+            if (spotlightBeamMatVersion == currentVersion &&
+                cyanBeamMat != null && pinkBeamMat != null && amberBeamMat != null &&
+                amberLedMat != null && spotlightConeMesh != null)
+            {
+                return;
+            }
+
+            spotlightConeMesh = null;
+
+            if (amberLedMat == null)
+            {
+                amberLedMat = CreateSmartMaterial("Furniture_AmberLed", new Color(1.0f, 0.72f, 0.18f));
+                amberLedMat.EnableKeyword("_EMISSION");
+                amberLedMat.SetColor("_EmissionColor", new Color(0.55f, 0.32f, 0.05f));
+            }
+
+            cyanBeamMat = CreateBeamMaterial("Furniture_CyanBeam", new Color(0.12f, 0.72f, 0.95f, 0.16f));
+            pinkBeamMat = CreateBeamMaterial("Furniture_PinkBeam", new Color(0.95f, 0.18f, 0.52f, 0.16f));
+            amberBeamMat = CreateBeamMaterial("Furniture_AmberBeam", new Color(0.96f, 0.58f, 0.10f, 0.16f));
+            spotlightBeamMatVersion = currentVersion;
+        }
+
         private static void InitMaterials()
         {
             if (woodMat != null) return;
@@ -161,6 +214,7 @@ namespace Farm2Shelf.Environment
         public static GameObject CreateFurnitureModel(FurnitureType type, bool isGhost = false)
         {
             InitMaterials();
+            EnsureSpotlightBeamMaterials();
 
             GameObject root = new GameObject("Furniture_" + type.ToString());
 
@@ -724,9 +778,25 @@ namespace Farm2Shelf.Environment
 
         private static void BuildWallClock(GameObject parent)
         {
-            CreatePrimitive(parent, "ClockFrame", PrimitiveType.Cylinder, new Vector3(0f, 1.8f, 0f), new Vector3(0.6f, 0.04f, 0.6f), blackMat);
-            CreatePrimitive(parent, "ClockFace", PrimitiveType.Cylinder, new Vector3(0f, 1.81f, 0f), new Vector3(0.52f, 0.04f, 0.52f), whiteGlossMat);
-            CreatePrimitive(parent, "NeonBorder", PrimitiveType.Cylinder, new Vector3(0f, 1.82f, 0f), new Vector3(0.58f, 0.03f, 0.58f), cyanLedMat);
+            const float hangHeight = 1.85f;
+
+            // Kare montaj plakası duvarın içine gömülür; saat asılı durur, boşluk kalmaz.
+            CreatePrimitive(parent, "WallMount", PrimitiveType.Cube,
+                new Vector3(0f, hangHeight, -0.018f),
+                new Vector3(0.20f, 0.20f, 0.05f), blackMat);
+
+            GameObject faceRoot = new GameObject("ClockFaceRoot");
+            faceRoot.transform.SetParent(parent.transform, false);
+            faceRoot.transform.localPosition = new Vector3(0f, hangHeight, 0f);
+            faceRoot.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+
+            // Cylinder +Y = oda yönü. Sırt (y=0) duvar düzleminde bitsin.
+            CreatePrimitive(faceRoot, "ClockFrame", PrimitiveType.Cylinder, new Vector3(0f, 0.022f, 0f), new Vector3(0.64f, 0.022f, 0.64f), blackMat);
+            CreatePrimitive(faceRoot, "ClockFace", PrimitiveType.Cylinder, new Vector3(0f, 0.036f, 0f), new Vector3(0.54f, 0.012f, 0.54f), whiteGlossMat);
+            CreatePrimitive(faceRoot, "NeonBorder", PrimitiveType.Cylinder, new Vector3(0f, 0.028f, 0f), new Vector3(0.60f, 0.008f, 0.60f), cyanLedMat);
+            CreatePrimitive(faceRoot, "CenterCap", PrimitiveType.Cylinder, new Vector3(0f, 0.046f, 0f), new Vector3(0.06f, 0.01f, 0.06f), blackMat);
+            CreatePrimitive(faceRoot, "HourHand", PrimitiveType.Cube, new Vector3(0.07f, 0.044f, 0f), new Vector3(0.16f, 0.008f, 0.032f), blackMat);
+            CreatePrimitive(faceRoot, "MinuteHand", PrimitiveType.Cube, new Vector3(0f, 0.048f, 0.11f), new Vector3(0.022f, 0.008f, 0.24f), blackMat);
         }
 
         private static void BuildAdBanner(GameObject parent)
@@ -739,11 +809,106 @@ namespace Farm2Shelf.Environment
 
         private static void BuildCeilingSpotlight(GameObject parent)
         {
+            EnsureSpotlightBeamMaterials();
             CreatePrimitive(parent, "Bar", PrimitiveType.Cube, new Vector3(0f, 2.4f, 0f), new Vector3(1.8f, 0.06f, 0.06f), steelMat);
-            for (float x = -0.6f; x <= 0.6f; x += 0.6f)
+
+            float[] xs = { -0.72f, 0f, 0.72f };
+            Material[] lensMats = { pinkLedMat, cyanLedMat, amberLedMat };
+            Material[] beamMats = { pinkBeamMat, cyanBeamMat, amberBeamMat };
+
+            for (int i = 0; i < xs.Length; i++)
             {
-                CreatePrimitive(parent, $"Spot_{x}", PrimitiveType.Cylinder, new Vector3(x, 2.25f, 0f), new Vector3(0.15f, 0.15f, 0.15f), blackMat);
-                CreatePrimitive(parent, $"Lens_{x}", PrimitiveType.Cylinder, new Vector3(x, 2.16f, 0f), new Vector3(0.12f, 0.02f, 0.12f), cyanLedMat);
+                float x = xs[i];
+                CreatePrimitive(parent, $"Spot_{i}", PrimitiveType.Cylinder, new Vector3(x, 2.25f, 0f), new Vector3(0.15f, 0.15f, 0.15f), blackMat);
+                GameObject lens = CreatePrimitive(parent, $"Lens_{i}", PrimitiveType.Cylinder, new Vector3(x, 2.16f, 0f), new Vector3(0.12f, 0.02f, 0.12f), lensMats[i]);
+                StripVolumeCollider(lens);
+
+                GameObject cone = CreateSpotlightCone(parent, $"Beam_{i}", new Vector3(x, 2.14f, 0f), beamMats[i]);
+                StripVolumeCollider(cone);
+
+                GameObject pool = CreatePrimitive(parent, $"FloorWash_{i}", PrimitiveType.Cylinder, new Vector3(x, 0.03f, 0f), new Vector3(0.48f, 0.008f, 0.48f), beamMats[i]);
+                StripVolumeCollider(pool);
+            }
+        }
+
+        private static GameObject CreateSpotlightCone(GameObject parent, string name, Vector3 localPos, Material mat)
+        {
+            GameObject cone = new GameObject(name);
+            cone.transform.SetParent(parent.transform, false);
+            cone.transform.localPosition = localPos;
+
+            MeshFilter mf = cone.AddComponent<MeshFilter>();
+            mf.sharedMesh = GetOrCreateSpotlightConeMesh();
+
+            MeshRenderer mr = cone.AddComponent<MeshRenderer>();
+            mr.sharedMaterial = mat;
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            mr.receiveShadows = false;
+            return cone;
+        }
+
+        private static Mesh GetOrCreateSpotlightConeMesh()
+        {
+            if (spotlightConeMesh != null) return spotlightConeMesh;
+
+            const int segments = 20;
+            const float topRadius = 0.055f;
+            const float bottomRadius = 0.20f;
+            const float height = 2.08f;
+
+            Vector3[] vertices = new Vector3[segments * 2];
+            Vector2[] uvs = new Vector2[vertices.Length];
+            int[] triangles = new int[segments * 12];
+
+            for (int i = 0; i < segments; i++)
+            {
+                float angle = (i / (float)segments) * Mathf.PI * 2f;
+                float cos = Mathf.Cos(angle);
+                float sin = Mathf.Sin(angle);
+                vertices[i] = new Vector3(cos * topRadius, 0f, sin * topRadius);
+                vertices[i + segments] = new Vector3(cos * bottomRadius, -height, sin * bottomRadius);
+                uvs[i] = new Vector2(i / (float)segments, 1f);
+                uvs[i + segments] = new Vector2(i / (float)segments, 0f);
+
+                int t = i * 12;
+                int next = (i + 1) % segments;
+                triangles[t] = i;
+                triangles[t + 1] = next;
+                triangles[t + 2] = i + segments;
+                triangles[t + 3] = next;
+                triangles[t + 4] = next + segments;
+                triangles[t + 5] = i + segments;
+                triangles[t + 6] = i;
+                triangles[t + 7] = i + segments;
+                triangles[t + 8] = next;
+                triangles[t + 9] = next;
+                triangles[t + 10] = i + segments;
+                triangles[t + 11] = next + segments;
+            }
+
+            spotlightConeMesh = new Mesh { name = "CeilingSpotlight_Cone" };
+            spotlightConeMesh.vertices = vertices;
+            spotlightConeMesh.uv = uvs;
+            spotlightConeMesh.triangles = triangles;
+            spotlightConeMesh.RecalculateNormals();
+            spotlightConeMesh.RecalculateBounds();
+            return spotlightConeMesh;
+        }
+
+        private static void StripVolumeCollider(GameObject obj)
+        {
+            if (obj == null) return;
+            Collider col = obj.GetComponent<Collider>();
+            if (col != null)
+            {
+                Object.Destroy(col);
+            }
+
+            Renderer renderer = obj.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
             }
         }
 
