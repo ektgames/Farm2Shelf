@@ -12,8 +12,10 @@ namespace Farm2Shelf.UI
     public static class UIStyleUtility
     {
         private static readonly Dictionary<FurnitureType, Sprite> furnitureIconCache = new Dictionary<FurnitureType, Sprite>();
+        private static readonly Dictionary<LivestockType, Sprite> livestockIconCache = new Dictionary<LivestockType, Sprite>();
         private static readonly Dictionary<string, Sprite> wholesaleIconCache = new Dictionary<string, Sprite>();
         private static readonly Dictionary<string, Sprite> seedIconCache = new Dictionary<string, Sprite>();
+        private static Sprite motorcycleIconCache;
         private static readonly Dictionary<string, Sprite> pillSpriteCache = new Dictionary<string, Sprite>();
         private static readonly Dictionary<string, Sprite> outlineSpriteCache = new Dictionary<string, Sprite>();
         private static readonly Dictionary<int, Font> fontCache = new Dictionary<int, Font>();
@@ -337,6 +339,7 @@ namespace Farm2Shelf.UI
                             break;
 
                         case FurnitureType.Fridge:
+                        case FurnitureType.OrganicFridge:
                             bgCol = new Color(0.12f, 0.28f, 0.42f);
                             accentCol = new Color(0.40f, 0.85f, 0.98f);
                             if (dist > 6f || x < 4 || x > 59 || y < 4 || y > 59) pCol = accentCol;
@@ -704,6 +707,179 @@ namespace Farm2Shelf.UI
 
             diceIconCache = Sprite.Create(tex, new Rect(0, 0, sz, sz), new Vector2(0.5f, 0.5f));
             return diceIconCache;
+        }
+
+        public static Sprite CreateLivestockIconSprite(LivestockType type)
+        {
+            if (livestockIconCache.TryGetValue(type, out Sprite cached) && cached != null)
+            {
+                return cached;
+            }
+
+            int sz = 64;
+            Texture2D tex = new Texture2D(sz, sz, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Bilinear;
+            Color[] pixels = new Color[sz * sz];
+
+            bool chicken = type == LivestockType.WhiteChicken || type == LivestockType.BlackChicken;
+            bool blackChicken = type == LivestockType.BlackChicken;
+            bool holstein = type == LivestockType.HolsteinCow;
+
+            Color bg = chicken
+                ? (blackChicken ? new Color(0.16f, 0.18f, 0.14f) : new Color(0.22f, 0.28f, 0.16f))
+                : (holstein ? new Color(0.18f, 0.20f, 0.22f) : new Color(0.28f, 0.18f, 0.10f));
+            Color frame = chicken
+                ? new Color(0.95f, 0.72f, 0.22f)
+                : (holstein ? new Color(0.92f, 0.92f, 0.90f) : new Color(0.78f, 0.48f, 0.22f));
+
+            Color feather = blackChicken ? new Color(0.12f, 0.11f, 0.13f) : new Color(0.96f, 0.94f, 0.88f);
+            Color comb = new Color(0.88f, 0.14f, 0.16f);
+            Color beak = new Color(0.95f, 0.62f, 0.12f);
+            Color cowBase = holstein ? new Color(0.96f, 0.95f, 0.92f) : new Color(0.62f, 0.38f, 0.18f);
+            Color cowPatch = holstein ? new Color(0.10f, 0.10f, 0.12f) : new Color(0.42f, 0.24f, 0.10f);
+            Color muzzle = holstein ? new Color(0.98f, 0.78f, 0.78f) : new Color(0.90f, 0.72f, 0.55f);
+
+            float cx = 31.5f, cy = 31.5f;
+            for (int y = 0; y < sz; y++)
+            {
+                for (int x = 0; x < sz; x++)
+                {
+                    float dx = Mathf.Max(0, Mathf.Abs(x - cx) - 24f);
+                    float dy = Mathf.Max(0, Mathf.Abs(y - cy) - 24f);
+                    float dist = Mathf.Sqrt(dx * dx + dy * dy);
+                    if (dist > 8f)
+                    {
+                        pixels[y * sz + x] = Color.clear;
+                        continue;
+                    }
+
+                    Color pCol = bg;
+                    if (dist > 6f || x < 4 || x > 59 || y < 4 || y > 59)
+                    {
+                        pCol = frame;
+                    }
+                    else if (chicken)
+                    {
+                        float hx = x - 32f;
+                        float hy = y - 30f;
+                        float head = hx * hx / 220f + hy * hy / 240f;
+                        bool inHead = head <= 1f;
+                        bool inComb = y >= 46 && y <= 58 && Mathf.Abs(x - 32) <= (y >= 52 ? 5 : 8) && (x == 32 || Mathf.Abs(x - 32) == 5 || (y >= 48 && y <= 54 && Mathf.Abs(x - 32) <= 3));
+                        bool inBeak = y >= 26 && y <= 34 && x >= 28 && x <= 42 && Mathf.Abs(y - 30) <= (42 - x) * 0.45f + 1f;
+                        bool inEyeL = (x - 24) * (x - 24) + (y - 36) * (y - 36) <= 10;
+                        bool inEyeR = (x - 40) * (x - 40) + (y - 36) * (y - 36) <= 10;
+                        bool inWattle = y >= 22 && y <= 28 && Mathf.Abs(x - 32) <= 4;
+
+                        if (inComb) pCol = comb;
+                        else if (inBeak) pCol = beak;
+                        else if (inEyeL || inEyeR) pCol = Color.black;
+                        else if (inWattle) pCol = comb;
+                        else if (inHead) pCol = feather;
+                    }
+                    else
+                    {
+                        float hx = x - 32f;
+                        float hy = y - 32f;
+                        bool inHead = (hx * hx / 280f + hy * hy / 300f) <= 1f;
+                        bool inEarL = (x - 14) * (x - 14) / 36f + (y - 46) * (y - 46) / 64f <= 1f;
+                        bool inEarR = (x - 50) * (x - 50) / 36f + (y - 46) * (y - 46) / 64f <= 1f;
+                        bool inMuzzle = (x - 32) * (x - 32) / 90f + (y - 22) * (y - 22) / 48f <= 1f && y <= 30;
+                        bool inEyeL = (x - 23) * (x - 23) + (y - 36) * (y - 36) <= 12;
+                        bool inEyeR = (x - 41) * (x - 41) + (y - 36) * (y - 36) <= 12;
+                        bool inNostrilL = (x - 28) * (x - 28) + (y - 20) * (y - 20) <= 4;
+                        bool inNostrilR = (x - 36) * (x - 36) + (y - 20) * (y - 20) <= 4;
+                        bool patch = holstein
+                            ? ((x < 22 && y > 34) || (x > 44 && y > 30 && y < 50) || (Mathf.Abs(x - 32) < 6 && y > 40))
+                            : (y > 40 && Mathf.Abs(x - 32) > 10);
+
+                        if (inEarL || inEarR) pCol = cowPatch;
+                        else if (inEyeL || inEyeR) pCol = Color.black;
+                        else if (inNostrilL || inNostrilR) pCol = new Color(0.35f, 0.18f, 0.18f);
+                        else if (inMuzzle) pCol = muzzle;
+                        else if (inHead) pCol = patch ? cowPatch : cowBase;
+                    }
+
+                    pixels[y * sz + x] = pCol;
+                }
+            }
+
+            tex.SetPixels(pixels);
+            tex.Apply();
+            Sprite sprite = Sprite.Create(tex, new Rect(0, 0, sz, sz), new Vector2(0.5f, 0.5f));
+            livestockIconCache[type] = sprite;
+            return sprite;
+        }
+
+        public static Sprite CreateMotorcycleIconSprite()
+        {
+            if (motorcycleIconCache != null) return motorcycleIconCache;
+
+            int sz = 64;
+            Texture2D tex = new Texture2D(sz, sz, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Bilinear;
+            Color[] pixels = new Color[sz * sz];
+
+            Color bg = new Color(0.10f, 0.16f, 0.24f);
+            Color frame = new Color(0.20f, 0.78f, 0.95f);
+            Color body = new Color(0.95f, 0.78f, 0.12f);
+            Color dark = new Color(0.12f, 0.12f, 0.14f);
+            Color tire = new Color(0.18f, 0.18f, 0.20f);
+            Color rim = new Color(0.75f, 0.78f, 0.82f);
+            Color box = new Color(0.18f, 0.55f, 0.28f);
+            Color light = new Color(1.0f, 0.92f, 0.45f);
+
+            float cx = 31.5f, cy = 31.5f;
+            for (int y = 0; y < sz; y++)
+            {
+                for (int x = 0; x < sz; x++)
+                {
+                    float dx = Mathf.Max(0, Mathf.Abs(x - cx) - 24f);
+                    float dy = Mathf.Max(0, Mathf.Abs(y - cy) - 24f);
+                    float dist = Mathf.Sqrt(dx * dx + dy * dy);
+                    if (dist > 8f)
+                    {
+                        pixels[y * sz + x] = Color.clear;
+                        continue;
+                    }
+
+                    Color pCol = bg;
+                    if (dist > 6f || x < 4 || x > 59 || y < 4 || y > 59)
+                    {
+                        pCol = frame;
+                    }
+                    else
+                    {
+                        float dRear = (x - 18) * (x - 18) + (y - 18) * (y - 18);
+                        float dFront = (x - 46) * (x - 46) + (y - 18) * (y - 18);
+                        bool rearTire = dRear <= 100;
+                        bool frontTire = dFront <= 90;
+                        bool rearRim = dRear <= 36;
+                        bool frontRim = dFront <= 30;
+                        bool chassis = y >= 20 && y <= 28 && x >= 16 && x <= 48;
+                        bool tank = y >= 28 && y <= 38 && x >= 22 && x <= 40;
+                        bool seat = y >= 34 && y <= 40 && x >= 20 && x <= 30;
+                        bool cargo = y >= 30 && y <= 50 && x >= 10 && x <= 22;
+                        bool handle = y >= 38 && y <= 48 && x >= 40 && x <= 50 && Mathf.Abs((y - 43) - (x - 45) * 0.4f) <= 3;
+                        bool lamp = (x - 50) * (x - 50) + (y - 30) * (y - 30) <= 16;
+
+                        if (rearRim || frontRim) pCol = rim;
+                        else if (rearTire || frontTire) pCol = tire;
+                        else if (lamp) pCol = light;
+                        else if (cargo) pCol = box;
+                        else if (handle) pCol = dark;
+                        else if (seat) pCol = dark;
+                        else if (tank) pCol = body;
+                        else if (chassis) pCol = dark;
+                    }
+
+                    pixels[y * sz + x] = pCol;
+                }
+            }
+
+            tex.SetPixels(pixels);
+            tex.Apply();
+            motorcycleIconCache = Sprite.Create(tex, new Rect(0, 0, sz, sz), new Vector2(0.5f, 0.5f));
+            return motorcycleIconCache;
         }
     }
 }

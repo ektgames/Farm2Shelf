@@ -75,6 +75,7 @@ namespace Farm2Shelf.UI
         private readonly Dictionary<FurnitureType, int> shoppingCart = new Dictionary<FurnitureType, int>();
         private readonly Dictionary<string, int> wholesaleCart = new Dictionary<string, int>();
         private readonly Dictionary<string, int> seedCart = new Dictionary<string, int>();
+        private readonly Dictionary<LivestockType, int> animalCart = new Dictionary<LivestockType, int>();
 
         private string currentShoppingSearchQuery = "";
         private InputField shoppingSearchInputField;
@@ -200,7 +201,7 @@ namespace Farm2Shelf.UI
 
         private void Start()
         {
-            CreateBottomRightPhoneButtonOnCanvas();
+            EnsurePhoneButtonOnHud();
 
             if (StaffManager.Instance != null)
             {
@@ -296,7 +297,7 @@ namespace Farm2Shelf.UI
                 onlineMarketShiftViewportObj = null;
             }
 
-            CreateBottomRightPhoneButtonOnCanvas();
+            EnsurePhoneButtonOnHud();
 
             if (wasOpen)
             {
@@ -345,46 +346,84 @@ namespace Farm2Shelf.UI
             }
         }
 
+        public void EnsurePhoneButtonOnHud()
+        {
+            Transform hudRoot = ResolveHudCanvasTransform();
+            if (hudRoot == null) return;
+            CreateBottomRightPhoneButtonOnCanvas(hudRoot);
+        }
+
+        private static Transform ResolveHudCanvasTransform()
+        {
+            if (GameHUDManager.Instance != null && GameHUDManager.Instance.HudCanvas != null)
+            {
+                return GameHUDManager.Instance.HudCanvas.transform;
+            }
+
+            GameObject hudCanvas = FindHudCanvasObject();
+            return hudCanvas != null ? hudCanvas.transform : null;
+        }
+
+        private static GameObject FindHudCanvasObject()
+        {
+            GameObject named = GameObject.Find("Farm2Shelf_HUD_Canvas");
+            if (named != null) return named;
+
+            Canvas[] allCanvases = UnityEngine.Object.FindObjectsByType<Canvas>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (int i = 0; i < allCanvases.Length; i++)
+            {
+                Canvas c = allCanvases[i];
+                if (c == null) continue;
+                if (c.name == "Farm2Shelf_HUD_Canvas") return c.gameObject;
+            }
+            return null;
+        }
+
         public void CreateBottomRightPhoneButtonOnCanvas(Transform parentCanvas = null)
         {
-            if (phoneButtonObj != null) Destroy(phoneButtonObj);
-
             if (parentCanvas == null || parentCanvas.gameObject == null)
             {
-                GameObject hudCanvas = GameObject.Find("Farm2Shelf_HUD_Canvas");
-                if (hudCanvas != null)
-                {
-                    parentCanvas = hudCanvas.transform;
-                }
-                else
-                {
-                    Canvas[] allCanvases = UnityEngine.Object.FindObjectsByType<Canvas>(FindObjectsSortMode.None);
-                    foreach (var c in allCanvases)
-                    {
-                        if (c != null && (c.name.Contains("HUD") || c.sortingOrder == 100))
-                        {
-                            parentCanvas = c.transform;
-                            break;
-                        }
-                    }
-                    if (parentCanvas == null && allCanvases.Length > 0)
-                    {
-                        parentCanvas = allCanvases[0].transform;
-                    }
-                }
+                parentCanvas = ResolveHudCanvasTransform();
             }
 
             if (parentCanvas == null) return;
+            if (parentCanvas.name != "Farm2Shelf_HUD_Canvas" && (GameHUDManager.Instance == null || parentCanvas != GameHUDManager.Instance.HudCanvas.transform))
+            {
+                Transform hudRoot = ResolveHudCanvasTransform();
+                if (hudRoot != null) parentCanvas = hudRoot;
+                else return;
+            }
+
+            if (phoneButtonObj != null)
+            {
+                Destroy(phoneButtonObj);
+                phoneButtonObj = null;
+            }
 
             phoneButtonObj = new GameObject("EKT_PHONE_Tab_Button");
             phoneButtonObj.transform.SetParent(parentCanvas, false);
+            phoneButtonObj.transform.SetAsLastSibling();
 
             RectTransform rect = phoneButtonObj.AddComponent<RectTransform>();
             rect.anchorMin = new Vector2(1f, 0f);
             rect.anchorMax = new Vector2(1f, 0f);
             rect.pivot = new Vector2(1f, 0f);
-            rect.anchoredPosition = new Vector2(-35f, 35f);
             rect.sizeDelta = new Vector2(175f, 52f);
+
+            float padRight = 35f;
+            float padBottom = 35f;
+            RectTransform canvasRt = parentCanvas as RectTransform;
+            if (canvasRt != null && Screen.width > 0 && Screen.height > 0)
+            {
+                Rect safe = Screen.safeArea;
+                Vector2 canvasSize = canvasRt.rect.size;
+                if (canvasSize.x > 1f && canvasSize.y > 1f)
+                {
+                    padRight += ((Screen.width - safe.xMax) / Screen.width) * canvasSize.x;
+                    padBottom += (safe.yMin / Screen.height) * canvasSize.y;
+                }
+            }
+            rect.anchoredPosition = new Vector2(-padRight, padBottom);
 
             Image bg = phoneButtonObj.AddComponent<Image>();
             bg.sprite = UIStyleUtility.CreateOutlinePillSprite(175, 52, 26, 3, new Color(0.20f, 0.85f, 1.0f, 0.95f), new Color(0.10f, 0.14f, 0.20f, 0.90f));
@@ -3001,6 +3040,7 @@ namespace Farm2Shelf.UI
                 LocalizationManager.L("Cat_Decoration", "🎨 Dekorasyonlar", "🎨 Decorations"),
                 LocalizationManager.L("Cat_Wholesale", "📦 Toptancı", "📦 Wholesaler"),
                 LocalizationManager.L("Cat_Seeds", "🌱 Tohumlar", "🌱 Seeds"),
+                LocalizationManager.L("Cat_Animals", "🐾 Hayvanlar", "🐾 Animals"),
                 LocalizationManager.L("Cat_Renovation", "🔨 Tadilat", "🔨 Renovation"),
                 LocalizationManager.L("Cat_Workshop", "🏭 Atölye Makineleri", "🏭 Workshop Machines"),
                 LocalizationManager.L("Cat_Vehicles", "🛵 Araçlar", "🛵 Vehicles")
@@ -3020,19 +3060,23 @@ namespace Farm2Shelf.UI
 
                 if (shoppingCategoryHeaderSub != null) shoppingCategoryHeaderSub.gameObject.SetActive(false);
                 if (furnitureViewportObj != null) furnitureViewportObj.gameObject.SetActive(true);
-                if (shoppingCartSummaryPanelObj != null) shoppingCartSummaryPanelObj.SetActive(activeShoppingCategory != 4 && activeShoppingCategory != 6);
+                if (shoppingCartSummaryPanelObj != null) shoppingCartSummaryPanelObj.SetActive(activeShoppingCategory != 5 && activeShoppingCategory != 7);
 
-                if (activeShoppingCategory == 6)
+                if (activeShoppingCategory == 7)
                 {
                     RenderVehiclesList();
                 }
-                else if (activeShoppingCategory == 5)
+                else if (activeShoppingCategory == 6)
                 {
                     RenderFurnitureList(FurnitureCategory.Workshop);
                 }
-                else if (activeShoppingCategory == 4)
+                else if (activeShoppingCategory == 5)
                 {
                     RenderRenovationList();
+                }
+                else if (activeShoppingCategory == 4)
+                {
+                    RenderAnimalProductList();
                 }
                 else if (activeShoppingCategory == 3)
                 {
@@ -3076,10 +3120,8 @@ namespace Farm2Shelf.UI
             ibRect.sizeDelta = new Vector2(64f, 64f);
 
             Image ibBg = iconBox.AddComponent<Image>();
-            ibBg.sprite = UIStyleUtility.CreateRoundedPillSprite(64, 64, 14, new Color(0.15f, 0.22f, 0.32f));
-
-            Text icoTxt = CreateTextInPanel(iconBox.transform, Vector2.zero, Vector2.one, "🛵", 32, Color.white);
-            icoTxt.alignment = TextAnchor.MiddleCenter;
+            ibBg.sprite = UIStyleUtility.CreateMotorcycleIconSprite();
+            ibBg.preserveAspect = true;
 
             // Orta Bilgi Alanı
             GameObject infoPanel = new GameObject("InfoPanel");
@@ -3465,6 +3507,133 @@ namespace Farm2Shelf.UI
                 string lockTxt = !isMatchingSeason ? outSeasonStr : string.Format(reqLvlFmt, def.requiredLevel);
                 GameObject lockBtn = CreateButtonInPanel(ctrlParent, new Vector2(0f, 0f), new Vector2(105f, 34f), lockTxt, new Color(0.35f, 0.35f, 0.40f), null, 15);
             }
+        }
+
+        private void RenderAnimalProductList()
+        {
+            if (furnitureListContent == null) return;
+            foreach (Transform child in furnitureListContent) Destroy(child.gameObject);
+
+            List<LivestockShopDef> items = LivestockProductDatabase.GetShopAnimals();
+            LivestockManager lm = LivestockManager.Instance;
+            int ownedChickens = lm != null ? lm.TotalChickens : 0;
+            int ownedCows = lm != null ? lm.TotalCows : 0;
+
+            for (int i = 0; i < items.Count; i++)
+            {
+                LivestockShopDef def = items[i];
+                int owned = lm != null ? lm.GetOwned(def.type) : 0;
+                int inCart = animalCart.ContainsKey(def.type) ? animalCart[def.type] : 0;
+                int groupOwned = def.isChicken ? ownedChickens : ownedCows;
+                int groupCart = 0;
+                foreach (var kvp in animalCart)
+                {
+                    LivestockShopDef other = LivestockProductDatabase.GetShopDef(kvp.Key);
+                    if (other != null && other.isChicken == def.isChicken) groupCart += kvp.Value;
+                }
+                int cap = def.isChicken ? LivestockProductDatabase.MaxChickens : LivestockProductDatabase.MaxCows;
+                int remaining = Mathf.Max(0, cap - groupOwned - groupCart + inCart);
+
+                GameObject cardObj = new GameObject("AnimalCard_" + def.id);
+                cardObj.transform.SetParent(furnitureListContent, false);
+                LayoutElement lElem = cardObj.AddComponent<LayoutElement>();
+                lElem.minHeight = 110f;
+                lElem.preferredHeight = 110f;
+
+                Image cardBg = cardObj.AddComponent<Image>();
+                cardBg.sprite = UIStyleUtility.CreateOutlinePillSprite(520, 110, 14, 1, new Color(0.85f, 0.65f, 0.20f, 0.7f), new Color(0.12f, 0.16f, 0.22f, 0.95f));
+
+                GameObject iconBox = new GameObject("IconBox");
+                iconBox.transform.SetParent(cardObj.transform, false);
+                RectTransform ibRect = iconBox.AddComponent<RectTransform>();
+                ibRect.anchoredPosition = new Vector2(-215f, 0f);
+                ibRect.sizeDelta = new Vector2(64f, 64f);
+                Image ibBg = iconBox.AddComponent<Image>();
+                ibBg.sprite = UIStyleUtility.CreateLivestockIconSprite(def.type);
+                ibBg.preserveAspect = true;
+
+                string ownedFmt = LocalizationManager.L("Animal_OwnedFmt", "{0}  •  Sahip: {1}  •  Kapasite: {2}/{3}  •  {4:N0}C", "{0}  •  Owned: {1}  •  Capacity: {2}/{3}  •  {4:N0}C");
+                Text nameTxt = CreateTextInPanel(cardObj.transform, new Vector2(20f, 18f), new Vector2(300f, 40f), def.LocalizedName, 20, Color.white);
+                nameTxt.alignment = TextAnchor.MiddleLeft;
+                Text subTxt = CreateTextInPanel(cardObj.transform, new Vector2(20f, -16f), new Vector2(340f, 40f), string.Format(ownedFmt, def.isChicken ? LocalizationManager.L("Animal_ChickenTag", "Kümese ışınlanır", "Spawns in coop") : LocalizationManager.L("Animal_CowTag", "İnek ahırına ışınlanır", "Spawns in cow barn"), owned, groupOwned, cap, def.unitPrice), 13, new Color(0.80f, 0.88f, 0.70f));
+                subTxt.alignment = TextAnchor.MiddleLeft;
+
+                GameObject ctrlPanel = new GameObject("Ctrl");
+                ctrlPanel.transform.SetParent(cardObj.transform, false);
+                RectTransform cRect = ctrlPanel.AddComponent<RectTransform>();
+                cRect.anchoredPosition = new Vector2(195f, 0f);
+                cRect.sizeDelta = new Vector2(130f, 50f);
+
+                LivestockShopDef captured = def;
+                UpdateAnimalCardControls(ctrlPanel.transform, captured, remaining);
+            }
+        }
+
+        private void UpdateAnimalCardControls(Transform ctrlParent, LivestockShopDef def, int remainingIfThisRemoved)
+        {
+            if (ctrlParent == null || def == null) return;
+            foreach (Transform child in ctrlParent) Destroy(child.gameObject);
+
+            int inCartCount = animalCart.ContainsKey(def.type) ? animalCart[def.type] : 0;
+            LivestockManager lm = LivestockManager.Instance;
+            int groupOwned = 0;
+            int groupCart = 0;
+            if (lm != null) groupOwned = def.isChicken ? lm.TotalChickens : lm.TotalCows;
+            foreach (var kvp in animalCart)
+            {
+                LivestockShopDef other = LivestockProductDatabase.GetShopDef(kvp.Key);
+                if (other != null && other.isChicken == def.isChicken) groupCart += kvp.Value;
+            }
+            int cap = def.isChicken ? LivestockProductDatabase.MaxChickens : LivestockProductDatabase.MaxCows;
+            bool canAdd = groupOwned + groupCart < cap;
+
+            if (inCartCount > 0)
+            {
+                CreateButtonInPanel(ctrlParent, new Vector2(-44f, 0f), new Vector2(40f, 40f), "-", new Color(0.85f, 0.30f, 0.30f), () => {
+                    if (animalCart.ContainsKey(def.type))
+                    {
+                        animalCart[def.type]--;
+                        if (animalCart[def.type] <= 0) animalCart.Remove(def.type);
+                    }
+                    UpdateAnimalCardControls(ctrlParent, def, remainingIfThisRemoved);
+                    UpdateCartSummary();
+                }, 28);
+
+                Text countTxt = CreateTextInPanel(ctrlParent, new Vector2(0f, 0f), new Vector2(36f, 40f), inCartCount.ToString(), 24, Color.white);
+                countTxt.fontStyle = FontStyle.Bold;
+                countTxt.alignment = TextAnchor.MiddleCenter;
+
+                CreateButtonInPanel(ctrlParent, new Vector2(44f, 0f), new Vector2(40f, 40f), "+", new Color(0.30f, 0.75f, 0.40f), () => {
+                    if (!canAdd) return;
+                    if (!animalCart.ContainsKey(def.type)) animalCart[def.type] = 0;
+                    animalCart[def.type]++;
+                    UpdateAnimalCardControls(ctrlParent, def, remainingIfThisRemoved);
+                    UpdateCartSummary();
+                }, 28);
+            }
+            else
+            {
+                string btnAdd = canAdd
+                    ? LocalizationManager.L("Btn_AddToCart", "+ Sepete Ekle", "+ Add to Cart")
+                    : LocalizationManager.L("Btn_AnimalCap", "🔒 Kapasite Dolu", "🔒 Capacity Full");
+                CreateButtonInPanel(ctrlParent, new Vector2(0f, 0f), new Vector2(110f, 38f), btnAdd, canAdd ? new Color(0.20f, 0.75f, 0.35f) : new Color(0.35f, 0.35f, 0.40f), () => {
+                    if (!canAdd) return;
+                    animalCart[def.type] = 1;
+                    UpdateAnimalCardControls(ctrlParent, def, remainingIfThisRemoved);
+                    UpdateCartSummary();
+                }, 15);
+            }
+        }
+
+        private int GetAnimalCartCount(bool chickenGroup)
+        {
+            int total = 0;
+            foreach (var kvp in animalCart)
+            {
+                LivestockShopDef other = LivestockProductDatabase.GetShopDef(kvp.Key);
+                if (other != null && other.isChicken == chickenGroup) total += kvp.Value;
+            }
+            return total;
         }
 
         private void RenderRenovationList()
@@ -3870,6 +4039,16 @@ namespace Farm2Shelf.UI
                 }
             }
 
+            foreach (var kvp in animalCart)
+            {
+                LivestockShopDef def = LivestockProductDatabase.GetShopDef(kvp.Key);
+                if (def != null)
+                {
+                    totalItems += kvp.Value;
+                    totalCost += def.unitPrice * kvp.Value;
+                }
+            }
+
             if (shoppingCartSummaryText != null)
             {
                 string cartSummaryFmt = LocalizationManager.L("Cart_SummaryFmt", "🛒 Sepet: {0} Kalem ({1:N0}C)", "🛒 Cart: {0} Items ({1:N0}C)");
@@ -3943,6 +4122,16 @@ namespace Farm2Shelf.UI
                 {
                     totalItems += kvp.Value;
                     totalCost += def.packPrice * kvp.Value;
+                }
+            }
+
+            foreach (var kvp in animalCart)
+            {
+                LivestockShopDef def = LivestockProductDatabase.GetShopDef(kvp.Key);
+                if (def != null)
+                {
+                    totalItems += kvp.Value;
+                    totalCost += def.unitPrice * kvp.Value;
                 }
             }
 
@@ -4031,6 +4220,8 @@ namespace Farm2Shelf.UI
                 WholesaleTruckManager.Instance.DispatchWholesaleDelivery(orderWholesale);
             }
 
+            Dictionary<LivestockType, int> purchasedAnimals = new Dictionary<LivestockType, int>(animalCart);
+
             // Satın Alınan Tohumları Doğrudan Ahır Tohum Envanterine Ekle!
             foreach (var kvp in seedCart)
             {
@@ -4044,9 +4235,21 @@ namespace Farm2Shelf.UI
                 }
             }
 
+            int spawnedAnimals = 0;
+            if (LivestockManager.Instance != null)
+            {
+                foreach (var kvp in purchasedAnimals)
+                {
+                    if (kvp.Value <= 0) continue;
+                    LivestockManager.Instance.GrantAnimals(kvp.Key, kvp.Value);
+                    spawnedAnimals += kvp.Value;
+                }
+            }
+
             shoppingCart.Clear();
             wholesaleCart.Clear();
             seedCart.Clear();
+            animalCart.Clear();
             RenderShoppingCategoryContent();
 
             if (orderWholesale.Count > 0)
@@ -4055,7 +4258,13 @@ namespace Farm2Shelf.UI
                 string bodyFmt = LocalizationManager.L("Modal_TruckDispatched_Body", "Toplam {0} kalem siparişiniz alındı!\n\nÖzel kapalı kasa kamyon teslimatı kapıya ulaştırıyor.", "Your order of {0} items has been received!\n\nA dedicated box truck is delivering your goods to the loading dock.");
                 ModalManager.ShowModal(title, string.Format(bodyFmt, totalItems), btnGreat);
             }
-            else if (workshopMachineOrders.Count > 0 && storeFurnitureOrders.Count == 0 && seedCart.Count == 0)
+            else if (spawnedAnimals > 0 && storeFurnitureOrders.Count == 0 && workshopMachineOrders.Count == 0)
+            {
+                string aTitle = LocalizationManager.L("Modal_AnimalsArrived_Title", "Hayvanlar Kümese Ulaştı! 🐾", "Animals Arrived at the Yard! 🐾");
+                string aBody = LocalizationManager.L("Modal_AnimalsArrived_Body", "Satın aldığınız hayvanlar ilgili çitli bahçeye ışınlandı.\nTavuk kümesi veya inek ahırına dokunarak yumurta ve sütü yönetebilirsiniz.", "Purchased animals spawned in their fenced yards.\nTap the chicken coop or cow barn to manage eggs and milk.");
+                ModalManager.ShowModal(aTitle, aBody, btnGreat);
+            }
+            else if (workshopMachineOrders.Count > 0 && storeFurnitureOrders.Count == 0)
             {
                 string wsTitle = LocalizationManager.L("Modal_WorkshopDelivered_Title", "Atölye Makineleri Teslim Edildi! 🏭", "Workshop Machines Delivered! 🏭");
                 string wsBody = LocalizationManager.L("Modal_WorkshopDelivered_Body", "Satın aldığınız endüstriyel makineler doğrudan <b>Atölye Paletine</b> teslim edildi.\n\nAtölye binasına gidip palete dokunarak makinelerinizi hemen kurabilirsiniz!", "Purchased industrial machines have been delivered directly to the <b>Workshop Pallet</b>.\n\nVisit the workshop and click the pallet to assemble them!");
@@ -4169,7 +4378,7 @@ namespace Farm2Shelf.UI
             int totalItems = 0;
             int totalCost = 0;
 
-            if (shoppingCart.Count == 0 && wholesaleCart.Count == 0 && seedCart.Count == 0)
+            if (shoppingCart.Count == 0 && wholesaleCart.Count == 0 && seedCart.Count == 0 && animalCart.Count == 0)
             {
                 GameObject emptyObj = new GameObject("EmptyMsg");
                 emptyObj.transform.SetParent(cartContent, false);
@@ -4346,6 +4555,58 @@ namespace Farm2Shelf.UI
                     // Ürünü Sepetten Tamamen Çıkarma Butonu (X)
                     CreateButtonInPanel(itemRow.transform, new Vector2(254f, 0f), new Vector2(36f, 36f), "✕", new Color(0.82f, 0.22f, 0.22f), () => {
                         seedCart.Remove(sId);
+                        UpdateCartSummary();
+                        RenderShoppingCategoryContent();
+                        RenderCartModalItems(cartContent, totalTxt, payBtn);
+                    }, 19);
+                }
+
+                foreach (var kvp in new Dictionary<LivestockType, int>(animalCart))
+                {
+                    LivestockType aType = kvp.Key;
+                    int count = kvp.Value;
+                    LivestockShopDef def = LivestockProductDatabase.GetShopDef(aType);
+                    if (def == null) continue;
+
+                    int itemTotalCost = def.unitPrice * count;
+                    totalItems += count;
+                    totalCost += itemTotalCost;
+
+                    GameObject itemRow = new GameObject("CartRow_Animal_" + def.id);
+                    itemRow.transform.SetParent(cartContent, false);
+                    LayoutElement rElem = itemRow.AddComponent<LayoutElement>();
+                    rElem.minHeight = 54f;
+                    rElem.preferredHeight = 54f;
+                    Image rBg = itemRow.AddComponent<Image>();
+                    rBg.sprite = UIStyleUtility.CreateRoundedPillSprite(580, 54, 10, new Color(0.22f, 0.20f, 0.12f));
+
+                    Text nameTxt = CreateTextInPanel(itemRow.transform, new Vector2(-155f, 0f), new Vector2(230f, 40f), $"{def.iconEmoji} {def.LocalizedName}", 18, Color.white);
+                    nameTxt.alignment = TextAnchor.MiddleLeft;
+                    Text priceTxt = CreateTextInPanel(itemRow.transform, new Vector2(20f, 0f), new Vector2(150f, 40f), $"{count} x {def.unitPrice:N0} = {itemTotalCost:N0} Cr", 17, new Color(0.95f, 0.80f, 0.35f));
+                    priceTxt.alignment = TextAnchor.MiddleCenter;
+
+                    CreateButtonInPanel(itemRow.transform, new Vector2(138f, 0f), new Vector2(36f, 36f), "-", new Color(0.85f, 0.30f, 0.30f), () => {
+                        animalCart[aType]--;
+                        if (animalCart[aType] <= 0) animalCart.Remove(aType);
+                        UpdateCartSummary();
+                        RenderShoppingCategoryContent();
+                        RenderCartModalItems(cartContent, totalTxt, payBtn);
+                    }, 26);
+                    Text countLabel = CreateTextInPanel(itemRow.transform, new Vector2(174f, 0f), new Vector2(30f, 36f), count.ToString(), 22, Color.white);
+                    countLabel.fontStyle = FontStyle.Bold;
+                    countLabel.alignment = TextAnchor.MiddleCenter;
+                    CreateButtonInPanel(itemRow.transform, new Vector2(210f, 0f), new Vector2(36f, 36f), "+", new Color(0.28f, 0.75f, 0.40f), () => {
+                        if (LivestockManager.Instance == null) return;
+                        int cap = def.isChicken ? LivestockProductDatabase.MaxChickens : LivestockProductDatabase.MaxCows;
+                        int owned = def.isChicken ? LivestockManager.Instance.TotalChickens : LivestockManager.Instance.TotalCows;
+                        if (owned + GetAnimalCartCount(def.isChicken) >= cap) return;
+                        animalCart[aType]++;
+                        UpdateCartSummary();
+                        RenderShoppingCategoryContent();
+                        RenderCartModalItems(cartContent, totalTxt, payBtn);
+                    }, 26);
+                    CreateButtonInPanel(itemRow.transform, new Vector2(254f, 0f), new Vector2(36f, 36f), "✕", new Color(0.82f, 0.22f, 0.22f), () => {
+                        animalCart.Remove(aType);
                         UpdateCartSummary();
                         RenderShoppingCategoryContent();
                         RenderCartModalItems(cartContent, totalTxt, payBtn);

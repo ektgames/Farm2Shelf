@@ -96,7 +96,14 @@ namespace Farm2Shelf.Core
         /// </summary>
         public void SetWorkshopLevel(int level)
         {
-            currentWorkshopLevel = Mathf.Clamp(level, 1, 3);
+            int clamped = Mathf.Clamp(level, 1, 3);
+            bool workshopReady = GameObject.Find("Workshop_Complex") != null;
+            if (currentWorkshopLevel == clamped && workshopReady)
+            {
+                return;
+            }
+
+            currentWorkshopLevel = clamped;
 
             if (WorkshopBuilder.Instance != null)
             {

@@ -413,6 +413,7 @@ namespace Farm2Shelf.Environment
         {
             if (string.IsNullOrEmpty(productName)) return false;
             if (GardenSeedDatabase.GetSeedById(productName) != null) return true;
+            if (LivestockProductDatabase.IsLivestockProduct(productName)) return true;
             var seedList = GardenSeedDatabase.GetAllSeeds();
             if (seedList != null)
             {
@@ -449,6 +450,10 @@ namespace Farm2Shelf.Environment
             }
             if (pDef != null)
             {
+                if (LivestockProductDatabase.IsLivestockProduct(pDef.id) || LivestockProductDatabase.IsLivestockProduct(productName))
+                {
+                    return currentUnitPrice > pDef.SalePricePerUnit;
+                }
                 float baseCost = pDef.wholesaleUnitPrice;
                 if (baseCost > 0)
                 {
@@ -762,7 +767,7 @@ namespace Farm2Shelf.Environment
         private bool IsShelfStockedForCustomer(PlacedFurnitureController f, int customerTier)
         {
             if (f == null || f.rows == null) return false;
-            bool isStoreShelf = (f.FurnitureType == FurnitureType.Shelf || f.FurnitureType == FurnitureType.Fridge || f.FurnitureType == FurnitureType.Freezer || f.FurnitureType == FurnitureType.BakeryCounter || f.FurnitureType == FurnitureType.ProduceShelf || f.FurnitureType == FurnitureType.CosmeticShelf || f.FurnitureType == FurnitureType.ElectronicsShelf || f.FurnitureType == FurnitureType.ButcherCounter || f.FurnitureType == FurnitureType.GourmetShelf);
+            bool isStoreShelf = (f.FurnitureType == FurnitureType.Shelf || f.FurnitureType == FurnitureType.Fridge || f.FurnitureType == FurnitureType.OrganicFridge || f.FurnitureType == FurnitureType.Freezer || f.FurnitureType == FurnitureType.BakeryCounter || f.FurnitureType == FurnitureType.ProduceShelf || f.FurnitureType == FurnitureType.CosmeticShelf || f.FurnitureType == FurnitureType.ElectronicsShelf || f.FurnitureType == FurnitureType.ButcherCounter || f.FurnitureType == FurnitureType.GourmetShelf);
             if (!isStoreShelf) return false;
 
             foreach (var r in f.rows)
@@ -2550,7 +2555,7 @@ namespace Farm2Shelf.Environment
             {
                 var f = allFurniture[i];
                 if (f == null) continue;
-                if (f.FurnitureType == FurnitureType.Shelf || f.FurnitureType == FurnitureType.Fridge || f.FurnitureType == FurnitureType.Freezer || f.FurnitureType == FurnitureType.BakeryCounter || f.FurnitureType == ProduceShelfType() || f.FurnitureType == FurnitureType.ProduceShelf || f.FurnitureType == FurnitureType.CosmeticShelf || f.FurnitureType == FurnitureType.ElectronicsShelf || f.FurnitureType == FurnitureType.ButcherCounter || f.FurnitureType == FurnitureType.GourmetShelf)
+                if (f.FurnitureType == FurnitureType.Shelf || f.FurnitureType == FurnitureType.Fridge || f.FurnitureType == FurnitureType.OrganicFridge || f.FurnitureType == FurnitureType.Freezer || f.FurnitureType == FurnitureType.BakeryCounter || f.FurnitureType == ProduceShelfType() || f.FurnitureType == FurnitureType.ProduceShelf || f.FurnitureType == FurnitureType.CosmeticShelf || f.FurnitureType == FurnitureType.ElectronicsShelf || f.FurnitureType == FurnitureType.ButcherCounter || f.FurnitureType == FurnitureType.GourmetShelf)
                 {
                     float dist = Vector3.Distance(pos, f.GetFrontInteractionPosition(1.2f));
                     if (dist < minDistance)

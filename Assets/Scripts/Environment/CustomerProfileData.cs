@@ -122,7 +122,7 @@ namespace Farm2Shelf.Environment
             return data;
         }
 
-        private static bool IsCustomerFemale(CustomerType type)
+        public static bool IsCustomerFemale(CustomerType type)
         {
             switch (type)
             {

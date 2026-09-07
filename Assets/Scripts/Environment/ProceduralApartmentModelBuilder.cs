@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
+using Farm2Shelf.Utils;
 
 namespace Farm2Shelf.Environment
 {
@@ -71,9 +72,8 @@ namespace Farm2Shelf.Environment
 
         private static Material CreateMat(string name, Color color, float metallic = 0f, float smoothness = 0.1f)
         {
-            Shader s = Shader.Find("Universal Render Pipeline/Lit");
+            Shader s = ShaderHelper.GetLitShader();
             if (s == null) s = Shader.Find("Standard");
-            if (s == null) s = Shader.Find("Diffuse");
             Material m = new Material(s) { name = name };
             m.color = color;
             if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", color);

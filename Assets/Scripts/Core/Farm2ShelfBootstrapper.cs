@@ -22,6 +22,8 @@ namespace Farm2Shelf.Core
         private void Awake()
         {
             ConfigureMobilePerformance();
+            Farm2Shelf.Utils.ShaderHelper.GetLitShader();
+            Farm2Shelf.Utils.PrimitiveFactory.Warmup();
             if (autoBuildOnStart)
             {
                 InitializeGameWorld();
@@ -111,6 +113,12 @@ namespace Farm2Shelf.Core
             if (managersObj.GetComponent<SaveSystemManager>() == null)
                 managersObj.AddComponent<SaveSystemManager>();
 
+            if (managersObj.GetComponent<LivestockManager>() == null)
+                managersObj.AddComponent<LivestockManager>();
+
+            if (managersObj.GetComponent<DailySpinWheelManager>() == null)
+                managersObj.AddComponent<DailySpinWheelManager>();
+
             if (managersObj.GetComponent<TutorialManager>() == null)
                 managersObj.AddComponent<TutorialManager>();
 
@@ -125,6 +133,9 @@ namespace Farm2Shelf.Core
 
             if (managersObj.GetComponent<Farm2Shelf.UI.WorkshopPalletModalUI>() == null)
                 managersObj.AddComponent<Farm2Shelf.UI.WorkshopPalletModalUI>();
+
+            if (managersObj.GetComponent<Farm2Shelf.UI.LivestockCoopModalUI>() == null)
+                managersObj.AddComponent<Farm2Shelf.UI.LivestockCoopModalUI>();
 
             // 2. Çevre Oluşturucu
             GameObject envManager = GameObject.Find("EnvironmentManager");
@@ -203,6 +214,9 @@ namespace Farm2Shelf.Core
 
             if (uiManagerObj.GetComponent<HowToPlayModalUI>() == null)
                 uiManagerObj.AddComponent<HowToPlayModalUI>();
+
+            if (uiManagerObj.GetComponent<DailySpinWheelUI>() == null)
+                uiManagerObj.AddComponent<DailySpinWheelUI>();
         }
 
         #if UNITY_EDITOR

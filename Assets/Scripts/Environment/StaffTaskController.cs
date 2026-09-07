@@ -1674,7 +1674,7 @@ namespace Farm2Shelf.Environment
 
         private static bool IsStoreShelf(FurnitureType t)
         {
-            return t == FurnitureType.Shelf || t == FurnitureType.Fridge || t == FurnitureType.Freezer ||
+            return t == FurnitureType.Shelf || t == FurnitureType.Fridge || t == FurnitureType.OrganicFridge || t == FurnitureType.Freezer ||
                    t == FurnitureType.ProduceShelf || t == FurnitureType.BakeryCounter ||
                    t == FurnitureType.CosmeticShelf || t == FurnitureType.ElectronicsShelf ||
                    t == FurnitureType.ButcherCounter || t == FurnitureType.GourmetShelf;

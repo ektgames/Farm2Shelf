@@ -588,13 +588,14 @@ namespace Farm2Shelf.UI
                 int count = kvp.Value;
                 GardenSeedDef sDef = GardenSeedDatabase.GetSeedById(seedId);
                 WorkshopRecipeDef wRecipe = (sDef == null) ? WorkshopMachineDatabase.GetRecipeByOutputId(seedId) : null;
-                if (sDef == null && wRecipe == null) continue;
+                WholesaleProductDef liveDef = (sDef == null && wRecipe == null) ? LivestockProductDatabase.GetById(seedId) : null;
+                if (sDef == null && wRecipe == null && liveDef == null) continue;
                 if (count <= 0) continue;
 
                 // Arama Filtresi Kontrolü
-                string itemName = (sDef != null) ? sDef.name : wRecipe.outputNameTr;
-                string itemEnName = (sDef != null) ? (!string.IsNullOrEmpty(sDef.nameEn) ? sDef.nameEn : "") : wRecipe.outputNameEn;
-                string itemEmoji = (sDef != null) ? sDef.iconEmoji : wRecipe.iconEmoji;
+                string itemName = (sDef != null) ? sDef.name : (wRecipe != null ? wRecipe.outputNameTr : liveDef.name);
+                string itemEnName = (sDef != null) ? (!string.IsNullOrEmpty(sDef.nameEn) ? sDef.nameEn : "") : (wRecipe != null ? wRecipe.outputNameEn : liveDef.nameEn);
+                string itemEmoji = (sDef != null) ? sDef.iconEmoji : (wRecipe != null ? wRecipe.iconEmoji : liveDef.iconEmoji);
 
                 if (!string.IsNullOrEmpty(searchQuery))
                 {
@@ -606,11 +607,11 @@ namespace Farm2Shelf.UI
 
                 matchedCount++;
 
-                int rawCost = (sDef != null) ? Mathf.Max(1, Mathf.RoundToInt(sDef.unitSalePrice / 1.40f)) : Mathf.Max(1, Mathf.RoundToInt(wRecipe.unitSalePrice / 1.80f));
-                int salePrice = (sDef != null) ? sDef.unitSalePrice : wRecipe.unitSalePrice;
-                int quickSellUnitPrice = Mathf.Max(1, Mathf.RoundToInt(rawCost * 1.20f));
+                int rawCost = (sDef != null) ? Mathf.Max(1, Mathf.RoundToInt(sDef.unitSalePrice / 1.40f)) : (wRecipe != null ? Mathf.Max(1, Mathf.RoundToInt(wRecipe.unitSalePrice / 1.80f)) : liveDef.wholesaleUnitPrice);
+                int salePrice = (sDef != null) ? sDef.unitSalePrice : (wRecipe != null ? wRecipe.unitSalePrice : liveDef.SalePricePerUnit);
+                int quickSellUnitPrice = (liveDef != null) ? LivestockProductDatabase.GetQuickSellUnitPrice(liveDef.id) : Mathf.Max(1, Mathf.RoundToInt(rawCost * 1.20f));
                 string unitLabel = (sDef != null) ? "KG" : LocalizationManager.L("Unit_Pieces", "Adet", "Pcs");
-                string itemShortName = (sDef != null) ? sDef.LocalizedName.Replace(" Tohumu", "").Replace(" Seeds", "").Replace(" Seed", "") : wRecipe.LocalizedName;
+                string itemShortName = (sDef != null) ? sDef.LocalizedName.Replace(" Tohumu", "").Replace(" Seeds", "").Replace(" Seed", "") : (wRecipe != null ? wRecipe.LocalizedName : liveDef.LocalizedName);
 
                 GameObject rowObj = new GameObject("Row_" + seedId);
                 rowObj.transform.SetParent(listContentTransform, false);
@@ -656,7 +657,19 @@ namespace Farm2Shelf.UI
                 Text cTxt = countObj.AddComponent<Text>();
                 cTxt.font = font;
                 string countColor = (wRecipe != null) ? "#FFD700" : "#00E676";
-                cTxt.text = $"<color={countColor}><b>{count} {unitLabel}</b></color>";
+                if (liveDef != null)
+                {
+                    int cratesReady = count / LivestockProductDatabase.PackSize;
+                    int leftover = count % LivestockProductDatabase.PackSize;
+                    string leftoverFmt = leftover > 0
+                        ? string.Format(LocalizationManager.L("Barn_CrateLeftover", " (+{0} adet)", " (+{0} pcs)"), leftover)
+                        : "";
+                    cTxt.text = $"<color={countColor}><b>{cratesReady} {LocalizationManager.L("Unit_Crates", "Koli", "Crates")}</b></color>\n<size=11>{count} {unitLabel}{leftoverFmt}</size>";
+                }
+                else
+                {
+                    cTxt.text = $"<color={countColor}><b>{count} {unitLabel}</b></color>";
+                }
                 cTxt.fontSize = 16;
                 cTxt.alignment = TextAnchor.MiddleRight;
 
@@ -720,12 +733,16 @@ namespace Farm2Shelf.UI
 
             GardenSeedDef sDef = GardenSeedDatabase.GetSeedById(seedId);
             WorkshopRecipeDef wRecipe = (sDef == null) ? WorkshopMachineDatabase.GetRecipeByOutputId(seedId) : null;
-            if ((sDef == null && wRecipe == null) || totalAvailable <= 0) return;
+            WholesaleProductDef liveDef = (sDef == null && wRecipe == null) ? LivestockProductDatabase.GetById(seedId) : null;
+            if ((sDef == null && wRecipe == null && liveDef == null) || totalAvailable <= 0) return;
 
             Font font = UIStyleUtility.GetGlobalFont(16);
-            string cropShortName = (sDef != null) ? sDef.LocalizedName.Replace(" Tohumu", "").Replace(" Seeds", "").Replace(" Seed", "") : wRecipe.LocalizedName;
-            string itemEmoji = (sDef != null) ? sDef.iconEmoji : wRecipe.iconEmoji;
+            string cropShortName = (sDef != null) ? sDef.LocalizedName.Replace(" Tohumu", "").Replace(" Seeds", "").Replace(" Seed", "") : (wRecipe != null ? wRecipe.LocalizedName : liveDef.LocalizedName);
+            string itemEmoji = (sDef != null) ? sDef.iconEmoji : (wRecipe != null ? wRecipe.iconEmoji : liveDef.iconEmoji);
             string unitLabel = (sDef != null) ? "KG" : LocalizationManager.L("Unit_Pieces", "Adet", "Pcs");
+            bool crateMode = liveDef != null;
+            int packSize = LivestockProductDatabase.PackSize;
+            int maxCrateUnits = crateMode ? (totalAvailable / packSize) * packSize : totalAvailable;
 
             distributionModalObj = new GameObject("Distribution_Modal_Backdrop");
             distributionModalObj.transform.SetParent(canvasObj.transform, false);
@@ -805,14 +822,18 @@ namespace Farm2Shelf.UI
 
             Text aTxt = availObj.AddComponent<Text>();
             aTxt.font = font;
-            string availFmt = LocalizationManager.L("Dist_AvailableStock", "Ahırdaki Mevcut Stok: <color=#00E676><b>{0} {1}</b></color>", "Available in Barn: <color=#00E676><b>{0} {1}</b></color>");
-            aTxt.text = string.Format(availFmt, totalAvailable, unitLabel);
+            string availFmt = crateMode
+                ? LocalizationManager.L("Dist_AvailableCrates", "Ahırdaki Mevcut Stok: <color=#00E676><b>{0} koli</b></color> ({1} adet)", "Available in Barn: <color=#00E676><b>{0} crates</b></color> ({1} pcs)")
+                : LocalizationManager.L("Dist_AvailableStock", "Ahırdaki Mevcut Stok: <color=#00E676><b>{0} {1}</b></color>", "Available in Barn: <color=#00E676><b>{0} {1}</b></color>");
+            aTxt.text = crateMode
+                ? string.Format(availFmt, maxCrateUnits / packSize, totalAvailable)
+                : string.Format(availFmt, totalAvailable, unitLabel);
             aTxt.fontSize = 15;
             aTxt.alignment = TextAnchor.MiddleCenter;
             aTxt.color = Color.white;
 
             // Seçilen Miktar State
-            int selectedAmount = totalAvailable;
+            int selectedAmount = crateMode ? Mathf.Max(0, maxCrateUnits) : totalAvailable;
 
             // Miktar Göstergesi Paneli
             GameObject amtObj = new GameObject("AmountDisplay");
@@ -833,37 +854,50 @@ namespace Farm2Shelf.UI
 
             Text amtTxt = amtTxtObj.AddComponent<Text>();
             amtTxt.font = font;
-            amtTxt.text = $"<color=#00E676><b>{selectedAmount} {unitLabel}</b></color>";
+            amtTxt.text = crateMode
+                ? $"<color=#00E676><b>{selectedAmount / packSize} {LocalizationManager.L("Unit_Crates", "Koli", "Crates")}</b></color>"
+                : $"<color=#00E676><b>{selectedAmount} {unitLabel}</b></color>";
             amtTxt.fontSize = 22;
             amtTxt.fontStyle = FontStyle.Bold;
             amtTxt.alignment = TextAnchor.MiddleCenter;
 
             System.Action updateDisplay = () => {
-                selectedAmount = Mathf.Clamp(selectedAmount, 1, totalAvailable);
-                if (amtTxt != null) amtTxt.text = $"<color=#00E676><b>{selectedAmount} {unitLabel}</b></color>";
+                if (crateMode)
+                {
+                    selectedAmount = (Mathf.Clamp(selectedAmount, 0, maxCrateUnits) / packSize) * packSize;
+                }
+                else
+                {
+                    selectedAmount = Mathf.Clamp(selectedAmount, 1, totalAvailable);
+                }
+                if (amtTxt != null)
+                {
+                    amtTxt.text = crateMode
+                        ? $"<color=#00E676><b>{selectedAmount / packSize} {LocalizationManager.L("Unit_Crates", "Koli", "Crates")}</b></color>"
+                        : $"<color=#00E676><b>{selectedAmount} {unitLabel}</b></color>";
+                }
             };
 
-            // Buton: -10
-            CreateStepperButton(dPanel.transform, font, new Vector2(-230f, 105f), new Vector2(54f, 44f), "-10", () => {
-                selectedAmount -= 10;
+            int stepSmall = crateMode ? packSize : 1;
+            int stepLarge = crateMode ? packSize * 2 : 10;
+
+            CreateStepperButton(dPanel.transform, font, new Vector2(-230f, 105f), new Vector2(54f, 44f), crateMode ? "-2" : "-10", () => {
+                selectedAmount -= stepLarge;
                 updateDisplay();
             });
 
-            // Buton: -1
-            CreateStepperButton(dPanel.transform, font, new Vector2(-155f, 105f), new Vector2(54f, 44f), "-1", () => {
-                selectedAmount -= 1;
+            CreateStepperButton(dPanel.transform, font, new Vector2(-155f, 105f), new Vector2(54f, 44f), crateMode ? "-1" : "-1", () => {
+                selectedAmount -= stepSmall;
                 updateDisplay();
             });
 
-            // Buton: +1
-            CreateStepperButton(dPanel.transform, font, new Vector2(155f, 105f), new Vector2(54f, 44f), "+1", () => {
-                selectedAmount += 1;
+            CreateStepperButton(dPanel.transform, font, new Vector2(155f, 105f), new Vector2(54f, 44f), crateMode ? "+1" : "+1", () => {
+                selectedAmount += stepSmall;
                 updateDisplay();
             });
 
-            // Buton: +10
-            CreateStepperButton(dPanel.transform, font, new Vector2(230f, 105f), new Vector2(54f, 44f), "+10", () => {
-                selectedAmount += 10;
+            CreateStepperButton(dPanel.transform, font, new Vector2(230f, 105f), new Vector2(54f, 44f), crateMode ? "+2" : "+10", () => {
+                selectedAmount += stepLarge;
                 updateDisplay();
             });
 
@@ -875,17 +909,21 @@ namespace Farm2Shelf.UI
             prRect.sizeDelta = new Vector2(480f, 36f);
 
             CreatePresetButton(presetRow.transform, font, new Vector2(-160f, 0f), "%25", () => {
-                selectedAmount = Mathf.Max(1, Mathf.RoundToInt(totalAvailable * 0.25f));
+                selectedAmount = crateMode
+                    ? Mathf.Max(0, (Mathf.RoundToInt(maxCrateUnits * 0.25f) / packSize) * packSize)
+                    : Mathf.Max(1, Mathf.RoundToInt(totalAvailable * 0.25f));
                 updateDisplay();
             });
 
             CreatePresetButton(presetRow.transform, font, new Vector2(0f, 0f), "%50", () => {
-                selectedAmount = Mathf.Max(1, Mathf.RoundToInt(totalAvailable * 0.50f));
+                selectedAmount = crateMode
+                    ? Mathf.Max(0, (Mathf.RoundToInt(maxCrateUnits * 0.50f) / packSize) * packSize)
+                    : Mathf.Max(1, Mathf.RoundToInt(totalAvailable * 0.50f));
                 updateDisplay();
             });
 
             CreatePresetButton(presetRow.transform, font, new Vector2(160f, 0f), LocalizationManager.L("Dist_All", "TÜMÜ (%100)", "ALL (100%)"), () => {
-                selectedAmount = totalAvailable;
+                selectedAmount = crateMode ? maxCrateUnits : totalAvailable;
                 updateDisplay();
             });
 
@@ -903,6 +941,14 @@ namespace Farm2Shelf.UI
                 new Color(0.20f, 0.75f, 0.35f),
                 marketLabel,
                 () => {
+                    if (crateMode && selectedAmount < packSize)
+                    {
+                        ModalManager.ShowModal(
+                            LocalizationManager.L("Coop_NeedCrateTitle", "Koli henüz dolmadı", "Crate not ready"),
+                            string.Format(LocalizationManager.L("Coop_NeedCrateBody", "Dükkana göndermek veya satmak için 1 koli ({0} adet) dolmalı.\nHayvan sayısı arttıkça koli daha hızlı dolar.", "You need 1 full crate ({0} pcs) before selling or shipping.\nMore animals fill crates faster."), packSize),
+                            LocalizationManager.L("Btn_Ok", "Tamam", "OK"));
+                        return;
+                    }
                     ExecuteSingleCropSendToMarket(seedId, selectedAmount);
                     if (distributionModalObj != null) Destroy(distributionModalObj);
                 }
@@ -1049,7 +1095,8 @@ namespace Farm2Shelf.UI
         {
             GardenSeedDef sDef = GardenSeedDatabase.GetSeedById(seedId);
             WorkshopRecipeDef wRecipe = (sDef == null) ? WorkshopMachineDatabase.GetRecipeByOutputId(seedId) : null;
-            if ((sDef == null && wRecipe == null) || amount <= 0) return;
+            WholesaleProductDef liveDef = (sDef == null && wRecipe == null) ? LivestockProductDatabase.GetById(seedId) : null;
+            if ((sDef == null && wRecipe == null && liveDef == null) || amount <= 0) return;
 
             string btnOk = LocalizationManager.L("Btn_Ok", "Tamam", "OK");
             string btnGreat = LocalizationManager.L("Btn_Great", "Harika!", "Great!");
@@ -1066,13 +1113,24 @@ namespace Farm2Shelf.UI
             }
 
             int count = amount;
+            if (liveDef != null)
+            {
+                count = (count / LivestockProductDatabase.PackSize) * LivestockProductDatabase.PackSize;
+                if (count < LivestockProductDatabase.PackSize) return;
+            }
             List<WholesaleProductDef> farmProductList = new List<WholesaleProductDef>();
 
             while (count > 0)
             {
                 int packAmount = Mathf.Min(50, count);
+                if (liveDef != null && packAmount < LivestockProductDatabase.PackSize)
+                {
+                    break;
+                }
                 int rawCost = (wRecipe != null) ? Mathf.Max(1, Mathf.RoundToInt(wRecipe.unitSalePrice / 1.80f)) : 10;
-                WholesaleProductDef pDef = (sDef != null)
+                WholesaleProductDef pDef = liveDef != null
+                    ? LivestockProductDatabase.CreateDeliveryPack(seedId, packAmount)
+                    : (sDef != null)
                     ? new WholesaleProductDef(
                         sDef.id,
                         sDef.LocalizedName.Replace(" Tohumu", "").Replace(" Seeds", "").Replace(" Seed", ""),
@@ -1095,6 +1153,7 @@ namespace Farm2Shelf.UI
                         80f
                     );
 
+                if (pDef == null) break;
                 farmProductList.Add(pDef);
                 count -= packAmount;
                 GardenSeedInventoryManager.Instance.ConsumeBarnCrop(seedId, packAmount);
@@ -1108,7 +1167,7 @@ namespace Farm2Shelf.UI
                 }
 
                 HideModal();
-                string cropShortName = (sDef != null) ? sDef.LocalizedName.Replace(" Tohumu", "").Replace(" Seeds", "").Replace(" Seed", "") : wRecipe.LocalizedName;
+                string cropShortName = (sDef != null) ? sDef.LocalizedName.Replace(" Tohumu", "").Replace(" Seeds", "").Replace(" Seed", "") : (wRecipe != null ? wRecipe.LocalizedName : liveDef.LocalizedName);
                 string unitLabel = (sDef != null) ? "KG" : LocalizationManager.L("Unit_Pieces", "Adet", "Pcs");
                 string greenTitle = LocalizationManager.L("Modal_GreenTruck_Title", "Yeşil Kamyon Yola Çıktı! 🚛", "Green Truck Dispatched! 🚛");
                 string greenBodyFmt = LocalizationManager.L("Modal_SingleCrop_GreenTruck_Body", "<b>{0} {1} {2}</b> Yeşil Kamyona yüklendi!\n\nKamyon dükkanın Mal Kabul kapısına yanaşıyor.", "<b>{0} {1} {2}</b> loaded onto Green Truck!\n\nThe truck is approaching the delivery dock.");
@@ -1146,10 +1205,11 @@ namespace Farm2Shelf.UI
         {
             GardenSeedDef sDef = GardenSeedDatabase.GetSeedById(seedId);
             WorkshopRecipeDef wRecipe = (sDef == null) ? WorkshopMachineDatabase.GetRecipeByOutputId(seedId) : null;
-            if ((sDef == null && wRecipe == null) || amount <= 0) return;
+            WholesaleProductDef liveDef = (sDef == null && wRecipe == null) ? LivestockProductDatabase.GetById(seedId) : null;
+            if ((sDef == null && wRecipe == null && liveDef == null) || amount <= 0) return;
 
-            int rawCost = (sDef != null) ? Mathf.Max(1, Mathf.RoundToInt(sDef.unitSalePrice / 1.40f)) : Mathf.Max(1, Mathf.RoundToInt(wRecipe.unitSalePrice / 1.80f));
-            int quickSellUnitPrice = Mathf.Max(1, Mathf.RoundToInt(rawCost * 1.20f));
+            int rawCost = (sDef != null) ? Mathf.Max(1, Mathf.RoundToInt(sDef.unitSalePrice / 1.40f)) : (wRecipe != null ? Mathf.Max(1, Mathf.RoundToInt(wRecipe.unitSalePrice / 1.80f)) : liveDef.wholesaleUnitPrice);
+            int quickSellUnitPrice = (liveDef != null) ? LivestockProductDatabase.GetQuickSellUnitPrice(liveDef.id) : Mathf.Max(1, Mathf.RoundToInt(rawCost * 1.20f));
 
             int totalEarnings = quickSellUnitPrice * amount;
 
@@ -1161,7 +1221,7 @@ namespace Farm2Shelf.UI
             }
 
             RefreshList();
-            string cropShortName = (sDef != null) ? sDef.LocalizedName.Replace(" Tohumu", "").Replace(" Seeds", "").Replace(" Seed", "") : wRecipe.LocalizedName;
+            string cropShortName = (sDef != null) ? sDef.LocalizedName.Replace(" Tohumu", "").Replace(" Seeds", "").Replace(" Seed", "") : (wRecipe != null ? wRecipe.LocalizedName : liveDef.LocalizedName);
             string unitLabel = (sDef != null) ? "KG" : "Adet";
             string qsTitle = LocalizationManager.L("Modal_QuickSell_Title", "⚡ Hızlı Satış Yapıldı! 💰", "⚡ Quick Sell Completed! 💰");
             string qsBody = string.Format(
@@ -1215,14 +1275,21 @@ namespace Farm2Shelf.UI
 
                 GardenSeedDef sDef = GardenSeedDatabase.GetSeedById(seedId);
                 WorkshopRecipeDef wRecipe = (sDef == null) ? WorkshopMachineDatabase.GetRecipeByOutputId(seedId) : null;
-                if (sDef == null && wRecipe == null) continue;
+                WholesaleProductDef liveDef = (sDef == null && wRecipe == null) ? LivestockProductDatabase.GetById(seedId) : null;
+                if (sDef == null && wRecipe == null && liveDef == null) continue;
 
                 // 50'lik koli partileri halinde paketle
                 while (count > 0)
                 {
                     int packAmount = Mathf.Min(50, count);
+                    if (liveDef != null && packAmount < LivestockProductDatabase.PackSize)
+                    {
+                        break;
+                    }
                     int rawCost = (wRecipe != null) ? Mathf.Max(1, Mathf.RoundToInt(wRecipe.unitSalePrice / 1.80f)) : 10;
-                    WholesaleProductDef pDef = (sDef != null)
+                    WholesaleProductDef pDef = liveDef != null
+                        ? LivestockProductDatabase.CreateDeliveryPack(seedId, packAmount)
+                        : (sDef != null)
                         ? new WholesaleProductDef(
                             sDef.id,
                             sDef.LocalizedName.Replace(" Tohumu", "").Replace(" Seeds", "").Replace(" Seed", ""),
@@ -1245,6 +1312,7 @@ namespace Farm2Shelf.UI
                             80f
                         );
 
+                    if (pDef == null) break;
                     farmProductList.Add(pDef);
                     count -= packAmount;
                     GardenSeedInventoryManager.Instance.ConsumeBarnCrop(seedId, packAmount);

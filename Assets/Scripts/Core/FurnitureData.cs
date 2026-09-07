@@ -69,7 +69,8 @@ namespace Farm2Shelf.Core
         MassageChair,       // Lüks Masaj Koltuğu
         DonutDispenser,     // Taze Donut Dolabı
         HologramProjector,  // 3D Hologram Projektörü
-        FlowerArch          // Lüks Çiçek Kemeri
+        FlowerArch,          // Lüks Çiçek Kemeri
+        OrganicFridge        // Organik çiftlik yumurta & süt dolabı (seviye 1)
     }
 
     public enum FurnitureZone
@@ -197,6 +198,10 @@ namespace Farm2Shelf.Core
             {
                 FurnitureType.Fridge,
                 new FurnitureItemDef(FurnitureType.Fridge, "Buzdolabı", "Commercial Fridge", "Süt ve soğuk içecekler için cam kapaklı ticari buzdolabı.", "Glass-door commercial refrigerator for dairy and cold drinks.", FurnitureZone.StoreOnly, FurnitureCategory.Furniture, 1, 1500, "🧊", 0)
+            },
+            {
+                FurnitureType.OrganicFridge,
+                new FurnitureItemDef(FurnitureType.OrganicFridge, "Organik Buzdolabı", "Organic Fridge", "Çiftlikten gelen organik yumurta ve süt için ahşap-cam organik soğutucu dolap. 1. seviyeden kurulabilir.", "Wooden-glass organic cooler for farm eggs and milk. Available from store level 1.", FurnitureZone.StoreOnly, FurnitureCategory.Furniture, 1, 1650, "🥬", 0)
             },
             {
                 FurnitureType.Freezer,

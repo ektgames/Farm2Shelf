@@ -137,9 +137,11 @@ namespace Farm2Shelf.UI
                 HowToPlayModalUI.Instance.HideModal();
             }
             ModalManager.CloseWorldBlockingOverlays();
-            if (GameHUDManager.Instance != null)
+
+            bool introStillPlaying = EKTReklamIntroManager.Instance != null && !EKTReklamIntroManager.HasIntroFinished;
+            if (GameHUDManager.Instance != null && !introStillPlaying)
             {
-                GameHUDManager.Instance.SetHUDVisible(true); // HUD'ı göster
+                GameHUDManager.Instance.SetHUDVisible(true);
             }
         }
 

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Farm2Shelf.Core;
+using Farm2Shelf.Utils;
 
 namespace Farm2Shelf.Environment
 {
@@ -15,9 +16,8 @@ namespace Farm2Shelf.Environment
                 return mat;
             }
 
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            Shader shader = ShaderHelper.GetLitShader();
             if (shader == null) shader = Shader.Find("Standard");
-            if (shader == null) shader = Shader.Find("Sprites/Default");
 
             Material newMat = new Material(shader)
             {
@@ -79,7 +79,7 @@ namespace Farm2Shelf.Environment
             CreateBlock(tRoot, "Torso", new Vector3(0f, 1.05f, 0f), torsoSize, torsoMat);
 
             // Baş (Head)
-            CreateBlock(tRoot, "Head", new Vector3(0f, 1.50f, 0f), headSize, skinMat);
+            GameObject headObj = CreateBlock(tRoot, "Head", new Vector3(0f, 1.50f, 0f), headSize, skinMat);
 
             // Sol & Sağ Bacak
             float legX = isFemale ? 0.13f : 0.15f;
@@ -94,6 +94,50 @@ namespace Farm2Shelf.Environment
             GameObject rArm = CreateArm(tRoot, "Arm_R", new Vector3(armX, 1.25f, 0f), new Vector3(0.15f, 0.55f, 0.16f), torsoMat, skinMat);
             leftLimbs.Add(lArm.transform);
             rightLimbs.Add(rArm.transform);
+
+            bool skipCostumeFace = role == StaffRole.Maskot;
+            bool skipHairForHelmet = role == StaffRole.Kurye || role == StaffRole.Maskot;
+            ProceduralHumanFaceBuilder.HairStyle hairStyle = isFemale
+                ? ProceduralHumanFaceBuilder.HairStyle.PonytailFemale
+                : ProceduralHumanFaceBuilder.HairStyle.ShortMale;
+            bool beard = false;
+            bool mustache = false;
+            if (!isFemale)
+            {
+                if (role == StaffRole.Çiftçi || role == StaffRole.DeneyimliÇiftçi || role == StaffRole.UstaÇiftlikSorumlusu)
+                {
+                    beard = true;
+                    mustache = true;
+                    hairStyle = ProceduralHumanFaceBuilder.HairStyle.CoveredShort;
+                }
+                else if (role == StaffRole.Güvenlik)
+                {
+                    mustache = true;
+                    hairStyle = ProceduralHumanFaceBuilder.HairStyle.CoveredShort;
+                }
+                else if (role == StaffRole.TarımOtomasyonUzmanı)
+                {
+                    hairStyle = ProceduralHumanFaceBuilder.HairStyle.CoveredShort;
+                }
+            }
+            else if (role == StaffRole.Çiftçi || role == StaffRole.DeneyimliÇiftçi || role == StaffRole.UstaÇiftlikSorumlusu || role == StaffRole.Güvenlik)
+            {
+                hairStyle = ProceduralHumanFaceBuilder.HairStyle.CoveredShort;
+            }
+
+            ProceduralHumanFaceBuilder.BuildOnCharacter(headObj.transform, tRoot, new ProceduralHumanFaceBuilder.FaceSettings
+            {
+                Skin = skinMat,
+                Hair = hairMat,
+                IsFemale = isFemale,
+                HasBeard = beard,
+                HasMustache = mustache,
+                HasLipstick = isFemale && role != StaffRole.Maskot,
+                SkipHair = skipHairForHelmet,
+                SkipFace = skipCostumeFace,
+                HairStyle = hairStyle,
+                Variant = (int)role + (isFemale ? 3 : 0)
+            });
 
             // Saç ve Cinsiyet Detayı
             BuildHairAndHeadwear(tRoot, isFemale, hairMat, role);
@@ -169,17 +213,7 @@ namespace Farm2Shelf.Environment
                 return; // Kurye kask taktığı için saç oluşturulmaz
             }
 
-            if (isFemale)
-            {
-                // Kadın Saçı (At kuyruğu & Yan Saçlar)
-                CreateBlock(parent, "Hair_Top", new Vector3(0f, 1.68f, -0.02f), new Vector3(0.32f, 0.08f, 0.30f), hairMat);
-                CreateBlock(parent, "Ponytail", new Vector3(0f, 1.55f, -0.18f), new Vector3(0.12f, 0.30f, 0.12f), hairMat);
-            }
-            else
-            {
-                // Erkek Saçı (Kısa Saç)
-                CreateBlock(parent, "Hair_Short", new Vector3(0f, 1.68f, -0.01f), new Vector3(0.33f, 0.08f, 0.31f), hairMat);
-            }
+            // Saç, ProceduralHumanFaceBuilder tarafından üretilir.
         }
 
         private static void BuildRoleUniformAccessories(Transform parent, StaffRole role, bool isFemale, Material skinMat)
@@ -354,9 +388,7 @@ namespace Farm2Shelf.Environment
 
         private static GameObject CreateBlock(Transform parent, string name, Vector3 localPos, Vector3 localScale, Material mat)
         {
-            GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            cube.name = name;
-            cube.transform.SetParent(parent, false);
+            GameObject cube = PrimitiveFactory.CreateVisualCube(name, parent);
             cube.transform.localPosition = localPos;
             cube.transform.localScale = localScale;
 
@@ -364,9 +396,6 @@ namespace Farm2Shelf.Environment
             {
                 cube.GetComponent<Renderer>().sharedMaterial = mat;
             }
-
-            Collider col = cube.GetComponent<Collider>();
-            if (col != null) Object.Destroy(col);
 
             return cube;
         }
@@ -377,28 +406,17 @@ namespace Farm2Shelf.Environment
             pivot.transform.SetParent(parent, false);
             pivot.transform.localPosition = localPos + new Vector3(0f, localScale.y * 0.5f, 0f);
 
-            GameObject legMesh = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            legMesh.name = name + "_Mesh";
-            legMesh.transform.SetParent(pivot.transform, false);
+            GameObject legMesh = PrimitiveFactory.CreateVisualCube(name + "_Mesh", pivot.transform);
             legMesh.transform.localPosition = new Vector3(0f, -localScale.y * 0.5f, 0f);
             legMesh.transform.localScale = localScale;
 
             if (pantsMat != null) legMesh.GetComponent<Renderer>().sharedMaterial = pantsMat;
 
-            Collider col = legMesh.GetComponent<Collider>();
-            if (col != null) Object.Destroy(col);
-
-            // Ayakkabı
-            GameObject shoe = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            shoe.name = "Shoe";
-            shoe.transform.SetParent(legMesh.transform, false);
+            GameObject shoe = PrimitiveFactory.CreateVisualCube("Shoe", legMesh.transform);
             shoe.transform.localPosition = new Vector3(0f, -0.45f, 0.12f);
             shoe.transform.localScale = new Vector3(1.05f, 0.18f, 1.3f);
 
             if (shoeMat != null) shoe.GetComponent<Renderer>().sharedMaterial = shoeMat;
-
-            Collider sCol = shoe.GetComponent<Collider>();
-            if (sCol != null) Object.Destroy(sCol);
 
             return pivot;
         }
@@ -409,28 +427,17 @@ namespace Farm2Shelf.Environment
             pivot.transform.SetParent(parent, false);
             pivot.transform.localPosition = localPos + new Vector3(0f, localScale.y * 0.5f, 0f);
 
-            GameObject armMesh = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            armMesh.name = name + "_Mesh";
-            armMesh.transform.SetParent(pivot.transform, false);
+            GameObject armMesh = PrimitiveFactory.CreateVisualCube(name + "_Mesh", pivot.transform);
             armMesh.transform.localPosition = new Vector3(0f, -localScale.y * 0.5f, 0f);
             armMesh.transform.localScale = localScale;
 
             if (sleeveMat != null) armMesh.GetComponent<Renderer>().sharedMaterial = sleeveMat;
 
-            Collider col = armMesh.GetComponent<Collider>();
-            if (col != null) Object.Destroy(col);
-
-            // El
-            GameObject hand = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            hand.name = "Hand";
-            hand.transform.SetParent(armMesh.transform, false);
+            GameObject hand = PrimitiveFactory.CreateVisualCube("Hand", armMesh.transform);
             hand.transform.localPosition = new Vector3(0f, -0.48f, 0f);
             hand.transform.localScale = new Vector3(0.9f, 0.20f, 0.9f);
 
             if (skinMat != null) hand.GetComponent<Renderer>().sharedMaterial = skinMat;
-
-            Collider hCol = hand.GetComponent<Collider>();
-            if (hCol != null) Object.Destroy(hCol);
 
             return pivot;
         }

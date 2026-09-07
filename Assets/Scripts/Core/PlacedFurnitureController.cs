@@ -753,8 +753,9 @@ namespace Farm2Shelf.Core
                 }
 
                 case FurnitureType.Fridge:
+                case FurnitureType.OrganicFridge:
                 {
-                    // Ticari Camlı Meşrubat & Sütlük Dolabı (w=1.4m, h=2.2m) - 4 Kat
+                    // Ticari / Organik camlı dolap (w=1.4m, h=2.2m) - 4 Kat
                     float[] shelfY = new float[] { 0.38f, 0.82f, 1.26f, 1.70f };
                     float y = (rowIndex < shelfY.Length) ? shelfY[rowIndex] : 0.38f;
                     scale = 0.90f;

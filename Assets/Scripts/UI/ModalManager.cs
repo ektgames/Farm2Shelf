@@ -63,6 +63,7 @@ namespace Farm2Shelf.UI
             if (SaveLoadSlotModalUI.Instance != null && SaveLoadSlotModalUI.Instance.IsModalOpen) return true;
             if (HowToPlayModalUI.Instance != null && HowToPlayModalUI.Instance.IsModalOpen) return true;
             if (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen) return true;
+            if (DailySpinWheelUI.Instance != null && DailySpinWheelUI.Instance.IsWheelOpen) return true;
 
             return false;
         }

@@ -34,6 +34,10 @@ namespace Farm2Shelf.Core
         {
             get
             {
+                if (LivestockProductDatabase.IsLivestockProduct(id))
+                {
+                    return CurrentSalePrice > SalePricePerUnit;
+                }
                 if (targetShelfType == FurnitureType.GourmetShelf || profitMarginPercent >= 70f)
                 {
                     return CurrentSalePrice > Mathf.RoundToInt(wholesaleUnitPrice * 1.95f);
@@ -73,6 +77,7 @@ namespace Farm2Shelf.Core
                 case FurnitureType.ButcherCounter: return LocalizationManager.L("Shelf_Butcher", "🥩 Kasap Reyonu", "🥩 Butcher Counter");
                 case FurnitureType.ElectronicsShelf: return LocalizationManager.L("Shelf_Electronics", "🎧 Elektronik Rafı", "🎧 Electronics Shelf");
                 case FurnitureType.GourmetShelf: return LocalizationManager.L("Shelf_Gourmet", "🥫 Lüks Gurme Reyonu", "🥫 Luxury Gourmet Shelf");
+                case FurnitureType.OrganicFridge: return LocalizationManager.L("Shelf_OrganicFridge", "🥬 Organik Buzdolabı", "🥬 Organic Fridge");
                 default: return LocalizationManager.L("Shelf_Display", "🗄️ Teşhir Rafı", "🗄️ Display Shelf");
             }
         }
@@ -167,12 +172,14 @@ namespace Farm2Shelf.Core
             if (string.IsNullOrEmpty(id)) return false;
             if (WorkshopMachineDatabase.GetRecipeByOutputId(id) != null) return true;
             if (GardenSeedDatabase.GetSeedById(id) != null) return true;
+            if (LivestockProductDatabase.IsLivestockProduct(id)) return true;
             return false;
         }
 
         public static List<WholesaleProductDef> GetAllProducts()
         {
             List<WholesaleProductDef> all = new List<WholesaleProductDef>(products);
+            all.AddRange(LivestockProductDatabase.GetAllProducts());
             var recipes = WorkshopMachineDatabase.GetAllRecipes();
             if (recipes != null)
             {
@@ -202,6 +209,9 @@ namespace Farm2Shelf.Core
             if (string.IsNullOrEmpty(id)) return null;
             WholesaleProductDef def = products.Find(p => p.id == id);
             if (def != null) return def;
+
+            WholesaleProductDef liveDef = LivestockProductDatabase.GetById(id);
+            if (liveDef != null) return liveDef;
 
             // Atölye Gurme Ürünlerini Otomatik Olarak Eşle (isOrderable: false)
             WorkshopRecipeDef recipe = WorkshopMachineDatabase.GetRecipeByOutputId(id);

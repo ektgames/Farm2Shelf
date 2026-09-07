@@ -280,6 +280,15 @@ namespace Farm2Shelf.Utils
                         barn.OnBarnClicked();
                         return true;
                     }
+
+                    LivestockBuildingController liveBld = go.GetComponentInParent<LivestockBuildingController>() ?? go.GetComponent<LivestockBuildingController>();
+                    if (liveBld != null)
+                    {
+                        lastGlobalDispatchTime = Time.unscaledTime;
+                        CloseAnyOpenProfileCard();
+                        liveBld.OnBuildingClicked();
+                        return true;
+                    }
                 }
             }
 
@@ -329,6 +338,15 @@ namespace Farm2Shelf.Utils
                         lastGlobalDispatchTime = Time.unscaledTime;
                         CloseAnyOpenProfileCard();
                         barn.OnBarnClicked();
+                        return true;
+                    }
+
+                    LivestockBuildingController liveBld = sGo.GetComponentInParent<LivestockBuildingController>() ?? sGo.GetComponent<LivestockBuildingController>();
+                    if (liveBld != null)
+                    {
+                        lastGlobalDispatchTime = Time.unscaledTime;
+                        CloseAnyOpenProfileCard();
+                        liveBld.OnBuildingClicked();
                         return true;
                     }
                 }
@@ -426,12 +444,75 @@ namespace Farm2Shelf.Utils
             return 0;
         }
 
-        public static Vector2 GetCurrentPointerPosition()
+        public static bool PreferDesktopMouse()
+        {
+            return !Application.isMobilePlatform && GetTouchCount() == 0;
+        }
+
+        public static bool TryGetMouseScreenPosition(out Vector2 screenPos)
+        {
+            screenPos = Vector2.zero;
+#if ENABLE_INPUT_SYSTEM
+            try
+            {
+                if (Mouse.current != null)
+                {
+                    Vector2 mPos = Mouse.current.position.ReadValue();
+                    if (mPos.sqrMagnitude > 1f)
+                    {
+                        screenPos = mPos;
+                        return true;
+                    }
+                }
+            }
+            catch { }
+#endif
+            try
+            {
+                Vector3 legacy = Input.mousePosition;
+                if (legacy.sqrMagnitude > 1f)
+                {
+                    screenPos = new Vector2(legacy.x, legacy.y);
+                    return true;
+                }
+            }
+            catch { }
+
+            return false;
+        }
+
+        public static bool IsMousePressed()
         {
 #if ENABLE_INPUT_SYSTEM
             try
             {
-                if (Touchscreen.current != null)
+                if (Mouse.current != null && (Mouse.current.leftButton.isPressed || Mouse.current.leftButton.wasPressedThisFrame))
+                {
+                    return true;
+                }
+            }
+            catch { }
+#endif
+            try
+            {
+                if (Input.GetMouseButton(0) || Input.GetMouseButtonDown(0)) return true;
+            }
+            catch { }
+
+            return false;
+        }
+
+        public static Vector2 GetCurrentPointerPosition()
+        {
+            if (PreferDesktopMouse() && TryGetMouseScreenPosition(out Vector2 desktopMouse))
+            {
+                return desktopMouse;
+            }
+
+#if ENABLE_INPUT_SYSTEM
+            try
+            {
+                if (!PreferDesktopMouse() && Touchscreen.current != null)
                 {
                     var touch = Touchscreen.current.primaryTouch;
                     if (touch.press.isPressed)
@@ -440,16 +521,7 @@ namespace Farm2Shelf.Utils
                         if (touchPos.sqrMagnitude > 0.001f) return touchPos;
                     }
                 }
-                if (Mouse.current != null)
-                {
-                    Vector2 mPos = Mouse.current.position.ReadValue();
-                    if (mPos.sqrMagnitude > 0.001f) return mPos;
-                }
-                if (Pointer.current != null && Pointer.current.press.isPressed)
-                {
-                    Vector2 pPos = Pointer.current.position.ReadValue();
-                    if (pPos.sqrMagnitude > 0.001f) return pPos;
-                }
+                if (TryGetMouseScreenPosition(out Vector2 mPos)) return mPos;
             }
             catch { }
 #endif
@@ -459,10 +531,10 @@ namespace Farm2Shelf.Utils
                 {
                     return Input.GetTouch(0).position;
                 }
-                Vector3 mPos = Input.mousePosition;
-                if (mPos.sqrMagnitude > 0.001f)
+                Vector3 legacy = Input.mousePosition;
+                if (legacy.sqrMagnitude > 0.001f)
                 {
-                    return new Vector2(mPos.x, mPos.y);
+                    return new Vector2(legacy.x, legacy.y);
                 }
             }
             catch { }
@@ -472,12 +544,16 @@ namespace Farm2Shelf.Utils
 
         public static bool IsPointerHeld()
         {
+            if (PreferDesktopMouse())
+            {
+                return IsMousePressed();
+            }
+
 #if ENABLE_INPUT_SYSTEM
             try
             {
                 if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.isPressed) return true;
                 if (Mouse.current != null && Mouse.current.leftButton.isPressed) return true;
-                if (Pointer.current != null && Pointer.current.press.isPressed) return true;
             }
             catch { }
 #endif
@@ -503,6 +579,11 @@ namespace Farm2Shelf.Utils
             screenPos = Vector2.zero;
             if (!IsPointerHeld() && !WasPointerPressedThisFrame()) return false;
 
+            if (PreferDesktopMouse())
+            {
+                return TryGetMouseScreenPosition(out screenPos);
+            }
+
 #if ENABLE_INPUT_SYSTEM
             try
             {
@@ -515,21 +596,12 @@ namespace Farm2Shelf.Utils
                         return true;
                     }
                 }
-                if (Mouse.current != null && Mouse.current.leftButton.isPressed)
+                if (Mouse.current != null && (Mouse.current.leftButton.isPressed || Mouse.current.leftButton.wasPressedThisFrame))
                 {
                     Vector2 mPos = Mouse.current.position.ReadValue();
                     if (mPos.sqrMagnitude > 1f)
                     {
                         screenPos = mPos;
-                        return true;
-                    }
-                }
-                if (Pointer.current != null && Pointer.current.press.isPressed)
-                {
-                    Vector2 pPos = Pointer.current.position.ReadValue();
-                    if (pPos.sqrMagnitude > 1f)
-                    {
-                        screenPos = pPos;
                         return true;
                     }
                 }
@@ -543,7 +615,7 @@ namespace Farm2Shelf.Utils
                     screenPos = Input.GetTouch(0).position;
                     if (screenPos.sqrMagnitude > 1f) return true;
                 }
-                if (Input.GetMouseButton(0))
+                if (Input.GetMouseButton(0) || Input.GetMouseButtonDown(0))
                 {
                     Vector3 mPos = Input.mousePosition;
                     if (mPos.sqrMagnitude > 1f)
@@ -563,7 +635,7 @@ namespace Farm2Shelf.Utils
             try
             {
                 if (Input.GetMouseButtonDown(0)) return true;
-                if (Input.touchCount > 0 && Input.GetTouch(0).phase == UnityEngine.TouchPhase.Began) return true;
+                if (!PreferDesktopMouse() && Input.touchCount > 0 && Input.GetTouch(0).phase == UnityEngine.TouchPhase.Began) return true;
             }
             catch { }
 
@@ -571,8 +643,7 @@ namespace Farm2Shelf.Utils
             try
             {
                 if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame) return true;
-                if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.wasPressedThisFrame) return true;
-                if (Pointer.current != null && Pointer.current.press.wasPressedThisFrame) return true;
+                if (!PreferDesktopMouse() && Touchscreen.current != null && Touchscreen.current.primaryTouch.press.wasPressedThisFrame) return true;
             }
             catch { }
 #endif
@@ -584,7 +655,7 @@ namespace Farm2Shelf.Utils
             try
             {
                 if (Input.GetMouseButtonUp(0)) return true;
-                if (Input.touchCount > 0 && (Input.GetTouch(0).phase == UnityEngine.TouchPhase.Ended || Input.GetTouch(0).phase == UnityEngine.TouchPhase.Canceled)) return true;
+                if (!PreferDesktopMouse() && Input.touchCount > 0 && (Input.GetTouch(0).phase == UnityEngine.TouchPhase.Ended || Input.GetTouch(0).phase == UnityEngine.TouchPhase.Canceled)) return true;
             }
             catch { }
 
@@ -592,8 +663,7 @@ namespace Farm2Shelf.Utils
             try
             {
                 if (Mouse.current != null && Mouse.current.leftButton.wasReleasedThisFrame) return true;
-                if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.wasReleasedThisFrame) return true;
-                if (Pointer.current != null && Pointer.current.press.wasReleasedThisFrame) return true;
+                if (!PreferDesktopMouse() && Touchscreen.current != null && Touchscreen.current.primaryTouch.press.wasReleasedThisFrame) return true;
             }
             catch { }
 #endif

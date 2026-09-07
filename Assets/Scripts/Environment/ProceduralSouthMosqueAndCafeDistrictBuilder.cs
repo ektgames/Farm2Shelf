@@ -24,7 +24,7 @@ namespace Farm2Shelf.Environment
                 return cached;
             }
 
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard") ?? Shader.Find("Sprites/Default");
+            Shader shader = ShaderHelper.GetLitShader() ?? Shader.Find("Standard");
             Material newMat = new Material(shader)
             {
                 name = name,

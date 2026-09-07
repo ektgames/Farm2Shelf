@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 using Farm2Shelf.Core;
+using Farm2Shelf.Utils;
 
 namespace Farm2Shelf.Environment
 {
@@ -32,7 +33,7 @@ namespace Farm2Shelf.Environment
                 return mat;
             }
 
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard") ?? Shader.Find("Diffuse");
+            Shader shader = ShaderHelper.GetLitShader() ?? Shader.Find("Standard");
             Material newMat = new Material(shader)
             {
                 name = name,

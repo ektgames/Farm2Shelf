@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Farm2Shelf.Utils;
 
 namespace Farm2Shelf.Environment
 {
@@ -68,9 +69,8 @@ namespace Farm2Shelf.Environment
                 return mat;
             }
 
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            Shader shader = ShaderHelper.GetLitShader();
             if (shader == null) shader = Shader.Find("Standard");
-            if (shader == null) shader = Shader.Find("Sprites/Default");
 
             Material newMat = new Material(shader)
             {
@@ -131,7 +131,7 @@ namespace Farm2Shelf.Environment
             CreateBlock(tRoot, "Torso", new Vector3(0f, 1.05f, 0f), new Vector3(0.50f, 0.55f, 0.30f), bodyMat);
 
             // Baş (Head)
-            CreateBlock(tRoot, "Head", new Vector3(0f, 1.52f, 0f), new Vector3(0.32f, 0.32f, 0.30f), selectedSkin);
+            GameObject headObj = CreateBlock(tRoot, "Head", new Vector3(0f, 1.52f, 0f), new Vector3(0.32f, 0.32f, 0.30f), selectedSkin);
 
             // Sol ve Sağ Bacak (Left/Right Legs)
             GameObject lLeg = CreateLimb(tRoot, "Leg_L", new Vector3(-0.14f, 0.75f, 0f), new Vector3(0.20f, 0.70f, 0.22f), pantsMat, shoeDark);
@@ -145,10 +145,115 @@ namespace Farm2Shelf.Environment
             leftLimbs.Add(lArm.transform);
             rightLimbs.Add(rArm.transform);
 
+            ProceduralHumanFaceBuilder.BuildOnCharacter(headObj.transform, tRoot, GetCustomerFaceSettings(type, selectedSkin, hairBlack, hairBrown, hairBlonde, hairGray));
+
             // 30 Müşteri Tipine Özel Aksesuar ve Kıyafet Detayları
             BuildCustomerAccessories(type, tRoot, selectedSkin, hairBlack, hairBrown, hairBlonde, hairGray);
 
             return root;
+        }
+
+        private static ProceduralHumanFaceBuilder.FaceSettings GetCustomerFaceSettings(
+            CustomerType type, Material skin, Material hairBlack, Material hairBrown, Material hairBlonde, Material hairGray)
+        {
+            bool isFemale = CustomerProfileGenerator.IsCustomerFemale(type);
+            Material hair = hairBrown;
+            ProceduralHumanFaceBuilder.HairStyle style = isFemale
+                ? ProceduralHumanFaceBuilder.HairStyle.LongFemale
+                : ProceduralHumanFaceBuilder.HairStyle.ShortMale;
+            bool beard = false;
+            bool mustache = false;
+            bool lipstick = isFemale;
+            bool skipHair = false;
+
+            switch (type)
+            {
+                case CustomerType.L1_GrandmaTeyze:
+                    hair = hairGray;
+                    style = ProceduralHumanFaceBuilder.HairStyle.ElderlyFemale;
+                    lipstick = false;
+                    break;
+                case CustomerType.L1_GrandpaDede:
+                case CustomerType.L1_GardenerGrandpa:
+                    hair = hairGray;
+                    style = ProceduralHumanFaceBuilder.HairStyle.ElderlyMale;
+                    beard = true;
+                    mustache = true;
+                    break;
+                case CustomerType.L1_FarmerUncle:
+                    hair = hairBrown;
+                    style = ProceduralHumanFaceBuilder.HairStyle.CoveredShort;
+                    beard = true;
+                    mustache = true;
+                    break;
+                case CustomerType.L1_Fisherman:
+                    hair = hairGray;
+                    style = ProceduralHumanFaceBuilder.HairStyle.CoveredShort;
+                    beard = true;
+                    break;
+                case CustomerType.L1_PostmanUncle:
+                case CustomerType.L1_Workman:
+                case CustomerType.L2_ChefMaster:
+                case CustomerType.L2_DeliveryCourier:
+                case CustomerType.L3_PilotMan:
+                case CustomerType.L3_BillionaireYacht:
+                    style = ProceduralHumanFaceBuilder.HairStyle.CoveredShort;
+                    break;
+                case CustomerType.L1_MusicianGuy:
+                    hair = hairBrown;
+                    style = ProceduralHumanFaceBuilder.HairStyle.WavyMale;
+                    break;
+                case CustomerType.L2_HipsterGuy:
+                    hair = hairBrown;
+                    mustache = true;
+                    style = ProceduralHumanFaceBuilder.HairStyle.CoveredShort;
+                    break;
+                case CustomerType.L2_YogaInstructor:
+                case CustomerType.L1_StudentGirl:
+                case CustomerType.L2_BaristaGirl:
+                    hair = hairBlonde;
+                    style = ProceduralHumanFaceBuilder.HairStyle.PonytailFemale;
+                    break;
+                case CustomerType.L2_FashionWoman:
+                case CustomerType.L3_Supermodel:
+                case CustomerType.L3_JewelryLady:
+                    hair = hairBlack;
+                    style = ProceduralHumanFaceBuilder.HairStyle.ModelFemale;
+                    lipstick = true;
+                    break;
+                case CustomerType.L3_BoutiqueLady:
+                    hair = hairBlonde;
+                    style = ProceduralHumanFaceBuilder.HairStyle.ModelFemale;
+                    break;
+                case CustomerType.L3_GourmetCritic:
+                case CustomerType.L3_RichGentleman:
+                    hair = hairGray;
+                    style = type == CustomerType.L3_RichGentleman
+                        ? ProceduralHumanFaceBuilder.HairStyle.CoveredShort
+                        : ProceduralHumanFaceBuilder.HairStyle.ElderlyMale;
+                    beard = true;
+                    mustache = true;
+                    break;
+                case CustomerType.L1_VillageGirl:
+                case CustomerType.L2_ArtistGirl:
+                    hair = hairBrown;
+                    style = ProceduralHumanFaceBuilder.HairStyle.PonytailFemale;
+                    break;
+            }
+
+            return new ProceduralHumanFaceBuilder.FaceSettings
+            {
+                Skin = skin,
+                Hair = hair,
+                IsFemale = isFemale,
+                HasBeard = beard,
+                HasMustache = mustache,
+                HasLipstick = lipstick,
+                SkipHair = skipHair,
+                SkipFace = false,
+                HairStyle = style,
+                Variant = (int)type
+            };
         }
 
         private static Color GetTypePrimaryColor(CustomerType type)
@@ -276,7 +381,6 @@ namespace Farm2Shelf.Environment
                     // Hasır Şapka & Bahçe Çantası
                     CreateBlock(parent, "Straw_Hat_Brim", new Vector3(0f, 1.68f, 0f), new Vector3(0.58f, 0.06f, 0.58f), hatYellow);
                     CreateBlock(parent, "Straw_Hat_Crown", new Vector3(0f, 1.76f, 0f), new Vector3(0.34f, 0.14f, 0.34f), hatYellow);
-                    CreateBlock(parent, "Beard_Gray", new Vector3(0f, 1.44f, 0.14f), new Vector3(0.24f, 0.14f, 0.12f), hairGray);
                     break;
 
                 case CustomerType.L1_BookwormGirl:
@@ -289,7 +393,6 @@ namespace Farm2Shelf.Environment
                     // Sırtında Gitar Çantası & Havalı Saç
                     CreateBlock(parent, "Guitar_Body", new Vector3(0f, 1.15f, -0.24f), new Vector3(0.32f, 0.45f, 0.14f), leatherBrown);
                     CreateBlock(parent, "Guitar_Neck", new Vector3(0.08f, 1.50f, -0.22f), new Vector3(0.08f, 0.38f, 0.06f), leatherBrown);
-                    CreateBlock(parent, "Hair_Wavy", new Vector3(0f, 1.70f, 0f), new Vector3(0.36f, 0.14f, 0.36f), hairBrown);
                     break;
 
                 case CustomerType.L1_PostmanUncle:
@@ -302,7 +405,6 @@ namespace Farm2Shelf.Environment
                 case CustomerType.L1_Fisherman:
                     // Balıkçı Beresi & Sakal
                     CreateBlock(parent, "Sailor_Beanie", new Vector3(0f, 1.72f, 0f), new Vector3(0.34f, 0.16f, 0.34f), GetMaterial("Mat_NavyBeanie", new Color(0.10f, 0.18f, 0.35f)));
-                    CreateBlock(parent, "Fisher_Beard", new Vector3(0f, 1.42f, 0.14f), new Vector3(0.26f, 0.18f, 0.14f), hairGray);
                     break;
 
                 // ==================== LEVEL 2 AKSESUARLARI ====================
@@ -338,7 +440,6 @@ namespace Farm2Shelf.Environment
                 case CustomerType.L2_YogaInstructor:
                     // Rulo Yoga Matı & Atkuyruğu Saç
                     CreateBlock(parent, "Yoga_Mat", new Vector3(-0.35f, 0.95f, 0f), new Vector3(0.14f, 0.55f, 0.14f), turquoiseMat);
-                    CreateBlock(parent, "Ponytail", new Vector3(0f, 1.62f, -0.20f), new Vector3(0.12f, 0.28f, 0.12f), hairBlonde);
                     break;
 
                 case CustomerType.L2_ArchitectGuy:
@@ -391,7 +492,6 @@ namespace Farm2Shelf.Environment
                     // İpek Fular & Gurme Not Defteri
                     CreateBlock(parent, "Silk_Ascot", new Vector3(0f, 1.30f, 0.16f), new Vector3(0.18f, 0.18f, 0.04f), rubyMat);
                     CreateBlock(parent, "Critic_Notebook", new Vector3(0.35f, 0.90f, 0.10f), new Vector3(0.06f, 0.22f, 0.16f), leatherBrown);
-                    CreateBlock(parent, "Critic_Hair", new Vector3(0f, 1.70f, 0f), new Vector3(0.35f, 0.12f, 0.35f), hairGray);
                     break;
 
                 case CustomerType.L3_Supermodel:
@@ -399,7 +499,6 @@ namespace Farm2Shelf.Environment
                     CreateBlock(parent, "Earring_L", new Vector3(-0.18f, 1.48f, 0f), new Vector3(0.04f, 0.12f, 0.04f), pearlMat);
                     CreateBlock(parent, "Earring_R", new Vector3(0.18f, 1.48f, 0f), new Vector3(0.04f, 0.12f, 0.04f), pearlMat);
                     CreateBlock(parent, "Designer_Clutch", new Vector3(0.35f, 0.75f, 0f), new Vector3(0.08f, 0.16f, 0.24f), goldMat);
-                    CreateBlock(parent, "Model_Hair", new Vector3(0f, 1.68f, -0.05f), new Vector3(0.34f, 0.22f, 0.32f), hairBlack);
                     break;
 
                 case CustomerType.L3_TechInvestor:
@@ -422,18 +521,13 @@ namespace Farm2Shelf.Environment
                     CreateBlock(parent, "Ruby_Cane_Head", new Vector3(0.35f, 0.96f, 0.15f), new Vector3(0.09f, 0.09f, 0.09f), rubyMat);
                     break;
 
-                default:
-                    // Standart Saç
-                    CreateBlock(parent, "Hair", new Vector3(0f, 1.70f, -0.02f), new Vector3(0.34f, 0.10f, 0.32f), hairBrown);
-                    break;
+                // Diğer tiplerin saç/yüzü ProceduralHumanFaceBuilder tarafından üretilir.
             }
         }
 
         private static GameObject CreateBlock(Transform parent, string name, Vector3 localPos, Vector3 localScale, Material mat)
         {
-            GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            cube.name = name;
-            cube.transform.SetParent(parent, false);
+            GameObject cube = PrimitiveFactory.CreateVisualCube(name, parent);
             cube.transform.localPosition = localPos;
             cube.transform.localScale = localScale;
 
@@ -441,9 +535,6 @@ namespace Farm2Shelf.Environment
             {
                 cube.GetComponent<Renderer>().sharedMaterial = mat;
             }
-
-            Collider col = cube.GetComponent<Collider>();
-            if (col != null) Object.Destroy(col);
 
             return cube;
         }
@@ -454,28 +545,17 @@ namespace Farm2Shelf.Environment
             pivot.transform.SetParent(parent, false);
             pivot.transform.localPosition = localPos + new Vector3(0f, localScale.y * 0.5f, 0f);
 
-            GameObject legMesh = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            legMesh.name = name + "_Mesh";
-            legMesh.transform.SetParent(pivot.transform, false);
+            GameObject legMesh = PrimitiveFactory.CreateVisualCube(name + "_Mesh", pivot.transform);
             legMesh.transform.localPosition = new Vector3(0f, -localScale.y * 0.5f, 0f);
             legMesh.transform.localScale = localScale;
 
             if (pantsMat != null) legMesh.GetComponent<Renderer>().sharedMaterial = pantsMat;
 
-            Collider col = legMesh.GetComponent<Collider>();
-            if (col != null) Object.Destroy(col);
-
-            // Ayakkabı
-            GameObject shoe = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            shoe.name = "Shoe";
-            shoe.transform.SetParent(legMesh.transform, false);
+            GameObject shoe = PrimitiveFactory.CreateVisualCube("Shoe", legMesh.transform);
             shoe.transform.localPosition = new Vector3(0f, -0.45f, 0.15f);
             shoe.transform.localScale = new Vector3(1.05f, 0.18f, 1.4f);
 
             if (shoeMat != null) shoe.GetComponent<Renderer>().sharedMaterial = shoeMat;
-
-            Collider sCol = shoe.GetComponent<Collider>();
-            if (sCol != null) Object.Destroy(sCol);
 
             return pivot;
         }
@@ -486,28 +566,17 @@ namespace Farm2Shelf.Environment
             pivot.transform.SetParent(parent, false);
             pivot.transform.localPosition = localPos + new Vector3(0f, localScale.y * 0.5f, 0f);
 
-            GameObject armMesh = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            armMesh.name = name + "_Mesh";
-            armMesh.transform.SetParent(pivot.transform, false);
+            GameObject armMesh = PrimitiveFactory.CreateVisualCube(name + "_Mesh", pivot.transform);
             armMesh.transform.localPosition = new Vector3(0f, -localScale.y * 0.5f, 0f);
             armMesh.transform.localScale = localScale;
 
             if (sleeveMat != null) armMesh.GetComponent<Renderer>().sharedMaterial = sleeveMat;
 
-            Collider col = armMesh.GetComponent<Collider>();
-            if (col != null) Object.Destroy(col);
-
-            // El
-            GameObject hand = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            hand.name = "Hand";
-            hand.transform.SetParent(armMesh.transform, false);
+            GameObject hand = PrimitiveFactory.CreateVisualCube("Hand", armMesh.transform);
             hand.transform.localPosition = new Vector3(0f, -0.48f, 0f);
             hand.transform.localScale = new Vector3(0.9f, 0.20f, 0.9f);
 
             if (skinMat != null) hand.GetComponent<Renderer>().sharedMaterial = skinMat;
-
-            Collider hCol = hand.GetComponent<Collider>();
-            if (hCol != null) Object.Destroy(hCol);
 
             return pivot;
         }

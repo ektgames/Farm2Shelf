@@ -83,11 +83,9 @@ namespace Farm2Shelf.UI
             introPlayed = true;
             Time.timeScale = 0f; // Intro boyunca zamanı duraklat
 
-            // Ana Menüyü intro esnasında gizli tut
-            if (MainMenuUI.Instance != null)
+            if (GameHUDManager.Instance != null)
             {
-                Debug.Log("[INTRO] MainMenuUI Instance found, hiding menu during intro.");
-                MainMenuUI.Instance.HideMenu();
+                GameHUDManager.Instance.SetHUDVisible(false);
             }
 
             GameObject canvasObj = new GameObject("EKT_Reklam_Intro_Canvas");
@@ -264,7 +262,6 @@ namespace Farm2Shelf.UI
                 bool hasBeeped = false;
                 bool logged12 = false;
                 bool logged20 = false;
-                bool logged38 = false;
 
                 while (elapsed < 4.5f)
                 {
@@ -357,17 +354,8 @@ namespace Farm2Shelf.UI
                         presentsTxt.color = new Color(0.6f, 0.6f, 0.7f, presentsAlpha);
                     }
 
-                    // Aşama 3: Yumuşak Karartma (3.8s+)
-                    if (elapsed >= 3.8f)
-                    {
-                        if (!logged38)
-                        {
-                            logged38 = true;
-                            Debug.Log("[INTRO] 3.8s reached");
-                        }
-                        float fadeOutAlpha = Mathf.Clamp01((4.5f - elapsed) / 0.7f);
-                        cg.alpha = fadeOutAlpha;
-                    }
+                    // Aşama 3: Logo sabit kalır; dünya/HUD sızmasın diye intro siyah kalır.
+                    // Karartma ana menü açıldıktan sonra yapılır.
 
                     yield return null;
                 }
@@ -387,6 +375,10 @@ namespace Farm2Shelf.UI
                     {
                         MainMenuUI.Instance.ShowMenu();
                         Debug.Log("[INTRO] MainMenuUI.ShowMenu returned");
+                    }
+                    else if (GameHUDManager.Instance != null)
+                    {
+                        GameHUDManager.Instance.SetHUDVisible(false);
                     }
                 }
                 catch (Exception ex)

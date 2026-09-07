@@ -206,6 +206,21 @@ namespace Farm2Shelf.Core
 
         // Eğitim & Başlangıç Görevleri
         public string tutorialStep = "None";
+
+        // Günlük Şans Çarkı (gerçek takvim günü, oyun içi günden bağımsız)
+        public string lastDailySpinDate = "";
+        public float dailySpinIconPosX = -72f;
+        public float dailySpinIconPosY = 0f;
+        public bool dailySpinIconPosSaved;
+
+        public int whiteChickenCount;
+        public int blackChickenCount;
+        public int holsteinCowCount;
+        public int brownCowCount;
+        public int livestockEggCount;
+        public int livestockMilkCount;
+        public float livestockEggFrac;
+        public float livestockMilkFrac;
     }
 
     public enum DeliveryTruckPhase

@@ -23,7 +23,7 @@ namespace Farm2Shelf.Core
 
         private const string SAVE_SLOT_PREFIX = "Farm2Shelf_SaveSlot_";
         private const string BACKUP_SUFFIX = "_Backup";
-        private const int CURRENT_SAVE_FORMAT_VERSION = 3;
+        private const int CURRENT_SAVE_FORMAT_VERSION = 5;
         private int activeSessionSlot;
         private float lastAutosaveTime = float.NegativeInfinity;
         private const float AUTOSAVE_DEBOUNCE_SECONDS = 5f;
@@ -247,6 +247,18 @@ namespace Farm2Shelf.Core
                         saveData.barnCrops.Add(new BarnCropSaveData { seedId = kvp.Key, count = kvp.Value });
                     }
                 }
+            }
+
+            if (LivestockManager.Instance != null)
+            {
+                saveData.whiteChickenCount = LivestockManager.Instance.GetOwned(LivestockType.WhiteChicken);
+                saveData.blackChickenCount = LivestockManager.Instance.GetOwned(LivestockType.BlackChicken);
+                saveData.holsteinCowCount = LivestockManager.Instance.GetOwned(LivestockType.HolsteinCow);
+                saveData.brownCowCount = LivestockManager.Instance.GetOwned(LivestockType.BrownCow);
+                saveData.livestockEggCount = LivestockManager.Instance.EggCount;
+                saveData.livestockMilkCount = LivestockManager.Instance.MilkCount;
+                saveData.livestockEggFrac = LivestockManager.Instance.EggFrac;
+                saveData.livestockMilkFrac = LivestockManager.Instance.MilkFrac;
             }
 
             // 10.b ATÖLYE HAMMADDE PALETİ VE MAKİNE KOLİLERİ
@@ -473,6 +485,10 @@ namespace Farm2Shelf.Core
             {
                 saveData.tutorialStep = TutorialManager.Instance.CurrentStep.ToString();
             }
+
+            // 16. GÜNLÜK ŞANS ÇARKI
+            DailySpinWheelManager.EnsureInstance();
+            DailySpinWheelManager.Instance.CaptureToSave(saveData);
 
             try
             {
@@ -706,6 +722,19 @@ namespace Farm2Shelf.Core
                 }
             }
 
+            if (LivestockManager.Instance != null)
+            {
+                LivestockManager.Instance.RestoreState(
+                    saveData.whiteChickenCount,
+                    saveData.blackChickenCount,
+                    saveData.holsteinCowCount,
+                    saveData.brownCowCount,
+                    saveData.livestockEggCount,
+                    saveData.livestockMilkCount,
+                    saveData.livestockEggFrac,
+                    saveData.livestockMilkFrac);
+            }
+
             // 11.b Atölye Hammadde Paletini ve Bekleyen Makine Kolilerini Yükleme
             if (WorkshopPalletManager.Instance != null)
             {
@@ -881,7 +910,12 @@ namespace Farm2Shelf.Core
                 }
             }
 
-            // 20. Mağaza Hijyeni & Zemin Çöp Temizliği
+            // 20. Günlük Şans Çarkı
+            DailySpinWheelManager.EnsureInstance();
+            DailySpinWheelManager.Instance.RestoreFromSave(saveData);
+            Farm2Shelf.UI.DailySpinWheelUI.Instance?.SyncHudFromRuntime();
+
+            // 21. Mağaza Hijyeni & Zemin Çöp Temizliği
             GameObject trashGroup = GameObject.Find("Store_Trash_Group");
             if (trashGroup != null)
             {
@@ -968,6 +1002,7 @@ namespace Farm2Shelf.Core
                 GardenSeedInventoryManager.Instance.ClearBarnInventory();
                 GardenSeedInventoryManager.Instance.RestoreOwnedSeeds(new Dictionary<string, int>());
             }
+            LivestockManager.Instance?.ResetToDefaults();
             WorkshopPalletManager.Instance?.ClearAll();
             FieldPlotController.ResetAllPlotsToEmpty();
 
@@ -1000,6 +1035,14 @@ namespace Farm2Shelf.Core
             WorkshopManager.Instance?.SetWorkshopLevel(1);
             TimeManager.Instance?.ResetToDefaults();
             GameHUDManager.Instance?.SetWaitingForEvacuation(false);
+            DailySpinWheelManager.EnsureInstance();
+            DailySpinWheelManager.Instance.ResetForNewGame();
+            Farm2Shelf.UI.DailySpinWheelUI.Instance?.SyncHudFromRuntime();
+        }
+
+        public int GetActiveSessionSlot()
+        {
+            return activeSessionSlot;
         }
 
         private bool TryDeserializeSlot(string json, int slotIndex, out SaveGameData data)
@@ -1054,6 +1097,7 @@ namespace Farm2Shelf.Core
             data.courierStaffList ??= new List<StaffSaveData>();
             data.fieldCrops ??= new List<CropSaveData>();
             data.furnitureList ??= new List<ShelfSaveData>();
+            if (data.lastDailySpinDate == null) data.lastDailySpinDate = "";
             data.saveFormatVersion = CURRENT_SAVE_FORMAT_VERSION;
         }
 

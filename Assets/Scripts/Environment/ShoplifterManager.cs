@@ -195,7 +195,7 @@ namespace Farm2Shelf.Environment
                     var s = shelves[i];
                     if (s == null || s.rows == null) continue;
                     if (s.FurnitureType == FurnitureType.Shelf || s.FurnitureType == FurnitureType.ProduceShelf ||
-                        s.FurnitureType == FurnitureType.Fridge || s.FurnitureType == FurnitureType.BakeryCounter ||
+                        s.FurnitureType == FurnitureType.Fridge || s.FurnitureType == FurnitureType.OrganicFridge || s.FurnitureType == FurnitureType.BakeryCounter ||
                         s.FurnitureType == FurnitureType.CosmeticShelf || s.FurnitureType == FurnitureType.ButcherCounter ||
                         s.FurnitureType == FurnitureType.ElectronicsShelf || s.FurnitureType == FurnitureType.GourmetShelf)
                     {

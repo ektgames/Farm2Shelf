@@ -34,6 +34,9 @@ namespace Farm2Shelf.Core
         private Text infoStatusText;
 
         private float placementStartTime = 0f;
+        private bool placementPointerArmed;
+        private Vector2 placementBlockPointer;
+        private bool hasPlacementBlockPointer;
         private Vector3 originalReplacementPos;
         private Quaternion originalReplacementRot;
         private ShelfRowData[] savedReplacementRows;
@@ -98,6 +101,8 @@ namespace Farm2Shelf.Core
             this.savedReplacementMachineState = null;
             this.currentYRotation = 0f;
             this.placementStartTime = Time.unscaledTime;
+            this.placementPointerArmed = false;
+            this.hasPlacementBlockPointer = TouchInputHelper.TryGetPressedPointerPosition(out this.placementBlockPointer);
 
             ghostObj = FurnitureModelBuilder.CreateFurnitureModel(type, isGhost: true);
             ConfigureGhostForPlacement(ghostObj);
@@ -179,6 +184,8 @@ namespace Farm2Shelf.Core
             this.savedReplacementMachineState = machineState;
             this.currentYRotation = origRot.eulerAngles.y;
             this.placementStartTime = Time.unscaledTime;
+            this.placementPointerArmed = false;
+            this.hasPlacementBlockPointer = TouchInputHelper.TryGetPressedPointerPosition(out this.placementBlockPointer);
 
             ghostObj = FurnitureModelBuilder.CreateFurnitureModel(type, isGhost: true);
             ConfigureGhostForPlacement(ghostObj);
@@ -245,48 +252,33 @@ namespace Farm2Shelf.Core
 
             if (ghostObj == null) return;
 
-            Camera mainCam = (IsometricCameraSetup.Instance != null && IsometricCameraSetup.Instance.Cam != null)
-                ? IsometricCameraSetup.Instance.Cam
-                : Camera.main;
+            Camera mainCam = ResolvePlacementCamera();
 
-            if (mainCam != null)
+            if (mainCam != null && Time.unscaledTime - placementStartTime >= 0.16f)
             {
-                // Kur tıklamasının eski ekran konumu hayaleti yola kilitlemesin.
-                bool placementClickSettled = Time.unscaledTime - placementStartTime > 0.12f;
-                if (placementClickSettled &&
-                    TouchInputHelper.TryGetPressedPointerPosition(out Vector2 pointerPos) &&
-                    !IsPointerOverUIButton(pointerPos))
+                if (TryReadPlacementPointer(out Vector2 pointerPos) &&
+                    !IsPointerOverPlacementControls(pointerPos) &&
+                    TryScreenPointOnGround(mainCam, pointerPos, out Vector3 hitPoint))
                 {
-                    Ray ray = mainCam.ScreenPointToRay(pointerPos);
-                    Plane floorPlane = new Plane(Vector3.up, new Vector3(0f, 0.01f, 0f));
-
-                    if (floorPlane.Raycast(ray, out float enter))
-                    {
-                        Vector3 hitPoint = ray.GetPoint(enter);
-                        hitPoint.x = Mathf.Round(hitPoint.x * 4f) / 4f; // 0.25m hassas ızgara yapışması
-                        hitPoint.z = Mathf.Round(hitPoint.z * 4f) / 4f;
-                        hitPoint.y = 0.01f;
-
-                        // Geniş harita sınırları dahilinde (Dükkan, Depo, Atölye ve Tarla) serbest ve hassas konumlandırma
-                        hitPoint.x = Mathf.Clamp(hitPoint.x, -85.0f, 35.0f);
-                        hitPoint.z = Mathf.Clamp(hitPoint.z, -35.0f, 65.0f);
-
-                        ghostObj.transform.position = hitPoint;
-                    }
+                    hitPoint.x = Mathf.Round(hitPoint.x * 4f) / 4f;
+                    hitPoint.z = Mathf.Round(hitPoint.z * 4f) / 4f;
+                    hitPoint.y = 0.01f;
+                    hitPoint.x = Mathf.Clamp(hitPoint.x, -85.0f, 35.0f);
+                    hitPoint.z = Mathf.Clamp(hitPoint.z, -35.0f, 65.0f);
+                    ghostObj.transform.position = hitPoint;
                 }
+            }
 
-                // 2. KLAVYE WASD VE YÖN TUŞLARI İLE ADIM ADIM İLERLETME DESTEĞİ:
-                Vector3 keyMove = Vector3.zero;
-                if (IsKeyHeld(KeyCode.W) || IsKeyHeld(KeyCode.UpArrow)) keyMove.z += 0.25f;
-                if (IsKeyHeld(KeyCode.S) || IsKeyHeld(KeyCode.DownArrow)) keyMove.z -= 0.25f;
-                if (IsKeyHeld(KeyCode.A) || IsKeyHeld(KeyCode.LeftArrow)) keyMove.x -= 0.25f;
-                if (IsKeyHeld(KeyCode.D) || IsKeyHeld(KeyCode.RightArrow)) keyMove.x += 0.25f;
+            Vector3 keyMove = Vector3.zero;
+            if (IsKeyHeld(KeyCode.W) || IsKeyHeld(KeyCode.UpArrow)) keyMove.z += 0.25f;
+            if (IsKeyHeld(KeyCode.S) || IsKeyHeld(KeyCode.DownArrow)) keyMove.z -= 0.25f;
+            if (IsKeyHeld(KeyCode.A) || IsKeyHeld(KeyCode.LeftArrow)) keyMove.x -= 0.25f;
+            if (IsKeyHeld(KeyCode.D) || IsKeyHeld(KeyCode.RightArrow)) keyMove.x += 0.25f;
 
-                if (keyMove != Vector3.zero && Time.time - lastKeyMoveTime > 0.10f)
-                {
-                    lastKeyMoveTime = Time.time;
-                    NudgeGhost(keyMove.x, keyMove.z);
-                }
+            if (keyMove != Vector3.zero && Time.time - lastKeyMoveTime > 0.10f)
+            {
+                lastKeyMoveTime = Time.time;
+                NudgeGhost(keyMove.x, keyMove.z);
             }
 
             FurnitureItemDef def = FurnitureDatabase.GetDef(currentType);
@@ -530,6 +522,12 @@ namespace Farm2Shelf.Core
 
         public bool IsValidPlacementZone(Vector3 pos, FurnitureZone zone)
         {
+            GetPlacementZoneRect(zone, out float minX, out float maxX, out float minZ, out float maxZ);
+            return pos.x >= minX && pos.x <= maxX && pos.z >= minZ && pos.z <= maxZ;
+        }
+
+        private void GetPlacementZoneRect(FurnitureZone zone, out float minX, out float maxX, out float minZ, out float maxZ)
+        {
             EnvironmentBuilder env = EnvironmentBuilder.Instance;
             int level = (env != null) ? env.CurrentUpgradeLevel : 1;
 
@@ -537,37 +535,163 @@ namespace Farm2Shelf.Core
             float storeDepth = (level == 1) ? 18.0f : ((level == 2) ? 27.0f : 36.0f);
             float storageDepth = (level == 1) ? 9.5f : ((level == 2) ? 14.5f : 19.5f);
 
-            // DÜKKAN İÇİ (STORE): X: [-12.6, 2.6], Z: [-2.6, frontWallZ + storeDepth - 0.6]
-            bool inStoreX = pos.x >= -12.6f && pos.x <= 2.6f;
-            bool inStoreZ = pos.z >= -2.6f && pos.z <= (frontWallZ + storeDepth - 0.6f);
-            bool inStore = inStoreX && inStoreZ;
-
-            // DEPO ALANI (STORAGE): X: [3.4, 10.6], Z: [-2.6, frontWallZ + storageDepth - 0.6]
-            bool inStorageX = pos.x >= 3.4f && pos.x <= 10.6f;
-            bool inStorageZ = pos.z >= -2.6f && pos.z <= (frontWallZ + storageDepth - 0.6f);
-            bool inStorage = inStorageX && inStorageZ;
-
-            // ATÖLYE BİNASI İÇİ (WORKSHOP): X: [-66.0, -44.0], Z: [-2.6, frontWallZ + wsDepth - 0.6]
-            int wsLevel = (WorkshopManager.Instance != null) ? WorkshopManager.Instance.CurrentWorkshopLevel : 1;
-            float wsDepth = (wsLevel == 1) ? 18.0f : ((wsLevel == 2) ? 27.0f : 36.0f);
-            bool inWorkshopX = pos.x >= -66.0f && pos.x <= -44.0f;
-            bool inWorkshopZ = pos.z >= -2.6f && pos.z <= (frontWallZ + wsDepth - 0.6f);
-            bool inWorkshop = inWorkshopX && inWorkshopZ;
-
             if (zone == FurnitureZone.WorkshopOnly)
             {
-                return inWorkshop;
+                int wsLevel = (WorkshopManager.Instance != null) ? WorkshopManager.Instance.CurrentWorkshopLevel : 1;
+                float wsDepth = (wsLevel == 1) ? 18.0f : ((wsLevel == 2) ? 27.0f : 36.0f);
+                minX = -66.0f;
+                maxX = -44.0f;
+                minZ = -2.6f;
+                maxZ = frontWallZ + wsDepth - 0.6f;
+                return;
             }
-            else if (zone == FurnitureZone.StorageOnly)
+
+            if (zone == FurnitureZone.StorageOnly)
             {
-                // Depo Rafı: SADECE VE SADECE DEPO KISMINA KOYULABİLİR!
-                return inStorage;
+                minX = 3.4f;
+                maxX = 10.6f;
+                minZ = -2.6f;
+                maxZ = frontWallZ + storageDepth - 0.6f;
+                return;
             }
-            else
+
+            minX = -12.6f;
+            maxX = 2.6f;
+            minZ = -2.6f;
+            maxZ = frontWallZ + storeDepth - 0.6f;
+        }
+
+        private static Camera ResolvePlacementCamera()
+        {
+            if (IsometricCameraSetup.Instance != null && IsometricCameraSetup.Instance.Cam != null &&
+                IsometricCameraSetup.Instance.Cam.enabled && IsometricCameraSetup.Instance.Cam.gameObject.activeInHierarchy)
             {
-                // Diğer Mobilyalar: SADECE VE SADECE DÜKKAN İÇİNE KOYULABİLİR!
-                return inStore;
+                return IsometricCameraSetup.Instance.Cam;
             }
+
+            Camera tagged = Camera.main;
+            if (tagged != null && tagged.enabled) return tagged;
+
+            Camera[] cams = Camera.allCameras;
+            for (int i = 0; i < cams.Length; i++)
+            {
+                Camera c = cams[i];
+                if (c != null && c.enabled && c.orthographic) return c;
+            }
+            return tagged;
+        }
+
+        private static bool TryReadPlacementPointer(out Vector2 screenPos)
+        {
+            screenPos = Vector2.zero;
+
+#if ENABLE_INPUT_SYSTEM
+            try
+            {
+                if (UnityEngine.InputSystem.Mouse.current != null &&
+                    (UnityEngine.InputSystem.Mouse.current.leftButton.isPressed ||
+                     UnityEngine.InputSystem.Mouse.current.leftButton.wasPressedThisFrame))
+                {
+                    screenPos = UnityEngine.InputSystem.Mouse.current.position.ReadValue();
+                    if (screenPos.sqrMagnitude > 1f) return true;
+                }
+            }
+            catch { }
+#endif
+
+            try
+            {
+                if (Input.GetMouseButton(0) || Input.GetMouseButtonDown(0))
+                {
+                    Vector3 m = Input.mousePosition;
+                    screenPos = new Vector2(m.x, m.y);
+                    if (screenPos.sqrMagnitude > 1f) return true;
+                }
+            }
+            catch { }
+
+            try
+            {
+                if (Input.touchCount > 0)
+                {
+                    UnityEngine.Touch t = Input.GetTouch(0);
+                    if (t.phase == UnityEngine.TouchPhase.Began || t.phase == UnityEngine.TouchPhase.Moved || t.phase == UnityEngine.TouchPhase.Stationary)
+                    {
+                        screenPos = t.position;
+                        return screenPos.sqrMagnitude > 1f;
+                    }
+                }
+            }
+            catch { }
+
+#if ENABLE_INPUT_SYSTEM
+            try
+            {
+                if (UnityEngine.InputSystem.Touchscreen.current != null &&
+                    UnityEngine.InputSystem.Touchscreen.current.primaryTouch.press.isPressed)
+                {
+                    screenPos = UnityEngine.InputSystem.Touchscreen.current.primaryTouch.position.ReadValue();
+                    if (screenPos.sqrMagnitude > 1f) return true;
+                }
+            }
+            catch { }
+#endif
+            return false;
+        }
+
+        private bool IsPointerOverPlacementControls(Vector2 screenPos)
+        {
+            if (placementHUDCanvas == null || !placementHUDCanvas.activeInHierarchy) return false;
+
+            Button[] buttons = placementHUDCanvas.GetComponentsInChildren<Button>(true);
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                if (buttons[i] == null) continue;
+                RectTransform rt = buttons[i].transform as RectTransform;
+                if (rt == null) continue;
+                if (RectTransformUtility.RectangleContainsScreenPoint(rt, screenPos, null))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static bool TryScreenPointOnGround(Camera cam, Vector2 screenPos, out Vector3 worldPos)
+        {
+            worldPos = Vector3.zero;
+            if (cam == null) return false;
+
+            Vector3 pixel = new Vector3(screenPos.x, screenPos.y, 0f);
+            Rect pixelRect = cam.pixelRect;
+            if (pixelRect.width > 8f && pixelRect.height > 8f)
+            {
+                if (pixel.x < pixelRect.xMin || pixel.x > pixelRect.xMax || pixel.y < pixelRect.yMin || pixel.y > pixelRect.yMax)
+                {
+                    pixel.x = pixelRect.x + (screenPos.x / Mathf.Max(1f, Screen.width)) * pixelRect.width;
+                    pixel.y = pixelRect.y + (screenPos.y / Mathf.Max(1f, Screen.height)) * pixelRect.height;
+                }
+            }
+
+            Plane floorPlane = new Plane(Vector3.up, new Vector3(0f, 0.01f, 0f));
+            Ray ray = cam.ScreenPointToRay(pixel);
+            if (floorPlane.Raycast(ray, out float enter) && enter >= 0f)
+            {
+                worldPos = ray.GetPoint(enter);
+                worldPos.y = 0.01f;
+                return true;
+            }
+
+            Vector3 origin = cam.ScreenToWorldPoint(new Vector3(pixel.x, pixel.y, Mathf.Max(0.5f, cam.nearClipPlane)));
+            ray = new Ray(origin, cam.transform.forward);
+            if (floorPlane.Raycast(ray, out enter) && enter >= 0f)
+            {
+                worldPos = ray.GetPoint(enter);
+                worldPos.y = 0.01f;
+                return true;
+            }
+
+            return false;
         }
 
         private void GetStoreWallFaces(out float leftX, out float rightX, out float frontZ, out float backZ)
@@ -680,6 +804,7 @@ namespace Farm2Shelf.Core
             {
                 case FurnitureType.Shelf:
                 case FurnitureType.Fridge:
+                case FurnitureType.OrganicFridge:
                 case FurnitureType.CosmeticShelf:
                 case FurnitureType.ProduceShelf:
                 case FurnitureType.BakeryCounter:
@@ -830,7 +955,8 @@ namespace Farm2Shelf.Core
                 }
 
                 // Ana Dış Giriş Kapısı Ağzı (Geçişi tıkamamak için: X: -5.8 .. -4.2, Z: <= -1.8)
-                if (pos.z <= -1.8f && pos.x >= -5.8f && pos.x <= -4.2f)
+                if (!PlacedFurnitureController.IsWalkableFloorDecoration(type) &&
+                    pos.z <= -1.8f && pos.x >= -5.8f && pos.x <= -4.2f)
                 {
                     return true;
                 }
@@ -1179,22 +1305,12 @@ namespace Farm2Shelf.Core
             {
                 FurnitureItemDef currentDef = FurnitureDatabase.GetDef(currentType);
                 Transform storeQuad = floorGridObj.transform.Find("Store_Grid_Quad");
-                if (currentDef != null && currentDef.zone == FurnitureZone.WorkshopOnly)
+                FurnitureZone gridZone = currentDef != null ? currentDef.zone : FurnitureZone.StoreOnly;
+                GetPlacementZoneRect(gridZone, out float minX, out float maxX, out float minZ, out float maxZ);
+                floorGridObj.transform.position = new Vector3((minX + maxX) * 0.5f, 0.02f, (minZ + maxZ) * 0.5f);
+                if (storeQuad != null)
                 {
-                    int wsLevel = (WorkshopManager.Instance != null) ? WorkshopManager.Instance.CurrentWorkshopLevel : 1;
-                    float wsDepth = (wsLevel == 1) ? 18.0f : ((wsLevel == 2) ? 27.0f : 36.0f);
-                    floorGridObj.transform.position = new Vector3(-55.0f, 0.02f, -3.0f + (wsDepth / 2f));
-                    if (storeQuad != null) storeQuad.localScale = new Vector3(22.0f, wsDepth, 1f);
-                }
-                else if (currentDef != null && currentDef.zone == FurnitureZone.StorageOnly)
-                {
-                    floorGridObj.transform.position = new Vector3(7.0f, 0.02f, 4.5f);
-                    if (storeQuad != null) storeQuad.localScale = new Vector3(8.0f, 15.0f, 1f);
-                }
-                else
-                {
-                    floorGridObj.transform.position = new Vector3(-5.0f, 0.02f, 6.0f);
-                    if (storeQuad != null) storeQuad.localScale = new Vector3(16.0f, 20.0f, 1f);
+                    storeQuad.localScale = new Vector3(Mathf.Max(1f, maxX - minX), Mathf.Max(1f, maxZ - minZ), 1f);
                 }
                 floorGridObj.SetActive(visible);
             }

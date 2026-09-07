@@ -76,11 +76,18 @@ namespace Farm2Shelf.UI
             }
         }
 
+        public Canvas HudCanvas => mainCanvas;
+
         public void SetHUDVisible(bool visible)
         {
             if (mainCanvas != null)
             {
                 mainCanvas.gameObject.SetActive(visible);
+            }
+
+            if (visible && EKTPhoneManager.Instance != null)
+            {
+                EKTPhoneManager.Instance.EnsurePhoneButtonOnHud();
             }
         }
 
@@ -182,14 +189,14 @@ namespace Farm2Shelf.UI
             CreatePauseButtonWidget(canvasObj.transform);
 
             // --- 8. SAĞ ALT EKT PHONE TABLET BUTONU ---
-            if (GetComponent<EKTPhoneManager>() != null)
+            EKTPhoneManager phoneMgr = GetComponent<EKTPhoneManager>() ?? EKTPhoneManager.Instance;
+            if (phoneMgr != null)
             {
-                GetComponent<EKTPhoneManager>().CreateBottomRightPhoneButtonOnCanvas(canvasObj.transform);
+                phoneMgr.CreateBottomRightPhoneButtonOnCanvas(canvasObj.transform);
             }
-            else if (EKTPhoneManager.Instance != null)
-            {
-                EKTPhoneManager.Instance.CreateBottomRightPhoneButtonOnCanvas(canvasObj.transform);
-            }
+
+            DailySpinWheelUI.EnsureInstance();
+            DailySpinWheelUI.Instance.AttachToHud(mainCanvas);
         }
 
         private void CreatePauseButtonWidget(Transform parent)

@@ -33,24 +33,50 @@ namespace Farm2Shelf.Core
             GetOrCreateInstance();
         }
 
-        public static LocalizationManager Instance
+#if UNITY_EDITOR
+        [UnityEditor.InitializeOnLoadMethod]
+        private static void RegisterEditorPlayModeGuard()
         {
-            get { return GetOrCreateInstance(); }
+            UnityEditor.EditorApplication.playModeStateChanged -= HandleEditorPlayModeChanged;
+            UnityEditor.EditorApplication.playModeStateChanged += HandleEditorPlayModeChanged;
         }
+
+        private static void HandleEditorPlayModeChanged(UnityEditor.PlayModeStateChange state)
+        {
+            if (state == UnityEditor.PlayModeStateChange.ExitingPlayMode)
+            {
+                isQuitting = true;
+            }
+            else if (state == UnityEditor.PlayModeStateChange.EnteredEditMode)
+            {
+                isQuitting = false;
+                instance = null;
+            }
+        }
+#endif
+
+        /// <summary>
+        /// Mevcut örneği döner; sahne kapanışında yeni GameObject üretmez.
+        /// </summary>
+        public static LocalizationManager Instance => instance;
 
         private static bool CanCreateInstance()
         {
             if (isQuitting) return false;
-            return Application.isPlaying;
+            if (!Application.isPlaying) return false;
+#if UNITY_EDITOR
+            if (!UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode) return false;
+#endif
+            return true;
         }
 
         private static LocalizationManager GetOrCreateInstance()
         {
             if (instance != null) return instance;
+            if (!CanCreateInstance()) return null;
 
             instance = UnityEngine.Object.FindFirstObjectByType<LocalizationManager>();
             if (instance != null) return instance;
-            if (!CanCreateInstance()) return null;
 
             GameObject go = new GameObject("[LocalizationManager]");
             instance = go.AddComponent<LocalizationManager>();
@@ -93,10 +119,6 @@ namespace Farm2Shelf.Core
 
         public static LocalizationManager EnsureForGameplay()
         {
-            if (Application.isPlaying)
-            {
-                isQuitting = false;
-            }
             return GetOrCreateInstance();
         }
 

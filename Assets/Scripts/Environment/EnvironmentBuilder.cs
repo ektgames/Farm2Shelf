@@ -287,6 +287,19 @@ namespace Farm2Shelf.Environment
         public void UpgradeStoreToLevel(int targetLevel)
         {
             if (targetLevel < 1 || targetLevel > 3) return;
+
+            if (environmentRoot == null)
+            {
+                GameObject existing = GameObject.Find("Farm2Shelf_Environment");
+                if (existing != null) environmentRoot = existing.transform;
+            }
+
+            bool worldReady = environmentRoot != null;
+            if (worldReady && currentUpgradeLevel == targetLevel)
+            {
+                return;
+            }
+
             currentUpgradeLevel = targetLevel;
             BuildEnvironment();
             OnStoreUpgraded?.Invoke(currentUpgradeLevel);
@@ -297,6 +310,8 @@ namespace Farm2Shelf.Environment
 
         private void InitializeMaterials()
         {
+            if (grassMat != null) return;
+
             // Çevre & Yol
             grassMat = CreateSolidMaterial("GrassMat", new Color(0.28f, 0.62f, 0.28f));
             darkWallMat = CreateSolidMaterial("DarkWallMat", new Color(0.12f, 0.14f, 0.17f));
@@ -2200,8 +2215,8 @@ namespace Farm2Shelf.Environment
             CreateUltraDetailedFarmhouse(farmGroup, new Vector3(25.0f, 0f, 36.5f));
             CreateUltraDetailedBarn(farmGroup, new Vector3(37.5f, 0f, 36.5f));
 
-            // AĞAÇ VE ÇİT İLE TÜM ÇİFTLİK ÇEVRESİNİ KUŞAT (YUKARIDAN AŞAĞIYA KADAR)
             CreateFarmFenceAndTreeEnclosure(farmGroup);
+            CreateEastLivestockYards(farmGroup);
 
             // GÖLÜ TAM ORTAYA KOY (Z = 15.0m, X = 33.0m)
             GameObject pond = new GameObject("Farm_Water_Pond");
@@ -2346,6 +2361,13 @@ namespace Farm2Shelf.Environment
             textMesh.alignment = TextAlignment.Center;
             textMesh.anchor = TextAnchor.MiddleCenter;
             textMesh.fontStyle = FontStyle.Bold;
+
+            MeshRenderer labelRenderer = labelObj.GetComponent<MeshRenderer>();
+            if (labelRenderer != null)
+            {
+                labelRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                labelRenderer.receiveShadows = false;
+            }
 
             activeWorldLabels.Add(new World3DLabelInfo { mesh = textMesh, textTr = textTr, textEn = textEn });
         }
@@ -2864,6 +2886,187 @@ namespace Farm2Shelf.Environment
             CreateFarmEntranceArchwayGate(enclosureGroup.transform, new Vector3(15.0f, 0f, 2.0f));
         }
 
+        /// <summary>
+        /// Mevcut ahırın doğusundaki yeşil şeritte, doğu asfalt yola (X=75) ve iç kaldırıma (X=69-72)
+        /// taşmayan çitli tavuk çiftliği ve inek ahırı.
+        /// </summary>
+        private void CreateEastLivestockYards(Transform parent)
+        {
+            Transform livestockRoot = new GameObject("East_Livestock_Yards").transform;
+            livestockRoot.SetParent(parent, false);
+
+            const float yardMinX = 51.8f;
+            const float yardMaxX = 67.0f;
+            const float chickenMinZ = 1.4f;
+            const float chickenMaxZ = 20.2f;
+            const float cowMinZ = 22.2f;
+            const float cowMaxZ = 41.2f;
+
+            CreateFencedYard(livestockRoot, "Chicken_Yard_Fence", yardMinX, yardMaxX, chickenMinZ, chickenMaxZ);
+            CreateFencedYard(livestockRoot, "Cow_Yard_Fence", yardMinX, yardMaxX, cowMinZ, cowMaxZ);
+
+            CreateDetailedChickenCoop(livestockRoot, new Vector3(58.6f, 0f, 10.8f));
+            CreateDetailedCowBarn(livestockRoot, new Vector3(59.2f, 0f, 33.6f));
+            if (LivestockManager.Instance != null)
+            {
+                LivestockManager.Instance.NotifyYardsReady();
+            }
+        }
+
+        private void CreateFencedYard(Transform parent, string groupName, float minX, float maxX, float minZ, float maxZ)
+        {
+            Transform fenceGroup = new GameObject(groupName).transform;
+            fenceGroup.SetParent(parent, false);
+            float step = 2.6f;
+
+            for (float x = minX; x < maxX; x += step)
+            {
+                float len = Mathf.Min(step, maxX - x);
+                CreateFencePostAndRail(fenceGroup, new Vector3(x, 0f, maxZ), true, len);
+                CreateFencePostAndRail(fenceGroup, new Vector3(x, 0f, minZ), true, len);
+            }
+            CreateFencePostOnly(fenceGroup, new Vector3(maxX, 0f, maxZ));
+            CreateFencePostOnly(fenceGroup, new Vector3(maxX, 0f, minZ));
+
+            for (float z = minZ; z < maxZ; z += step)
+            {
+                float len = Mathf.Min(step, maxZ - z);
+                CreateFencePostAndRail(fenceGroup, new Vector3(minX, 0f, z), false, len);
+                CreateFencePostAndRail(fenceGroup, new Vector3(maxX, 0f, z), false, len);
+            }
+        }
+
+        private void CreateDetailedChickenCoop(Transform parent, Vector3 pos)
+        {
+            GameObject coop = new GameObject("Chicken_Coop");
+            coop.transform.SetParent(parent, false);
+            coop.transform.position = pos;
+
+            Vector3 size = new Vector3(5.4f, 2.55f, 3.6f);
+            float halfX = size.x * 0.5f;
+            float halfZ = size.z * 0.5f;
+            float wallY = size.y * 0.5f + 0.22f;
+            Material coopWall = CreateSolidMaterial("ChickenCoopWallMat", new Color(0.93f, 0.84f, 0.58f));
+            Material coopTrim = CreateSolidMaterial("ChickenCoopTrimMat", new Color(0.55f, 0.28f, 0.12f));
+
+            CreateFarmDecor(coop.transform, "Coop_Foundation", PrimitiveType.Cube, new Vector3(0f, 0.12f, 0f), new Vector3(size.x + 0.22f, 0.24f, size.z + 0.22f), pondStoneMat);
+            CreateFarmDecor(coop.transform, "Coop_Walls", PrimitiveType.Cube, new Vector3(0f, wallY, 0f), size, coopWall);
+            CreateFarmDecor(coop.transform, "Coop_Ramp", PrimitiveType.Cube, new Vector3(0f, 0.22f, -halfZ - 0.42f), new Vector3(1.15f, 0.08f, 0.95f), fenceWoodMat, new Vector3(16f, 0f, 0f));
+
+            Vector3[] corners =
+            {
+                new Vector3(-halfX, wallY, -halfZ), new Vector3(halfX, wallY, -halfZ),
+                new Vector3(-halfX, wallY, halfZ), new Vector3(halfX, wallY, halfZ)
+            };
+            foreach (Vector3 c in corners)
+            {
+                CreateFarmDecor(coop.transform, "Coop_Corner", PrimitiveType.Cube, c, new Vector3(0.16f, size.y + 0.06f, 0.16f), coopTrim);
+            }
+
+            float roofY = size.y + 0.28f;
+            CreateFarmDecor(coop.transform, "Coop_Roof_Front", PrimitiveType.Cube, new Vector3(0f, roofY + 0.48f, -0.42f), new Vector3(size.x + 0.38f, 0.12f, 2.25f), farmhouseRoofMat, new Vector3(26f, 0f, 0f));
+            CreateFarmDecor(coop.transform, "Coop_Roof_Back", PrimitiveType.Cube, new Vector3(0f, roofY + 0.48f, 0.42f), new Vector3(size.x + 0.38f, 0.12f, 2.25f), farmhouseRoofMat, new Vector3(-26f, 0f, 0f));
+            CreateFarmDecor(coop.transform, "Coop_Ridge", PrimitiveType.Cube, new Vector3(0f, roofY + 0.92f, 0f), new Vector3(size.x + 0.12f, 0.08f, 0.14f), darkWallMat);
+            CreateFarmDecor(coop.transform, "Coop_Weathervane_Pole", PrimitiveType.Cylinder, new Vector3(0f, roofY + 1.22f, 0f), new Vector3(0.06f, 0.22f, 0.06f), darkWallMat);
+            CreateFarmDecor(coop.transform, "Coop_Weathervane_Arrow", PrimitiveType.Cube, new Vector3(0.12f, roofY + 1.42f, 0f), new Vector3(0.42f, 0.05f, 0.08f), barrierHousingMat);
+
+            float doorZ = -halfZ - 0.03f;
+            CreateFarmDecor(coop.transform, "Coop_Door_Frame", PrimitiveType.Cube, new Vector3(0f, 0.95f, doorZ), new Vector3(1.05f, 1.45f, 0.08f), coopTrim);
+            CreateFarmDecor(coop.transform, "Coop_Door", PrimitiveType.Cube, new Vector3(0f, 0.92f, doorZ - 0.03f), new Vector3(0.88f, 1.28f, 0.06f), woodDoorMat);
+            CreateFarmDecor(coop.transform, "Coop_PopDoor", PrimitiveType.Cube, new Vector3(-1.35f, 0.48f, doorZ), new Vector3(0.55f, 0.48f, 0.07f), woodDoorMat);
+
+            CreateFarmWindowWithFlowerBox(coop.transform, new Vector3(-1.55f, 1.55f, doorZ), new Vector3(0.72f, 0.62f, 0.07f), true);
+            CreateFarmWindowWithFlowerBox(coop.transform, new Vector3(1.55f, 1.55f, doorZ), new Vector3(0.72f, 0.62f, 0.07f), true);
+            CreateFarmWindowWithFlowerBox(coop.transform, new Vector3(0f, 1.55f, halfZ + 0.03f), new Vector3(0.85f, 0.62f, 0.07f), false);
+
+            for (int i = 0; i < 4; i++)
+            {
+                float nx = -1.85f + i * 0.72f;
+                CreateFarmDecor(coop.transform, "Nesting_Box_" + i, PrimitiveType.Cube, new Vector3(nx, 0.42f, halfZ + 0.28f), new Vector3(0.58f, 0.42f, 0.48f), fenceWoodMat);
+                CreateFarmDecor(coop.transform, "Nesting_Lid_" + i, PrimitiveType.Cube, new Vector3(nx, 0.66f, halfZ + 0.28f), new Vector3(0.62f, 0.08f, 0.52f), woodDoorMat);
+            }
+
+            CreateFarmDecor(coop.transform, "Feed_Trough", PrimitiveType.Cube, new Vector3(2.05f, 0.22f, -halfZ - 0.55f), new Vector3(1.35f, 0.28f, 0.42f), fenceWoodMat);
+            CreateFarmDecor(coop.transform, "Water_Pan", PrimitiveType.Cylinder, new Vector3(-2.05f, 0.16f, -halfZ - 0.50f), new Vector3(0.55f, 0.12f, 0.55f), pondWaterMat);
+
+            CreateFarmLantern(coop.transform, new Vector3(-0.70f, 1.85f, doorZ - 0.10f), 4.4f, 1.05f);
+            CreateFarmLantern(coop.transform, new Vector3(0.70f, 1.85f, doorZ - 0.10f), 4.4f, 1.05f);
+
+            CreateLabel("TAVUK ÇİFTLİĞİ", "CHICKEN COOP", coop.transform, new Vector3(0f, size.y + 1.85f, 0f), new Color(1.0f, 0.78f, 0.20f));
+
+            LivestockBuildingController coopClick = coop.AddComponent<LivestockBuildingController>();
+            coopClick.Kind = LivestockBuildingKind.ChickenCoop;
+        }
+
+        private void CreateDetailedCowBarn(Transform parent, Vector3 pos)
+        {
+            GameObject cowBarn = new GameObject("Cow_Barn");
+            cowBarn.transform.SetParent(parent, false);
+            cowBarn.transform.position = pos;
+
+            Vector3 size = new Vector3(6.6f, 3.35f, 4.8f);
+            float halfX = size.x * 0.5f;
+            float halfZ = size.z * 0.5f;
+            float wallY = size.y * 0.5f + 0.28f;
+            Material cowWall = CreateSolidMaterial("CowBarnWallMat", new Color(0.94f, 0.92f, 0.86f));
+            Material cowGreen = CreateSolidMaterial("CowBarnRoofMat", new Color(0.22f, 0.46f, 0.28f));
+
+            CreateFarmDecor(cowBarn.transform, "CowBarn_Foundation", PrimitiveType.Cube, new Vector3(0f, 0.16f, 0f), new Vector3(size.x + 0.20f, 0.32f, size.z + 0.20f), pondStoneMat);
+            CreateFarmDecor(cowBarn.transform, "CowBarn_Walls", PrimitiveType.Cube, new Vector3(0f, wallY, 0f), size, cowWall);
+            CreateFarmDecor(cowBarn.transform, "CowBarn_Wainscot", PrimitiveType.Cube, new Vector3(0f, 0.62f, 0f), new Vector3(size.x + 0.05f, 0.62f, size.z + 0.05f), windowSillMat);
+
+            Vector3[] corners =
+            {
+                new Vector3(-halfX, wallY, -halfZ), new Vector3(halfX, wallY, -halfZ),
+                new Vector3(-halfX, wallY, halfZ), new Vector3(halfX, wallY, halfZ)
+            };
+            foreach (Vector3 c in corners)
+            {
+                CreateFarmDecor(cowBarn.transform, "CowBarn_Corner", PrimitiveType.Cube, c, new Vector3(0.20f, size.y + 0.08f, 0.20f), windowFrameMat);
+            }
+
+            for (float x = -halfX + 0.55f; x <= halfX - 0.55f; x += 0.70f)
+            {
+                CreateFarmDecor(cowBarn.transform, "CowBarn_Batten", PrimitiveType.Cube, new Vector3(x, wallY, -halfZ - 0.02f), new Vector3(0.07f, size.y - 0.25f, 0.04f), windowFrameMat);
+            }
+
+            float roofY = size.y + 0.30f;
+            CreateFarmDecor(cowBarn.transform, "CowBarn_Roof_Front", PrimitiveType.Cube, new Vector3(0f, roofY + 0.62f, -0.52f), new Vector3(size.x + 0.42f, 0.14f, 2.85f), cowGreen, new Vector3(27f, 0f, 0f));
+            CreateFarmDecor(cowBarn.transform, "CowBarn_Roof_Back", PrimitiveType.Cube, new Vector3(0f, roofY + 0.62f, 0.52f), new Vector3(size.x + 0.42f, 0.14f, 2.85f), cowGreen, new Vector3(-27f, 0f, 0f));
+            CreateFarmDecor(cowBarn.transform, "CowBarn_Ridge", PrimitiveType.Cube, new Vector3(0f, roofY + 1.18f, 0f), new Vector3(size.x + 0.16f, 0.09f, 0.16f), darkWallMat);
+            CreateFarmDecor(cowBarn.transform, "CowBarn_Vent", PrimitiveType.Cube, new Vector3(0f, roofY + 1.42f, 0f), new Vector3(0.85f, 0.38f, 0.85f), cowWall);
+            CreateFarmDecor(cowBarn.transform, "CowBarn_Vent_Cap", PrimitiveType.Cube, new Vector3(0f, roofY + 1.68f, 0f), new Vector3(1.05f, 0.12f, 1.05f), cowGreen);
+
+            float doorZ = -halfZ - 0.04f;
+            CreateFarmDecor(cowBarn.transform, "CowBarn_Door_Frame", PrimitiveType.Cube, new Vector3(0f, 1.28f, doorZ), new Vector3(2.85f, 2.35f, 0.10f), windowFrameMat);
+            GameObject doorL = CreateFarmDecor(cowBarn.transform, "CowBarn_Door_L", PrimitiveType.Cube, new Vector3(-0.66f, 1.24f, doorZ - 0.03f), new Vector3(1.22f, 2.12f, 0.08f), woodDoorMat);
+            GameObject doorR = CreateFarmDecor(cowBarn.transform, "CowBarn_Door_R", PrimitiveType.Cube, new Vector3(0.66f, 1.24f, doorZ - 0.03f), new Vector3(1.22f, 2.12f, 0.08f), woodDoorMat);
+            CreateFarmDecor(doorL.transform, "Cow_X_A", PrimitiveType.Cube, new Vector3(0f, 0f, -0.70f), new Vector3(0.08f, 0.88f, 0.40f), windowFrameMat, new Vector3(0f, 0f, 40f));
+            CreateFarmDecor(doorL.transform, "Cow_X_B", PrimitiveType.Cube, new Vector3(0f, 0f, -0.70f), new Vector3(0.08f, 0.88f, 0.40f), windowFrameMat, new Vector3(0f, 0f, -40f));
+            CreateFarmDecor(doorR.transform, "Cow_X_C", PrimitiveType.Cube, new Vector3(0f, 0f, -0.70f), new Vector3(0.08f, 0.88f, 0.40f), windowFrameMat, new Vector3(0f, 0f, 40f));
+            CreateFarmDecor(doorR.transform, "Cow_X_D", PrimitiveType.Cube, new Vector3(0f, 0f, -0.70f), new Vector3(0.08f, 0.88f, 0.40f), windowFrameMat, new Vector3(0f, 0f, -40f));
+
+            CreateFarmWindowWithFlowerBox(cowBarn.transform, new Vector3(-2.15f, 1.85f, doorZ), new Vector3(0.78f, 0.72f, 0.07f), true);
+            CreateFarmWindowWithFlowerBox(cowBarn.transform, new Vector3(2.15f, 1.85f, doorZ), new Vector3(0.78f, 0.72f, 0.07f), true);
+            CreateFarmWindowWithFlowerBox(cowBarn.transform, new Vector3(-1.6f, 1.85f, halfZ + 0.03f), new Vector3(0.78f, 0.72f, 0.07f), false);
+            CreateFarmWindowWithFlowerBox(cowBarn.transform, new Vector3(1.6f, 1.85f, halfZ + 0.03f), new Vector3(0.78f, 0.72f, 0.07f), false);
+
+            CreateFarmDecor(cowBarn.transform, "Feed_Trough_L", PrimitiveType.Cube, new Vector3(-2.15f, 0.28f, -halfZ - 0.52f), new Vector3(1.55f, 0.32f, 0.48f), fenceWoodMat);
+            CreateFarmDecor(cowBarn.transform, "Feed_Trough_R", PrimitiveType.Cube, new Vector3(2.15f, 0.28f, -halfZ - 0.52f), new Vector3(1.55f, 0.32f, 0.48f), fenceWoodMat);
+            CreateFarmDecor(cowBarn.transform, "Hay_Bale_L", PrimitiveType.Cube, new Vector3(-2.45f, 0.32f, doorZ - 0.55f), new Vector3(0.72f, 0.48f, 0.48f), wheatCropMat);
+            CreateFarmDecor(cowBarn.transform, "Hay_Bale_R", PrimitiveType.Cube, new Vector3(2.45f, 0.32f, doorZ - 0.55f), new Vector3(0.72f, 0.48f, 0.48f), wheatCropMat);
+            CreateFarmDecor(cowBarn.transform, "Water_Trough", PrimitiveType.Cube, new Vector3(0f, 0.22f, halfZ + 0.42f), new Vector3(1.85f, 0.28f, 0.55f), pondStoneMat);
+            CreateFarmDecor(cowBarn.transform, "Water_Fill", PrimitiveType.Cube, new Vector3(0f, 0.34f, halfZ + 0.42f), new Vector3(1.55f, 0.06f, 0.38f), pondWaterMat);
+
+            CreateFarmLantern(cowBarn.transform, new Vector3(-1.55f, 2.55f, doorZ - 0.08f), 5.0f, 1.20f);
+            CreateFarmLantern(cowBarn.transform, new Vector3(1.55f, 2.55f, doorZ - 0.08f), 5.0f, 1.20f);
+
+            CreateLabel("İNEK AHIRI", "COW BARN", cowBarn.transform, new Vector3(0f, size.y + 2.05f, 0f), new Color(0.85f, 0.92f, 0.55f));
+
+            LivestockBuildingController cowClick = cowBarn.AddComponent<LivestockBuildingController>();
+            cowClick.Kind = LivestockBuildingKind.CowBarn;
+        }
+
         private void CreateFencePostOnly(Transform parent, Vector3 pos)
         {
             GameObject post = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -2974,6 +3177,51 @@ namespace Farm2Shelf.Environment
             rail2.GetComponent<Renderer>().sharedMaterial = fenceWoodMat;
         }
 
+        private GameObject CreateFarmDecor(Transform parent, string name, PrimitiveType type, Vector3 localPos, Vector3 localScale, Material mat, Vector3 euler = default)
+        {
+            GameObject go = GameObject.CreatePrimitive(type);
+            go.name = name;
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = localPos;
+            go.transform.localRotation = Quaternion.Euler(euler);
+            go.transform.localScale = localScale;
+            if (mat != null) go.GetComponent<Renderer>().sharedMaterial = mat;
+            Collider col = go.GetComponent<Collider>();
+            if (col != null)
+            {
+                if (Application.isPlaying) Destroy(col);
+                else DestroyImmediate(col);
+            }
+            return go;
+        }
+
+        private void CreateFarmLantern(Transform parent, Vector3 localPos, float range, float intensity)
+        {
+            GameObject lantern = new GameObject("Farm_Lantern");
+            lantern.transform.SetParent(parent, false);
+            lantern.transform.localPosition = localPos;
+
+            CreateFarmDecor(lantern.transform, "Lantern_Arm", PrimitiveType.Cube, new Vector3(0f, 0.12f, 0f), new Vector3(0.06f, 0.08f, 0.18f), darkWallMat);
+            CreateFarmDecor(lantern.transform, "Lantern_Cage", PrimitiveType.Cube, new Vector3(0f, -0.08f, 0.08f), new Vector3(0.22f, 0.28f, 0.22f), darkWallMat);
+            GameObject bulb = CreateFarmDecor(lantern.transform, "Lamp_Bulb", PrimitiveType.Sphere, new Vector3(0f, -0.08f, 0.08f), new Vector3(0.16f, 0.16f, 0.16f), windowSillMat);
+
+            GameObject lightObj = new GameObject("FarmLantern_Light");
+            lightObj.transform.SetParent(lantern.transform, false);
+            lightObj.transform.localPosition = new Vector3(0f, -0.10f, 0.08f);
+            Light pointLight = lightObj.AddComponent<Light>();
+            pointLight.type = LightType.Point;
+            pointLight.color = new Color(1.0f, 0.82f, 0.48f);
+            pointLight.intensity = intensity;
+            pointLight.range = range;
+            pointLight.shadows = LightShadows.None;
+            pointLight.enabled = false;
+
+            if (DayNightCycleManager.Instance != null)
+            {
+                DayNightCycleManager.Instance.RegisterStreetLamp(bulb, pointLight);
+            }
+        }
+
         private void CreateUltraDetailedFarmhouse(Transform parent, Vector3 pos)
         {
             GameObject farmhouse = new GameObject("Farmhouse");
@@ -2983,128 +3231,76 @@ namespace Farm2Shelf.Environment
             Vector3 size = new Vector3(6.5f, 3.8f, 5.2f);
             float halfX = size.x / 2f;
             float halfZ = size.z / 2f;
+            float wallY = (size.y / 2f) + 0.3f;
 
-            // 1. TEMEL SU BASMAN TAŞI
-            GameObject baseboard = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            baseboard.name = "Foundation_Plinth";
-            baseboard.transform.SetParent(farmhouse.transform);
-            baseboard.transform.localPosition = new Vector3(0f, 0.15f, 0f);
-            baseboard.transform.localScale = new Vector3(size.x + 0.2f, 0.3f, size.z + 0.2f);
-            baseboard.GetComponent<Renderer>().sharedMaterial = windowSillMat;
+            CreateFarmDecor(farmhouse.transform, "Foundation_Plinth", PrimitiveType.Cube, new Vector3(0f, 0.16f, 0f), new Vector3(size.x + 0.18f, 0.32f, size.z + 0.18f), pondStoneMat);
+            CreateFarmDecor(farmhouse.transform, "House_Walls", PrimitiveType.Cube, new Vector3(0f, wallY, 0f), size, farmhouseWallMat);
+            CreateFarmDecor(farmhouse.transform, "Stone_Wainscot", PrimitiveType.Cube, new Vector3(0f, 0.72f, 0f), new Vector3(size.x + 0.06f, 0.85f, size.z + 0.06f), windowSillMat);
 
-            // 2. ANA EV DUVARLARI
-            GameObject houseBody = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            houseBody.name = "House_Walls";
-            houseBody.transform.SetParent(farmhouse.transform);
-            houseBody.transform.localPosition = new Vector3(0f, (size.y / 2f) + 0.3f, 0f);
-            houseBody.transform.localScale = size;
-            houseBody.GetComponent<Renderer>().sharedMaterial = farmhouseWallMat;
-
-            // 3. KÖŞE AHŞAP DİKME KİRİŞLERİ
-            Vector3[] cornerOffsets = new Vector3[] {
-                new Vector3(-halfX, (size.y / 2f) + 0.3f, -halfZ),
-                new Vector3(halfX, (size.y / 2f) + 0.3f, -halfZ),
-                new Vector3(-halfX, (size.y / 2f) + 0.3f, halfZ),
-                new Vector3(halfX, (size.y / 2f) + 0.3f, halfZ)
+            Vector3[] cornerOffsets =
+            {
+                new Vector3(-halfX, wallY, -halfZ),
+                new Vector3(halfX, wallY, -halfZ),
+                new Vector3(-halfX, wallY, halfZ),
+                new Vector3(halfX, wallY, halfZ)
             };
             foreach (Vector3 offset in cornerOffsets)
             {
-                GameObject corner = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                corner.name = "Corner_Timber_Post";
-                corner.transform.SetParent(farmhouse.transform);
-                corner.transform.localPosition = offset;
-                corner.transform.localScale = new Vector3(0.25f, size.y + 0.05f, 0.25f);
-                corner.GetComponent<Renderer>().sharedMaterial = fenceWoodMat;
+                CreateFarmDecor(farmhouse.transform, "Corner_Timber_Post", PrimitiveType.Cube, offset, new Vector3(0.22f, size.y + 0.08f, 0.22f), fenceWoodMat);
             }
 
-            // 4. ÇATI VE BACA
-            float roofBaseY = size.y + 0.3f;
-            GameObject houseRoof = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            houseRoof.name = "House_Pitched_Roof";
-            houseRoof.transform.SetParent(farmhouse.transform);
-            houseRoof.transform.localPosition = new Vector3(0f, roofBaseY + 0.95f, 0f);
-            houseRoof.transform.localScale = new Vector3(size.x + 0.6f, 1.3f, size.z + 0.6f);
-            houseRoof.GetComponent<Renderer>().sharedMaterial = farmhouseRoofMat;
-
-            GameObject chimney = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            chimney.name = "Chimney";
-            chimney.transform.SetParent(farmhouse.transform);
-            chimney.transform.localPosition = new Vector3(size.x * 0.28f, roofBaseY + 1.7f, size.z * 0.15f);
-            chimney.transform.localScale = new Vector3(0.8f, 1.5f, 0.8f);
-            chimney.GetComponent<Renderer>().sharedMaterial = chimneyBrickMat;
-
-            GameObject chimneyCap = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            chimneyCap.name = "Chimney_Cap";
-            chimneyCap.transform.SetParent(farmhouse.transform);
-            chimneyCap.transform.localPosition = new Vector3(size.x * 0.28f, roofBaseY + 2.5f, size.z * 0.15f);
-            chimneyCap.transform.localScale = new Vector3(0.95f, 0.15f, 0.95f);
-            chimneyCap.GetComponent<Renderer>().sharedMaterial = darkWallMat;
-
-            // 5. GİRİŞ VERANDASI / AHŞAP SUNDURMA VE TAŞ YOL
-            float doorZ = -halfZ - 0.05f;
-            
-            // Ahşap Sundurma Direkleri
-            GameObject postL = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            postL.name = "Porch_Post_Left";
-            postL.transform.SetParent(farmhouse.transform);
-            postL.transform.localPosition = new Vector3(-1.2f, 1.2f, doorZ - 0.7f);
-            postL.transform.localScale = new Vector3(0.18f, 1.2f, 0.18f);
-            postL.GetComponent<Renderer>().sharedMaterial = fenceWoodMat;
-
-            GameObject postR = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            postR.name = "Porch_Post_Right";
-            postR.transform.SetParent(farmhouse.transform);
-            postR.transform.localPosition = new Vector3(1.2f, 1.2f, doorZ - 0.7f);
-            postR.transform.localScale = new Vector3(0.18f, 1.2f, 0.18f);
-            postR.GetComponent<Renderer>().sharedMaterial = fenceWoodMat;
-
-            // Sundurma Çatısı
-            GameObject porchRoof = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            porchRoof.name = "Porch_Roof_Canopy";
-            porchRoof.transform.SetParent(farmhouse.transform);
-            porchRoof.transform.localPosition = new Vector3(0f, 2.45f, doorZ - 0.35f);
-            porchRoof.transform.localScale = new Vector3(2.8f, 0.15f, 1.0f);
-            porchRoof.GetComponent<Renderer>().sharedMaterial = farmhouseRoofMat;
-
-            // Giriş Kapısı Panel & Çerçeve
-            GameObject doorFrame = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            doorFrame.name = "Door_Frame";
-            doorFrame.transform.SetParent(farmhouse.transform);
-            doorFrame.transform.localPosition = new Vector3(0f, 1.0f, doorZ);
-            doorFrame.transform.localScale = new Vector3(1.3f, 2.0f, 0.12f);
-            doorFrame.GetComponent<Renderer>().sharedMaterial = doorFrameMat;
-
-            GameObject doorPanel = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            doorPanel.name = "Door_Panel";
-            doorPanel.transform.SetParent(farmhouse.transform);
-            doorPanel.transform.localPosition = new Vector3(0f, 1.0f, doorZ - 0.02f);
-            doorPanel.transform.localScale = new Vector3(1.1f, 1.8f, 0.1f);
-            doorPanel.GetComponent<Renderer>().sharedMaterial = woodDoorMat;
-
-            // UFAK TAŞ YOL (STONE PATH AT DOOR ENTRANCE)
-            for (int step = 1; step <= 5; step++)
+            for (float y = 1.25f; y <= size.y + 0.1f; y += 0.28f)
             {
-                GameObject stone = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                stone.name = "Entrance_Stepping_Stone_" + step;
-                stone.transform.SetParent(farmhouse.transform);
-                float xOffset = (step % 2 == 0) ? 0.12f : -0.12f;
-                stone.transform.localPosition = new Vector3(xOffset, 0.02f, doorZ - 0.4f - (step * 0.65f));
-                stone.transform.localScale = new Vector3(0.65f, 0.03f, 0.65f);
-                stone.GetComponent<Renderer>().sharedMaterial = pondStoneMat;
+                CreateFarmDecor(farmhouse.transform, "Clapboard_Front", PrimitiveType.Cube, new Vector3(0f, y, -halfZ - 0.02f), new Vector3(size.x - 0.35f, 0.05f, 0.04f), farmhouseWallMat);
+                CreateFarmDecor(farmhouse.transform, "Clapboard_Back", PrimitiveType.Cube, new Vector3(0f, y, halfZ + 0.02f), new Vector3(size.x - 0.35f, 0.05f, 0.04f), farmhouseWallMat);
             }
 
-            // 6. ÇİÇEK SAKSILI PENCERELER (WINDOWS WITH FLOWER BOXES & SHUTTERS)
-            float winY = (size.y * 0.5f) + 0.3f;
+            CreateFarmDecor(farmhouse.transform, "Fascia_Front", PrimitiveType.Cube, new Vector3(0f, size.y + 0.38f, -halfZ), new Vector3(size.x + 0.12f, 0.12f, 0.10f), fenceWoodMat);
+            CreateFarmDecor(farmhouse.transform, "Fascia_Back", PrimitiveType.Cube, new Vector3(0f, size.y + 0.38f, halfZ), new Vector3(size.x + 0.12f, 0.12f, 0.10f), fenceWoodMat);
+
+            float roofBaseY = size.y + 0.32f;
+            CreateFarmDecor(farmhouse.transform, "House_Roof_Front", PrimitiveType.Cube, new Vector3(0f, roofBaseY + 0.72f, -0.55f), new Vector3(size.x + 0.45f, 0.16f, 3.15f), farmhouseRoofMat, new Vector3(28f, 0f, 0f));
+            CreateFarmDecor(farmhouse.transform, "House_Roof_Back", PrimitiveType.Cube, new Vector3(0f, roofBaseY + 0.72f, 0.55f), new Vector3(size.x + 0.45f, 0.16f, 3.15f), farmhouseRoofMat, new Vector3(-28f, 0f, 0f));
+            CreateFarmDecor(farmhouse.transform, "Roof_Ridge", PrimitiveType.Cube, new Vector3(0f, roofBaseY + 1.42f, 0f), new Vector3(size.x + 0.20f, 0.10f, 0.18f), darkWallMat);
+
+            CreateFarmDecor(farmhouse.transform, "Chimney", PrimitiveType.Cube, new Vector3(size.x * 0.26f, roofBaseY + 1.55f, 0.55f), new Vector3(0.72f, 1.35f, 0.72f), chimneyBrickMat);
+            CreateFarmDecor(farmhouse.transform, "Chimney_Cap", PrimitiveType.Cube, new Vector3(size.x * 0.26f, roofBaseY + 2.28f, 0.55f), new Vector3(0.88f, 0.12f, 0.88f), darkWallMat);
+            CreateFarmDecor(farmhouse.transform, "Chimney_Pot", PrimitiveType.Cylinder, new Vector3(size.x * 0.26f, roofBaseY + 2.48f, 0.55f), new Vector3(0.22f, 0.16f, 0.22f), darkWallMat);
+
+            float doorZ = -halfZ - 0.04f;
+            CreateFarmDecor(farmhouse.transform, "Porch_Deck", PrimitiveType.Cube, new Vector3(0f, 0.08f, doorZ - 0.38f), new Vector3(3.15f, 0.10f, 0.85f), fenceWoodMat);
+            CreateFarmDecor(farmhouse.transform, "Porch_Post_Left", PrimitiveType.Cylinder, new Vector3(-1.15f, 1.15f, doorZ - 0.62f), new Vector3(0.16f, 1.10f, 0.16f), fenceWoodMat);
+            CreateFarmDecor(farmhouse.transform, "Porch_Post_Right", PrimitiveType.Cylinder, new Vector3(1.15f, 1.15f, doorZ - 0.62f), new Vector3(0.16f, 1.10f, 0.16f), fenceWoodMat);
+            CreateFarmDecor(farmhouse.transform, "Porch_Rail_L", PrimitiveType.Cube, new Vector3(-1.15f, 0.72f, doorZ - 0.38f), new Vector3(0.08f, 0.08f, 0.70f), fenceWoodMat);
+            CreateFarmDecor(farmhouse.transform, "Porch_Rail_R", PrimitiveType.Cube, new Vector3(1.15f, 0.72f, doorZ - 0.38f), new Vector3(0.08f, 0.08f, 0.70f), fenceWoodMat);
+            CreateFarmDecor(farmhouse.transform, "Porch_Roof_Canopy", PrimitiveType.Cube, new Vector3(0f, 2.38f, doorZ - 0.32f), new Vector3(3.20f, 0.12f, 0.95f), farmhouseRoofMat, new Vector3(8f, 0f, 0f));
+
+            CreateFarmDecor(farmhouse.transform, "Door_Frame", PrimitiveType.Cube, new Vector3(0f, 1.05f, doorZ), new Vector3(1.28f, 2.05f, 0.10f), doorFrameMat);
+            CreateFarmDecor(farmhouse.transform, "Door_Panel", PrimitiveType.Cube, new Vector3(0f, 1.02f, doorZ - 0.03f), new Vector3(1.08f, 1.82f, 0.08f), woodDoorMat);
+            CreateFarmDecor(farmhouse.transform, "Door_Window", PrimitiveType.Cube, new Vector3(0f, 1.55f, doorZ - 0.06f), new Vector3(0.62f, 0.48f, 0.04f), windowGlassMat);
+            CreateFarmDecor(farmhouse.transform, "Door_Handle", PrimitiveType.Cube, new Vector3(0.38f, 1.02f, doorZ - 0.08f), new Vector3(0.08f, 0.08f, 0.10f), doorHandleMat);
+
+            CreateFarmLantern(farmhouse.transform, new Vector3(-1.15f, 2.22f, doorZ - 0.52f), 5.2f, 1.25f);
+            CreateFarmLantern(farmhouse.transform, new Vector3(1.15f, 2.22f, doorZ - 0.52f), 5.2f, 1.25f);
+
+            for (int step = 1; step <= 3; step++)
+            {
+                float xOffset = (step % 2 == 0) ? 0.10f : -0.10f;
+                CreateFarmDecor(farmhouse.transform, "Entrance_Stepping_Stone_" + step, PrimitiveType.Cylinder,
+                    new Vector3(xOffset, 0.02f, doorZ - 0.85f - (step * 0.42f)), new Vector3(0.58f, 0.03f, 0.48f), pondStoneMat);
+            }
+
+            float winY = (size.y * 0.52f) + 0.18f;
             float winOffsetX = size.x * 0.28f;
+            CreateFarmWindowWithFlowerBox(farmhouse.transform, new Vector3(-winOffsetX, winY, doorZ), new Vector3(0.95f, 1.05f, 0.08f), true);
+            CreateFarmWindowWithFlowerBox(farmhouse.transform, new Vector3(winOffsetX, winY, doorZ), new Vector3(0.95f, 1.05f, 0.08f), true);
 
-            // Ön Pencere Sol & Sağ (Çiçek Saksılı & Panjurlu)
-            CreateFarmWindowWithFlowerBox(farmhouse.transform, new Vector3(-winOffsetX, winY, doorZ), new Vector3(1.0f, 1.1f, 0.1f), true);
-            CreateFarmWindowWithFlowerBox(farmhouse.transform, new Vector3(winOffsetX, winY, doorZ), new Vector3(1.0f, 1.1f, 0.1f), true);
+            float backZ = halfZ + 0.04f;
+            CreateFarmWindowWithFlowerBox(farmhouse.transform, new Vector3(-winOffsetX, winY, backZ), new Vector3(0.95f, 1.05f, 0.08f), false);
+            CreateFarmWindowWithFlowerBox(farmhouse.transform, new Vector3(winOffsetX, winY, backZ), new Vector3(0.95f, 1.05f, 0.08f), false);
 
-            // Arka Pencere Sol & Sağ (Çiçek Saksılı)
-            float backZ = halfZ + 0.05f;
-            CreateFarmWindowWithFlowerBox(farmhouse.transform, new Vector3(-winOffsetX, winY, backZ), new Vector3(1.0f, 1.1f, 0.1f), false);
-            CreateFarmWindowWithFlowerBox(farmhouse.transform, new Vector3(winOffsetX, winY, backZ), new Vector3(1.0f, 1.1f, 0.1f), false);
+            CreateFarmWindowWithFlowerBox(farmhouse.transform, new Vector3(-halfX, winY, -0.55f), new Vector3(0.85f, 0.95f, 0.08f), true, 90f);
+            CreateFarmWindowWithFlowerBox(farmhouse.transform, new Vector3(halfX, winY, -0.55f), new Vector3(0.85f, 0.95f, 0.08f), true, -90f);
 
             CreateLabel("ÇİFTLİK EVİ", "FARMHOUSE", farmhouse.transform, new Vector3(0f, size.y + 2.2f, 0f), Color.yellow);
         }
@@ -3118,226 +3314,130 @@ namespace Farm2Shelf.Environment
             Vector3 size = new Vector3(7.5f, 4.2f, 5.8f);
             float halfX = size.x / 2f;
             float halfZ = size.z / 2f;
+            float wallT = 0.16f;
+            float wallH = 3.55f;
+            float wallBottom = 0.36f;
+            float wallY = wallBottom + wallH * 0.5f;
+            float wallTop = wallBottom + wallH;
 
-            // 1. AHIR TAŞ TEMELİ
-            GameObject baseboard = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            baseboard.name = "Barn_Stone_Base";
-            baseboard.transform.SetParent(barn.transform);
-            baseboard.transform.localPosition = new Vector3(0f, 0.20f, 0f);
-            baseboard.transform.localScale = new Vector3(size.x + 0.2f, 0.4f, size.z + 0.2f);
-            baseboard.GetComponent<Renderer>().sharedMaterial = pondStoneMat;
+            CreateFarmDecor(barn.transform, "Barn_Stone_Base", PrimitiveType.Cube, new Vector3(0f, 0.18f, 0f), new Vector3(size.x + 0.16f, 0.36f, size.z + 0.16f), pondStoneMat);
+            CreateFarmDecor(barn.transform, "Barn_Wall_Front", PrimitiveType.Cube, new Vector3(0f, wallY, -halfZ + wallT * 0.5f), new Vector3(size.x, wallH, wallT), barnWallMat);
+            CreateFarmDecor(barn.transform, "Barn_Wall_Back", PrimitiveType.Cube, new Vector3(0f, wallY, halfZ - wallT * 0.5f), new Vector3(size.x, wallH, wallT), barnWallMat);
+            CreateFarmDecor(barn.transform, "Barn_Wall_Left", PrimitiveType.Cube, new Vector3(-halfX + wallT * 0.5f, wallY, 0f), new Vector3(wallT, wallH, size.z - wallT * 2f), barnWallMat);
+            CreateFarmDecor(barn.transform, "Barn_Wall_Right", PrimitiveType.Cube, new Vector3(halfX - wallT * 0.5f, wallY, 0f), new Vector3(wallT, wallH, size.z - wallT * 2f), barnWallMat);
 
-            // 2. AHIR KIRMIZI AHŞAP DUVARLARI
-            GameObject barnBody = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            barnBody.name = "Barn_Walls";
-            barnBody.transform.SetParent(barn.transform);
-            barnBody.transform.localPosition = new Vector3(0f, (size.y / 2f) + 0.4f, 0f);
-            barnBody.transform.localScale = size;
-            barnBody.GetComponent<Renderer>().sharedMaterial = barnWallMat;
-
-            // 3. KÖŞE AHŞAP KİRİŞLERİ
-            Vector3[] cornerOffsets = new Vector3[] {
-                new Vector3(-halfX, (size.y / 2f) + 0.4f, -halfZ),
-                new Vector3(halfX, (size.y / 2f) + 0.4f, -halfZ),
-                new Vector3(-halfX, (size.y / 2f) + 0.4f, halfZ),
-                new Vector3(halfX, (size.y / 2f) + 0.4f, halfZ)
+            Vector3[] cornerOffsets =
+            {
+                new Vector3(-halfX, wallY, -halfZ),
+                new Vector3(halfX, wallY, -halfZ),
+                new Vector3(-halfX, wallY, halfZ),
+                new Vector3(halfX, wallY, halfZ)
             };
             foreach (Vector3 offset in cornerOffsets)
             {
-                GameObject corner = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                corner.name = "Corner_Timber_Post";
-                corner.transform.SetParent(barn.transform);
-                corner.transform.localPosition = offset;
-                corner.transform.localScale = new Vector3(0.28f, size.y + 0.05f, 0.28f);
-                corner.GetComponent<Renderer>().sharedMaterial = windowFrameMat;
+                CreateFarmDecor(barn.transform, "Corner_Timber_Post", PrimitiveType.Cube, offset, new Vector3(0.26f, wallH - 0.10f, 0.26f), windowFrameMat);
             }
 
-            // 4. AHIR ÇATISI VE OT VİNÇ KİRİŞİ (HAYLOFT CRANE BEAM)
-            float roofBaseY = size.y + 0.4f;
-            GameObject barnRoof = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            barnRoof.name = "Barn_Pitched_Roof";
-            barnRoof.transform.SetParent(barn.transform);
-            barnRoof.transform.localPosition = new Vector3(0f, roofBaseY + 1.05f, 0f);
-            barnRoof.transform.localScale = new Vector3(size.x + 0.7f, 1.5f, size.z + 0.7f);
-            barnRoof.GetComponent<Renderer>().sharedMaterial = barnRoofMat;
-
-            float doorZ = -halfZ - 0.05f;
-
-            // Ot Vinç Kirişi (Crane Boom)
-            GameObject craneBeam = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            craneBeam.name = "Hayloft_Crane_Beam";
-            craneBeam.transform.SetParent(barn.transform);
-            craneBeam.transform.localPosition = new Vector3(0f, roofBaseY + 1.2f, doorZ - 0.5f);
-            craneBeam.transform.localScale = new Vector3(0.18f, 0.18f, 1.2f);
-            craneBeam.GetComponent<Renderer>().sharedMaterial = fenceWoodMat;
-
-            // 5. AHIR ÇİFT KANAT SÜRGÜLÜ KAPISI (LARGE SLIDING BARN DOORS WITH X-BRACE)
-            GameObject doorFrame = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            doorFrame.name = "Barn_Door_Frame";
-            doorFrame.transform.SetParent(barn.transform);
-            doorFrame.transform.localPosition = new Vector3(0f, 1.4f, doorZ);
-            doorFrame.transform.localScale = new Vector3(3.2f, 2.6f, 0.12f);
-            doorFrame.GetComponent<Renderer>().sharedMaterial = windowFrameMat;
-
-            GameObject doorL = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            doorL.name = "Barn_Door_Left";
-            doorL.transform.SetParent(barn.transform);
-            doorL.transform.localPosition = new Vector3(-0.75f, 1.4f, doorZ - 0.02f);
-            doorL.transform.localScale = new Vector3(1.4f, 2.4f, 0.1f);
-            doorL.GetComponent<Renderer>().sharedMaterial = woodDoorMat;
-
-            GameObject doorR = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            doorR.name = "Barn_Door_Right";
-            doorR.transform.SetParent(barn.transform);
-            doorR.transform.localPosition = new Vector3(0.75f, 1.4f, doorZ - 0.02f);
-            doorR.transform.localScale = new Vector3(1.4f, 2.4f, 0.1f);
-            doorR.GetComponent<Renderer>().sharedMaterial = woodDoorMat;
-
-            // Ahır Kapısı X Çapraz Ahşap Çıtaları (X-Braces)
-            GameObject braceL = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            braceL.name = "X_Brace_Left";
-            braceL.transform.SetParent(doorL.transform);
-            braceL.transform.localPosition = new Vector3(0f, 0f, -0.06f);
-            braceL.transform.localRotation = Quaternion.Euler(0f, 0f, 35f);
-            braceL.transform.localScale = new Vector3(0.12f, 2.5f, 0.05f);
-            braceL.GetComponent<Renderer>().sharedMaterial = windowFrameMat;
-
-            GameObject braceR = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            braceR.name = "X_Brace_Right";
-            braceR.transform.SetParent(doorR.transform);
-            braceR.transform.localPosition = new Vector3(0f, 0f, -0.06f);
-            braceR.transform.localRotation = Quaternion.Euler(0f, 0f, -35f);
-            braceR.transform.localScale = new Vector3(0.12f, 2.5f, 0.05f);
-            braceR.GetComponent<Renderer>().sharedMaterial = windowFrameMat;
-
-            // AHIR GİRİŞ TAŞ YOLU (STONE PATH AT BARN ENTRANCE)
-            for (int step = 1; step <= 5; step++)
+            for (float x = -halfX + 0.55f; x <= halfX - 0.55f; x += 0.55f)
             {
-                GameObject stone = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                stone.name = "Barn_Stepping_Stone_" + step;
-                stone.transform.SetParent(barn.transform);
-                float xOffset = (step % 2 == 0) ? 0.2f : -0.2f;
-                stone.transform.localPosition = new Vector3(xOffset, 0.02f, doorZ - 0.4f - (step * 0.65f));
-                stone.transform.localScale = new Vector3(0.85f, 0.03f, 0.85f);
-                stone.GetComponent<Renderer>().sharedMaterial = pondStoneMat;
+                CreateFarmDecor(barn.transform, "Barn_Batten_Front", PrimitiveType.Cube, new Vector3(x, wallY, -halfZ - 0.05f), new Vector3(0.08f, wallH - 0.18f, 0.05f), woodDoorMat);
+                CreateFarmDecor(barn.transform, "Barn_Batten_Back", PrimitiveType.Cube, new Vector3(x, wallY, halfZ + 0.05f), new Vector3(0.08f, wallH - 0.18f, 0.05f), woodDoorMat);
             }
 
-            // 6. GÜMÜŞ/TAŞ SILO KULESİ VE KUPOLA ŞAPKASI (GRAIN SILO TOWER)
-            GameObject silo = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            silo.name = "Silo_Tower";
-            silo.transform.SetParent(barn.transform);
-            silo.transform.localPosition = new Vector3(4.8f, 3.5f, -0.8f);
-            silo.transform.localScale = new Vector3(2.4f, 3.5f, 2.4f);
-            silo.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
+            CreateFarmDecor(barn.transform, "Barn_White_Fascia", PrimitiveType.Cube, new Vector3(0f, wallTop + 0.07f, 0f), new Vector3(size.x + 0.12f, 0.10f, size.z + 0.12f), windowFrameMat);
+            CreateFarmDecor(barn.transform, "Barn_Gable_Front", PrimitiveType.Cube, new Vector3(0f, wallTop + 0.16f, -halfZ + 0.07f), new Vector3(size.x - 0.18f, 0.28f, 0.12f), windowFrameMat);
+            CreateFarmDecor(barn.transform, "Barn_Gable_Back", PrimitiveType.Cube, new Vector3(0f, wallTop + 0.16f, halfZ - 0.07f), new Vector3(size.x - 0.18f, 0.28f, 0.12f), windowFrameMat);
 
-            GameObject siloDome = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            siloDome.name = "Silo_Dome_Cap";
-            siloDome.transform.SetParent(silo.transform);
-            siloDome.transform.localPosition = new Vector3(0f, 1.0f, 0f);
-            siloDome.transform.localScale = new Vector3(1.05f, 0.8f, 1.05f);
-            siloDome.GetComponent<Renderer>().sharedMaterial = doorFrameMat;
+            float eaveY = wallTop + 0.22f;
+            float ridgeY = eaveY + 1.28f;
+            float roofRun = halfZ + 0.28f;
+            float roofLen = roofRun / Mathf.Cos(28f * Mathf.Deg2Rad);
+            float roofPitch = 28f;
+            CreateFarmDecor(barn.transform, "Barn_Roof_Front", PrimitiveType.Cube, new Vector3(0f, (eaveY + ridgeY) * 0.5f, -roofRun * 0.5f), new Vector3(size.x + 0.42f, 0.12f, roofLen), barnRoofMat, new Vector3(roofPitch, 0f, 0f));
+            CreateFarmDecor(barn.transform, "Barn_Roof_Back", PrimitiveType.Cube, new Vector3(0f, (eaveY + ridgeY) * 0.5f, roofRun * 0.5f), new Vector3(size.x + 0.42f, 0.12f, roofLen), barnRoofMat, new Vector3(-roofPitch, 0f, 0f));
+            CreateFarmDecor(barn.transform, "Barn_Roof_Ridge", PrimitiveType.Cube, new Vector3(0f, ridgeY + 0.08f, 0f), new Vector3(size.x + 0.10f, 0.10f, 0.18f), darkWallMat);
 
-            // 7. AHIR YAN VE ARKA PENCERELERİ (ÇİÇEK SAKSILARI İLE)
-            float winY = (size.y * 0.55f) + 0.4f;
+            CreateFarmDecor(barn.transform, "Hayloft_Cupola_Base", PrimitiveType.Cube, new Vector3(0f, ridgeY + 0.42f, 0f), new Vector3(1.05f, 0.48f, 1.05f), barnWallMat);
+            CreateFarmDecor(barn.transform, "Hayloft_Cupola_Roof", PrimitiveType.Cube, new Vector3(0f, ridgeY + 0.78f, 0f), new Vector3(1.28f, 0.18f, 1.28f), barnRoofMat);
+            CreateFarmDecor(barn.transform, "Hayloft_Cupola_Finial", PrimitiveType.Cube, new Vector3(0f, ridgeY + 0.96f, 0f), new Vector3(0.12f, 0.24f, 0.12f), darkWallMat);
+
+            float doorZ = -halfZ - 0.06f;
+            CreateFarmDecor(barn.transform, "Hayloft_Crane_Beam", PrimitiveType.Cube, new Vector3(0f, ridgeY - 0.12f, doorZ - 0.42f), new Vector3(0.14f, 0.14f, 0.72f), fenceWoodMat);
+            CreateFarmDecor(barn.transform, "Hayloft_Pulley", PrimitiveType.Cylinder, new Vector3(0f, ridgeY - 0.28f, doorZ - 0.72f), new Vector3(0.20f, 0.05f, 0.20f), darkWallMat);
+
+            CreateFarmDecor(barn.transform, "Barn_Door_Frame", PrimitiveType.Cube, new Vector3(0f, 1.42f, doorZ), new Vector3(3.15f, 2.65f, 0.10f), windowFrameMat);
+            GameObject doorL = CreateFarmDecor(barn.transform, "Barn_Door_Left", PrimitiveType.Cube, new Vector3(-0.72f, 1.38f, doorZ - 0.03f), new Vector3(1.38f, 2.38f, 0.09f), woodDoorMat);
+            GameObject doorR = CreateFarmDecor(barn.transform, "Barn_Door_Right", PrimitiveType.Cube, new Vector3(0.72f, 1.38f, doorZ - 0.03f), new Vector3(1.38f, 2.38f, 0.09f), woodDoorMat);
+            CreateFarmDecor(doorL.transform, "X_Brace_Left_A", PrimitiveType.Cube, new Vector3(0f, 0f, -0.08f), new Vector3(0.08f, 0.90f, 0.04f), windowFrameMat, new Vector3(0f, 0f, 40f));
+            CreateFarmDecor(doorL.transform, "X_Brace_Left_B", PrimitiveType.Cube, new Vector3(0f, 0f, -0.08f), new Vector3(0.08f, 0.90f, 0.04f), windowFrameMat, new Vector3(0f, 0f, -40f));
+            CreateFarmDecor(doorR.transform, "X_Brace_Right_A", PrimitiveType.Cube, new Vector3(0f, 0f, -0.08f), new Vector3(0.08f, 0.90f, 0.04f), windowFrameMat, new Vector3(0f, 0f, 40f));
+            CreateFarmDecor(doorR.transform, "X_Brace_Right_B", PrimitiveType.Cube, new Vector3(0f, 0f, -0.08f), new Vector3(0.08f, 0.90f, 0.04f), windowFrameMat, new Vector3(0f, 0f, -40f));
+
+            CreateFarmDecor(barn.transform, "Loft_Door", PrimitiveType.Cube, new Vector3(0f, wallTop - 0.28f, doorZ - 0.05f), new Vector3(1.12f, 0.88f, 0.08f), woodDoorMat);
+            CreateFarmDecor(barn.transform, "Loft_Door_Window", PrimitiveType.Cube, new Vector3(0f, wallTop - 0.18f, doorZ - 0.10f), new Vector3(0.42f, 0.32f, 0.03f), windowGlassMat);
+
+            CreateFarmLantern(barn.transform, new Vector3(-1.72f, 2.55f, doorZ - 0.12f), 5.6f, 1.35f);
+            CreateFarmLantern(barn.transform, new Vector3(1.72f, 2.55f, doorZ - 0.12f), 5.6f, 1.35f);
+
+            for (int step = 1; step <= 3; step++)
+            {
+                float xOffset = (step % 2 == 0) ? 0.16f : -0.16f;
+                CreateFarmDecor(barn.transform, "Barn_Stepping_Stone_" + step, PrimitiveType.Cylinder,
+                    new Vector3(xOffset, 0.02f, doorZ - 0.80f - (step * 0.40f)), new Vector3(0.78f, 0.03f, 0.55f), pondStoneMat);
+            }
+
+            CreateFarmDecor(barn.transform, "Silo_Tower", PrimitiveType.Cylinder, new Vector3(4.55f, 3.15f, -0.55f), new Vector3(2.15f, 3.15f, 2.15f), sidewalkMat);
+            CreateFarmDecor(barn.transform, "Silo_Rings", PrimitiveType.Cylinder, new Vector3(4.55f, 2.20f, -0.55f), new Vector3(2.22f, 0.08f, 2.22f), doorFrameMat);
+            CreateFarmDecor(barn.transform, "Silo_Dome_Cap", PrimitiveType.Sphere, new Vector3(4.55f, 6.35f, -0.55f), new Vector3(2.20f, 1.45f, 2.20f), doorFrameMat);
+            CreateFarmLantern(barn.transform, new Vector3(4.55f, 5.55f, -1.55f), 4.8f, 1.10f);
+
+            float winY = (size.y * 0.48f) + 0.35f;
             float winOffsetX = size.x * 0.30f;
-            CreateFarmWindowWithFlowerBox(barn.transform, new Vector3(-winOffsetX, winY, doorZ), new Vector3(0.9f, 0.9f, 0.1f), true);
-            CreateFarmWindowWithFlowerBox(barn.transform, new Vector3(winOffsetX, winY, doorZ), new Vector3(0.9f, 0.9f, 0.1f), true);
+            CreateFarmWindowWithFlowerBox(barn.transform, new Vector3(-winOffsetX, winY, doorZ), new Vector3(0.82f, 0.82f, 0.08f), true);
+            CreateFarmWindowWithFlowerBox(barn.transform, new Vector3(winOffsetX, winY, doorZ), new Vector3(0.82f, 0.82f, 0.08f), true);
+            float backZ = halfZ + 0.04f;
+            CreateFarmWindowWithFlowerBox(barn.transform, new Vector3(-winOffsetX, winY, backZ), new Vector3(0.82f, 0.82f, 0.08f), false);
+            CreateFarmWindowWithFlowerBox(barn.transform, new Vector3(winOffsetX, winY, backZ), new Vector3(0.82f, 0.82f, 0.08f), false);
 
-            float backZ = halfZ + 0.05f;
-            CreateFarmWindowWithFlowerBox(barn.transform, new Vector3(-winOffsetX, winY, backZ), new Vector3(0.9f, 0.9f, 0.1f), false);
-            CreateFarmWindowWithFlowerBox(barn.transform, new Vector3(winOffsetX, winY, backZ), new Vector3(0.9f, 0.9f, 0.1f), false);
-
-            // GİRİŞ KAPI YANINDA SAMAN BALYALARI VE AHŞAP FISTIK FIRÇALARI (HAY BALES & BARRELS)
-            GameObject hayBale1 = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            hayBale1.name = "Golden_Hay_Bale_1";
-            hayBale1.transform.SetParent(barn.transform);
-            hayBale1.transform.localPosition = new Vector3(-2.4f, 0.35f, doorZ - 0.6f);
-            hayBale1.transform.localScale = new Vector3(0.9f, 0.6f, 0.6f);
-            hayBale1.GetComponent<Renderer>().sharedMaterial = wheatCropMat;
-
-            GameObject hayBale2 = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            hayBale2.name = "Golden_Hay_Bale_2";
-            hayBale2.transform.SetParent(barn.transform);
-            hayBale2.transform.localPosition = new Vector3(-2.2f, 0.9f, doorZ - 0.6f);
-            hayBale2.transform.localScale = new Vector3(0.85f, 0.55f, 0.55f);
-            hayBale2.GetComponent<Renderer>().sharedMaterial = wheatCropMat;
-
-            GameObject barrel = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            barrel.name = "Wooden_Storage_Barrel";
-            barrel.transform.SetParent(barn.transform);
-            barrel.transform.localPosition = new Vector3(2.4f, 0.45f, doorZ - 0.6f);
-            barrel.transform.localScale = new Vector3(0.6f, 0.45f, 0.6f);
-            barrel.GetComponent<Renderer>().sharedMaterial = fenceWoodMat;
+            CreateFarmDecor(barn.transform, "Golden_Hay_Bale_1", PrimitiveType.Cube, new Vector3(-2.35f, 0.32f, doorZ - 0.48f), new Vector3(0.82f, 0.52f, 0.52f), wheatCropMat);
+            CreateFarmDecor(barn.transform, "Golden_Hay_Bale_2", PrimitiveType.Cube, new Vector3(-2.18f, 0.78f, doorZ - 0.48f), new Vector3(0.72f, 0.42f, 0.48f), wheatCropMat);
+            CreateFarmDecor(barn.transform, "Wooden_Storage_Barrel", PrimitiveType.Cylinder, new Vector3(2.28f, 0.40f, doorZ - 0.48f), new Vector3(0.55f, 0.40f, 0.55f), fenceWoodMat);
 
             barn.AddComponent<BarnController>();
-            CreateLabel("AHIR", "BARN", barn.transform, new Vector3(0f, size.y + 2.4f, 0f), Color.red);
+            CreateFarmDecor(barn.transform, "Barn_Name_Board", PrimitiveType.Cube, new Vector3(0f, 3.02f, -halfZ - 0.28f), new Vector3(1.55f, 0.34f, 0.07f), woodDoorMat);
+            CreateLabel("AHIR", "BARN", barn.transform, new Vector3(0f, 3.02f, -halfZ - 0.36f), new Color(0.92f, 0.18f, 0.14f));
         }
 
-        private void CreateFarmWindowWithFlowerBox(Transform parent, Vector3 localPos, Vector3 winSize, bool faceNegativeZ)
+        private void CreateFarmWindowWithFlowerBox(Transform parent, Vector3 localPos, Vector3 winSize, bool faceNegativeZ, float yawY = 0f)
         {
             GameObject winGroup = new GameObject("Farm_Window_With_FlowerBox");
-            winGroup.transform.SetParent(parent);
+            winGroup.transform.SetParent(parent, false);
             winGroup.transform.localPosition = localPos;
+            winGroup.transform.localRotation = Quaternion.Euler(0f, yawY, 0f);
 
             float zSign = faceNegativeZ ? -1.0f : 1.0f;
 
-            // Çerçeve
-            GameObject frame = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            frame.name = "Window_Frame";
-            frame.transform.SetParent(winGroup.transform);
-            frame.transform.localPosition = Vector3.zero;
-            frame.transform.localScale = new Vector3(winSize.x + 0.15f, winSize.y + 0.15f, 0.10f);
-            frame.GetComponent<Renderer>().sharedMaterial = windowFrameMat;
+            CreateFarmDecor(winGroup.transform, "Window_Frame", PrimitiveType.Cube, Vector3.zero, new Vector3(winSize.x + 0.14f, winSize.y + 0.14f, 0.09f), windowFrameMat);
+            GameObject glass = CreateFarmDecor(winGroup.transform, "Window_Glass_Pane", PrimitiveType.Cube, new Vector3(0f, 0f, zSign * 0.02f), winSize, windowGlassMat);
+            CreateFarmDecor(winGroup.transform, "Window_Muntin_H", PrimitiveType.Cube, new Vector3(0f, 0f, zSign * 0.04f), new Vector3(winSize.x * 0.92f, 0.05f, 0.03f), windowFrameMat);
+            CreateFarmDecor(winGroup.transform, "Window_Muntin_V", PrimitiveType.Cube, new Vector3(0f, 0f, zSign * 0.04f), new Vector3(0.05f, winSize.y * 0.92f, 0.03f), windowFrameMat);
+            CreateFarmDecor(winGroup.transform, "Window_Sill", PrimitiveType.Cube, new Vector3(0f, -winSize.y / 2f - 0.07f, zSign * 0.08f), new Vector3(winSize.x + 0.22f, 0.10f, 0.18f), windowSillMat);
 
-            // Cam Pane
-            GameObject glass = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            glass.name = "Window_Glass";
-            glass.transform.SetParent(winGroup.transform);
-            glass.transform.localPosition = new Vector3(0f, 0f, zSign * 0.02f);
-            glass.transform.localScale = winSize;
-            glass.GetComponent<Renderer>().sharedMaterial = windowGlassMat;
-
-            // Denizlik
-            GameObject sill = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            sill.name = "Window_Sill";
-            sill.transform.SetParent(winGroup.transform);
-            sill.transform.localPosition = new Vector3(0f, -winSize.y / 2f - 0.08f, zSign * 0.10f);
-            sill.transform.localScale = new Vector3(winSize.x + 0.3f, 0.12f, 0.22f);
-            sill.GetComponent<Renderer>().sharedMaterial = windowSillMat;
-
-            // AHŞAP ÇİÇEK SAKSI KUTUSU (FLOWER POT BOX UNDER WINDOW)
-            GameObject flowerBox = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            flowerBox.name = "Window_Flower_Box";
-            flowerBox.transform.SetParent(winGroup.transform);
-            flowerBox.transform.localPosition = new Vector3(0f, -winSize.y / 2f - 0.22f, zSign * 0.15f);
-            flowerBox.transform.localScale = new Vector3(winSize.x + 0.1f, 0.25f, 0.28f);
-            flowerBox.GetComponent<Renderer>().sharedMaterial = fenceWoodMat;
-
-            // Saksı İçi Kırmızı & Sarı Çiçek Açan Bitkiler
-            for (float fx = -winSize.x / 2.5f; fx <= winSize.x / 2.5f; fx += 0.25f)
+            GameObject flowerBox = CreateFarmDecor(winGroup.transform, "Window_Flower_Box", PrimitiveType.Cube, new Vector3(0f, -winSize.y / 2f - 0.20f, zSign * 0.12f), new Vector3(winSize.x + 0.06f, 0.20f, 0.22f), fenceWoodMat);
+            for (float fx = -winSize.x / 2.6f; fx <= winSize.x / 2.6f; fx += 0.28f)
             {
-                GameObject flower = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                flower.name = "Flower_Blossom";
-                flower.transform.SetParent(flowerBox.transform);
-                flower.transform.localPosition = new Vector3(fx / (winSize.x + 0.1f), 0.6f, 0f);
-                flower.transform.localScale = new Vector3(0.25f, 0.25f, 0.25f);
-                flower.GetComponent<Renderer>().sharedMaterial = (Mathf.Abs(fx) < 0.2f) ? flowerYellowMat : flowerRedMat;
+                CreateFarmDecor(flowerBox.transform, "Flower_Blossom", PrimitiveType.Sphere,
+                    new Vector3(fx / Mathf.Max(0.01f, winSize.x + 0.06f), 0.55f, 0f), new Vector3(0.22f, 0.22f, 0.22f),
+                    Mathf.Abs(fx) < 0.18f ? flowerYellowMat : flowerRedMat);
             }
 
-            // Ahşap Panjurlar (Shutters)
-            GameObject shutterL = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            shutterL.name = "Shutter_Left";
-            shutterL.transform.SetParent(winGroup.transform);
-            shutterL.transform.localPosition = new Vector3(-winSize.x / 2f - 0.20f, 0f, zSign * 0.04f);
-            shutterL.transform.localScale = new Vector3(0.28f, winSize.y + 0.1f, 0.08f);
-            shutterL.GetComponent<Renderer>().sharedMaterial = fenceWoodMat;
+            CreateFarmDecor(winGroup.transform, "Shutter_Left", PrimitiveType.Cube, new Vector3(-winSize.x / 2f - 0.16f, 0f, zSign * 0.03f), new Vector3(0.22f, winSize.y + 0.08f, 0.06f), fenceWoodMat);
+            CreateFarmDecor(winGroup.transform, "Shutter_Right", PrimitiveType.Cube, new Vector3(winSize.x / 2f + 0.16f, 0f, zSign * 0.03f), new Vector3(0.22f, winSize.y + 0.08f, 0.06f), fenceWoodMat);
 
-            GameObject shutterR = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            shutterR.name = "Shutter_Right";
-            shutterR.transform.SetParent(winGroup.transform);
-            shutterR.transform.localPosition = new Vector3(winSize.x / 2f + 0.20f, 0f, zSign * 0.04f);
-            shutterR.transform.localScale = new Vector3(0.28f, winSize.y + 0.1f, 0.08f);
-            shutterR.GetComponent<Renderer>().sharedMaterial = fenceWoodMat;
+            if (DayNightCycleManager.Instance != null)
+            {
+                DayNightCycleManager.Instance.RegisterBuildingWindow(glass);
+            }
         }
 
         public Color CurrentWallColor { get; private set; } = new Color(0.12f, 0.14f, 0.17f);

@@ -238,6 +238,9 @@ namespace Farm2Shelf.Environment
                 case FurnitureType.Fridge:
                     BuildCommercialFridge(root);
                     break;
+                case FurnitureType.OrganicFridge:
+                    BuildOrganicFridge(root);
+                    break;
                 case FurnitureType.Freezer:
                     BuildChestFreezer(root);
                     break;
@@ -485,6 +488,31 @@ namespace Farm2Shelf.Environment
 
             // Ön Yön Ok Göstergesi
             BuildDirectionalArrowIndicator(parent, -d / 2f, new Color(0.40f, 0.85f, 0.95f));
+        }
+
+        private static void BuildOrganicFridge(GameObject parent)
+        {
+            float w = 1.4f, h = 2.2f, d = 0.85f;
+            Material creamMat = CreateSmartMaterial("OrganicFridge_Cream", new Color(0.93f, 0.90f, 0.78f));
+            Material greenMat = CreateSmartMaterial("OrganicFridge_Green", new Color(0.22f, 0.52f, 0.28f));
+            Material woodTrim = CreateSmartMaterial("OrganicFridge_Wood", new Color(0.48f, 0.30f, 0.14f));
+            Material leafMat = CreateSmartMaterial("OrganicFridge_Leaf", new Color(0.35f, 0.72f, 0.32f));
+
+            CreatePrimitive(parent, "Body", PrimitiveType.Cube, new Vector3(0f, h / 2f, 0f), new Vector3(w, h, d), creamMat);
+            CreatePrimitive(parent, "InnerCave", PrimitiveType.Cube, new Vector3(0f, h / 2f + 0.1f, -0.05f), new Vector3(w - 0.15f, h - 0.4f, d - 0.15f), blackMat);
+
+            float doorW = (w - 0.2f) / 2f;
+            CreatePrimitive(parent, "GlassDoor_L", PrimitiveType.Cube, new Vector3(-doorW / 2f - 0.02f, h / 2f + 0.1f, -d / 2f), new Vector3(doorW, h - 0.45f, 0.05f), glassMat);
+            CreatePrimitive(parent, "GlassDoor_R", PrimitiveType.Cube, new Vector3(doorW / 2f + 0.02f, h / 2f + 0.1f, -d / 2f), new Vector3(doorW, h - 0.45f, 0.05f), glassMat);
+            CreatePrimitive(parent, "Frame_L", PrimitiveType.Cube, new Vector3(-w / 2f + 0.04f, h / 2f, -d / 2f - 0.01f), new Vector3(0.06f, h - 0.12f, 0.06f), woodTrim);
+            CreatePrimitive(parent, "Frame_R", PrimitiveType.Cube, new Vector3(w / 2f - 0.04f, h / 2f, -d / 2f - 0.01f), new Vector3(0.06f, h - 0.12f, 0.06f), woodTrim);
+            CreatePrimitive(parent, "Handle_L", PrimitiveType.Cube, new Vector3(-0.05f, h / 2f, -d / 2f - 0.03f), new Vector3(0.03f, 0.4f, 0.03f), woodTrim);
+            CreatePrimitive(parent, "Handle_R", PrimitiveType.Cube, new Vector3(0.05f, h / 2f, -d / 2f - 0.03f), new Vector3(0.03f, 0.4f, 0.03f), woodTrim);
+            CreatePrimitive(parent, "TopBand", PrimitiveType.Cube, new Vector3(0f, h - 0.10f, -d / 2f + 0.02f), new Vector3(w - 0.08f, 0.16f, 0.08f), greenMat);
+            CreatePrimitive(parent, "LeafEmblem", PrimitiveType.Sphere, new Vector3(0f, h - 0.10f, -d / 2f - 0.04f), new Vector3(0.16f, 0.10f, 0.06f), leafMat);
+            CreatePrimitive(parent, "InteriorLed", PrimitiveType.Cube, new Vector3(0f, h - 0.25f, -0.1f), new Vector3(w - 0.2f, 0.04f, 0.04f), leafMat);
+
+            BuildDirectionalArrowIndicator(parent, -d / 2f, new Color(0.45f, 0.82f, 0.38f));
         }
 
         // 5. Dondurucu (Chest Freezer)
