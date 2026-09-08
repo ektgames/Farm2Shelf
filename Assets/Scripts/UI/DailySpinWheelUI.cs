@@ -451,33 +451,7 @@ namespace Farm2Shelf.UI
 
         private void CreateCloseButton(Transform parent)
         {
-            GameObject closeObj = new GameObject("CloseButton");
-            closeObj.transform.SetParent(parent, false);
-            RectTransform cRect = closeObj.AddComponent<RectTransform>();
-            cRect.anchorMin = new Vector2(1f, 1f);
-            cRect.anchorMax = new Vector2(1f, 1f);
-            cRect.pivot = new Vector2(1f, 1f);
-            cRect.anchoredPosition = new Vector2(-18f, -18f);
-            cRect.sizeDelta = new Vector2(52f, 52f);
-
-            Image cBg = closeObj.AddComponent<Image>();
-            cBg.sprite = UIStyleUtility.CreateOutlinePillSprite(52, 52, 16, 2, new Color(0.95f, 0.35f, 0.40f), new Color(0.22f, 0.10f, 0.12f, 0.96f));
-            Button closeBtn = closeObj.AddComponent<Button>();
-            closeBtn.targetGraphic = cBg;
-            closeBtn.onClick.AddListener(OnCloseClicked);
-
-            GameObject cLabelObj = new GameObject("Label");
-            cLabelObj.transform.SetParent(closeObj.transform, false);
-            RectTransform clRect = cLabelObj.AddComponent<RectTransform>();
-            clRect.anchorMin = Vector2.zero;
-            clRect.anchorMax = Vector2.one;
-            Text cLabel = cLabelObj.AddComponent<Text>();
-            cLabel.font = UIStyleUtility.GetGlobalFont(22);
-            cLabel.fontSize = 26;
-            cLabel.alignment = TextAnchor.MiddleCenter;
-            cLabel.color = Color.white;
-            cLabel.text = "✕";
-            cLabel.raycastTarget = false;
+            UIStyleUtility.CreateCornerCloseButton(parent, OnCloseClicked, 56f);
         }
 
         private void CreateResultPanel(Transform parent)

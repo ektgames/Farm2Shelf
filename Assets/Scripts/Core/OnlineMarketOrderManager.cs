@@ -375,17 +375,17 @@ namespace Farm2Shelf.Core
             // Eğer motora ait TÜM siparişler (tek adres veya çift adres) reyoncu tarafından yüklendiyse kurye yola çıksın!
             if (!hasUncollectedOrderForSameMoto)
             {
-                int hour = (TimeManager.Instance != null) ? TimeManager.Instance.Hour : 8;
-                bool isWorkHours = (hour >= 8 && hour < 24);
+                bool hasRider = order.assignedMotorcycle.AssignedCourier != null ||
+                                order.assignedMotorcycle.CourierRiderObj != null;
 
-                if (isWorkHours && order.assignedMotorcycle.AssignedCourier != null)
+                if (hasRider)
                 {
+                    // Gece 24:00 olsa bile bagaj doluysa teslimat yarıda kesilmez; kurye adrese gider.
                     order.assignedMotorcycle.StartDeliveryRoute();
                 }
                 else
                 {
-                    // Kapanış saati/gece vakti yüklendiyse sipariş motorun kasasında kalır, ertesi sabah kurye götürür
-                    order.assignedMotorcycle.CurrentState = MotorcycleState.ParkedInBay;
+                    order.assignedMotorcycle.CurrentState = MotorcycleState.WaitingForStocker;
                 }
             }
 
@@ -542,7 +542,7 @@ namespace Farm2Shelf.Core
 
             if (FinanceManager.Instance != null)
             {
-                string cat = LocalizationManager.L("FinCat_OnlineDelivery", "Online Market & Kurye Geliri", "Online Market & Courier Revenue");
+                string cat = FinanceCategories.OnlineDelivery;
                 string desc = isFullDelivery
                     ? string.Format(LocalizationManager.L("FinDesc_DeliveryFull", "Online Sipariş #{0} Tam Teslimat (+Kurye Ücreti)", "Online Order #{0} Full Delivery (+Courier Fee)"), order.orderId)
                     : string.Format(LocalizationManager.L("FinDesc_DeliveryPartial", "Online Sipariş #{0} Kısmi Teslimat", "Online Order #{0} Partial Delivery"), order.orderId);

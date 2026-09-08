@@ -246,42 +246,12 @@ namespace Farm2Shelf.UI
             btText.alignment = TextAnchor.MiddleCenter;
             btText.color = Color.white;
 
-            // Kapat (X) Butonu (Üst Sağ)
-            GameObject closeBtnObj = new GameObject("CloseButton_X");
-            closeBtnObj.transform.SetParent(boxObj.transform, false);
-            RectTransform cRect = closeBtnObj.AddComponent<RectTransform>();
-            cRect.anchoredPosition = new Vector2(265f, 125f);
-            cRect.sizeDelta = new Vector2(40f, 40f);
-
-            Image cBg = closeBtnObj.AddComponent<Image>();
-            cBg.sprite = UIStyleUtility.CreateRoundedPillSprite(40, 40, 20, new Color(0.92f, 0.18f, 0.20f, 1f));
-            cBg.raycastTarget = true;
-
-            Button cBtn = closeBtnObj.AddComponent<Button>();
-            cBtn.targetGraphic = cBg;
-            cBtn.onClick.AddListener(() => {
+            UIStyleUtility.CreateCornerCloseButton(boxObj.transform, () => {
                 if (canvasObj != null) canvasObj.SetActive(false);
                 if (currentGlobalPopupCanvas == canvasObj) currentGlobalPopupCanvas = null;
                 SetModalOpen(false);
                 if (canvasObj != null) Object.Destroy(canvasObj);
-            });
-
-            GameObject cxObj = new GameObject("X");
-            cxObj.transform.SetParent(closeBtnObj.transform, false);
-            RectTransform cxRect = cxObj.AddComponent<RectTransform>();
-            cxRect.anchorMin = Vector2.zero;
-            cxRect.anchorMax = Vector2.one;
-
-            Text cxText = cxObj.AddComponent<Text>();
-            cxText.font = font;
-            cxText.text = "✖";
-            cxText.fontSize = 22;
-            cxText.fontStyle = FontStyle.Bold;
-            cxText.alignment = TextAnchor.MiddleCenter;
-            cxText.color = Color.white;
-            cxText.raycastTarget = false;
-
-            closeBtnObj.transform.SetAsLastSibling();
+            }, 48f);
         }
 
         /// <summary>
@@ -461,42 +431,12 @@ namespace Farm2Shelf.UI
             cancelTxt.alignment = TextAnchor.MiddleCenter;
             cancelTxt.color = Color.white;
 
-            // Kapat (X) Butonu (Üst Sağ)
-            GameObject closeBtnObj = new GameObject("CloseButton_X");
-            closeBtnObj.transform.SetParent(boxObj.transform, false);
-            RectTransform cRect = closeBtnObj.AddComponent<RectTransform>();
-            cRect.anchoredPosition = new Vector2(295f, 140f);
-            cRect.sizeDelta = new Vector2(40f, 40f);
-
-            Image cBg = closeBtnObj.AddComponent<Image>();
-            cBg.sprite = UIStyleUtility.CreateRoundedPillSprite(40, 40, 20, new Color(0.92f, 0.18f, 0.20f, 1f));
-            cBg.raycastTarget = true;
-
-            Button cBtn = closeBtnObj.AddComponent<Button>();
-            cBtn.targetGraphic = cBg;
-            cBtn.onClick.AddListener(() => {
+            UIStyleUtility.CreateCornerCloseButton(boxObj.transform, () => {
                 if (currentGlobalPopupCanvas == canvasObj) currentGlobalPopupCanvas = null;
                 SetModalOpen(false);
                 Object.Destroy(canvasObj);
                 onCancel?.Invoke();
-            });
-
-            GameObject cxObj = new GameObject("X");
-            cxObj.transform.SetParent(closeBtnObj.transform, false);
-            RectTransform cxRect = cxObj.AddComponent<RectTransform>();
-            cxRect.anchorMin = Vector2.zero;
-            cxRect.anchorMax = Vector2.one;
-
-            Text cxText = cxObj.AddComponent<Text>();
-            cxText.font = font;
-            cxText.text = "✖";
-            cxText.fontSize = 22;
-            cxText.fontStyle = FontStyle.Bold;
-            cxText.alignment = TextAnchor.MiddleCenter;
-            cxText.color = Color.white;
-            cxText.raycastTarget = false;
-
-            closeBtnObj.transform.SetAsLastSibling();
+            }, 48f);
         }
     }
 }

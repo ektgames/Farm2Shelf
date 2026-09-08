@@ -250,42 +250,7 @@ namespace Farm2Shelf.UI
             titleText.color = new Color(1.0f, 0.88f, 0.25f);
             titleText.raycastTarget = false;
 
-            // Kapat (X) Butonu
-            GameObject closeBtnObj = new GameObject("CloseButton_X");
-            closeBtnObj.transform.SetParent(modalBox.transform, false);
-
-            RectTransform cRect = closeBtnObj.AddComponent<RectTransform>();
-            cRect.anchoredPosition = new Vector2(420f, 285f);
-            cRect.sizeDelta = new Vector2(46f, 46f);
-
-            Image cBg = closeBtnObj.AddComponent<Image>();
-            cBg.sprite = UIStyleUtility.CreateRoundedPillSprite(46, 46, 23, new Color(0.92f, 0.18f, 0.20f, 1f));
-            cBg.raycastTarget = true;
-
-            Button cBtn = closeBtnObj.AddComponent<Button>();
-            cBtn.targetGraphic = cBg;
-            cBtn.onClick.AddListener(CloseCalendar);
-
-            GameObject cTextObj = new GameObject("X");
-            cTextObj.transform.SetParent(closeBtnObj.transform, false);
-            RectTransform cxRect = cTextObj.AddComponent<RectTransform>();
-            cxRect.anchorMin = Vector2.zero;
-            cxRect.anchorMax = Vector2.one;
-
-            Text cxText = cTextObj.AddComponent<Text>();
-            cxText.font = globalFont;
-            cxText.text = "✖";
-            cxText.fontSize = 26;
-            cxText.fontStyle = FontStyle.Bold;
-            cxText.alignment = TextAnchor.MiddleCenter;
-            cxText.color = Color.white;
-            cxText.raycastTarget = false;
-
-            Outline cxOutline = cTextObj.AddComponent<Outline>();
-            cxOutline.effectColor = new Color(0f, 0f, 0f, 0.85f);
-            cxOutline.effectDistance = new Vector2(1.5f, -1.5f);
-
-            closeBtnTransform = closeBtnObj.transform;
+            closeBtnTransform = UIStyleUtility.CreateCornerCloseButton(modalBox.transform, CloseCalendar, 52f).transform;
 
             // 2. Mevsim Seçim Sekmeleri Barı
             GameObject tabsObj = new GameObject("SeasonTabs");

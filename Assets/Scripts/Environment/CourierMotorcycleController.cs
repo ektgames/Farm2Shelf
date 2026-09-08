@@ -34,6 +34,7 @@ namespace Farm2Shelf.Environment
         public Transform DriverSeatMount { get; private set; }
 
         public List<OnlineCustomerOrder> LoadedOrders { get; private set; } = new List<OnlineCustomerOrder>();
+        public bool IsDeliveryTripInProgress { get; private set; }
 
         private Transform[] wheels;
         private Light headlight;
@@ -190,6 +191,7 @@ namespace Farm2Shelf.Environment
         public void DispatchDeliveryTrip()
         {
             if (LoadedOrders.Count == 0) return;
+            if (IsDeliveryTripInProgress) return;
             StopAllCoroutines();
             StartCoroutine(DeliveryTripRoutine());
         }
@@ -198,9 +200,10 @@ namespace Farm2Shelf.Environment
 
         private IEnumerator DeliveryTripRoutine()
         {
+            IsDeliveryTripInProgress = true;
             CurrentState = MotorcycleState.EnRouteDelivery;
 
-            Vector3 currentPos = HomeParkPosition;
+            Vector3 currentPos = transform.position;
 
             // 1. YÜKLENEN HER BİR SİPARİŞ İÇİN HEDEF ADRESE SADECE VE SADECE YOLLAR ÜZERİNDEN SÜRÜŞ
             for (int i = 0; i < LoadedOrders.Count; i++)
@@ -251,11 +254,17 @@ namespace Farm2Shelf.Environment
             transform.rotation = HomeParkRotation;
 
             CurrentState = MotorcycleState.ParkedInBay;
+            IsDeliveryTripInProgress = false;
 
             if (CourierManager.Instance != null)
             {
                 CourierManager.Instance.OnMotorcycleReturnedToBay(this);
             }
+        }
+
+        private void OnDestroy()
+        {
+            IsDeliveryTripInProgress = false;
         }
 
         private IEnumerator MoveToPosition(Vector3 targetPos, float speed)

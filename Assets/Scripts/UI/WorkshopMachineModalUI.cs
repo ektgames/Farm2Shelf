@@ -141,7 +141,7 @@ namespace Farm2Shelf.UI
             pBg.raycastTarget = true;
 
             WorkshopMachineDef mDef = WorkshopMachineDatabase.GetMachineByType(activeMachine.machineType);
-            string mTitle = mDef != null ? $"{mDef.iconEmoji} {mDef.LocalizedName}" : LocalizationManager.L("WS_MachineFallback", "🏭 Atölye Makinesi", "🏭 Workshop Machine");
+            string mTitle = mDef != null ? mDef.LocalizedName : LocalizationManager.L("WS_MachineFallback", "Atölye Makinesi", "Workshop Machine");
 
             // Başlık
             GameObject titleObj = new GameObject("Title");
@@ -158,33 +158,7 @@ namespace Farm2Shelf.UI
             machineTitleText.color = new Color(1.0f, 0.85f, 0.30f);
             machineTitleText.alignment = TextAnchor.MiddleLeft;
 
-            // Kapat Butonu (✖)
-            GameObject closeObj = new GameObject("CloseBtn");
-            closeObj.transform.SetParent(panelObj.transform, false);
-            RectTransform clRect = closeObj.AddComponent<RectTransform>();
-            clRect.anchoredPosition = new Vector2(405f, 300f);
-            clRect.sizeDelta = new Vector2(48f, 48f);
-
-            Image clBg = closeObj.AddComponent<Image>();
-            clBg.sprite = UIStyleUtility.CreateRoundedPillSprite(48, 48, 24, new Color(0.92f, 0.18f, 0.20f, 1f));
-
-            Button clBtn = closeObj.AddComponent<Button>();
-            clBtn.targetGraphic = clBg;
-            clBtn.onClick.AddListener(HideModal);
-
-            GameObject clTxtObj = new GameObject("X");
-            clTxtObj.transform.SetParent(closeObj.transform, false);
-            RectTransform cltRect = clTxtObj.AddComponent<RectTransform>();
-            cltRect.anchorMin = Vector2.zero;
-            cltRect.anchorMax = Vector2.one;
-
-            Text clTxt = clTxtObj.AddComponent<Text>();
-            clTxt.font = font;
-            clTxt.text = "✖";
-            clTxt.fontSize = 26;
-            clTxt.fontStyle = FontStyle.Bold;
-            clTxt.alignment = TextAnchor.MiddleCenter;
-            clTxt.color = Color.white;
+            UIStyleUtility.CreateCornerCloseButton(panelObj.transform, HideModal, 52f);
 
             // 3. Durum Bilgi Şeridi
             GameObject statusObj = new GameObject("StatusBar");
@@ -263,7 +237,7 @@ namespace Farm2Shelf.UI
             {
                 WorkshopRecipeDef r = WorkshopMachineDatabase.GetRecipeById(activeMachine.activeRecipeId);
                 string rName = r != null ? r.LocalizedName : LocalizationManager.L("WS_GourmetFallback", "Gurme Ürün", "Gourmet Product");
-                string doneFmt = LocalizationManager.L("WS_Header_DoneFmt", "🎉 {0} Üretimi Tamamlandı! (Toplanmaya Hazır)", "🎉 {0} Craft Completed! (Ready to Collect)");
+                string doneFmt = LocalizationManager.L("WS_Header_DoneFmt", "{0} Üretimi Tamamlandı! (Toplanmaya Hazır)", "{0} Craft Completed! (Ready to Collect)");
                 statusHeaderText.text = $"<color=#00E676><b>{string.Format(doneFmt, rName)}</b></color>";
             }
             else if (activeMachine.isProducing)
@@ -273,12 +247,12 @@ namespace Farm2Shelf.UI
                 int mins = Mathf.FloorToInt(activeMachine.remainingSeconds / 60f);
                 int secs = Mathf.FloorToInt(activeMachine.remainingSeconds % 60f);
                 float pct = 1f - (activeMachine.remainingSeconds / Mathf.Max(1f, activeMachine.totalDuration));
-                string progFmt = LocalizationManager.L("WS_Header_ProgFmt", "⏳ <b>{0}</b> Üretiliyor... <color=#80D8FF><b>Kalan: {1:00}:{2:00} (%{3})</b></color>", "⏳ <b>{0}</b> Crafting... <color=#80D8FF><b>Remaining: {1:00}:{2:00} ({3}%)</b></color>");
+                string progFmt = LocalizationManager.L("WS_Header_ProgFmt", "<b>{0}</b> Üretiliyor... <color=#80D8FF><b>Kalan: {1:00}:{2:00} (%{3})</b></color>", "<b>{0}</b> Crafting... <color=#80D8FF><b>Remaining: {1:00}:{2:00} ({3}%)</b></color>");
                 statusHeaderText.text = string.Format(progFmt, rName, mins, secs, Mathf.RoundToInt(pct * 100));
             }
             else
             {
-                statusHeaderText.text = LocalizationManager.L("WS_Header_SelectRecipe", "📋 Üretim yapmak istediğiniz gurme ürünü seçin:", "📋 Choose a gourmet recipe to produce:");
+                statusHeaderText.text = LocalizationManager.L("WS_Header_SelectRecipe", "Üretim yapmak istediğiniz gurme ürünü seçin:", "Choose a gourmet recipe to produce:");
             }
         }
 
@@ -336,7 +310,7 @@ namespace Farm2Shelf.UI
 
                 Text iconTxt = iconTxtObj.AddComponent<Text>();
                 iconTxt.font = font;
-                iconTxt.text = rDef.iconEmoji;
+                iconTxt.text = "";
                 iconTxt.fontSize = 36;
                 iconTxt.alignment = TextAnchor.MiddleCenter;
 
@@ -352,8 +326,8 @@ namespace Farm2Shelf.UI
                 int durationMins = Mathf.CeilToInt(rDef.durationSeconds / 60f);
                 string stockColor = hasEnoughCrops ? "#00E676" : "#FF5252";
 
-                string rawFmt = LocalizationManager.L("WS_Card_RawFmt", "🌾 Gerekli: <b>{0} KG {1}</b> | Palette: <color={2}><b>{3} KG</b></color>", "🌾 Required: <b>{0} KG {1}</b> | Pallet: <color={2}><b>{3} KG</b></color>");
-                string timeFmt = LocalizationManager.L("WS_Card_TimeFmt", "⏳ Süre: <b>{0} dk</b> | 💰 Değer: <color=#FFD700><b>{1}C</b></color> (Paket: {2} Adet)", "⏳ Time: <b>{0} min</b> | 💰 Value: <color=#FFD700><b>{1}C</b></color> (Pack: {2} Pcs)");
+                string rawFmt = LocalizationManager.L("WS_Card_RawFmt", "Gerekli: <b>{0} KG {1}</b> | Palette: <color={2}><b>{3} KG</b></color>", "Required: <b>{0} KG {1}</b> | Pallet: <color={2}><b>{3} KG</b></color>");
+                string timeFmt = LocalizationManager.L("WS_Card_TimeFmt", "Süre: <b>{0} dk</b> | Değer: <color=#FFD700><b>{1}C</b></color> (Paket: {2} Adet)", "Time: <b>{0} min</b> | Value: <color=#FFD700><b>{1}C</b></color> (Pack: {2} Pcs)");
 
                 string infoStr = $"<size=20><b>{rDef.LocalizedName}</b></size>\n" +
                                  string.Format(rawFmt, rDef.requiredCropKg, cropName, stockColor, palletCropCount) + "\n" +
@@ -427,7 +401,7 @@ namespace Farm2Shelf.UI
 
             Text eTxt = emojiObj.AddComponent<Text>();
             eTxt.font = font;
-            eTxt.text = rDef.iconEmoji;
+            eTxt.text = "";
             eTxt.fontSize = 64;
             eTxt.alignment = TextAnchor.MiddleCenter;
 
@@ -446,7 +420,7 @@ namespace Farm2Shelf.UI
 
             if (activeMachine.isReadyToCollect)
             {
-                string readyFmt = LocalizationManager.L("WS_Card_ReadyDesc", "🎉 <b>{0}</b> üretimi tamamlandı!\nToplam <b>{1} Adet</b> gurme ürün toplanmayı bekliyor.", "🎉 <b>{0}</b> crafting complete!\nA total of <b>{1} pcs</b> gourmet goods are ready to collect.");
+                string readyFmt = LocalizationManager.L("WS_Card_ReadyDesc", "<b>{0}</b> üretimi tamamlandı!\nToplam <b>{1} Adet</b> gurme ürün toplanmayı bekliyor.", "<b>{0}</b> crafting complete!\nA total of <b>{1} pcs</b> gourmet goods are ready to collect.");
                 dTxt.text = string.Format(readyFmt, rDef.LocalizedName, rDef.outputPackCount);
 
                 // Yeşil Ahıra Topla Butonu
@@ -462,9 +436,8 @@ namespace Farm2Shelf.UI
                 Button cbBtn = collectBtnObj.AddComponent<Button>();
                 cbBtn.targetGraphic = cbBg;
                 cbBtn.onClick.AddListener(() => {
-                    if (activeMachine != null)
+                    if (activeMachine != null && activeMachine.CollectFinishedProduct())
                     {
-                        activeMachine.CollectFinishedProduct();
                         HideModal();
                     }
                 });

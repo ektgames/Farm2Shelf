@@ -143,10 +143,7 @@ namespace Farm2Shelf.Environment
             }
             else
             {
-                string barnFullTitle = LocalizationManager.L("Modal_BarnFullTitle", "Ahır Dolu! ⚠️", "Barn Full! ⚠️");
-                string barnFullBody = LocalizationManager.L("Modal_BarnFullBody", "Ahır envanteri maksimum kapasiteye ulaştı! Lütfen ahırdaki ürünleri dükkana sevk edin veya ahırı geliştirin.", "Barn inventory has reached maximum capacity! Please transfer products to the store or upgrade the barn.");
-                string btnOk = LocalizationManager.L("Btn_Ok", "Tamam", "OK");
-                ModalManager.ShowModal(barnFullTitle, barnFullBody, btnOk);
+                GardenSeedInventoryManager.ShowBarnFullModal();
             }
         }
 
@@ -427,24 +424,7 @@ namespace Farm2Shelf.Environment
             cBtn.targetGraphic = cBg;
             cBtn.onClick.AddListener(CloseRadialMenu);
 
-            GameObject cxObj = new GameObject("X");
-            cxObj.transform.SetParent(closeBtnObj.transform, false);
-            RectTransform cxRect = cxObj.AddComponent<RectTransform>();
-            cxRect.anchorMin = Vector2.zero;
-            cxRect.anchorMax = Vector2.one;
-
-            Text cxText = cxObj.AddComponent<Text>();
-            cxText.font = font;
-            cxText.text = "✖";
-            cxText.fontSize = 24;
-            cxText.fontStyle = FontStyle.Bold;
-            cxText.alignment = TextAnchor.MiddleCenter;
-            cxText.color = Color.white;
-            cxText.raycastTarget = false;
-
-            Outline cxOutline = cxObj.AddComponent<Outline>();
-            cxOutline.effectColor = new Color(0f, 0f, 0f, 0.85f);
-            cxOutline.effectDistance = new Vector2(1.5f, -1.5f);
+            UIStyleUtility.ApplyCloseMarkGraphic(closeBtnObj.transform);
 
             // 3. Tohum Butonlarının Yerleşimi (Dinamik Uyarlanır)
             if (!useDoubleRing)

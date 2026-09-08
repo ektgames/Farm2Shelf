@@ -249,42 +249,7 @@ namespace Farm2Shelf.UI
                 RefreshInventoryList();
             });
 
-            // Kapat Butonu (✖)
-            GameObject closeBtnObj = new GameObject("Close_Button");
-            closeBtnObj.transform.SetParent(headerObj.transform, false);
-            RectTransform cRect = closeBtnObj.AddComponent<RectTransform>();
-            cRect.anchoredPosition = new Vector2(440f, 0f);
-            cRect.sizeDelta = new Vector2(48f, 48f);
-
-            Image closeBg = closeBtnObj.AddComponent<Image>();
-            closeBg.sprite = UIStyleUtility.CreateRoundedPillSprite(48, 48, 24, new Color(0.92f, 0.18f, 0.20f, 1f));
-            closeBg.raycastTarget = true;
-
-            Button closeBtn = closeBtnObj.AddComponent<Button>();
-            closeBtn.targetGraphic = closeBg;
-            closeBtn.onClick.AddListener(HideModal);
-
-            GameObject closeTxtObj = new GameObject("Close_Txt");
-            closeTxtObj.transform.SetParent(closeBtnObj.transform, false);
-            RectTransform ctRect = closeTxtObj.AddComponent<RectTransform>();
-            ctRect.anchorMin = Vector2.zero;
-            ctRect.anchorMax = Vector2.one;
-            ctRect.sizeDelta = Vector2.zero;
-
-            Text closeTxt = closeTxtObj.AddComponent<Text>();
-            closeTxt.font = globalFont;
-            closeTxt.text = "✖";
-            closeTxt.fontSize = 28;
-            closeTxt.fontStyle = FontStyle.Bold;
-            closeTxt.alignment = TextAnchor.MiddleCenter;
-            closeTxt.color = Color.white;
-            closeTxt.raycastTarget = false;
-
-            Outline ctOutline = closeTxtObj.AddComponent<Outline>();
-            ctOutline.effectColor = new Color(0f, 0f, 0f, 0.85f);
-            ctOutline.effectDistance = new Vector2(1.5f, -1.5f);
-
-            closeBtnObj.transform.SetAsLastSibling();
+            UIStyleUtility.CreateCornerCloseButton(headerObj.transform, HideModal, 48f);
         }
 
         private void BuildInventoryScrollView(Transform parent)

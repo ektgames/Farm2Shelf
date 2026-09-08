@@ -1,7 +1,9 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 using Farm2Shelf.Core;
+using Farm2Shelf.Utils;
 
 namespace Farm2Shelf.Environment
 {
@@ -85,52 +87,67 @@ namespace Farm2Shelf.Environment
         {
             if (bulbOnMat != null && windowGlowOnMat != null) return;
 
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+            Shader litShader = ShaderHelper.GetLitShader() ?? Shader.Find("Standard");
+            Shader unlitShader = ShaderHelper.GetUnlitShader() ?? litShader;
 
-            // 1. Sokak Lamba Ampulü (Gece Yanan Sıcak Sarı)
-            bulbOnMat = new Material(shader) { name = "LampBulb_ON", color = new Color(1.0f, 0.88f, 0.45f) };
-            if (bulbOnMat.HasProperty("_BaseColor")) bulbOnMat.SetColor("_BaseColor", new Color(1.0f, 0.88f, 0.45f));
-            if (bulbOnMat.HasProperty("_Color")) bulbOnMat.SetColor("_Color", new Color(1.0f, 0.88f, 0.45f));
-            if (bulbOnMat.HasProperty("_EmissionColor"))
-            {
-                bulbOnMat.SetColor("_EmissionColor", new Color(1.0f, 0.88f, 0.45f) * 3.5f);
-                bulbOnMat.EnableKeyword("_EMISSION");
-            }
-            bulbOnMat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+            // 1. Sokak Lamba Ampulü (Gece Yanan Sıcak Sarı — Unlit: mobilde bloom/HDR şart değil)
+            Color bulbGlow = new Color(1.0f, 0.90f, 0.52f, 1.0f);
+            bulbOnMat = CreateSelfLitSurfaceMaterial(unlitShader, "LampBulb_ON", bulbGlow);
 
-            bulbOffMat = new Material(shader) { name = "LampBulb_OFF", color = new Color(0.35f, 0.35f, 0.38f) };
+            bulbOffMat = new Material(litShader) { name = "LampBulb_OFF", color = new Color(0.35f, 0.35f, 0.38f) };
             if (bulbOffMat.HasProperty("_BaseColor")) bulbOffMat.SetColor("_BaseColor", new Color(0.35f, 0.35f, 0.38f));
             if (bulbOffMat.HasProperty("_Color")) bulbOffMat.SetColor("_Color", new Color(0.35f, 0.35f, 0.38f));
 
-            // 2. Çevre Binaların Camları (Gece İçi Aydınlatmalı Işıyan Sıcak Sarı Cam)
-            windowGlowOnMat = new Material(shader) { name = "WindowGlass_ON", color = new Color(1.0f, 0.88f, 0.35f, 1.0f) };
-            if (windowGlowOnMat.HasProperty("_BaseColor")) windowGlowOnMat.SetColor("_BaseColor", new Color(1.0f, 0.88f, 0.35f, 1.0f));
-            if (windowGlowOnMat.HasProperty("_Color")) windowGlowOnMat.SetColor("_Color", new Color(1.0f, 0.88f, 0.35f, 1.0f));
-            if (windowGlowOnMat.HasProperty("_EmissionColor"))
-            {
-                windowGlowOnMat.SetColor("_EmissionColor", new Color(1.0f, 0.85f, 0.30f) * 1.20f);
-                windowGlowOnMat.EnableKeyword("_EMISSION");
-            }
-            windowGlowOnMat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+            // 2. Çevre Binaların Camları — Unlit opak amber (gece ambient/gölge camı soldurmaz, bloom patlamaz)
+            Color windowGlow = new Color(1.0f, 0.82f, 0.36f, 1.0f);
+            windowGlowOnMat = CreateSelfLitSurfaceMaterial(unlitShader, "WindowGlass_ON", windowGlow);
 
-            windowGlowOffMat = new Material(shader) { name = "WindowGlass_OFF", color = new Color(0.20f, 0.35f, 0.50f, 0.90f) };
-            if (windowGlowOffMat.HasProperty("_BaseColor")) windowGlowOffMat.SetColor("_BaseColor", new Color(0.20f, 0.35f, 0.50f, 0.90f));
-            if (windowGlowOffMat.HasProperty("_Color")) windowGlowOffMat.SetColor("_Color", new Color(0.20f, 0.35f, 0.50f, 0.90f));
+            windowGlowOffMat = new Material(litShader) { name = "WindowGlass_OFF", color = new Color(0.14f, 0.22f, 0.34f, 1.0f) };
+            if (windowGlowOffMat.HasProperty("_BaseColor")) windowGlowOffMat.SetColor("_BaseColor", new Color(0.14f, 0.22f, 0.34f, 1.0f));
+            if (windowGlowOffMat.HasProperty("_Color")) windowGlowOffMat.SetColor("_Color", new Color(0.14f, 0.22f, 0.34f, 1.0f));
+            if (windowGlowOffMat.HasProperty("_Metallic")) windowGlowOffMat.SetFloat("_Metallic", 0.05f);
+            if (windowGlowOffMat.HasProperty("_Smoothness")) windowGlowOffMat.SetFloat("_Smoothness", 0.55f);
 
-            // 3. Araba Farları (Gece Yanan Parlak Beyaz-Sarı)
-            headlightOnMat = new Material(shader) { name = "Headlight_ON", color = new Color(1.0f, 0.98f, 0.85f) };
-            if (headlightOnMat.HasProperty("_BaseColor")) headlightOnMat.SetColor("_BaseColor", new Color(1.0f, 0.98f, 0.85f));
-            if (headlightOnMat.HasProperty("_Color")) headlightOnMat.SetColor("_Color", new Color(1.0f, 0.98f, 0.85f));
-            if (headlightOnMat.HasProperty("_EmissionColor"))
-            {
-                headlightOnMat.SetColor("_EmissionColor", new Color(1.0f, 0.98f, 0.85f) * 3.5f);
-                headlightOnMat.EnableKeyword("_EMISSION");
-            }
-            headlightOnMat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+            // 3. Araba Farları (Gece: Unlit, gündüz: Lit cam)
+            Color headlightGlow = new Color(1.0f, 0.97f, 0.88f, 1.0f);
+            headlightOnMat = CreateSelfLitSurfaceMaterial(unlitShader, "Headlight_ON", headlightGlow);
 
-            headlightOffMat = new Material(shader) { name = "Headlight_OFF", color = new Color(0.85f, 0.85f, 0.88f) };
+            headlightOffMat = new Material(litShader) { name = "Headlight_OFF", color = new Color(0.85f, 0.85f, 0.88f) };
             if (headlightOffMat.HasProperty("_BaseColor")) headlightOffMat.SetColor("_BaseColor", new Color(0.85f, 0.85f, 0.88f));
             if (headlightOffMat.HasProperty("_Color")) headlightOffMat.SetColor("_Color", new Color(0.85f, 0.85f, 0.88f));
+        }
+
+        private static Material CreateSelfLitSurfaceMaterial(Shader shader, string name, Color glow)
+        {
+            Material mat = new Material(shader) { name = name, color = glow };
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", glow);
+            if (mat.HasProperty("_Color")) mat.SetColor("_Color", glow);
+            if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", 0f);
+            if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 0.18f);
+            if (mat.HasProperty("_Glossiness")) mat.SetFloat("_Glossiness", 0.18f);
+            if (mat.HasProperty("_Surface")) mat.SetFloat("_Surface", 0f);
+            if (mat.HasProperty("_Blend")) mat.SetFloat("_Blend", 0f);
+            if (mat.HasProperty("_SrcBlend")) mat.SetInt("_SrcBlend", (int)BlendMode.One);
+            if (mat.HasProperty("_DstBlend")) mat.SetInt("_DstBlend", (int)BlendMode.Zero);
+            if (mat.HasProperty("_ZWrite")) mat.SetInt("_ZWrite", 1);
+            if (mat.HasProperty("_ReceiveShadows")) mat.SetFloat("_ReceiveShadows", 0f);
+            mat.DisableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            mat.EnableKeyword("_RECEIVE_SHADOWS_OFF");
+            if (mat.HasProperty("_EmissionColor"))
+            {
+                mat.SetColor("_EmissionColor", glow);
+                mat.EnableKeyword("_EMISSION");
+            }
+            mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+            mat.renderQueue = 2000;
+            return mat;
+        }
+
+        private static void PrepareNightSurfaceRenderer(Renderer r)
+        {
+            if (r == null) return;
+            r.shadowCastingMode = ShadowCastingMode.Off;
+            r.receiveShadows = false;
         }
 
         public void RegisterStreetLamp(GameObject bulbObj, Light pLight)
@@ -139,7 +156,11 @@ namespace Farm2Shelf.Environment
             if (bulbObj != null)
             {
                 Renderer r = bulbObj.GetComponent<Renderer>();
-                if (r != null && !streetLampBulbs.Contains(r)) streetLampBulbs.Add(r);
+                if (r != null && !streetLampBulbs.Contains(r))
+                {
+                    PrepareNightSurfaceRenderer(r);
+                    streetLampBulbs.Add(r);
+                }
             }
         }
 
@@ -173,6 +194,7 @@ namespace Farm2Shelf.Environment
                 Renderer r = hlObj.GetComponent<Renderer>();
                 if (r != null && !headlightRenderers.Contains(r))
                 {
+                    PrepareNightSurfaceRenderer(r);
                     headlightRenderers.Add(r);
                     if (isNight && headlightOnMat != null) r.sharedMaterial = headlightOnMat;
                 }
@@ -186,6 +208,7 @@ namespace Farm2Shelf.Environment
                 Renderer r = glassObj.GetComponent<Renderer>();
                 if (r != null && !buildingWindows.Contains(r))
                 {
+                    PrepareNightSurfaceRenderer(r);
                     buildingWindows.Add(r);
                     if (isNight && windowGlowOnMat != null) r.sharedMaterial = windowGlowOnMat;
                 }
@@ -200,6 +223,7 @@ namespace Farm2Shelf.Environment
 
             if (isLitTonight)
             {
+                PrepareNightSurfaceRenderer(r);
                 if (!buildingWindows.Contains(r))
                 {
                     buildingWindows.Add(r);
@@ -234,10 +258,12 @@ namespace Farm2Shelf.Environment
                 {
                     if (n.Contains("Apartment_Window_Glass_Lit"))
                     {
+                        PrepareNightSurfaceRenderer(r);
                         buildingWindows.Add(r);
                     }
                     else if (Random.value < 0.70f)
                     {
+                        PrepareNightSurfaceRenderer(r);
                         buildingWindows.Add(r);
                     }
                 }
@@ -248,6 +274,11 @@ namespace Farm2Shelf.Environment
         {
             if (Time.unscaledTime < nextLightingUpdateTime) return;
             nextLightingUpdateTime = Time.unscaledTime + LIGHTING_UPDATE_INTERVAL;
+            UpdateLightingImmediate();
+        }
+
+        public void RefreshLightingNow()
+        {
             UpdateLightingImmediate();
         }
 
@@ -316,6 +347,8 @@ namespace Farm2Shelf.Environment
                 sunIntensity = 0.12f;
             }
 
+            ApplyWeatherAtmosphere(timeInHours, ref sunColor, ref skyAmbientColor, ref sunIntensity);
+
             if (directionalSunLight != null)
             {
                 directionalSunLight.color = sunColor;
@@ -332,6 +365,43 @@ namespace Farm2Shelf.Environment
             {
                 isNight = shouldNightLightsBeOn;
                 ToggleNightLights(isNight);
+            }
+        }
+
+        private static void ApplyWeatherAtmosphere(float timeInHours, ref Color sunColor, ref Color skyAmbientColor, ref float sunIntensity)
+        {
+            if (WeatherManager.Instance == null) return;
+
+            bool isDay = timeInHours >= 6.5f && timeInHours < 19.5f;
+            WeatherType weather = WeatherManager.Instance.CurrentWeather;
+
+            if (weather == WeatherType.Rainy)
+            {
+                sunColor = Color.Lerp(sunColor, new Color(0.58f, 0.64f, 0.72f), isDay ? 0.70f : 0.35f);
+                skyAmbientColor = Color.Lerp(skyAmbientColor, new Color(0.36f, 0.40f, 0.46f), isDay ? 0.62f : 0.28f);
+                sunIntensity *= isDay ? 0.58f : 0.82f;
+                sunIntensity = Mathf.Max(sunIntensity, isDay ? 0.42f : 0.10f);
+
+                RenderSettings.fog = true;
+                RenderSettings.fogMode = FogMode.ExponentialSquared;
+                RenderSettings.fogColor = new Color(0.40f, 0.44f, 0.50f);
+                RenderSettings.fogDensity = 0.0115f;
+            }
+            else if (weather == WeatherType.Snowy)
+            {
+                sunColor = Color.Lerp(sunColor, new Color(0.86f, 0.90f, 0.96f), isDay ? 0.48f : 0.22f);
+                skyAmbientColor = Color.Lerp(skyAmbientColor, new Color(0.70f, 0.76f, 0.84f), isDay ? 0.42f : 0.18f);
+                sunIntensity *= isDay ? 0.80f : 0.90f;
+                sunIntensity = Mathf.Max(sunIntensity, isDay ? 0.55f : 0.11f);
+
+                RenderSettings.fog = true;
+                RenderSettings.fogMode = FogMode.ExponentialSquared;
+                RenderSettings.fogColor = new Color(0.76f, 0.82f, 0.88f);
+                RenderSettings.fogDensity = 0.0075f;
+            }
+            else
+            {
+                RenderSettings.fog = false;
             }
         }
 

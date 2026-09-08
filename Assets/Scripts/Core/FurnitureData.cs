@@ -125,15 +125,15 @@ namespace Farm2Shelf.Core
             switch (zone)
             {
                 case FurnitureZone.StoreAndStorage:
-                    return LocalizationManager.L("Zone_StoreAndStorage", "📍 Mağaza & Depo", "📍 Store & Storage");
+                    return LocalizationManager.L("Zone_StoreAndStorage", "Mağaza & Depo", "Store & Storage");
                 case FurnitureZone.StoreOnly:
-                    return LocalizationManager.L("Zone_StoreOnly", "📍 Mağaza", "📍 Store Only");
+                    return LocalizationManager.L("Zone_StoreOnly", "Mağaza", "Store Only");
                 case FurnitureZone.StorageOnly:
-                    return LocalizationManager.L("Zone_StorageOnly", "📦 Depo", "📦 Storage Only");
+                    return LocalizationManager.L("Zone_StorageOnly", "Depo", "Storage Only");
                 case FurnitureZone.WorkshopOnly:
-                    return LocalizationManager.L("Zone_WorkshopOnly", "🏭 Atölye", "🏭 Workshop Only");
+                    return LocalizationManager.L("Zone_WorkshopOnly", "Atölye", "Workshop Only");
                 default:
-                    return LocalizationManager.L("Zone_StoreAndStorage", "📍 Mağaza & Depo", "📍 Store & Storage");
+                    return LocalizationManager.L("Zone_StoreAndStorage", "Mağaza & Depo", "Store & Storage");
             }
         }
     }
@@ -381,6 +381,12 @@ namespace Farm2Shelf.Core
         public static bool IsWallMountedDecoration(FurnitureType type)
         {
             return type == FurnitureType.WallClock;
+        }
+
+        public static bool GrantsCustomerUseIncome(FurnitureType type)
+        {
+            FurnitureItemDef def = GetDef(type);
+            return def != null && def.category == FurnitureCategory.Decoration && def.passiveIncomePerUse > 0;
         }
     }
 

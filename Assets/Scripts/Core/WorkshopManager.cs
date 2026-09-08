@@ -73,7 +73,7 @@ namespace Farm2Shelf.Core
             // 2. Finans Dökümüne Gider Kaydet
             if (FinanceManager.Instance != null)
             {
-                string catName = LocalizationManager.L("TrxCat_Upgrade", "Geliştirme / İnşaat", "Expansion / Construction");
+                string catName = FinanceCategories.Expansion;
                 string descFmt = LocalizationManager.L("TrxDesc_WorkshopUpgradeFmt", "Atölye Seviye {0} Genişletme İnşaatı", "Workshop Level {0} Expansion Construction");
                 FinanceManager.Instance.RecordExpense(catName, string.Format(descFmt, targetLevel), cost);
             }

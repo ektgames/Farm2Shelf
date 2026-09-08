@@ -164,6 +164,8 @@ namespace Farm2Shelf.Core
         public int monthlyRevenue;
         public int monthlyExpenses;
         public List<TransactionRecord> transactionLog = new List<TransactionRecord>();
+        public List<FinanceCategoryTotalSave> financeCategoryTotals = new List<FinanceCategoryTotalSave>();
+        public int lastSalaryPaidDay = -1;
 
         // Banka Kredileri
         public List<ActiveLoanData> bankLoans = new List<ActiveLoanData>();

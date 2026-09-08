@@ -280,29 +280,37 @@ namespace Farm2Shelf.Environment
             Debug.Log($"[WorkshopMachine] {machineType} ({machineInstanceId}) üretimi tamamlandı! Ürün toplanmaya hazır.");
         }
 
-        public void CollectFinishedProduct()
+        public bool CollectFinishedProduct()
         {
-            if (!isReadyToCollect) return;
+            if (!isReadyToCollect) return false;
 
             WorkshopRecipeDef recipe = WorkshopMachineDatabase.GetRecipeById(activeRecipeId);
-            if (recipe != null)
+            if (recipe == null)
             {
-                // Üretilen gurme ürünü Ahır Envanterine aktar!
-                if (GardenSeedInventoryManager.Instance != null)
-                {
-                    GardenSeedInventoryManager.Instance.AddBarnCrop(recipe.outputProductId, recipe.outputPackCount);
-                }
-
-                string title = LocalizationManager.L("Modal_CollectGourmet_Title", "🎉 Gurme Üretim Toplandı!", "🎉 Gourmet Production Collected!");
-                string bodyFmt = LocalizationManager.L(
-                    "Modal_CollectGourmet_Body",
-                    "Tebrikler! <b>{0} {1}</b> (Toplam {2} Adet) başarıyla üretildi ve **Ahır Envanterinize** aktarıldı!\n\n📦 Ahır menüsünden ürünü Yeşil Kamyonla dükkana sevk edebilir, Gurme Rafına dizebilir veya anında satabilirsiniz.",
-                    "Congratulations! <b>{0} {1}</b> ({2} Units) successfully crafted and transferred to your **Barn Storage**!\n\n📦 You can ship it to the store, stock it on the Gourmet Shelf, or instant-sell."
-                );
-                ModalManager.ShowModal(title, string.Format(bodyFmt, recipe.iconEmoji, recipe.LocalizedName, recipe.outputPackCount), LocalizationManager.L("Btn_Great", "Harika!", "Awesome!"));
+                isReadyToCollect = false;
+                isProducing = false;
+                activeRecipeId = "";
+                remainingSeconds = 0f;
+                totalDuration = 0f;
+                UpdateOverheadDisplay();
+                return false;
             }
 
-            // Sıfırla
+            GardenSeedInventoryManager barn = GardenSeedInventoryManager.Instance;
+            if (barn == null || !barn.TryAddCropToBarn(recipe.outputProductId, recipe.outputPackCount))
+            {
+                GardenSeedInventoryManager.ShowBarnFullModal();
+                return false;
+            }
+
+            string title = LocalizationManager.L("Modal_CollectGourmet_Title", "Gurme Üretim Toplandı!", "Gourmet Production Collected!");
+            string bodyFmt = LocalizationManager.L(
+                "Modal_CollectGourmet_Body",
+                "Tebrikler! <b>{0}</b> (Toplam {1} Adet) başarıyla üretildi ve **Ahır Envanterinize** aktarıldı!\n\nAhır menüsünden ürünü Yeşil Kamyonla dükkana sevk edebilir, Gurme Rafına dizebilir veya anında satabilirsiniz.",
+                "Congratulations! <b>{0}</b> ({1} Units) successfully crafted and transferred to your **Barn Storage**!\n\nYou can ship it to the store, stock it on the Gourmet Shelf, or instant-sell."
+            );
+            ModalManager.ShowModal(title, string.Format(bodyFmt, recipe.LocalizedName, recipe.outputPackCount), LocalizationManager.L("Btn_Great", "Harika!", "Awesome!"));
+
             isReadyToCollect = false;
             isProducing = false;
             activeRecipeId = "";
@@ -310,6 +318,7 @@ namespace Farm2Shelf.Environment
             totalDuration = 0f;
 
             UpdateOverheadDisplay();
+            return true;
         }
 
         public void OnPointerClick(PointerEventData eventData)

@@ -152,8 +152,8 @@ namespace Farm2Shelf.Core
             {
                 string infoFmt = LocalizationManager.L(
                     "HUD_PlacingInfo",
-                    "🛠️ {0} Yerleştiriliyor\nEkrana dokunarak taşıyın | Paneldeki [✅ Kur] butonuna basın",
-                    "🛠️ Placing {0}\nDrag on screen to move | Tap [✅ Assemble] to place"
+                    "{0} Yerleştiriliyor\nEkrana dokunarak taşıyın | Paneldeki [Kur] butonuna basın",
+                    "Placing {0}\nDrag on screen to move | Tap [Assemble] to place"
                 );
                 infoStatusText.text = string.Format(infoFmt, def.LocalizedName);
             }
@@ -204,8 +204,8 @@ namespace Farm2Shelf.Core
                     : "";
                 string moveFmt = LocalizationManager.L(
                     "HUD_MovingInfoFmt",
-                    "🛠️ {0}{1} Taşınıyor\nEkrana dokunarak taşıyın | Paneldeki [✅ Kur] butonuna basarak kurun",
-                    "🛠️ Moving {0}{1}\nDrag on screen to move | Tap [✅ Assemble] to place"
+                    "{0}{1} Taşınıyor\nEkrana dokunarak taşıyın | Paneldeki [Kur] butonuna basarak kurun",
+                    "Moving {0}{1}\nDrag on screen to move | Tap [Assemble] to place"
                 );
                 infoStatusText.text = string.Format(moveFmt, def.LocalizedName, stateNote);
             }
@@ -318,8 +318,8 @@ namespace Farm2Shelf.Core
                 {
                     string okMsg = LocalizationManager.L(
                         "HUD_PosOK",
-                        $"🛠️ {def.LocalizedName} (Konum UYGUN ✅)\nEkrana dokunarak taşıyın | Paneldeki [✅ Kur] butonuna basın",
-                        $"🛠️ {def.LocalizedName} (Position VALID ✅)\nDrag on screen | Tap [✅ Assemble] to place"
+                        $"{def.LocalizedName} (Konum UYGUN)\nEkrana dokunarak taşıyın | Paneldeki [Kur] butonuna basın",
+                        $"{def.LocalizedName} (Position VALID)\nDrag on screen | Tap [Assemble] to place"
                     );
                     infoStatusText.text = okMsg;
                     infoStatusText.color = Color.white;
@@ -1356,13 +1356,13 @@ namespace Farm2Shelf.Core
             infoStatusText = textObj.AddComponent<Text>();
             infoStatusText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             infoStatusText.raycastTarget = false;
-            infoStatusText.text = LocalizationManager.L("HUD_PlacingGeneric", "🛠️ Mobilya Yerleştiriliyor...", "🛠️ Placing Furniture...");
+            infoStatusText.text = LocalizationManager.L("HUD_PlacingGeneric", "Mobilya Yerleştiriliyor...", "Placing Furniture...");
             infoStatusText.fontSize = 15;
             infoStatusText.alignment = TextAnchor.MiddleCenter;
             infoStatusText.color = Color.white;
 
             // 1. KUR BUTONU (Yeşil - Dokunulan Yere Kurmayı Onaylar)
-            string btnAssemble = LocalizationManager.L("Btn_AssembleHUD", "✅ Kur", "✅ Assemble");
+            string btnAssemble = LocalizationManager.L("Btn_AssembleHUD", "Kur", "Assemble");
             CreateHUDButton(panel.transform, new Vector2(65f, 0f), new Vector2(110f, 55f), btnAssemble, new Color(0.18f, 0.78f, 0.38f), () => {
                 ConfirmCurrentPlacement();
             });

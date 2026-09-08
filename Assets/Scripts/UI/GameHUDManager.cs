@@ -512,8 +512,7 @@ namespace Farm2Shelf.UI
         private void HandleMidnightRollover()
         {
             isWaitingForEvacuation = true;
-            int activeCustomers = (CustomerShoppingManager.Instance != null) ? CustomerShoppingManager.Instance.ActiveCustomerCount : 0;
-            if (activeCustomers == 0)
+            if (CanOpenEndOfDayReport())
             {
                 TryOpenEndOfDayReport();
                 return;
@@ -521,9 +520,24 @@ namespace Farm2Shelf.UI
 
             ModalManager.ShowModal(
                 LocalizationManager.L("Midnight_Title", "🌙 Gece 12:00 (Günün Sonu)", "🌙 Midnight 12:00 (End of Day)"),
-                LocalizationManager.L("Midnight_Body", "Saat 24:00 (12:00 AM) oldu! Dükkan otomatik kapatıldı.\n\nİçerideki müşteriler alışverişini bitirip çıktıktan sonra Gün Sonu Z Raporu otomatik açılacaktır.", "It's 12:00 AM! Store has automatically closed.\n\nOnce remaining customers leave, the End of Day Z-Report will open automatically."),
+                LocalizationManager.L("Midnight_Body", "Saat 24:00 (12:00 AM) oldu! Dükkan otomatik kapatıldı.\n\nİçerideki müşteriler alışverişini bitirip çıktıktan ve yoldaki kuryeler siparişi teslim edip motorunu park ettikten sonra Gün Sonu Z Raporu otomatik açılacaktır.", "It's 12:00 AM! Store has automatically closed.\n\nOnce remaining customers leave and couriers finish deliveries and park, the End of Day Z-Report will open automatically."),
                 LocalizationManager.L("Btn_OK", "Tamam", "OK")
             );
+        }
+
+        private static int GetActiveCustomerCount()
+        {
+            return (CustomerShoppingManager.Instance != null) ? CustomerShoppingManager.Instance.ActiveCustomerCount : 0;
+        }
+
+        private static bool HasOutstandingCourierNightWork()
+        {
+            return CourierManager.Instance != null && CourierManager.Instance.HasOutstandingNightWork();
+        }
+
+        private bool CanOpenEndOfDayReport()
+        {
+            return GetActiveCustomerCount() == 0 && !HasOutstandingCourierNightWork();
         }
 
         private void TryOpenEndOfDayReport()
@@ -751,8 +765,7 @@ namespace Farm2Shelf.UI
             bool isStoreClosed = (StoreStatusManager.Instance != null && !StoreStatusManager.Instance.IsOpen);
             if ((isWaitingForEvacuation || dayEndedAtMidnight) && isStoreClosed && !EndOfDayReportModalUI.IsReportModalOpen)
             {
-                int activeCustomers = (CustomerShoppingManager.Instance != null) ? CustomerShoppingManager.Instance.ActiveCustomerCount : 0;
-                if (activeCustomers == 0)
+                if (CanOpenEndOfDayReport())
                 {
                     isWaitingForEvacuation = true;
                     TryOpenEndOfDayReport();

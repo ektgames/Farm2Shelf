@@ -127,48 +127,14 @@ namespace Farm2Shelf.UI
             Text tText = titleObj.AddComponent<Text>();
             tText.font = font;
             tText.text = isSaveMode ?
-                LocalizationManager.L("Save_Title", "💾 OYUNU KAYDET (3 YUVA)", "💾 SAVE GAME (3 SLOTS)") :
-                LocalizationManager.L("Load_Title", "📂 KAYITLI OYUN YÜKLE (3 YUVA)", "📂 LOAD GAME (3 SLOTS)");
+                LocalizationManager.L("Save_Title", "OYUNU KAYDET (3 YUVA)", "SAVE GAME (3 SLOTS)") :
+                LocalizationManager.L("Load_Title", "KAYITLI OYUN YÜKLE (3 YUVA)", "LOAD GAME (3 SLOTS)");
             tText.fontSize = 26;
             tText.fontStyle = FontStyle.Bold;
             tText.alignment = TextAnchor.MiddleCenter;
             tText.color = accentBorder;
 
-            // Kapat Butonu (X)
-            GameObject closeObj = new GameObject("CloseBtn");
-            closeObj.transform.SetParent(panelObj.transform, false);
-            RectTransform clRect = closeObj.AddComponent<RectTransform>();
-            clRect.anchoredPosition = new Vector2(420f, 290f);
-            clRect.sizeDelta = new Vector2(46f, 46f);
-
-            Image clBg = closeObj.AddComponent<Image>();
-            clBg.sprite = UIStyleUtility.CreateRoundedPillSprite(46, 46, 23, new Color(0.92f, 0.18f, 0.20f, 1f));
-            clBg.raycastTarget = true;
-
-            Button clBtn = closeObj.AddComponent<Button>();
-            clBtn.targetGraphic = clBg;
-            clBtn.onClick.AddListener(HideModal);
-
-            GameObject clTxtObj = new GameObject("X");
-            clTxtObj.transform.SetParent(closeObj.transform, false);
-            RectTransform cltRect = clTxtObj.AddComponent<RectTransform>();
-            cltRect.anchorMin = Vector2.zero;
-            cltRect.anchorMax = Vector2.one;
-
-            Text clTxt = clTxtObj.AddComponent<Text>();
-            clTxt.font = font;
-            clTxt.text = "✖";
-            clTxt.fontSize = 26;
-            clTxt.fontStyle = FontStyle.Bold;
-            clTxt.alignment = TextAnchor.MiddleCenter;
-            clTxt.color = Color.white;
-            clTxt.raycastTarget = false;
-
-            Outline clOutline = clTxtObj.AddComponent<Outline>();
-            clOutline.effectColor = new Color(0f, 0f, 0f, 0.85f);
-            clOutline.effectDistance = new Vector2(1.5f, -1.5f);
-
-            closeBtnTransform = closeObj.transform;
+            closeBtnTransform = UIStyleUtility.CreateCornerCloseButton(panelObj.transform, HideModal, 52f).transform;
 
             // 3 ADET SLOT KARTI OLUŞTUR
             float startY = 170f;

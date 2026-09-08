@@ -117,6 +117,21 @@ namespace Farm2Shelf.Environment
             Instance = this;
         }
 
+        public bool HasActiveOnlineOrderCourierWork()
+        {
+            if (staffTaskList == null || staffTaskList.Count == 0) return false;
+            for (int i = 0; i < staffTaskList.Count; i++)
+            {
+                var data = staffTaskList[i];
+                if (data == null || data.staffObj == null) continue;
+                if (data.isGatheringForOnlineOrder || data.isCarryingDeliveryBoxToMotorcycle || data.targetOnlineOrder != null)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         public bool HasLeavingStaff()
         {
             if (staffTaskList == null || staffTaskList.Count == 0) return false;
@@ -238,9 +253,10 @@ namespace Farm2Shelf.Environment
             {
                 if (totalMinsCalc >= 930 && totalMinsCalc < 960) { isEarlyArrivalWindow = true; return true; }
                 if (totalMinsCalc >= 960 && totalMinsCalc < 1440) return true;
-                // Gece 24:00 ve sonrası dükkanda müşteri tahliyesi sürüyorsa personeller çalışmaya devam eder:
+                // Gece 24:00 ve sonrası dükkanda müşteri tahliyesi veya kurye teslimatı sürüyorsa personeller çalışmaya devam eder:
                 int activeCustCount = CustomerShoppingManager.Instance != null ? CustomerShoppingManager.Instance.ActiveCustomerCount : 0;
-                if ((totalMinsCalc >= 1440 || currentHour >= 24) && activeCustCount > 0) return true;
+                bool courierNightWork = CourierManager.Instance != null && CourierManager.Instance.HasOutstandingNightWork();
+                if ((totalMinsCalc >= 1440 || currentHour >= 24) && (activeCustCount > 0 || courierNightWork)) return true;
                 return false;
             }
         }
@@ -735,7 +751,8 @@ namespace Farm2Shelf.Environment
                 bool isEligible = IsStaffShiftActive(data.staffMember, currentHour, currentMinute, out bool isEarlyArrival);
 
                 bool hasInHandTask = data.isCarryingBoxes || data.carriedAmount1 > 0 || data.carriedAmount2 > 0 ||
-                                     data.carriedProduct1 != null || data.carriedProduct2 != null || data.isCarryingDeliveryBoxToMotorcycle;
+                                     data.carriedProduct1 != null || data.carriedProduct2 != null || data.isCarryingDeliveryBoxToMotorcycle ||
+                                     data.isGatheringForOnlineOrder || data.targetOnlineOrder != null;
 
                 if (!isEligible && !hasInHandTask && data.currentState != StaffAIState.WalkingToLeftExit && data.currentState != StaffAIState.HandingOverShift && !data.isLeavingShift)
                 {
@@ -2245,7 +2262,8 @@ namespace Farm2Shelf.Environment
                 int curHour = TimeManager.Instance.Hour;
                 int curMin = TimeManager.Instance.Minute;
                 bool isShiftActive = IsStaffShiftActive(data.staffMember, curHour, curMin, out bool isEarly);
-                if (!isShiftActive || data.isLeavingShift)
+                bool hasOnlineCourierTask = data.isGatheringForOnlineOrder || data.isCarryingDeliveryBoxToMotorcycle || data.targetOnlineOrder != null;
+                if ((!isShiftActive || data.isLeavingShift) && !hasOnlineCourierTask)
                 {
                     // Personelin vardiyası bitmiş: Asla yeni koli görevi arama, dinlenme odasına/çıkışa geç!
                     ExecuteBreakRoomRestAndSeating(data, deltaTime);
@@ -2308,7 +2326,10 @@ namespace Farm2Shelf.Environment
             // GÖREV 2: Depo Rafından Mağaza Raflarına Koli Taşıma
             // (Erken çağrılan veya vardiyada olan reyoncu, dükkan kapalı olsa bile sabah hazırlığı için rafları doldurur; sadece gece 24:00 sonrası zorunlu dinlenmeye geçer)
             bool isStoreClosedNight = (TimeManager.Instance != null && TimeManager.Instance.Hour >= 24);
-            if (isStoreClosedNight)
+            bool finishingOnlineCourierLoad = data.isGatheringForOnlineOrder || data.isCarryingDeliveryBoxToMotorcycle || data.targetOnlineOrder != null;
+            bool orderNeedsStocker = OnlineMarketOrderManager.Instance != null &&
+                OnlineMarketOrderManager.Instance.GetNextOrderNeedingStocker() != null;
+            if (isStoreClosedNight && !finishingOnlineCourierLoad && !orderNeedsStocker)
             {
                 ClearCarriedBoxesOnStaff(data);
                 Vector3 restSpotNight = GetBreakRoomTargetPosition(data);
@@ -2324,7 +2345,15 @@ namespace Farm2Shelf.Environment
                 return;
             }
 
+            if (finishingOnlineCourierLoad)
+            {
+                return;
+            }
+
             // GÖREV 2: Depo Rafından Mağaza Raflarına 2 ADET KOLİ TAŞIMA (Aynı veya Farklı Ürün/Raf)
+            // Gece 24:00'da raf doldurma yok; bekleyen kurye siparişi varsa doğrudan yükleme görevine geçilir.
+            if (!isStoreClosedNight)
+            {
             ResetRestockerTargetFields(data);
 
             // 1. Koli Arama: Raf bomboşsa (0/50) VEYA stok %60'ın altına düşmüşse (<= 30/50)
@@ -2429,6 +2458,7 @@ namespace Farm2Shelf.Environment
                 data.waypoints = BuildStructuredStaffWaypoints(data.staffObj.transform.position, storagePos);
                 data.currentWaypointIndex = 1;
                 return;
+            }
             }
 
             // ==================== GÖREV 3: ONLINE SİPARİŞ ÜRÜNLERİNİ REYONLARDAN TOPLAYIP MOTORA YÜKLEME ====================

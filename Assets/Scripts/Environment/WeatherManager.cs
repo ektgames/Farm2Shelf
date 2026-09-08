@@ -1,8 +1,9 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 using Farm2Shelf.Core;
+using Farm2Shelf.Utils;
 
 namespace Farm2Shelf.Environment
 {
@@ -14,10 +15,8 @@ namespace Farm2Shelf.Environment
     }
 
     /// <summary>
-    /// Farm2Shelf Mevsimsel Dinamik Hava Durumu Yöneticisi (Weather Manager).
-    /// İlkbahar, Yaz, Sonbahar ve Kış mevsimlerine göre gerçekçi olasılıklarla Yağmur, Kar veya Güneş üretir.
-    /// Yağmur yağdığında sahnede sağanak yağmur parçacıkları belirir ve yollar ıslanıp parlar.
-    /// Kar yağdığında sahnede lapa lapa kar taneleri süzülür ve çevre (yollar, çimler, çatılar) beyaza bürünür.
+    /// Mevsimsel hava: kasvetli ama okunabilir yağmur, ıslak zemin, şeffaf yağmur perdesi;
+    /// kar örtüsü ve yollarda tekerlek izleri; ara ara görünen kar taneleri.
     /// </summary>
     public class WeatherManager : MonoBehaviour
     {
@@ -27,16 +26,30 @@ namespace Farm2Shelf.Environment
 
         public event Action<WeatherType> OnWeatherChanged;
 
-        private ParticleSystem rainParticleSys;
-        private ParticleSystem snowParticleSys;
-        private Transform weatherFollowGroup;
+        private ParticleSystem worldRainSys;
+        private ParticleSystem screenRainSys;
+        private ParticleSystem worldSnowSys;
+        private ParticleSystem screenSnowSys;
+        private Transform worldFxAnchor;
+        private Transform screenFxAnchor;
 
-        // Materyal Orijinal Renk Kayıtları (Kar ve Yağmur Etkisi Sonrası Eskiye Dönüş İçin)
-        private Color origGrassColor = new Color(0.28f, 0.62f, 0.28f);
-        private Color origRoadColor = new Color(0.18f, 0.20f, 0.22f);
-        private Color origSidewalkColor = new Color(0.70f, 0.72f, 0.75f);
-        private Color origTownSquareColor = new Color(0.65f, 0.68f, 0.72f);
-        private Color origRoofRedColor = new Color(0.78f, 0.22f, 0.18f);
+        private Material rainParticleMat;
+        private Material snowParticleMat;
+        private Material snowRoadOverlayMat;
+        private Texture2D rainStreakTex;
+        private Texture2D snowFlakeTex;
+        private Texture2D snowRoadTex;
+
+        private readonly Dictionary<int, MaterialSnapshot> materialBackup = new Dictionary<int, MaterialSnapshot>();
+        private readonly List<GameObject> snowRoadOverlays = new List<GameObject>();
+        private bool originalsCaptured;
+
+        private struct MaterialSnapshot
+        {
+            public Color Color;
+            public float Smoothness;
+            public float Metallic;
+        }
 
         private void Awake()
         {
@@ -48,20 +61,18 @@ namespace Farm2Shelf.Environment
             else if (Instance != this)
             {
                 Destroy(gameObject);
-                return;
             }
         }
 
         private void Start()
         {
-            CreateWeatherParticleSystems();
+            BuildFxAssets();
+            CreateParticleSystems();
 
             if (TimeManager.Instance != null)
             {
                 TimeManager.Instance.OnDateUpdated -= HandleDateUpdated;
                 TimeManager.Instance.OnDateUpdated += HandleDateUpdated;
-
-                // Mevcut mevsim için hava durumunu başlat
                 RollWeatherForSeason(TimeManager.Instance.CurrentSeason);
             }
             else
@@ -76,16 +87,33 @@ namespace Farm2Shelf.Environment
             {
                 TimeManager.Instance.OnDateUpdated -= HandleDateUpdated;
             }
+            ClearSnowRoadOverlays();
         }
 
-        private void Update()
+        private void LateUpdate()
         {
-            // Hava durumu parçacık sistemlerinin kamerayı takip etmesi (Tüm haritayı kapsaması için)
-            if (weatherFollowGroup != null && Camera.main != null)
+            Camera cam = Camera.main;
+            if (cam == null) return;
+
+            Vector3 camPos = cam.transform.position;
+            Vector3 fwd = cam.transform.forward;
+            Vector3 right = cam.transform.right;
+
+            if (worldFxAnchor != null)
             {
-                Vector3 camPos = Camera.main.transform.position;
-                weatherFollowGroup.position = new Vector3(camPos.x, 22.0f, camPos.z + 5.0f);
+                Vector3 look = new Vector3(fwd.x, 0f, fwd.z);
+                if (look.sqrMagnitude < 0.01f) look = Vector3.forward;
+                look.Normalize();
+                worldFxAnchor.position = camPos + look * 14f + Vector3.up * 16f;
             }
+
+            if (screenFxAnchor != null)
+            {
+                screenFxAnchor.position = camPos + fwd * 6.5f + Vector3.up * 3.2f + right * 0.4f;
+                screenFxAnchor.rotation = Quaternion.identity;
+            }
+
+            AnimateSnowFlurries();
         }
 
         private void HandleDateUpdated(TimeManager.Season season, int day, int year)
@@ -120,183 +148,654 @@ namespace Farm2Shelf.Environment
 
         public void RollWeatherForSeason(TimeManager.Season season)
         {
-            int curDay = (TimeManager.Instance != null) ? TimeManager.Instance.Day : 1;
-            int curYear = (TimeManager.Instance != null) ? TimeManager.Instance.Year : 1;
-            WeatherType selectedWeather = GetWeatherForecastForDay(season, curDay, curYear);
-            SetWeather(selectedWeather);
+            int curDay = TimeManager.Instance != null ? TimeManager.Instance.Day : 1;
+            int curYear = TimeManager.Instance != null ? TimeManager.Instance.Year : 1;
+            SetWeather(GetWeatherForecastForDay(season, curDay, curYear));
         }
 
         public void SetWeather(WeatherType weather)
         {
             CurrentWeather = weather;
-            Debug.Log($"[WeatherManager] HAVA DURUMU DEĞİŞTİ: {weather} ☀️🌧️❄️");
+            UpdateParticlePlayback();
+            CaptureOriginalMaterialsIfNeeded();
+            ApplyEnvironmentSurfaces();
+            RebuildSnowRoadOverlays(weather == WeatherType.Snowy);
 
-            UpdateParticleEffects();
-            ApplyEnvironmentMaterialEffects();
+            if (DayNightCycleManager.Instance != null)
+            {
+                DayNightCycleManager.Instance.RefreshLightingNow();
+            }
 
             OnWeatherChanged?.Invoke(CurrentWeather);
         }
 
-        private void CreateWeatherParticleSystems()
+        private void BuildFxAssets()
         {
-            GameObject group = new GameObject("Weather_Effects_Group");
-            group.transform.SetParent(transform);
-            weatherFollowGroup = group.transform;
-            weatherFollowGroup.position = new Vector3(0f, 22.0f, 0f);
+            rainStreakTex = BuildRainStreakTexture();
+            snowFlakeTex = BuildSnowflakeTexture();
+            snowRoadTex = BuildSnowRoadTexture();
 
-            // 1. YAĞMUR PARÇACIK SİSTEMİ
-            GameObject rainObj = new GameObject("Rain_Particle_System");
-            rainObj.transform.SetParent(weatherFollowGroup, false);
-            rainObj.transform.localPosition = Vector3.zero;
-            rainObj.transform.localRotation = Quaternion.Euler(85f, 0f, 0f);
+            Shader particleShader = FindParticleShader();
+            rainParticleMat = CreateTransparentParticleMaterial(particleShader, "Weather_RainMat", rainStreakTex);
+            snowParticleMat = CreateTransparentParticleMaterial(particleShader, "Weather_SnowMat", snowFlakeTex);
 
-            rainParticleSys = rainObj.AddComponent<ParticleSystem>();
-            ParticleSystem.MainModule rMain = rainParticleSys.main;
-            rMain.startLifetime = 1.0f;
-            rMain.startSpeed = 26.0f;
-            rMain.startSize = 0.25f;
-            rMain.startColor = new Color(0.80f, 0.90f, 1.0f, 0.65f);
-            rMain.maxParticles = 1200;
-            rMain.simulationSpace = ParticleSystemSimulationSpace.World;
-
-            ParticleSystem.EmissionModule rEmission = rainParticleSys.emission;
-            rEmission.rateOverTime = 450f;
-
-            ParticleSystem.ShapeModule rShape = rainParticleSys.shape;
-            rShape.shapeType = ParticleSystemShapeType.Box;
-            rShape.scale = new Vector3(90f, 90f, 1f);
-
-            ParticleSystemRenderer rRenderer = rainObj.GetComponent<ParticleSystemRenderer>();
-            rRenderer.renderMode = ParticleSystemRenderMode.Stretch;
-            rRenderer.cameraVelocityScale = 0f;
-            rRenderer.velocityScale = 0.15f;
-            rRenderer.lengthScale = 3.5f;
-
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null) shader = Shader.Find("Standard");
-            Material rainMat = new Material(shader) { color = new Color(0.85f, 0.92f, 1.0f, 0.60f) };
-            rRenderer.sharedMaterial = rainMat;
-
-            // 2. KAR PARÇACIK SİSTEMİ
-            GameObject snowObj = new GameObject("Snow_Particle_System");
-            snowObj.transform.SetParent(weatherFollowGroup, false);
-            snowObj.transform.localPosition = Vector3.zero;
-            snowObj.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-
-            snowParticleSys = snowObj.AddComponent<ParticleSystem>();
-            ParticleSystem.MainModule sMain = snowParticleSys.main;
-            sMain.startLifetime = 4.5f;
-            sMain.startSpeed = 4.5f;
-            sMain.startSize = 0.40f;
-            sMain.startColor = new Color(0.96f, 0.98f, 1.0f, 0.90f);
-            sMain.maxParticles = 1500;
-            sMain.simulationSpace = ParticleSystemSimulationSpace.World;
-
-            ParticleSystem.EmissionModule sEmission = snowParticleSys.emission;
-            sEmission.rateOverTime = 320f;
-
-            ParticleSystem.ShapeModule sShape = snowParticleSys.shape;
-            sShape.shapeType = ParticleSystemShapeType.Box;
-            sShape.scale = new Vector3(90f, 90f, 1f);
-
-            ParticleSystemRenderer sRenderer = snowObj.GetComponent<ParticleSystemRenderer>();
-            sRenderer.renderMode = ParticleSystemRenderMode.Billboard;
-            Material snowMat = new Material(shader) { color = new Color(0.98f, 0.98f, 1.0f, 0.95f) };
-            sRenderer.sharedMaterial = snowMat;
-
-            rainParticleSys.Stop();
-            snowParticleSys.Stop();
+            Shader lit = ShaderHelper.GetLitShader() ?? Shader.Find("Standard");
+            snowRoadOverlayMat = new Material(lit != null ? lit : particleShader);
+            snowRoadOverlayMat.name = "Weather_SnowRoadOverlayMat";
+            snowRoadOverlayMat.mainTexture = snowRoadTex;
+            Color snowTint = Color.white;
+            snowRoadOverlayMat.color = snowTint;
+            if (snowRoadOverlayMat.HasProperty("_BaseMap")) snowRoadOverlayMat.SetTexture("_BaseMap", snowRoadTex);
+            if (snowRoadOverlayMat.HasProperty("_BaseColor")) snowRoadOverlayMat.SetColor("_BaseColor", snowTint);
+            if (snowRoadOverlayMat.HasProperty("_Smoothness")) snowRoadOverlayMat.SetFloat("_Smoothness", 0.22f);
+            if (snowRoadOverlayMat.HasProperty("_Metallic")) snowRoadOverlayMat.SetFloat("_Metallic", 0.02f);
+            snowRoadOverlayMat.renderQueue = 2450;
         }
 
-        private void UpdateParticleEffects()
+        private static Shader FindParticleShader()
         {
-            if (rainParticleSys == null || snowParticleSys == null) return;
+            Shader s = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+            if (s == null) s = Shader.Find("Particles/Standard Unlit");
+            if (s == null) s = Shader.Find("Unlit/Transparent");
+            if (s == null) s = ShaderHelper.GetUnlitShader();
+            if (s == null) s = Shader.Find("Sprites/Default");
+            return s;
+        }
 
-            if (CurrentWeather == WeatherType.Rainy)
+        private static Material CreateTransparentParticleMaterial(Shader shader, string name, Texture2D tex)
+        {
+            Material mat = new Material(shader) { name = name };
+            mat.mainTexture = tex;
+            Color c = new Color(1f, 1f, 1f, 1f);
+            mat.color = c;
+            if (mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", tex);
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", c);
+            if (mat.HasProperty("_Color")) mat.SetColor("_Color", c);
+            if (mat.HasProperty("_Surface")) mat.SetFloat("_Surface", 1f);
+            if (mat.HasProperty("_Blend")) mat.SetFloat("_Blend", 0f);
+            if (mat.HasProperty("_SrcBlend")) mat.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
+            if (mat.HasProperty("_DstBlend")) mat.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
+            if (mat.HasProperty("_ZWrite")) mat.SetInt("_ZWrite", 0);
+            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            mat.DisableKeyword("_ALPHATEST_ON");
+            mat.EnableKeyword("_ALPHABLEND_ON");
+            mat.renderQueue = 3200;
+            return mat;
+        }
+
+        private void CreateParticleSystems()
+        {
+            GameObject worldRoot = new GameObject("Weather_WorldFx");
+            worldRoot.transform.SetParent(transform, false);
+            worldFxAnchor = worldRoot.transform;
+
+            GameObject screenRoot = new GameObject("Weather_ScreenFx");
+            screenRoot.transform.SetParent(transform, false);
+            screenFxAnchor = screenRoot.transform;
+
+            worldRainSys = BuildRainSystem(worldRoot.transform, "WorldRain", new Vector3(48f, 36f, 1.2f), 720f, 22f, 1.15f, 0.028f, 4.2f, 1100);
+            screenRainSys = BuildRainSystem(screenRoot.transform, "ScreenRain", new Vector3(11f, 9f, 5f), 220f, 16f, 0.55f, 0.022f, 2.6f, 420);
+
+            worldSnowSys = BuildSnowSystem(worldRoot.transform, "WorldSnow", new Vector3(42f, 42f, 1.5f), 55f, 1.7f, 9.5f, 0.11f, 0.22f, 480);
+            screenSnowSys = BuildSnowSystem(screenRoot.transform, "ScreenSnow", new Vector3(9f, 7f, 4f), 9f, 1.15f, 4.2f, 0.09f, 0.20f, 70);
+
+            StopAllFx();
+        }
+
+        private ParticleSystem BuildRainSystem(Transform parent, string name, Vector3 box, float rate, float speed, float life, float width, float stretch, int maxParticles)
+        {
+            GameObject go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = Vector3.zero;
+            go.transform.localRotation = Quaternion.Euler(78f, 14f, 0f);
+
+            ParticleSystem ps = go.AddComponent<ParticleSystem>();
+            var main = ps.main;
+            main.loop = true;
+            main.playOnAwake = false;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(life * 0.75f, life);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(speed * 0.82f, speed);
+            main.startSize = new ParticleSystem.MinMaxCurve(width * 0.7f, width);
+            main.startColor = new ParticleSystem.MinMaxGradient(
+                new Color(0.78f, 0.86f, 0.95f, 0.18f),
+                new Color(0.88f, 0.93f, 1.0f, 0.38f));
+            main.maxParticles = maxParticles;
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.gravityModifier = 1.65f;
+            main.scalingMode = ParticleSystemScalingMode.Hierarchy;
+
+            var emission = ps.emission;
+            emission.rateOverTime = rate;
+
+            var shape = ps.shape;
+            shape.enabled = true;
+            shape.shapeType = ParticleSystemShapeType.Box;
+            shape.scale = box;
+
+            var noise = ps.noise;
+            noise.enabled = true;
+            noise.strength = 0.12f;
+            noise.frequency = 0.35f;
+            noise.scrollSpeed = 0.4f;
+            noise.octaveCount = 1;
+
+            var col = ps.colorOverLifetime;
+            col.enabled = true;
+            Gradient g = new Gradient();
+            g.SetKeys(
+                new GradientColorKey[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                new GradientAlphaKey[]
+                {
+                    new GradientAlphaKey(0.0f, 0f),
+                    new GradientAlphaKey(1.0f, 0.12f),
+                    new GradientAlphaKey(0.85f, 0.7f),
+                    new GradientAlphaKey(0.0f, 1f)
+                });
+            col.color = g;
+
+            ParticleSystemRenderer rend = go.GetComponent<ParticleSystemRenderer>();
+            rend.renderMode = ParticleSystemRenderMode.Stretch;
+            rend.velocityScale = 0.08f;
+            rend.lengthScale = stretch;
+            rend.cameraVelocityScale = 0f;
+            rend.shadowCastingMode = ShadowCastingMode.Off;
+            rend.receiveShadows = false;
+            rend.sharedMaterial = rainParticleMat;
+            rend.maxParticleSize = 0.35f;
+            return ps;
+        }
+
+        private ParticleSystem BuildSnowSystem(Transform parent, string name, Vector3 box, float rate, float speed, float life, float sizeMin, float sizeMax, int maxParticles)
+        {
+            GameObject go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = Vector3.zero;
+            go.transform.localRotation = Quaternion.Euler(88f, 0f, 0f);
+
+            ParticleSystem ps = go.AddComponent<ParticleSystem>();
+            var main = ps.main;
+            main.loop = true;
+            main.playOnAwake = false;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(life * 0.7f, life);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(speed * 0.45f, speed);
+            main.startSize = new ParticleSystem.MinMaxCurve(sizeMin, sizeMax);
+            main.startColor = new ParticleSystem.MinMaxGradient(
+                new Color(0.96f, 0.98f, 1f, 0.55f),
+                new Color(1f, 1f, 1f, 0.92f));
+            main.maxParticles = maxParticles;
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.gravityModifier = 0.08f;
+            main.startRotation = new ParticleSystem.MinMaxCurve(0f, 6.28f);
+
+            var emission = ps.emission;
+            emission.rateOverTime = rate;
+
+            var shape = ps.shape;
+            shape.enabled = true;
+            shape.shapeType = ParticleSystemShapeType.Box;
+            shape.scale = box;
+
+            var vel = ps.velocityOverLifetime;
+            vel.enabled = true;
+            vel.space = ParticleSystemSimulationSpace.World;
+            vel.x = new ParticleSystem.MinMaxCurve(-0.35f, 0.55f);
+            vel.z = new ParticleSystem.MinMaxCurve(-0.25f, 0.25f);
+
+            var noise = ps.noise;
+            noise.enabled = true;
+            noise.strength = 0.55f;
+            noise.frequency = 0.22f;
+            noise.scrollSpeed = 0.12f;
+            noise.octaveCount = 2;
+            noise.damping = true;
+
+            var rot = ps.rotationOverLifetime;
+            rot.enabled = true;
+            rot.z = new ParticleSystem.MinMaxCurve(-0.8f, 0.8f);
+
+            var size = ps.sizeOverLifetime;
+            size.enabled = true;
+            AnimationCurve sizeCurve = new AnimationCurve(
+                new Keyframe(0f, 0.35f),
+                new Keyframe(0.15f, 1f),
+                new Keyframe(0.85f, 1f),
+                new Keyframe(1f, 0.2f));
+            size.size = new ParticleSystem.MinMaxCurve(1f, sizeCurve);
+
+            var col = ps.colorOverLifetime;
+            col.enabled = true;
+            Gradient g = new Gradient();
+            g.SetKeys(
+                new GradientColorKey[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                new GradientAlphaKey[]
+                {
+                    new GradientAlphaKey(0f, 0f),
+                    new GradientAlphaKey(1f, 0.18f),
+                    new GradientAlphaKey(0.9f, 0.75f),
+                    new GradientAlphaKey(0f, 1f)
+                });
+            col.color = g;
+
+            ParticleSystemRenderer rend = go.GetComponent<ParticleSystemRenderer>();
+            rend.renderMode = ParticleSystemRenderMode.Billboard;
+            rend.shadowCastingMode = ShadowCastingMode.Off;
+            rend.receiveShadows = false;
+            rend.sharedMaterial = snowParticleMat;
+            rend.maxParticleSize = 0.22f;
+            return ps;
+        }
+
+        private void AnimateSnowFlurries()
+        {
+            if (CurrentWeather != WeatherType.Snowy || worldSnowSys == null) return;
+
+            float pulse = Mathf.PerlinNoise(Time.time * 0.07f, 1.7f);
+            float screenPulse = Mathf.PerlinNoise(Time.time * 0.11f, 4.2f);
+            var worldEm = worldSnowSys.emission;
+            worldEm.rateOverTime = Mathf.Lerp(18f, 95f, pulse);
+            if (screenSnowSys != null)
             {
-                if (!rainParticleSys.isPlaying) rainParticleSys.Play();
-                if (snowParticleSys.isPlaying) snowParticleSys.Stop();
+                var screenEm = screenSnowSys.emission;
+                screenEm.rateOverTime = Mathf.Lerp(3f, 16f, screenPulse);
             }
-            else if (CurrentWeather == WeatherType.Snowy)
+        }
+
+        private void UpdateParticlePlayback()
+        {
+            bool rain = CurrentWeather == WeatherType.Rainy;
+            bool snow = CurrentWeather == WeatherType.Snowy;
+            SetPlaying(worldRainSys, rain);
+            SetPlaying(screenRainSys, rain);
+            SetPlaying(worldSnowSys, snow);
+            SetPlaying(screenSnowSys, snow);
+        }
+
+        private static void SetPlaying(ParticleSystem ps, bool play)
+        {
+            if (ps == null) return;
+            if (play)
             {
-                if (rainParticleSys.isPlaying) rainParticleSys.Stop();
-                if (!snowParticleSys.isPlaying) snowParticleSys.Play();
+                if (!ps.isPlaying) ps.Play();
+            }
+            else if (ps.isPlaying)
+            {
+                ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            }
+        }
+
+        private void StopAllFx()
+        {
+            SetPlaying(worldRainSys, false);
+            SetPlaying(screenRainSys, false);
+            SetPlaying(worldSnowSys, false);
+            SetPlaying(screenSnowSys, false);
+        }
+
+        private void CaptureOriginalMaterialsIfNeeded()
+        {
+            if (originalsCaptured) return;
+            originalsCaptured = true;
+
+            Renderer[] renderers = FindObjectsByType<Renderer>(FindObjectsSortMode.None);
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Material mat = renderers[i] != null ? renderers[i].sharedMaterial : null;
+                if (mat == null) continue;
+                int id = mat.GetInstanceID();
+                if (materialBackup.ContainsKey(id)) continue;
+                if (!IsOutdoorSurface(mat.name)) continue;
+
+                MaterialSnapshot snap = new MaterialSnapshot
+                {
+                    Color = mat.HasProperty("_BaseColor") ? mat.GetColor("_BaseColor") : mat.color,
+                    Smoothness = mat.HasProperty("_Smoothness") ? mat.GetFloat("_Smoothness") : 0.2f,
+                    Metallic = mat.HasProperty("_Metallic") ? mat.GetFloat("_Metallic") : 0f
+                };
+                materialBackup[id] = snap;
+            }
+        }
+
+        private void ApplyEnvironmentSurfaces()
+        {
+            bool rain = CurrentWeather == WeatherType.Rainy;
+            bool snow = CurrentWeather == WeatherType.Snowy;
+
+            Renderer[] renderers = FindObjectsByType<Renderer>(FindObjectsSortMode.None);
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer r = renderers[i];
+                if (r == null || r.sharedMaterial == null) continue;
+                Material mat = r.sharedMaterial;
+                string n = mat.name;
+
+                if (!materialBackup.TryGetValue(mat.GetInstanceID(), out MaterialSnapshot orig))
+                {
+                    if (!IsOutdoorSurface(n)) continue;
+                    orig = new MaterialSnapshot
+                    {
+                        Color = mat.HasProperty("_BaseColor") ? mat.GetColor("_BaseColor") : mat.color,
+                        Smoothness = mat.HasProperty("_Smoothness") ? mat.GetFloat("_Smoothness") : 0.2f,
+                        Metallic = mat.HasProperty("_Metallic") ? mat.GetFloat("_Metallic") : 0f
+                    };
+                    materialBackup[mat.GetInstanceID()] = orig;
+                }
+
+                Color color = orig.Color;
+                float smooth = orig.Smoothness;
+                float metal = orig.Metallic;
+
+                if (snow)
+                {
+                    ApplySnowColor(n, orig.Color, out color, out smooth, out metal);
+                }
+                else if (rain)
+                {
+                    ApplyRainColor(n, orig.Color, orig.Smoothness, orig.Metallic, out color, out smooth, out metal);
+                }
+
+                mat.color = color;
+                if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
+                if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);
+                if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", smooth);
+                if (mat.HasProperty("_Glossiness")) mat.SetFloat("_Glossiness", smooth);
+                if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", metal);
+            }
+        }
+
+        private static bool IsOutdoorSurface(string n)
+        {
+            return n.Contains("MainRoadMat") || n.Contains("SidewalkMat") || n.Contains("TownSquareMat")
+                || n.Contains("GrassMat") || n.Contains("Roof") || n.Contains("FootpathMat")
+                || n.Contains("LoadingZoneMat") || n.Contains("TreeFoliageMat")
+                || n.Contains("SoilPlotMat") || n.Contains("PondStoneMat") || n.Contains("FenceWoodMat")
+                || n.Contains("RoadLineMat") || n.Contains("CrosswalkMat") || n.Contains("ParkingLineMat");
+        }
+
+        private static void ApplyRainColor(string n, Color orig, float origSmooth, float origMetal, out Color color, out float smooth, out float metal)
+        {
+            color = orig;
+            smooth = origSmooth;
+            metal = origMetal;
+
+            if (n.Contains("MainRoadMat") || n.Contains("LoadingZoneMat"))
+            {
+                color = Color.Lerp(orig, new Color(0.09f, 0.11f, 0.13f), 0.72f);
+                smooth = 0.88f;
+                metal = 0.18f;
+            }
+            else if (n.Contains("SidewalkMat") || n.Contains("TownSquareMat") || n.Contains("FootpathMat") || n.Contains("PondStoneMat"))
+            {
+                color = Color.Lerp(orig, new Color(0.38f, 0.42f, 0.46f), 0.55f);
+                smooth = 0.72f;
+                metal = 0.08f;
+            }
+            else if (n.Contains("GrassMat"))
+            {
+                color = Color.Lerp(orig, new Color(0.14f, 0.32f, 0.18f), 0.55f);
+                smooth = 0.28f;
+            }
+            else if (n.Contains("SoilPlotMat"))
+            {
+                color = Color.Lerp(orig, new Color(0.16f, 0.11f, 0.07f), 0.45f);
+                smooth = 0.35f;
+            }
+            else if (n.Contains("TreeFoliageMat"))
+            {
+                color = Color.Lerp(orig, new Color(0.10f, 0.32f, 0.14f), 0.4f);
+                smooth = 0.22f;
+            }
+            else if (n.Contains("Roof"))
+            {
+                color = Color.Lerp(orig, orig * 0.72f, 0.5f);
+                smooth = 0.62f;
+                metal = 0.12f;
+            }
+        }
+
+        private static void ApplySnowColor(string n, Color orig, out Color color, out float smooth, out float metal)
+        {
+            color = orig;
+            smooth = 0.18f;
+            metal = 0.02f;
+
+            if (n.Contains("MainRoadMat") || n.Contains("LoadingZoneMat"))
+            {
+                color = new Color(0.72f, 0.76f, 0.80f);
+                smooth = 0.16f;
+            }
+            else if (n.Contains("RoadLineMat") || n.Contains("CrosswalkMat") || n.Contains("ParkingLineMat"))
+            {
+                color = new Color(0.90f, 0.93f, 0.96f);
+                smooth = 0.12f;
+            }
+            else if (n.Contains("GrassMat") || n.Contains("SoilPlotMat"))
+            {
+                color = new Color(0.91f, 0.94f, 0.97f);
+                smooth = 0.12f;
+            }
+            else if (n.Contains("SidewalkMat") || n.Contains("TownSquareMat") || n.Contains("FootpathMat") || n.Contains("PondStoneMat"))
+            {
+                color = new Color(0.90f, 0.93f, 0.96f);
+                smooth = 0.20f;
+            }
+            else if (n.Contains("Roof"))
+            {
+                color = new Color(0.94f, 0.96f, 0.99f);
+                smooth = 0.24f;
+            }
+            else if (n.Contains("TreeFoliageMat"))
+            {
+                color = new Color(0.82f, 0.88f, 0.90f);
+                smooth = 0.14f;
+            }
+            else if (n.Contains("FenceWoodMat"))
+            {
+                color = Color.Lerp(orig, new Color(0.86f, 0.90f, 0.93f), 0.65f);
+            }
+        }
+
+        private void RebuildSnowRoadOverlays(bool enable)
+        {
+            ClearSnowRoadOverlays();
+            if (!enable || snowRoadOverlayMat == null) return;
+
+            Renderer[] renderers = FindObjectsByType<Renderer>(FindObjectsSortMode.None);
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer r = renderers[i];
+                if (r == null || r.sharedMaterial == null) continue;
+                if (!r.sharedMaterial.name.Contains("MainRoadMat")) continue;
+                if (!IsDriveLaneRenderer(r)) continue;
+
+                GameObject overlay = CreateSnowTrackOverlay(r.transform);
+                if (overlay != null) snowRoadOverlays.Add(overlay);
+            }
+        }
+
+        private static bool IsDriveLaneRenderer(Renderer r)
+        {
+            string n = r.gameObject.name;
+            if (n.IndexOf("Parking", StringComparison.OrdinalIgnoreCase) >= 0) return false;
+            if (n.IndexOf("Stall", StringComparison.OrdinalIgnoreCase) >= 0) return false;
+            if (n.IndexOf("Line", StringComparison.OrdinalIgnoreCase) >= 0) return false;
+            if (n.IndexOf("Marking", StringComparison.OrdinalIgnoreCase) >= 0) return false;
+            if (n.IndexOf("Crosswalk", StringComparison.OrdinalIgnoreCase) >= 0) return false;
+
+            Vector3 s = r.transform.lossyScale;
+            float min = Mathf.Min(s.x, s.z);
+            float max = Mathf.Max(s.x, s.z);
+            return min >= 3.5f && max >= 8f;
+        }
+
+        private GameObject CreateSnowTrackOverlay(Transform road)
+        {
+            Vector3 lossy = road.lossyScale;
+            bool alongX = lossy.x >= lossy.z;
+
+            GameObject go = new GameObject("Snow_Road_TireTracks");
+            go.transform.SetParent(road, false);
+            go.transform.localPosition = Vector3.zero;
+            go.transform.localRotation = Quaternion.identity;
+            go.transform.localScale = Vector3.one;
+
+            Mesh mesh = new Mesh { name = "SnowRoadOverlayMesh" };
+            mesh.vertices = new Vector3[]
+            {
+                new Vector3(-0.5f, 0.82f, -0.5f),
+                new Vector3(0.5f, 0.82f, -0.5f),
+                new Vector3(0.5f, 0.82f, 0.5f),
+                new Vector3(-0.5f, 0.82f, 0.5f)
+            };
+            mesh.triangles = new int[] { 0, 2, 1, 0, 3, 2 };
+            mesh.normals = new Vector3[] { Vector3.up, Vector3.up, Vector3.up, Vector3.up };
+
+            if (alongX)
+            {
+                mesh.uv = new Vector2[]
+                {
+                    new Vector2(0f, 0f),
+                    new Vector2(0f, Mathf.Max(1f, lossy.x / 8f)),
+                    new Vector2(1f, Mathf.Max(1f, lossy.x / 8f)),
+                    new Vector2(1f, 0f)
+                };
             }
             else
             {
-                if (rainParticleSys.isPlaying) rainParticleSys.Stop();
-                if (snowParticleSys.isPlaying) snowParticleSys.Stop();
+                mesh.uv = new Vector2[]
+                {
+                    new Vector2(0f, 0f),
+                    new Vector2(1f, 0f),
+                    new Vector2(1f, Mathf.Max(1f, lossy.z / 8f)),
+                    new Vector2(0f, Mathf.Max(1f, lossy.z / 8f))
+                };
             }
+
+            mesh.RecalculateBounds();
+
+            MeshFilter filter = go.AddComponent<MeshFilter>();
+            filter.sharedMesh = mesh;
+            MeshRenderer rend = go.AddComponent<MeshRenderer>();
+            rend.sharedMaterial = snowRoadOverlayMat;
+            rend.shadowCastingMode = ShadowCastingMode.Off;
+            rend.receiveShadows = false;
+
+            Collider col = go.GetComponent<Collider>();
+            if (col != null) Destroy(col);
+            return go;
         }
 
-        /// <summary>
-        /// Yağmurda yolların ıslanıp parlamasını, Kışın ise çevrenin karla kaplanıp beyaza bürünmesini sağlar.
-        /// </summary>
-        private void ApplyEnvironmentMaterialEffects()
+        private void ClearSnowRoadOverlays()
         {
-            bool isRainy = (CurrentWeather == WeatherType.Rainy);
-            bool isSnowy = (CurrentWeather == WeatherType.Snowy);
-
-            // 1. ISLAK YOL EFEKTİ (Yağmurda Yollar & Kaldırımlar Parlar ve Islanır)
-            Color roadColor = isSnowy
-                ? new Color(0.82f, 0.86f, 0.88f) // Karlı yollar
-                : (isRainy ? new Color(0.10f, 0.12f, 0.14f) : origRoadColor); // Islak siyah yol vs normal yol
-
-            Color sidewalkColor = isSnowy
-                ? new Color(0.90f, 0.93f, 0.95f)
-                : (isRainy ? new Color(0.50f, 0.53f, 0.58f) : origSidewalkColor);
-
-            Color townSquareColor = isSnowy
-                ? new Color(0.88f, 0.92f, 0.94f)
-                : (isRainy ? new Color(0.45f, 0.48f, 0.52f) : origTownSquareColor);
-
-            // 2. BEYAZA BÜRÜNME EFEKTİ (Kışın Çimler & Çatılar Kar İle Kaplanır)
-            Color grassColor = isSnowy
-                ? new Color(0.92f, 0.96f, 0.98f) // Bembeyaz Kar Örtüsü!
-                : origGrassColor;
-
-            Color roofColor = isSnowy
-                ? new Color(0.95f, 0.97f, 1.0f) // Karlı Beyaz Çatı!
-                : origRoofRedColor;
-
-            // Sahnede İlgili Materyalleri Tek Geçişte Güncelle (6 kat daha hızlı ve 0 GC)
-            Dictionary<string, (Color color, float smoothness)> matUpdates = new Dictionary<string, (Color color, float smoothness)>
+            for (int i = 0; i < snowRoadOverlays.Count; i++)
             {
-                { "MainRoadMat", (roadColor, isRainy ? 0.85f : 0.2f) },
-                { "SidewalkMat", (sidewalkColor, isRainy ? 0.75f : 0.1f) },
-                { "TownSquareMat", (townSquareColor, isRainy ? 0.70f : 0.1f) },
-                { "GrassMat", (grassColor, 0.05f) },
-                { "RoofRedMat", (roofColor, 0.1f) },
-                { "FarmhouseRoofMat", (roofColor, 0.1f) },
-                { "BarnRoofMat", (isSnowy ? new Color(0.92f, 0.95f, 0.98f) : new Color(0.28f, 0.30f, 0.35f), 0.1f) }
-            };
+                if (snowRoadOverlays[i] != null) Destroy(snowRoadOverlays[i]);
+            }
+            snowRoadOverlays.Clear();
+        }
 
-            Renderer[] renderers = FindObjectsByType<Renderer>(FindObjectsSortMode.None);
-            if (renderers == null) return;
-
-            int rLen = renderers.Length;
-            for (int i = 0; i < rLen; i++)
+        private static Texture2D BuildRainStreakTexture()
+        {
+            const int w = 8;
+            const int h = 48;
+            Texture2D tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.filterMode = FilterMode.Bilinear;
+            Color[] px = new Color[w * h];
+            for (int y = 0; y < h; y++)
             {
-                var r = renderers[i];
-                if (r == null || r.sharedMaterial == null) continue;
-
-                string sMatName = r.sharedMaterial.name;
-                foreach (var kvp in matUpdates)
+                float v = y / (float)(h - 1);
+                float shaft = Mathf.Exp(-Mathf.Pow((v - 0.55f) * 3.2f, 2f));
+                float fade = Mathf.SmoothStep(0f, 1f, v) * (1f - Mathf.SmoothStep(0.75f, 1f, v));
+                for (int x = 0; x < w; x++)
                 {
-                    if (sMatName.Contains(kvp.Key))
-                    {
-                        Material mat = r.sharedMaterial;
-                        if (mat != null)
-                        {
-                            mat.color = kvp.Value.color;
-                            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", kvp.Value.color);
-                            if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", kvp.Value.smoothness);
-                            if (mat.HasProperty("_Glossiness")) mat.SetFloat("_Glossiness", kvp.Value.smoothness);
-                        }
-                        break;
-                    }
+                    float u = (x + 0.5f) / w;
+                    float radial = 1f - Mathf.Abs(u - 0.5f) * 2.4f;
+                    radial = Mathf.Clamp01(radial);
+                    float a = shaft * fade * radial * 0.85f;
+                    px[y * w + x] = new Color(0.86f, 0.92f, 1f, a);
                 }
             }
+            tex.SetPixels(px);
+            tex.Apply(false, false);
+            tex.name = "Weather_RainStreakTex";
+            return tex;
+        }
+
+        private static Texture2D BuildSnowflakeTexture()
+        {
+            const int s = 48;
+            Texture2D tex = new Texture2D(s, s, TextureFormat.RGBA32, false);
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.filterMode = FilterMode.Bilinear;
+            Color[] px = new Color[s * s];
+            float cx = (s - 1) * 0.5f;
+            float cy = (s - 1) * 0.5f;
+            for (int y = 0; y < s; y++)
+            {
+                for (int x = 0; x < s; x++)
+                {
+                    float dx = x - cx;
+                    float dy = y - cy;
+                    float dist = Mathf.Sqrt(dx * dx + dy * dy) / (s * 0.48f);
+                    float blob = Mathf.Clamp01(1f - dist);
+                    blob = blob * blob;
+                    float arms = 0f;
+                    float ang = Mathf.Atan2(dy, dx);
+                    for (int k = 0; k < 6; k++)
+                    {
+                        float a = k * Mathf.PI / 3f;
+                        float along = Mathf.Abs(Mathf.Cos(ang - a));
+                        arms = Mathf.Max(arms, (1f - dist) * Mathf.Pow(along, 8f));
+                    }
+                    float aOut = Mathf.Clamp01(blob * 0.9f + arms * 0.55f);
+                    px[y * s + x] = new Color(1f, 1f, 1f, aOut);
+                }
+            }
+            tex.SetPixels(px);
+            tex.Apply(false, false);
+            tex.name = "Weather_SnowflakeTex";
+            return tex;
+        }
+
+        private static Texture2D BuildSnowRoadTexture()
+        {
+            const int w = 128;
+            const int h = 64;
+            Texture2D tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            tex.wrapMode = TextureWrapMode.Repeat;
+            tex.filterMode = FilterMode.Bilinear;
+            Color[] px = new Color[w * h];
+            Color snow = new Color(0.93f, 0.96f, 0.99f, 1f);
+            Color slush = new Color(0.70f, 0.74f, 0.78f, 1f);
+            Color asphalt = new Color(0.16f, 0.17f, 0.19f, 1f);
+
+            for (int y = 0; y < h; y++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    float u = x / (float)(w - 1);
+                    float v = y / (float)(h - 1);
+                    float n = Mathf.PerlinNoise(u * 18f, v * 6f);
+                    float rutL = RutMask(u, 0.33f, 0.07f);
+                    float rutR = RutMask(u, 0.67f, 0.07f);
+                    float rut = Mathf.Max(rutL, rutR);
+                    rut *= 0.88f + n * 0.14f;
+                    Color c = Color.Lerp(snow, slush, n * 0.28f);
+                    c = Color.Lerp(c, asphalt, rut);
+                    px[y * w + x] = c;
+                }
+            }
+
+            tex.SetPixels(px);
+            tex.Apply(false, false);
+            tex.name = "Weather_SnowRoadTex";
+            return tex;
+        }
+
+        private static float RutMask(float u, float center, float halfWidth)
+        {
+            float d = Mathf.Abs(u - center);
+            return 1f - Mathf.SmoothStep(halfWidth * 0.35f, halfWidth, d);
         }
     }
 }

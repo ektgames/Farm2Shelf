@@ -224,7 +224,7 @@ namespace Farm2Shelf.UI
 
             Text subTxt = subObj.AddComponent<Text>();
             subTxt.font = font;
-            subTxt.text = LocalizationManager.L("MainMenu_Slogan", "Çiftlikten Markete Simülasyonu 🌾🛒", "Farm to Market Simulation 🌾🛒");
+            subTxt.text = LocalizationManager.L("MainMenu_Slogan", "Çiftlikten Markete Simülasyonu", "Farm to Market Simulation");
             subTxt.fontSize = 18;
             subTxt.alignment = TextAnchor.MiddleCenter;
             subTxt.color = new Color(0.35f, 0.85f, 0.95f);
@@ -241,11 +241,11 @@ namespace Farm2Shelf.UI
             // ==================== ANA MENÜ BUTONLARI (5 ADET - SIRASIYLA) ====================
             string[] buttonTitles = new string[]
             {
-                LocalizationManager.L("Menu_NewGame", "▶ YENİ OYUN", "▶ NEW GAME"),
-                LocalizationManager.L("Menu_LoadGame", "📂 KAYITLI OYUN YÜKLE", "📂 LOAD GAME"),
-                LocalizationManager.L("Menu_Settings", "⚙️ AYARLAR", "⚙️ SETTINGS"),
-                LocalizationManager.L("Menu_HowToPlay", "❓ NASIL OYNANIR", "❓ HOW TO PLAY"),
-                LocalizationManager.L("Menu_Exit", "🚪 ÇIKIŞ", "🚪 EXIT")
+                LocalizationManager.L("Menu_NewGame", "YENİ OYUN", "NEW GAME"),
+                LocalizationManager.L("Menu_LoadGame", "KAYITLI OYUN YÜKLE", "LOAD GAME"),
+                LocalizationManager.L("Menu_Settings", "AYARLAR", "SETTINGS"),
+                LocalizationManager.L("Menu_HowToPlay", "NASIL OYNANIR", "HOW TO PLAY"),
+                LocalizationManager.L("Menu_Exit", "ÇIKIŞ", "EXIT")
             };
 
             Color[] buttonColors = new Color[]
@@ -586,7 +586,7 @@ namespace Farm2Shelf.UI
                 Destroy(backdrop);
             });
 
-            CreateTextChild(cancelBtnObj, LocalizationManager.L("Modal_CancelBtn", "✕ İptal", "✕ Cancel"), 22, FontStyle.Bold, Color.white);
+            CreateTextChild(cancelBtnObj, LocalizationManager.L("Modal_CancelBtn", "İptal", "Cancel"), 22, FontStyle.Bold, Color.white);
         }
 
         private InputField CreateInputFieldWithDice(GameObject parentBox, string placeholder, int characterLimit, string[] randomList, System.Action<string, int> onValueChanged)

@@ -257,41 +257,7 @@ namespace Farm2Shelf.UI
                 RefreshList();
             });
 
-            // Kapat Butonu (✖)
-            GameObject closeObj = new GameObject("CloseBtn");
-            closeObj.transform.SetParent(panelObj.transform, false);
-            RectTransform clRect = closeObj.AddComponent<RectTransform>();
-            clRect.anchoredPosition = new Vector2(380f, 285f);
-            clRect.sizeDelta = new Vector2(44f, 44f);
-
-            Image clBg = closeObj.AddComponent<Image>();
-            clBg.sprite = UIStyleUtility.CreateRoundedPillSprite(44, 44, 22, new Color(0.92f, 0.18f, 0.20f, 1f));
-            clBg.raycastTarget = true;
-
-            Button clBtn = closeObj.AddComponent<Button>();
-            clBtn.targetGraphic = clBg;
-            clBtn.onClick.AddListener(HideModal);
-
-            GameObject clTxtObj = new GameObject("X");
-            clTxtObj.transform.SetParent(closeObj.transform, false);
-            RectTransform cltRect = clTxtObj.AddComponent<RectTransform>();
-            cltRect.anchorMin = Vector2.zero;
-            cltRect.anchorMax = Vector2.one;
-
-            Text clTxt = clTxtObj.AddComponent<Text>();
-            clTxt.font = font;
-            clTxt.text = "✖";
-            clTxt.fontSize = 24;
-            clTxt.fontStyle = FontStyle.Bold;
-            clTxt.alignment = TextAnchor.MiddleCenter;
-            clTxt.color = Color.white;
-            clTxt.raycastTarget = false;
-
-            Outline clOutline = clTxtObj.AddComponent<Outline>();
-            clOutline.effectColor = new Color(0f, 0f, 0f, 0.85f);
-            clOutline.effectDistance = new Vector2(1.5f, -1.5f);
-
-            closeBtnTransform = closeObj.transform;
+            closeBtnTransform = UIStyleUtility.CreateCornerCloseButton(panelObj.transform, HideModal, 52f).transform;
 
             // Kapasite Bilgi Şeridi
             GameObject capObj = new GameObject("CapacityBar");
@@ -782,36 +748,9 @@ namespace Farm2Shelf.UI
             tTxt.alignment = TextAnchor.MiddleCenter;
             tTxt.color = new Color(0.30f, 0.85f, 1f);
 
-            // Kapat Butonu
-            GameObject closeObj = new GameObject("CloseBtn");
-            closeObj.transform.SetParent(dPanel.transform, false);
-            RectTransform clRect = closeObj.AddComponent<RectTransform>();
-            clRect.anchoredPosition = new Vector2(280f, 215f);
-            clRect.sizeDelta = new Vector2(38f, 38f);
-
-            Image clBg = closeObj.AddComponent<Image>();
-            clBg.sprite = UIStyleUtility.CreateRoundedPillSprite(38, 38, 19, new Color(0.92f, 0.20f, 0.22f));
-            clBg.raycastTarget = true;
-
-            Button clBtn = closeObj.AddComponent<Button>();
-            clBtn.targetGraphic = clBg;
-            clBtn.onClick.AddListener(() => {
+            UIStyleUtility.CreateCornerCloseButton(dPanel.transform, () => {
                 if (distributionModalObj != null) Destroy(distributionModalObj);
-            });
-
-            GameObject clTxtObj = new GameObject("X");
-            clTxtObj.transform.SetParent(closeObj.transform, false);
-            RectTransform cltRect = clTxtObj.AddComponent<RectTransform>();
-            cltRect.anchorMin = Vector2.zero;
-            cltRect.anchorMax = Vector2.one;
-
-            Text clTxt = clTxtObj.AddComponent<Text>();
-            clTxt.font = font;
-            clTxt.text = "✖";
-            clTxt.fontSize = 20;
-            clTxt.fontStyle = FontStyle.Bold;
-            clTxt.alignment = TextAnchor.MiddleCenter;
-            clTxt.color = Color.white;
+            }, 48f);
 
             // Mevcut Stok Bilgisi
             GameObject availObj = new GameObject("AvailableStock");
@@ -1222,6 +1161,13 @@ namespace Farm2Shelf.UI
 
             RefreshList();
             string cropShortName = (sDef != null) ? sDef.LocalizedName.Replace(" Tohumu", "").Replace(" Seeds", "").Replace(" Seed", "") : (wRecipe != null ? wRecipe.LocalizedName : liveDef.LocalizedName);
+            if (FinanceManager.Instance != null)
+            {
+                FinanceManager.Instance.RecordIncome(
+                    FinanceCategories.Farm,
+                    string.Format(LocalizationManager.L("FinDesc_BarnQuickSellFmt", "Ahır hızlı satışı ({0})", "Barn quick sell ({0})"), cropShortName),
+                    totalEarnings);
+            }
             string unitLabel = (sDef != null) ? "KG" : "Adet";
             string qsTitle = LocalizationManager.L("Modal_QuickSell_Title", "⚡ Hızlı Satış Yapıldı! 💰", "⚡ Quick Sell Completed! 💰");
             string qsBody = string.Format(
@@ -1382,6 +1328,13 @@ namespace Farm2Shelf.UI
                 if (EconomyManager.Instance != null)
                 {
                     EconomyManager.Instance.AddCredits(totalEarnings);
+                }
+                if (FinanceManager.Instance != null)
+                {
+                    FinanceManager.Instance.RecordIncome(
+                        FinanceCategories.Farm,
+                        LocalizationManager.L("FinDesc_BarnQuickSellAll", "Ahır toplu hızlı satışı", "Barn bulk quick sell"),
+                        totalEarnings);
                 }
 
                 RefreshList();

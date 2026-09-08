@@ -77,6 +77,7 @@ namespace Farm2Shelf.Environment
 
             // Çoklu Raf & Çeşitli Ürün Alışveriş Takip Verileri (1-20 Ürün & Kısmi Alışveriş)
             public HashSet<PlacedFurnitureController> visitedShelvesSet = new HashSet<PlacedFurnitureController>();
+            public HashSet<PlacedFurnitureController> visitedPaidDecorations = new HashSet<PlacedFurnitureController>();
             public HashSet<string> boughtProductNames = new HashSet<string>();
             public int targetBasketGoal = 1;
             public int targetShelfCount = 1;
@@ -872,6 +873,40 @@ namespace Farm2Shelf.Environment
             }
         }
 
+        private void AddPaidDecorationWaypoints(List<Vector3> route, IList<PlacedFurnitureController> furniture)
+        {
+            if (route == null || furniture == null || furniture.Count == 0) return;
+            if (Random.value < 0.28f) return;
+
+            List<PlacedFurnitureController> paid = new List<PlacedFurnitureController>();
+            int count = furniture.Count;
+            for (int i = 0; i < count; i++)
+            {
+                PlacedFurnitureController f = furniture[i];
+                if (f == null) continue;
+                if (FurnitureDatabase.GrantsCustomerUseIncome(f.FurnitureType))
+                {
+                    paid.Add(f);
+                }
+            }
+            if (paid.Count == 0) return;
+
+            for (int i = 0; i < paid.Count; i++)
+            {
+                PlacedFurnitureController temp = paid[i];
+                int randIdx = Random.Range(i, paid.Count);
+                paid[i] = paid[randIdx];
+                paid[randIdx] = temp;
+            }
+
+            int visits = Random.value < 0.38f ? 2 : 1;
+            visits = Mathf.Clamp(visits, 1, paid.Count);
+            for (int i = 0; i < visits; i++)
+            {
+                route.Add(paid[i].GetFrontInteractionPosition(0.85f));
+            }
+        }
+
         private List<Vector3> BuildCustomerShoppingRoute(out bool willVisitServiceDesk, out bool hasCartStand, out int targetShelfCount, CustomerType selectedType, int targetBasketGoal)
         {
             List<Vector3> route = new List<Vector3>();
@@ -928,6 +963,7 @@ namespace Farm2Shelf.Environment
             if (HasAnyStockedShelfForCustomer(customerTier))
             {
                 AddRandomShelfWaypoints(route, shelves, customerTier, targetBasketGoal, out targetShelfCount);
+                AddPaidDecorationWaypoints(route, shelves);
 
                 Vector3 checkoutPos = new Vector3(-6.5f, 0.05f, 1.5f);
                 for (int i = 0; i < shCount; i++)
@@ -1007,6 +1043,7 @@ namespace Farm2Shelf.Environment
             if (HasAnyStockedShelfForCustomer(customerTier))
             {
                 AddRandomShelfWaypoints(route, shelves, customerTier, targetBasketGoal, out targetShelfCount);
+                AddPaidDecorationWaypoints(route, shelves);
 
                 Vector3 checkoutPos = new Vector3(-6.5f, 0.05f, 1.5f);
                 for (int i = 0; i < busShCount; i++)
@@ -1601,6 +1638,7 @@ namespace Farm2Shelf.Environment
             if (HasAnyStockedShelfForCustomer(customerTier))
             {
                 AddRandomShelfWaypoints(route, shelves, customerTier, targetBasketGoal, out targetShelfCount);
+                AddPaidDecorationWaypoints(route, shelves);
 
                 Vector3 checkoutPos = new Vector3(-6.5f, 0.05f, 1.5f);
                 foreach (var s in shelves)
@@ -2302,7 +2340,11 @@ namespace Farm2Shelf.Environment
                                 cData.visitedCustomerServiceDesk = true;
                                 cData.stateWaitTimer = 1.5f;
                             }
-                            // 3. Raftan Alışveriş Yapma
+                            // 3. Ücretli dekorasyon (otomat, kahve, arcade vb.) kullanımı
+                            else if (!isAtServiceDesk && !cData.isInCashierQueue && TryProcessPaidDecorationVisit(cData, targetWaypoint))
+                            {
+                            }
+                            // 4. Raftan Alışveriş Yapma
                             else if (!isAtServiceDesk && !cData.isInCashierQueue && (targetWaypoint.z > 0.5f))
                             {
                                 PlacedFurnitureController targetShelf = FindNearestShelfToPosition(targetWaypoint);
@@ -2569,6 +2611,50 @@ namespace Farm2Shelf.Environment
         }
 
         private static FurnitureType ProduceShelfType() => FurnitureType.ProduceShelf;
+
+        private PlacedFurnitureController FindNearestPaidDecorationToPosition(Vector3 pos)
+        {
+            var allFurniture = PlacedFurnitureController.AllPlacedFurniture;
+            PlacedFurnitureController nearest = null;
+            float minDistance = 1.35f;
+            int count = allFurniture.Count;
+
+            for (int i = 0; i < count; i++)
+            {
+                var f = allFurniture[i];
+                if (f == null) continue;
+                if (!FurnitureDatabase.GrantsCustomerUseIncome(f.FurnitureType)) continue;
+
+                float dist = Vector3.Distance(pos, f.GetFrontInteractionPosition(0.85f));
+                if (dist < minDistance)
+                {
+                    minDistance = dist;
+                    nearest = f;
+                }
+            }
+            return nearest;
+        }
+
+        private bool TryProcessPaidDecorationVisit(ActiveCustomerData cData, Vector3 targetWaypoint)
+        {
+            if (cData == null) return false;
+            PlacedFurnitureController deco = FindNearestPaidDecorationToPosition(targetWaypoint);
+            if (deco == null) return false;
+
+            Vector3 decoFront = deco.GetFrontInteractionPosition(0.85f);
+            if (Vector3.Distance(targetWaypoint, decoFront) > 0.75f) return false;
+
+            if (cData.visitedPaidDecorations == null)
+            {
+                cData.visitedPaidDecorations = new HashSet<PlacedFurnitureController>();
+            }
+            if (cData.visitedPaidDecorations.Contains(deco)) return false;
+
+            cData.visitedPaidDecorations.Add(deco);
+            cData.stateWaitTimer = Random.Range(1.4f, 2.5f);
+            deco.RegisterCustomerUse();
+            return true;
+        }
 
         private void ProcessCustomerShoppingAtShelf(ActiveCustomerData cData, PlacedFurnitureController shelf)
         {

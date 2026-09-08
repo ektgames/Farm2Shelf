@@ -72,7 +72,6 @@ namespace Farm2Shelf.Core
         public int TotalEarnedPassiveIncome { get; private set; } = 0;
 
         private Coroutine longPressCoroutine;
-        private Coroutine passiveIncomeCoroutine;
         private bool isLongPressTriggered = false;
         public bool IsLongPressTriggered => isLongPressTriggered;
 
@@ -103,12 +102,6 @@ namespace Farm2Shelf.Core
             {
                 StopCoroutine(longPressCoroutine);
                 longPressCoroutine = null;
-            }
-
-            if (passiveIncomeCoroutine != null)
-            {
-                StopCoroutine(passiveIncomeCoroutine);
-                passiveIncomeCoroutine = null;
             }
 
             if (TimeManager.Instance != null)
@@ -212,7 +205,6 @@ namespace Farm2Shelf.Core
 
             EnsureTouchColliders();
             EnsureChildClickForwarders();
-            StartPassiveIncomeRoutine();
         }
 
         public static bool IsWalkableFloorDecoration(FurnitureType type)
@@ -390,46 +382,36 @@ namespace Farm2Shelf.Core
             }
         }
 
-        private void StartPassiveIncomeRoutine()
+        public bool RegisterCustomerUse()
         {
-            if (passiveIncomeCoroutine != null) StopCoroutine(passiveIncomeCoroutine);
-
             FurnitureItemDef def = FurnitureDatabase.GetDef(FurnitureType);
-            if (def != null && def.category == FurnitureCategory.Decoration && def.passiveIncomePerUse > 0)
+            if (def == null || def.category != FurnitureCategory.Decoration || def.passiveIncomePerUse <= 0)
             {
-                passiveIncomeCoroutine = StartCoroutine(PassiveIncomeLoop(def));
+                return false;
             }
-        }
 
-        private IEnumerator PassiveIncomeLoop(FurnitureItemDef def)
-        {
-            // İlk gelir için kısa bir açılış beklemesi
-            yield return new WaitForSeconds(Random.Range(3f, 7f));
-
-            while (true)
+            if (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing)
             {
-                // Müşteri etkileşim simülasyonu (8 - 15 saniyede bir)
-                float waitTime = Random.Range(8f, 15f);
-                yield return new WaitForSeconds(waitTime);
-
-                int income = def.passiveIncomePerUse;
-                TotalEarnedPassiveIncome += income;
-
-                // Cüzdana ve finans kayıtlarına ekle
-                if (EconomyManager.Instance != null)
-                {
-                    EconomyManager.Instance.AddCredits(income);
-                }
-                if (FinanceManager.Instance != null)
-                {
-                    string category = LocalizationManager.L("FinCat_PassiveIncome", "Pasif Gelir", "Passive Income");
-                    string description = string.Format(LocalizationManager.L("FinDesc_PassiveSaleFmt", "Pasif Satış ({0})", "Passive Sale ({0})"), def.LocalizedName);
-                    FinanceManager.Instance.RecordIncome(category, description, income);
-                }
-
-                // 3D Süzülen Metin Efekti Göster
-                SpawnFloatingIncomeText(income, def.iconEmoji);
+                return false;
             }
+
+            int income = def.passiveIncomePerUse;
+            TotalEarnedPassiveIncome += income;
+
+            if (EconomyManager.Instance != null)
+            {
+                EconomyManager.Instance.AddCredits(income);
+            }
+            if (FinanceManager.Instance != null)
+            {
+                FinanceManager.Instance.RecordIncome(
+                    FinanceCategories.Passive,
+                    string.Format(LocalizationManager.L("FinDesc_PassiveSaleFmt", "Müşteri kullanımı ({0})", "Customer use ({0})"), def.LocalizedName),
+                    income);
+            }
+
+            SpawnFloatingIncomeText(income, def.iconEmoji);
+            return true;
         }
 
         private void SpawnFloatingIncomeText(int amount, string emoji)

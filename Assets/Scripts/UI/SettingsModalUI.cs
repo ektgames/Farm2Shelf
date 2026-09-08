@@ -140,7 +140,7 @@ namespace Farm2Shelf.UI
             {
                 int totalTracks = AudioManager.Instance != null ? AudioManager.Instance.TotalTracks : 12;
                 string trackLabel = LocalizationManager.L("Track_Label", "Parça", "Track");
-                currentTrackText.text = $"🎵 <b>{trackLabel} {trackNum}/{totalTracks}:</b> {trackTitle}";
+                currentTrackText.text = $"<b>{trackLabel} {trackNum}/{totalTracks}:</b> {trackTitle}";
             }
         }
 
@@ -201,51 +201,17 @@ namespace Farm2Shelf.UI
 
             titleText = titleObj.AddComponent<Text>();
             titleText.font = font;
-            titleText.text = LocalizationManager.L("Settings_Title", "⚙️ OYUN VE SES AYARLARI", "⚙️ GAME & AUDIO SETTINGS");
+            titleText.text = LocalizationManager.L("Settings_Title", "OYUN VE SES AYARLARI", "GAME & AUDIO SETTINGS");
             titleText.fontSize = 24;
             titleText.fontStyle = FontStyle.Bold;
             titleText.alignment = TextAnchor.MiddleCenter;
             titleText.color = new Color(0.75f, 0.45f, 0.95f);
             titleText.raycastTarget = false;
 
-            // Kapat Butonu (X)
-            GameObject closeObj = new GameObject("CloseBtn");
-            closeObj.transform.SetParent(panelObj.transform, false);
-            RectTransform clRect = closeObj.AddComponent<RectTransform>();
-            clRect.anchoredPosition = new Vector2(320f, 260f);
-            clRect.sizeDelta = new Vector2(46f, 46f);
-
-            Image clBg = closeObj.AddComponent<Image>();
-            clBg.sprite = UIStyleUtility.CreateRoundedPillSprite(46, 46, 23, new Color(0.92f, 0.18f, 0.20f, 1f));
-            clBg.raycastTarget = true;
-
-            Button clBtn = closeObj.AddComponent<Button>();
-            clBtn.targetGraphic = clBg;
-            clBtn.onClick.AddListener(() => {
+            closeBtnTransform = UIStyleUtility.CreateCornerCloseButton(panelObj.transform, () => {
                 if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
                 HideModal();
-            });
-
-            GameObject clTxtObj = new GameObject("X");
-            clTxtObj.transform.SetParent(closeObj.transform, false);
-            RectTransform cltRect = clTxtObj.AddComponent<RectTransform>();
-            cltRect.anchorMin = Vector2.zero;
-            cltRect.anchorMax = Vector2.one;
-
-            Text clTxt = clTxtObj.AddComponent<Text>();
-            clTxt.font = font;
-            clTxt.text = "✖";
-            clTxt.fontSize = 26;
-            clTxt.fontStyle = FontStyle.Bold;
-            clTxt.alignment = TextAnchor.MiddleCenter;
-            clTxt.color = Color.white;
-            clTxt.raycastTarget = false;
-
-            Outline clOutline = clTxtObj.AddComponent<Outline>();
-            clOutline.effectColor = new Color(0f, 0f, 0f, 0.85f);
-            clOutline.effectDistance = new Vector2(1.5f, -1.5f);
-
-            closeBtnTransform = closeObj.transform;
+            }, 52f).transform;
 
             // ==================== BÖLÜM 1: 10 PARÇALIK BGM MÜZİK KONTROLÜ ====================
             GameObject musicBox = new GameObject("MusicControlBox");
@@ -268,10 +234,10 @@ namespace Farm2Shelf.UI
             currentTrackText = trackObj.AddComponent<Text>();
             currentTrackText.font = font;
             int trNum = AudioManager.Instance != null ? AudioManager.Instance.CurrentTrackIndex : 1;
-            string trTitle = AudioManager.Instance != null ? AudioManager.Instance.GetCurrentTrackTitle() : "İlham Veren Akustik Folk 🌾";
+            string trTitle = AudioManager.Instance != null ? AudioManager.Instance.GetCurrentTrackTitle() : "İlham Veren Akustik Folk";
             string trackTextLabel = LocalizationManager.L("Track_Label", "Parça", "Track");
             int totalTracksCount = AudioManager.Instance != null ? AudioManager.Instance.TotalTracks : 12;
-            currentTrackText.text = $"🎵 <b>{trackTextLabel} {trNum}/{totalTracksCount}:</b> {trTitle}";
+            currentTrackText.text = $"<b>{trackTextLabel} {trNum}/{totalTracksCount}:</b> {trTitle}";
             currentTrackText.fontSize = 16;
             currentTrackText.alignment = TextAnchor.MiddleLeft;
             currentTrackText.color = new Color(0.35f, 0.85f, 0.95f);
@@ -306,7 +272,7 @@ namespace Farm2Shelf.UI
 
             nextTrackButtonText = ntTxtObj.AddComponent<Text>();
             nextTrackButtonText.font = font;
-            nextTrackButtonText.text = LocalizationManager.L("Btn_NextTrack", "⏭️ SONRAKİ", "⏭️ NEXT");
+            nextTrackButtonText.text = LocalizationManager.L("Btn_NextTrack", "SONRAKİ", "NEXT");
             nextTrackButtonText.fontSize = 14;
             nextTrackButtonText.fontStyle = FontStyle.Bold;
             nextTrackButtonText.alignment = TextAnchor.MiddleCenter;
@@ -337,7 +303,7 @@ namespace Farm2Shelf.UI
 
             bgmMuteText = bmmTxtObj.AddComponent<Text>();
             bgmMuteText.font = font;
-            bgmMuteText.text = isBgmMuted ? LocalizationManager.L("BGM_Off", "🔇 MÜZİK: KAPALI", "🔇 MUSIC: OFF") : LocalizationManager.L("BGM_On", "🔊 MÜZİK: AÇIK", "🔊 MUSIC: ON");
+            bgmMuteText.text = isBgmMuted ? LocalizationManager.L("BGM_Off", "MÜZİK: KAPALI", "MUSIC: OFF") : LocalizationManager.L("BGM_On", "MÜZİK: AÇIK", "MUSIC: ON");
             bgmMuteText.fontSize = 14;
             bgmMuteText.fontStyle = FontStyle.Bold;
             bgmMuteText.alignment = TextAnchor.MiddleCenter;
@@ -384,7 +350,7 @@ namespace Farm2Shelf.UI
 
             sfxTitleText = sfxTitleObj.AddComponent<Text>();
             sfxTitleText.font = font;
-            sfxTitleText.text = LocalizationManager.L("SFX_Title", "🔔 <b>SES EFEKTLERİ (SFX):</b>", "🔔 <b>SOUND EFFECTS (SFX):</b>");
+            sfxTitleText.text = LocalizationManager.L("SFX_Title", "<b>SES EFEKTLERİ (SFX):</b>", "<b>SOUND EFFECTS (SFX):</b>");
             sfxTitleText.fontSize = 16;
             sfxTitleText.alignment = TextAnchor.MiddleLeft;
             sfxTitleText.color = new Color(0.95f, 0.65f, 0.15f);
@@ -414,7 +380,7 @@ namespace Farm2Shelf.UI
 
             sfxMuteText = smmTxtObj.AddComponent<Text>();
             sfxMuteText.font = font;
-            sfxMuteText.text = isSfxMuted ? LocalizationManager.L("SFX_Off", "🔇 EFEKT: KAPALI", "🔇 SFX: OFF") : LocalizationManager.L("SFX_On", "🔊 EFEKT: AÇIK", "🔊 SFX: ON");
+            sfxMuteText.text = isSfxMuted ? LocalizationManager.L("SFX_Off", "EFEKT: KAPALI", "SFX: OFF") : LocalizationManager.L("SFX_On", "EFEKT: AÇIK", "SFX: ON");
             sfxMuteText.fontSize = 14;
             sfxMuteText.fontStyle = FontStyle.Bold;
             sfxMuteText.alignment = TextAnchor.MiddleCenter;
@@ -459,7 +425,7 @@ namespace Farm2Shelf.UI
 
             languageTitleText = langTitleObj.AddComponent<Text>();
             languageTitleText.font = font;
-            languageTitleText.text = LocalizationManager.L("Lang_Title", "🌐 <b>OYUN DİLİ / GAME LANGUAGE:</b>", "🌐 <b>GAME LANGUAGE / OYUN DİLİ:</b>");
+            languageTitleText.text = LocalizationManager.L("Lang_Title", "<b>OYUN DİLİ / GAME LANGUAGE:</b>", "<b>GAME LANGUAGE / OYUN DİLİ:</b>");
             languageTitleText.fontSize = 16;
             languageTitleText.alignment = TextAnchor.MiddleCenter;
             languageTitleText.color = new Color(0.35f, 0.90f, 0.55f);
@@ -605,47 +571,47 @@ namespace Farm2Shelf.UI
         {
             if (titleText != null)
             {
-                titleText.text = LocalizationManager.L("Settings_Title", "⚙️ OYUN VE SES AYARLARI", "⚙️ GAME & AUDIO SETTINGS");
+                titleText.text = LocalizationManager.L("Settings_Title", "OYUN VE SES AYARLARI", "GAME & AUDIO SETTINGS");
             }
 
             if (currentTrackText != null)
             {
                 int trNum = AudioManager.Instance != null ? AudioManager.Instance.CurrentTrackIndex : 1;
-                string trTitle = AudioManager.Instance != null ? AudioManager.Instance.GetCurrentTrackTitle() : "İlham Veren Akustik Folk 🌾";
+                string trTitle = AudioManager.Instance != null ? AudioManager.Instance.GetCurrentTrackTitle() : "İlham Veren Akustik Folk";
                 string trackTextLabel = LocalizationManager.L("Track_Label", "Parça", "Track");
                 int totalTracksCount = AudioManager.Instance != null ? AudioManager.Instance.TotalTracks : 12;
-                currentTrackText.text = $"🎵 <b>{trackTextLabel} {trNum}/{totalTracksCount}:</b> {trTitle}";
+                currentTrackText.text = $"<b>{trackTextLabel} {trNum}/{totalTracksCount}:</b> {trTitle}";
             }
 
             if (nextTrackButtonText != null)
             {
-                nextTrackButtonText.text = LocalizationManager.L("Btn_NextTrack", "⏭️ SONRAKİ", "⏭️ NEXT");
+                nextTrackButtonText.text = LocalizationManager.L("Btn_NextTrack", "SONRAKİ", "NEXT");
             }
 
             bool isBgmMuted = AudioManager.Instance != null && AudioManager.Instance.IsBGMMuted;
             if (bgmMuteText != null)
             {
                 bgmMuteText.text = isBgmMuted
-                    ? LocalizationManager.L("BGM_Off", "🔇 MÜZİK: KAPALI", "🔇 MUSIC: OFF")
-                    : LocalizationManager.L("BGM_On", "🔊 MÜZİK: AÇIK", "🔊 MUSIC: ON");
+                    ? LocalizationManager.L("BGM_Off", "MÜZİK: KAPALI", "MUSIC: OFF")
+                    : LocalizationManager.L("BGM_On", "MÜZİK: AÇIK", "MUSIC: ON");
             }
 
             bool isSfxMuted = AudioManager.Instance != null && AudioManager.Instance.IsSFXMuted;
             if (sfxMuteText != null)
             {
                 sfxMuteText.text = isSfxMuted
-                    ? LocalizationManager.L("SFX_Off", "🔇 EFEKT: KAPALI", "🔇 SFX: OFF")
-                    : LocalizationManager.L("SFX_On", "🔊 EFEKT: AÇIK", "🔊 SFX: ON");
+                    ? LocalizationManager.L("SFX_Off", "EFEKT: KAPALI", "SFX: OFF")
+                    : LocalizationManager.L("SFX_On", "EFEKT: AÇIK", "SFX: ON");
             }
 
             if (sfxTitleText != null)
             {
-                sfxTitleText.text = LocalizationManager.L("SFX_Title", "🔔 <b>SES EFEKTLERİ (SFX):</b>", "🔔 <b>SOUND EFFECTS (SFX):</b>");
+                sfxTitleText.text = LocalizationManager.L("SFX_Title", "<b>SES EFEKTLERİ (SFX):</b>", "<b>SOUND EFFECTS (SFX):</b>");
             }
 
             if (languageTitleText != null)
             {
-                languageTitleText.text = LocalizationManager.L("Lang_Title", "🌐 <b>OYUN DİLİ / GAME LANGUAGE:</b>", "🌐 <b>GAME LANGUAGE / OYUN DİLİ:</b>");
+                languageTitleText.text = LocalizationManager.L("Lang_Title", "<b>OYUN DİLİ / GAME LANGUAGE:</b>", "<b>GAME LANGUAGE / OYUN DİLİ:</b>");
             }
 
             string volWord = LocalizationManager.L("Vol_Word", "Ses", "Vol");
@@ -713,7 +679,7 @@ namespace Farm2Shelf.UI
                     bgmMuteImg.sprite = UIStyleUtility.CreateRoundedPillSprite(180, 38, 19, isMuted ? new Color(0.85f, 0.25f, 0.25f) : new Color(0.20f, 0.75f, 0.35f));
                     bgmMuteImg.color = Color.white;
                 }
-                bgmMuteText.text = isMuted ? LocalizationManager.L("BGM_Off", "🔇 MÜZİK: KAPALI", "🔇 MUSIC: OFF") : LocalizationManager.L("BGM_On", "🔊 MÜZİK: AÇIK", "🔊 MUSIC: ON");
+                bgmMuteText.text = isMuted ? LocalizationManager.L("BGM_Off", "MÜZİK: KAPALI", "MUSIC: OFF") : LocalizationManager.L("BGM_On", "MÜZİK: AÇIK", "MUSIC: ON");
             }
         }
 
@@ -729,7 +695,7 @@ namespace Farm2Shelf.UI
                     sfxMuteImg.sprite = UIStyleUtility.CreateRoundedPillSprite(180, 38, 19, isMuted ? new Color(0.85f, 0.25f, 0.25f) : new Color(0.20f, 0.75f, 0.35f));
                     sfxMuteImg.color = Color.white;
                 }
-                sfxMuteText.text = isMuted ? LocalizationManager.L("SFX_Off", "🔇 EFEKT: KAPALI", "🔇 SFX: OFF") : LocalizationManager.L("SFX_On", "🔊 EFEKT: AÇIK", "🔊 SFX: ON");
+                sfxMuteText.text = isMuted ? LocalizationManager.L("SFX_Off", "EFEKT: KAPALI", "SFX: OFF") : LocalizationManager.L("SFX_On", "EFEKT: AÇIK", "SFX: ON");
             }
         }
 

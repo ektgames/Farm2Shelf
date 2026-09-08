@@ -143,16 +143,14 @@ namespace Farm2Shelf.UI
             pBg.sprite = UIStyleUtility.CreateOutlinePillSprite(1180, 720, 18, 3, new Color(0.95f, 0.65f, 0.15f), new Color(0.09f, 0.12f, 0.16f, 0.98f));
 
             CreateLabel(panelObj.transform, new Vector2(0f, 318f), new Vector2(900f, 44f),
-                LocalizationManager.L("GuideLib_Title", "📚 REHBER KÜTÜPHANESİ", "📚 GUIDE LIBRARY"),
+                LocalizationManager.L("GuideLib_Title", "REHBER KÜTÜPHANESİ", "GUIDE LIBRARY"),
                 26, FontStyle.Bold, new Color(0.95f, 0.65f, 0.15f), TextAnchor.MiddleCenter);
 
             CreateLabel(panelObj.transform, new Vector2(0f, 280f), new Vector2(980f, 28f),
                 LocalizationManager.L("GuideLib_Subtitle", "Merak ettiğin konuya bas, adım adım öğren.", "Tap a topic to learn it step by step."),
                 15, FontStyle.Normal, new Color(0.78f, 0.82f, 0.88f), TextAnchor.MiddleCenter);
 
-            GameObject closeObj = CreateColorButton(panelObj.transform, new Vector2(548f, 318f), new Vector2(46f, 46f),
-                new Color(0.92f, 0.18f, 0.20f, 1f), "✖", 24, HideModal);
-            closeObj.transform.SetAsLastSibling();
+            UIStyleUtility.CreateCornerCloseButton(panelObj.transform, HideModal, 52f);
 
             BuildTopicList(panelObj.transform);
             BuildArticlePane(panelObj.transform);
@@ -381,25 +379,25 @@ namespace Farm2Shelf.UI
         {
             switch (topic)
             {
-                case GuideTopic.Overview: return LocalizationManager.L("GuideT_Overview", "🏠 Başlangıç Özeti", "🏠 Getting Started");
-                case GuideTopic.Controls: return LocalizationManager.L("GuideT_Controls", "🎮 Kontroller", "🎮 Controls");
-                case GuideTopic.Tablet: return LocalizationManager.L("GuideT_Tablet", "📱 EKT Tablet", "📱 EKT Tablet");
-                case GuideTopic.Farm: return LocalizationManager.L("GuideT_Farm", "🌱 Çiftlik ve Hasat", "🌱 Farm & Harvest");
-                case GuideTopic.Barn: return LocalizationManager.L("GuideT_Barn", "🏚️ Ahır ve Sevkiyat", "🏚️ Barn & Shipping");
-                case GuideTopic.Store: return LocalizationManager.L("GuideT_Store", "🏪 Dükkan ve Reyonlar", "🏪 Store & Shelves");
-                case GuideTopic.Wholesale: return LocalizationManager.L("GuideT_Wholesale", "🚛 Toptancı Siparişi", "🚛 Wholesale Orders");
-                case GuideTopic.Checkout: return LocalizationManager.L("GuideT_Checkout", "💳 Kasa ve Müşteriler", "💳 Checkout & Customers");
-                case GuideTopic.Staff: return LocalizationManager.L("GuideT_Staff", "👥 Personel", "👥 Staff");
-                case GuideTopic.Furniture: return LocalizationManager.L("GuideT_Furniture", "🪑 Mobilya ve Dekor", "🪑 Furniture & Decor");
-                case GuideTopic.Workshop: return LocalizationManager.L("GuideT_Workshop", "🏭 Atölye Sistemi", "🏭 Workshop System");
-                case GuideTopic.JamMaker: return LocalizationManager.L("GuideT_Jam", "🍓 Reçel Kazanı", "🍓 Jam Boiler");
-                case GuideTopic.JuicePress: return LocalizationManager.L("GuideT_Juice", "🧃 Sıkma Presi", "🧃 Juice Press");
-                case GuideTopic.Cannery: return LocalizationManager.L("GuideT_Cannery", "🥫 Konserve Ünitesi", "🥫 Cannery");
-                case GuideTopic.Dehydrator: return LocalizationManager.L("GuideT_Dry", "🍿 Kurutma Fırını", "🍿 Dehydrator");
-                case GuideTopic.OilPress: return LocalizationManager.L("GuideT_Oil", "🫒 Yağ Presi", "🫒 Oil Press");
-                case GuideTopic.SaladStation: return LocalizationManager.L("GuideT_Salad", "🥗 Salata İstasyonu", "🥗 Salad Station");
-                case GuideTopic.Finance: return LocalizationManager.L("GuideT_Finance", "💰 Para ve Zaman", "💰 Money & Time");
-                case GuideTopic.Expansion: return LocalizationManager.L("GuideT_Expand", "📈 Büyüme ve Seviyeler", "📈 Growth & Upgrades");
+                case GuideTopic.Overview: return LocalizationManager.L("GuideT_Overview", "Başlangıç Özeti", "Getting Started");
+                case GuideTopic.Controls: return LocalizationManager.L("GuideT_Controls", "Kontroller", "Controls");
+                case GuideTopic.Tablet: return LocalizationManager.L("GuideT_Tablet", "EKT Tablet", "EKT Tablet");
+                case GuideTopic.Farm: return LocalizationManager.L("GuideT_Farm", "Çiftlik ve Hasat", "Farm & Harvest");
+                case GuideTopic.Barn: return LocalizationManager.L("GuideT_Barn", "Ahır ve Sevkiyat", "Barn & Shipping");
+                case GuideTopic.Store: return LocalizationManager.L("GuideT_Store", "Dükkan ve Reyonlar", "Store & Shelves");
+                case GuideTopic.Wholesale: return LocalizationManager.L("GuideT_Wholesale", "Toptancı Siparişi", "Wholesale Orders");
+                case GuideTopic.Checkout: return LocalizationManager.L("GuideT_Checkout", "Kasa ve Müşteriler", "Checkout & Customers");
+                case GuideTopic.Staff: return LocalizationManager.L("GuideT_Staff", "Personel", "Staff");
+                case GuideTopic.Furniture: return LocalizationManager.L("GuideT_Furniture", "Mobilya ve Dekor", "Furniture & Decor");
+                case GuideTopic.Workshop: return LocalizationManager.L("GuideT_Workshop", "Atölye Sistemi", "Workshop System");
+                case GuideTopic.JamMaker: return LocalizationManager.L("GuideT_Jam", "Reçel Kazanı", "Jam Boiler");
+                case GuideTopic.JuicePress: return LocalizationManager.L("GuideT_Juice", "Sıkma Presi", "Juice Press");
+                case GuideTopic.Cannery: return LocalizationManager.L("GuideT_Cannery", "Konserve Ünitesi", "Cannery");
+                case GuideTopic.Dehydrator: return LocalizationManager.L("GuideT_Dry", "Kurutma Fırını", "Dehydrator");
+                case GuideTopic.OilPress: return LocalizationManager.L("GuideT_Oil", "Yağ Presi", "Oil Press");
+                case GuideTopic.SaladStation: return LocalizationManager.L("GuideT_Salad", "Salata İstasyonu", "Salad Station");
+                case GuideTopic.Finance: return LocalizationManager.L("GuideT_Finance", "Para ve Zaman", "Money & Time");
+                case GuideTopic.Expansion: return LocalizationManager.L("GuideT_Expand", "Büyüme ve Seviyeler", "Growth & Upgrades");
                 default: return "";
             }
         }
@@ -685,7 +683,7 @@ namespace Farm2Shelf.UI
 
             foreach (WorkshopMachineDef machine in WorkshopMachineDatabase.GetAllMachines())
             {
-                sb.Append(machine.iconEmoji).Append(" <b>").Append(machine.LocalizedName).Append("</b>\n");
+                sb.Append("<b>").Append(machine.LocalizedName).Append("</b>\n");
                 List<WorkshopRecipeDef> recipes = WorkshopMachineDatabase.GetRecipesForMachine(machine.type);
                 HashSet<string> seen = new HashSet<string>();
                 List<string> crops = new List<string>();
@@ -716,7 +714,7 @@ namespace Farm2Shelf.UI
             System.Text.StringBuilder sb = new System.Text.StringBuilder();
             if (machine != null)
             {
-                sb.Append(machine.iconEmoji).Append(" <b>").Append(machine.LocalizedName).Append("</b>\n");
+                sb.Append("<b>").Append(machine.LocalizedName).Append("</b>\n");
                 sb.Append(machine.LocalizedDesc).Append("\n\n");
                 sb.Append(en
                     ? "Place this machine only inside the workshop. Feed it from the workshop pallet.\n\n"
@@ -732,7 +730,6 @@ namespace Farm2Shelf.UI
                 WorkshopRecipeDef r = recipes[i];
                 string cropName = GetCropDisplayName(r.cropId);
                 int mins = Mathf.Max(1, Mathf.RoundToInt(r.durationSeconds / 60f));
-                sb.Append(r.iconEmoji).Append(' ');
                 sb.Append("<b>").Append(cropName).Append("</b>");
                 sb.Append(en ? "  (" : "  (");
                 sb.Append(r.requiredCropKg);
@@ -851,6 +848,10 @@ namespace Farm2Shelf.UI
             txt.alignment = TextAnchor.MiddleCenter;
             txt.color = Color.white;
             txt.raycastTarget = false;
+            if (label == "✖" || label == "✕" || label == "❌")
+            {
+                UIStyleUtility.BindCloseMark(txt);
+            }
             return obj;
         }
     }

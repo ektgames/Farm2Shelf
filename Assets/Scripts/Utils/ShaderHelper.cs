@@ -10,6 +10,7 @@ namespace Farm2Shelf.Utils
     public static class ShaderHelper
     {
         private static Shader _cachedLitShader;
+        private static Shader _cachedUnlitShader;
 
         /// <summary>
         /// 3D mesh materyalleri için uygun URP 3D shader'ını arar ve döndürür.
@@ -42,6 +43,20 @@ namespace Farm2Shelf.Utils
             }
 
             return _cachedLitShader;
+        }
+
+        /// <summary>
+        /// Gece cam/ampul gibi kendi rengini göstermesi gereken yüzeyler için URP Unlit.
+        /// Ortam ışığı ve gölgeye bağlı kalmaz; bloom/HDR gerektirmez.
+        /// </summary>
+        public static Shader GetUnlitShader()
+        {
+            if (_cachedUnlitShader != null) return _cachedUnlitShader;
+
+            _cachedUnlitShader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (_cachedUnlitShader == null) _cachedUnlitShader = Shader.Find("Unlit/Color");
+            if (_cachedUnlitShader == null) _cachedUnlitShader = GetLitShader();
+            return _cachedUnlitShader;
         }
 
         /// <summary>

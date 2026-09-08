@@ -201,6 +201,16 @@ namespace Farm2Shelf.Core
                 {
                     saveData.transactionLog.AddRange(logs);
                 }
+                List<FinanceCategoryTotalSave> cats = FinanceManager.Instance.ExportCategoryTotals();
+                if (cats != null)
+                {
+                    saveData.financeCategoryTotals.AddRange(cats);
+                }
+            }
+
+            if (StaffManager.Instance != null)
+            {
+                saveData.lastSalaryPaidDay = StaffManager.Instance.LastSalaryPaidDay;
             }
 
             // 8. BANKA KREDİLERİ
@@ -680,7 +690,8 @@ namespace Farm2Shelf.Core
                     saveData.dailyExpenses,
                     saveData.monthlyRevenue,
                     saveData.monthlyExpenses,
-                    saveData.transactionLog
+                    saveData.transactionLog,
+                    saveData.financeCategoryTotals
                 );
             }
 
@@ -714,11 +725,14 @@ namespace Farm2Shelf.Core
                 GardenSeedInventoryManager.Instance.ClearBarnInventory();
                 if (saveData.barnCrops != null)
                 {
+                    Dictionary<string, int> barnDict = new Dictionary<string, int>();
                     foreach (var crop in saveData.barnCrops)
                     {
-                        if (crop == null || string.IsNullOrEmpty(crop.seedId)) continue;
-                        GardenSeedInventoryManager.Instance.AddBarnCrop(crop.seedId, crop.count);
+                        if (crop == null || string.IsNullOrEmpty(crop.seedId) || crop.count <= 0) continue;
+                        if (!barnDict.ContainsKey(crop.seedId)) barnDict[crop.seedId] = 0;
+                        barnDict[crop.seedId] += crop.count;
                     }
+                    GardenSeedInventoryManager.Instance.RestoreBarnCrops(barnDict);
                 }
             }
 
@@ -831,6 +845,8 @@ namespace Farm2Shelf.Core
                     }
                     StaffManager.Instance.SetCourierStaffList(restoredCouriers);
                 }
+
+                StaffManager.Instance.SetLastSalaryPaidDay(saveData.lastSalaryPaidDay);
             }
 
             if (CourierManager.Instance != null)
@@ -1084,6 +1100,7 @@ namespace Farm2Shelf.Core
             }
             data.stockMarket ??= new List<StockSaveItem>();
             data.transactionLog ??= new List<TransactionRecord>();
+            data.financeCategoryTotals ??= new List<FinanceCategoryTotalSave>();
             data.bankLoans ??= new List<ActiveLoanData>();
             data.socialFeed ??= new List<SocialTweetData>();
             data.ownedSeeds ??= new List<OwnedSeedSaveData>();

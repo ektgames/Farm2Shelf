@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Events;
+using UnityEngine.UI;
 using Farm2Shelf.Core;
 
 namespace Farm2Shelf.UI
@@ -880,6 +882,105 @@ namespace Farm2Shelf.UI
             tex.Apply();
             motorcycleIconCache = Sprite.Create(tex, new Rect(0, 0, sz, sz), new Vector2(0.5f, 0.5f));
             return motorcycleIconCache;
+        }
+
+        private static Sprite closeXSpriteCache;
+
+        /// <summary>
+        /// Mobilde Unicode çarpı (✖/✕) fontta yok sayılır. Bu sprite her cihazda görünür.
+        /// </summary>
+        public static Sprite GetCloseXSprite()
+        {
+            if (closeXSpriteCache != null) return closeXSpriteCache;
+
+            const int s = 64;
+            Texture2D tex = new Texture2D(s, s, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Bilinear;
+            tex.wrapMode = TextureWrapMode.Clamp;
+            Color[] px = new Color[s * s];
+            float thickness = 5.5f;
+            float pad = 14f;
+            for (int y = 0; y < s; y++)
+            {
+                for (int x = 0; x < s; x++)
+                {
+                    float nx = x + 0.5f;
+                    float ny = y + 0.5f;
+                    float d1 = DistanceToSegment(nx, ny, pad, pad, s - pad, s - pad);
+                    float d2 = DistanceToSegment(nx, ny, pad, s - pad, s - pad, pad);
+                    px[y * s + x] = (d1 <= thickness || d2 <= thickness) ? Color.white : new Color(0f, 0f, 0f, 0f);
+                }
+            }
+            tex.SetPixels(px);
+            tex.Apply(false, false);
+            closeXSpriteCache = Sprite.Create(tex, new Rect(0, 0, s, s), new Vector2(0.5f, 0.5f), 100f);
+            closeXSpriteCache.name = "UI_CloseX_Mark";
+            return closeXSpriteCache;
+        }
+
+        private static float DistanceToSegment(float px, float py, float ax, float ay, float bx, float by)
+        {
+            float dx = bx - ax;
+            float dy = by - ay;
+            float lenSq = dx * dx + dy * dy;
+            float t = (lenSq > 0.0001f) ? Mathf.Clamp01(((px - ax) * dx + (py - ay) * dy) / lenSq) : 0f;
+            float qx = ax + t * dx;
+            float qy = ay + t * dy;
+            return Vector2.Distance(new Vector2(px, py), new Vector2(qx, qy));
+        }
+
+        public static void BindCloseMark(Text label)
+        {
+            if (label == null) return;
+            label.enabled = false;
+            label.text = "X";
+            ApplyCloseMarkGraphic(label.transform.parent);
+        }
+
+        public static void ApplyCloseMarkGraphic(Transform closeButtonRoot)
+        {
+            if (closeButtonRoot == null) return;
+            if (closeButtonRoot.Find("CloseMarkGraphic") != null) return;
+
+            GameObject mark = new GameObject("CloseMarkGraphic");
+            mark.transform.SetParent(closeButtonRoot, false);
+            RectTransform rt = mark.AddComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.22f, 0.22f);
+            rt.anchorMax = new Vector2(0.78f, 0.78f);
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            rt.anchoredPosition = Vector2.zero;
+
+            Image img = mark.AddComponent<Image>();
+            img.sprite = GetCloseXSprite();
+            img.color = Color.white;
+            img.raycastTarget = false;
+            img.preserveAspect = true;
+        }
+
+        public static GameObject CreateCornerCloseButton(Transform parent, UnityAction onClose, float size = 52f)
+        {
+            GameObject closeObj = new GameObject("CloseBtn");
+            closeObj.transform.SetParent(parent, false);
+            RectTransform clRect = closeObj.AddComponent<RectTransform>();
+            clRect.anchorMin = new Vector2(1f, 1f);
+            clRect.anchorMax = new Vector2(1f, 1f);
+            clRect.pivot = new Vector2(1f, 1f);
+            clRect.anchoredPosition = new Vector2(-12f, -12f);
+            clRect.sizeDelta = new Vector2(size, size);
+
+            Image clBg = closeObj.AddComponent<Image>();
+            int d = Mathf.RoundToInt(size);
+            clBg.sprite = CreateRoundedPillSprite(d, d, d / 2, new Color(0.92f, 0.18f, 0.20f, 1f));
+            clBg.raycastTarget = true;
+
+            Button clBtn = closeObj.AddComponent<Button>();
+            clBtn.targetGraphic = clBg;
+            if (onClose != null) clBtn.onClick.AddListener(onClose);
+
+            ApplyCloseMarkGraphic(closeObj.transform);
+            closeObj.transform.SetAsLastSibling();
+            return closeObj;
         }
     }
 }

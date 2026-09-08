@@ -273,6 +273,10 @@ namespace Farm2Shelf.UI
 
         private void OnStartNewDayClicked()
         {
+            if (CourierManager.Instance != null && CourierManager.Instance.HasOutstandingNightWork())
+            {
+                return;
+            }
             if (canvasObj != null)
             {
                 Destroy(canvasObj);

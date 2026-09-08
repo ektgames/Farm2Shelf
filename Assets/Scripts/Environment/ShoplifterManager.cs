@@ -361,7 +361,7 @@ namespace Farm2Shelf.Environment
                 if (EconomyManager.Instance != null) EconomyManager.Instance.AddCredits(reward);
                 if (FinanceManager.Instance != null)
                 {
-                    string category = LocalizationManager.L("FinCat_Sales", "Satış", "Sales");
+                    string category = FinanceCategories.Sales;
                     string description = string.Format(LocalizationManager.L("FinDesc_RecoveredGoodsFmt", "Hırsızdan Kurtarılan Ürün ({0})", "Goods Recovered from Shoplifter ({0})"), data.stolenProductName);
                     FinanceManager.Instance.RecordIncome(category, description, reward);
                 }
@@ -396,7 +396,7 @@ namespace Farm2Shelf.Environment
             if (EconomyManager.Instance != null) EconomyManager.Instance.AddCredits(reward);
             if (FinanceManager.Instance != null)
             {
-                string category = LocalizationManager.L("FinCat_Sales", "Satış", "Sales");
+                    string category = FinanceCategories.Sales;
                 string description = string.Format(LocalizationManager.L("FinDesc_PlayerCaughtShoplifterFmt", "Hırsız Suçüstü Yakalandı ({0})", "Shoplifter Caught in the Act ({0})"), data.stolenProductName);
                 FinanceManager.Instance.RecordIncome(category, description, reward);
             }

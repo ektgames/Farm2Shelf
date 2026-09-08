@@ -90,10 +90,26 @@ namespace Farm2Shelf.Core
 
         private void Start()
         {
-            if (TimeManager.Instance != null)
-            {
-                TimeManager.Instance.OnMidnightRollover += PayDailySalaries;
-            }
+            BindMidnightPayroll();
+        }
+
+        private void OnEnable()
+        {
+            BindMidnightPayroll();
+        }
+
+        private void BindMidnightPayroll()
+        {
+            if (TimeManager.Instance == null) return;
+            TimeManager.Instance.OnMidnightRollover -= PayDailySalaries;
+            TimeManager.Instance.OnMidnightRollover += PayDailySalaries;
+        }
+
+        public int LastSalaryPaidDay => lastSalaryPaidDay;
+
+        public void SetLastSalaryPaidDay(int day)
+        {
+            lastSalaryPaidDay = day;
         }
 
         public static bool IsFemaleName(string fullName)
@@ -380,47 +396,103 @@ namespace Farm2Shelf.Core
                 return;
             }
 
+            int storeCount = 0;
+            int storePayroll = SumActivePayroll(activeStaffList, out storeCount);
+            int farmCount = 0;
+            int farmPayroll = SumActivePayroll(farmStaffList, out farmCount);
+            int courierCount = 0;
+            int courierPayroll = SumActivePayroll(courierStaffList, out courierCount);
+            int totalPayroll = storePayroll + farmPayroll + courierPayroll;
+
+            if (totalPayroll <= 0)
+            {
+                lastSalaryPaidDay = currentDay;
+                return;
+            }
+
+            if (EconomyManager.Instance == null)
+            {
+                Debug.LogWarning("[GECE YARISI MAAŞ ÖDEMESİ 00:00] EconomyManager yok, maaş ertelendi.");
+                return;
+            }
+
+            int available = EconomyManager.Instance.Credits;
+            int toPay = Mathf.Min(totalPayroll, available);
+            if (toPay > 0)
+            {
+                EconomyManager.Instance.SpendCredits(toPay);
+            }
+
+            int remainingPay = toPay;
+            int paidStore = AllocatePayroll(ref remainingPay, storePayroll);
+            int paidFarm = AllocatePayroll(ref remainingPay, farmPayroll);
+            int paidCourier = AllocatePayroll(ref remainingPay, courierPayroll);
+            bool shortfall = toPay < totalPayroll;
+
+            if (FinanceManager.Instance != null)
+            {
+                if (paidStore > 0)
+                {
+                    FinanceManager.Instance.RecordExpense(
+                        FinanceCategories.Salary,
+                        FormatPayrollLine("Mağaza personeli", "Store staff", storeCount, paidStore, storePayroll, shortfall),
+                        paidStore);
+                }
+                if (paidFarm > 0)
+                {
+                    FinanceManager.Instance.RecordExpense(
+                        FinanceCategories.Salary,
+                        FormatPayrollLine("Çiftlik işçileri", "Farm workers", farmCount, paidFarm, farmPayroll, shortfall),
+                        paidFarm);
+                }
+                if (paidCourier > 0)
+                {
+                    FinanceManager.Instance.RecordExpense(
+                        FinanceCategories.Salary,
+                        FormatPayrollLine("Kurye", "Couriers", courierCount, paidCourier, courierPayroll, shortfall),
+                        paidCourier);
+                }
+            }
+
             lastSalaryPaidDay = currentDay;
-            int totalPayroll = 0;
+            Debug.Log($"[GECE YARISI MAAŞ ÖDEMESİ 00:00] Ödenen {toPay}/{totalPayroll}C | Mağaza {storeCount} | Çiftlik {farmCount} | Kurye {courierCount}");
+        }
 
-            // 1. Mağaza Personeli Maaşları
-            foreach (var staff in activeStaffList)
+        private static int SumActivePayroll(List<StaffMember> list, out int activeCount)
+        {
+            activeCount = 0;
+            int total = 0;
+            if (list == null) return 0;
+            for (int i = 0; i < list.Count; i++)
             {
-                if (staff.isActive) totalPayroll += staff.dailySalary;
+                StaffMember staff = list[i];
+                if (staff == null || !staff.isActive) continue;
+                activeCount++;
+                total += staff.dailySalary;
             }
+            return total;
+        }
 
-            // 2. Çiftlik İşçileri Maaşları (Gece 12'de Kesilir)
-            int farmPayroll = 0;
-            foreach (var farmStaff in farmStaffList)
-            {
-                if (farmStaff.isActive) farmPayroll += farmStaff.dailySalary;
-            }
-            totalPayroll += farmPayroll;
+        private static int AllocatePayroll(ref int remainingPay, int groupNeed)
+        {
+            if (remainingPay <= 0 || groupNeed <= 0) return 0;
+            int paid = Mathf.Min(remainingPay, groupNeed);
+            remainingPay -= paid;
+            return paid;
+        }
 
-            // 3. Kurye Personeli Maaşları (Online Market)
-            int courierPayroll = 0;
-            foreach (var courier in courierStaffList)
+        private static string FormatPayrollLine(string trRole, string enRole, int count, int paid, int due, bool shortfall)
+        {
+            string role = LocalizationManager.L("PayrollRole_" + trRole, trRole, enRole);
+            if (shortfall && paid < due)
             {
-                if (courier.isActive) courierPayroll += courier.dailySalary;
+                return string.Format(
+                    LocalizationManager.L("Payroll_PartialFmt", "Gece 00:00 maaş • {0} ({1} kişi) • kısmi {2:N0}/{3:N0}C", "Midnight payroll • {0} ({1} staff) • partial {2:N0}/{3:N0}C"),
+                    role, count, paid, due);
             }
-            totalPayroll += courierPayroll;
-
-            if (totalPayroll > 0 && EconomyManager.Instance != null)
-            {
-                bool paid = EconomyManager.Instance.SpendCredits(totalPayroll);
-                if (paid)
-                {
-                    if (FinanceManager.Instance != null)
-                    {
-                        FinanceManager.Instance.RecordExpense("Maaş", $"Gece Yarısı Maaş Ödemesi ({activeStaffList.Count} Mağaza, {farmStaffList.Count} Çiftçi, {courierStaffList.Count} Kurye)", totalPayroll);
-                    }
-                    Debug.Log($"[GECE YARISI MAAŞ ÖDEMESİ 00:00] {activeStaffList.Count} Mağaza + {farmStaffList.Count} Çiftlik + {courierStaffList.Count} Kurye çalışanına toplam {totalPayroll} Credit günlük maaş ödendi.");
-                }
-                else
-                {
-                    Debug.LogWarning($"[GECE YARISI MAAŞ ÖDEMESİ 00:00] Yetersiz bakiye! {totalPayroll} Credit personel maaşı ödenemedi.");
-                }
-            }
+            return string.Format(
+                LocalizationManager.L("Payroll_FullFmt", "Gece 00:00 maaş • {0} ({1} kişi)", "Midnight payroll • {0} ({1} staff)"),
+                role, count);
         }
 
         public void UpdateStaffShift(string staffId, string newShift)

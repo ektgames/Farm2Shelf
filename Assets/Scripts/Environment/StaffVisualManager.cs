@@ -93,6 +93,13 @@ namespace Farm2Shelf.Environment
             if (EconomyManager.Instance != null)
             {
                 EconomyManager.Instance.SpendCredits(50);
+                if (FinanceManager.Instance != null)
+                {
+                    FinanceManager.Instance.RecordExpense(
+                        FinanceCategories.Overtime,
+                        string.Format(LocalizationManager.L("FinDesc_EarlyShiftFmt", "Erken mesai çağrısı ({0})", "Early shift call ({0})"), staff.name),
+                        50);
+                }
             }
 
             earlyCalledStaffIds.Add(staff.id);

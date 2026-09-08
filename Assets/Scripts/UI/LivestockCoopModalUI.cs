@@ -88,6 +88,8 @@ namespace Farm2Shelf.UI
             pBg.sprite = UIStyleUtility.CreateOutlinePillSprite(720, 620, 18, 3, new Color(0.95f, 0.72f, 0.20f), new Color(0.10f, 0.14f, 0.18f, 0.98f));
             pBg.raycastTarget = true;
 
+            UIStyleUtility.CreateCornerCloseButton(panel.transform, HideModal, 52f);
+
             string title = IsChicken
                 ? LocalizationManager.L("Coop_Title", "🐔 TAVUK ÇİFTLİĞİ", "🐔 CHICKEN COOP")
                 : LocalizationManager.L("CowBarn_Title", "🐄 İNEK AHIRI", "🐄 COW BARN");
@@ -214,7 +216,7 @@ namespace Farm2Shelf.UI
             if (FinanceManager.Instance != null)
             {
                 FinanceManager.Instance.RecordIncome(
-                    LocalizationManager.L("TrxCat_Farm", "Tohum/Çiftlik", "Seeds/Farm"),
+                    FinanceCategories.Farm,
                     LocalizationManager.L("TrxDesc_LivestockQuickSell", "Kümes hızlı satışı", "Coop quick sell"),
                     total);
             }
@@ -241,12 +243,9 @@ namespace Farm2Shelf.UI
             }
 
             GardenSeedInventoryManager barn = GardenSeedInventoryManager.Instance;
-            if (barn == null || barn.GetTotalBarnStoredAmount() + amount > barn.MaxBarnCapacity)
+            if (barn == null || !barn.CanAddToBarn(amount))
             {
-                ModalManager.ShowModal(
-                    LocalizationManager.L("Coop_BarnFullTitle", "Ahır Dolu", "Barn Full"),
-                    LocalizationManager.L("Coop_BarnFullBody", "Ahır kapasitesi yetersiz. Önce ahırdaki ürünleri sevk edin.", "Barn capacity is full. Ship existing goods first."),
-                    LocalizationManager.L("Btn_Ok", "Tamam", "OK"));
+                GardenSeedInventoryManager.ShowBarnFullModal();
                 return;
             }
 
@@ -256,10 +255,7 @@ namespace Farm2Shelf.UI
             {
                 if (IsChicken) LivestockManager.Instance.AddEggs(amount);
                 else LivestockManager.Instance.AddMilk(amount);
-                ModalManager.ShowModal(
-                    LocalizationManager.L("Coop_BarnFullTitle", "Ahır Dolu", "Barn Full"),
-                    LocalizationManager.L("Coop_BarnFullBody", "Ahır kapasitesi yetersiz. Önce ahırdaki ürünleri sevk edin.", "Barn capacity is full. Ship existing goods first."),
-                    LocalizationManager.L("Btn_Ok", "Tamam", "OK"));
+                GardenSeedInventoryManager.ShowBarnFullModal();
                 return;
             }
 

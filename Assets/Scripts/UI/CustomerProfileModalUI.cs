@@ -166,49 +166,7 @@ namespace Farm2Shelf.UI
             titleTxt.color = new Color(0.80f, 0.50f, 1.0f);
             titleTxt.raycastTarget = false;
 
-            // Üst Sağ Kapat Butonu (X - Yüksek Kalite ve Dokunmatik Dostu)
-            GameObject closeBtnObj = new GameObject("CloseButton");
-            closeBtnObj.transform.SetParent(cardPanel.transform, false);
-            RectTransform closeRect = closeBtnObj.AddComponent<RectTransform>();
-            closeRect.anchorMin = new Vector2(1f, 1f);
-            closeRect.anchorMax = new Vector2(1f, 1f);
-            closeRect.pivot = new Vector2(1f, 1f);
-            closeRect.anchoredPosition = new Vector2(-10f, -10f);
-            closeRect.sizeDelta = new Vector2(46f, 46f);
-
-            Image closeImg = closeBtnObj.AddComponent<Image>();
-            closeImg.sprite = UIStyleUtility.CreateRoundedPillSprite(46, 46, 23, new Color(0.92f, 0.18f, 0.20f, 1f));
-            closeImg.raycastTarget = true;
-
-            Button closeBtn = closeBtnObj.AddComponent<Button>();
-            closeBtn.targetGraphic = closeImg;
-            ColorBlock cb = closeBtn.colors;
-            cb.normalColor = Color.white;
-            cb.highlightedColor = new Color(1.0f, 0.85f, 0.85f, 1f);
-            cb.pressedColor = new Color(0.80f, 0.70f, 0.70f, 1f);
-            cb.selectedColor = cb.normalColor;
-            closeBtn.colors = cb;
-            closeBtn.onClick.AddListener(HideModal);
-
-            GameObject closeTxtObj = new GameObject("Text");
-            closeTxtObj.transform.SetParent(closeBtnObj.transform, false);
-            RectTransform cTxtRect = closeTxtObj.AddComponent<RectTransform>();
-            cTxtRect.anchorMin = Vector2.zero;
-            cTxtRect.anchorMax = Vector2.one;
-            Text cTxt = closeTxtObj.AddComponent<Text>();
-            cTxt.font = UIStyleUtility.GetGlobalFont(26);
-            cTxt.text = "✖";
-            cTxt.fontSize = 26;
-            cTxt.fontStyle = FontStyle.Bold;
-            cTxt.alignment = TextAnchor.MiddleCenter;
-            cTxt.color = Color.white;
-            cTxt.raycastTarget = false;
-
-            Outline cOutline = closeTxtObj.AddComponent<Outline>();
-            cOutline.effectColor = new Color(0f, 0f, 0f, 0.85f);
-            cOutline.effectDistance = new Vector2(1.5f, -1.5f);
-
-            closeButtonTransform = closeBtnObj.transform;
+            closeButtonTransform = UIStyleUtility.CreateCornerCloseButton(cardPanel.transform, HideModal, 52f).transform;
 
             // 1. PROFİL FOTOĞRAFI KUTUSU (Realistic Portrait Avatar Box)
             GameObject avatarBox = new GameObject("AvatarBox");
@@ -404,7 +362,7 @@ namespace Farm2Shelf.UI
             bctRect.anchorMax = Vector2.one;
             Text bcTxt = bcTxtObj.AddComponent<Text>();
             bcTxt.font = UIStyleUtility.GetGlobalFont(20);
-            bcTxt.text = LocalizationManager.L("Btn_Close", "✕ Kapat", "✕ Close");
+            bcTxt.text = LocalizationManager.L("Btn_Close", "Kapat", "Close");
             bcTxt.fontSize = 20;
             bcTxt.fontStyle = FontStyle.Bold;
             bcTxt.alignment = TextAnchor.MiddleCenter;

@@ -120,7 +120,7 @@ namespace Farm2Shelf.UI
 
             Text tText = titleObj.AddComponent<Text>();
             tText.font = font;
-            tText.text = LocalizationManager.L("Pause_Title", "⏸️ DURAKLATMA MENÜSÜ", "⏸️ PAUSE MENU");
+            tText.text = LocalizationManager.L("Pause_Title", "DURAKLATMA MENÜSÜ", "PAUSE MENU");
             tText.fontSize = 26;
             tText.fontStyle = FontStyle.Bold;
             tText.alignment = TextAnchor.MiddleCenter;
@@ -129,11 +129,11 @@ namespace Farm2Shelf.UI
             // ==================== MENÜ BUTONLARI (5 ADET - SIRASIYLA) ====================
             string[] buttonTitles = new string[]
             {
-                LocalizationManager.L("Pause_Resume", "▶ OYUNA DEVAM ET", "▶ RESUME GAME"),
-                LocalizationManager.L("Pause_Save", "💾 OYUNU KAYDET", "💾 SAVE GAME"),
-                LocalizationManager.L("Pause_Load", "📂 KAYITLI OYUN YÜKLE", "📂 LOAD GAME"),
-                LocalizationManager.L("Pause_Settings", "⚙️ AYARLAR", "⚙️ SETTINGS"),
-                LocalizationManager.L("Pause_MainMenu", "🏠 ANA MENÜYE DÖN / ÇIKIŞ", "🏠 MAIN MENU / EXIT")
+                LocalizationManager.L("Pause_Resume", "OYUNA DEVAM ET", "RESUME GAME"),
+                LocalizationManager.L("Pause_Save", "OYUNU KAYDET", "SAVE GAME"),
+                LocalizationManager.L("Pause_Load", "KAYITLI OYUN YÜKLE", "LOAD GAME"),
+                LocalizationManager.L("Pause_Settings", "AYARLAR", "SETTINGS"),
+                LocalizationManager.L("Pause_MainMenu", "ANA MENÜYE DÖN / ÇIKIŞ", "MAIN MENU / EXIT")
             };
 
             Color[] buttonColors = new Color[]

@@ -210,35 +210,7 @@ namespace Farm2Shelf.UI
             totalStoredText.color = Color.white;
             totalStoredText.raycastTarget = false;
 
-            // Kapat Butonu (X)
-            GameObject closeObj = new GameObject("CloseBtn");
-            closeObj.transform.SetParent(panelObj.transform, false);
-            RectTransform clRect = closeObj.AddComponent<RectTransform>();
-            clRect.anchoredPosition = new Vector2(365f, 245f);
-            clRect.sizeDelta = new Vector2(44f, 44f);
-
-            Image clBg = closeObj.AddComponent<Image>();
-            clBg.sprite = UIStyleUtility.CreateRoundedPillSprite(44, 44, 22, new Color(0.92f, 0.18f, 0.20f, 1f));
-            clBg.raycastTarget = true;
-
-            Button clBtn = closeObj.AddComponent<Button>();
-            clBtn.targetGraphic = clBg;
-            clBtn.onClick.AddListener(CloseUI);
-
-            GameObject clTxtObj = new GameObject("X");
-            clTxtObj.transform.SetParent(closeObj.transform, false);
-            RectTransform cltRect = clTxtObj.AddComponent<RectTransform>();
-            cltRect.anchorMin = Vector2.zero;
-            cltRect.anchorMax = Vector2.one;
-
-            Text clTxt = clTxtObj.AddComponent<Text>();
-            clTxt.font = font;
-            clTxt.text = "✖";
-            clTxt.fontSize = 24;
-            clTxt.fontStyle = FontStyle.Bold;
-            clTxt.alignment = TextAnchor.MiddleCenter;
-            clTxt.color = Color.white;
-            clTxt.raycastTarget = false;
+            UIStyleUtility.CreateCornerCloseButton(panelObj.transform, CloseUI, 52f);
 
             // Scroll View
             GameObject scrollObj = new GameObject("ScrollView");

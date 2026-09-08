@@ -1584,20 +1584,7 @@ namespace Farm2Shelf.Environment
 
         private static void Create3DLabel(string trText, string enText, Transform parent, Vector3 localPos, Color color)
         {
-            GameObject labelObj = new GameObject("3D_World_Label");
-            labelObj.transform.SetParent(parent, false);
-            labelObj.transform.localPosition = localPos;
-
-            TextMesh textMesh = labelObj.AddComponent<TextMesh>();
-            textMesh.text = LocalizationManager.Instance != null && LocalizationManager.Instance.CurrentLanguage == GameLanguage.English ? enText : trText;
-            textMesh.fontSize = 32;
-            textMesh.characterSize = 0.085f;
-            textMesh.anchor = TextAnchor.MiddleCenter;
-            textMesh.alignment = TextAlignment.Center;
-            textMesh.color = color;
-            textMesh.fontStyle = FontStyle.Bold;
-
-            labelObj.transform.localRotation = Quaternion.Euler(45f, 0f, 0f);
+            // Harita üzerindeki 3D yön/isim yazıları gösterilmez.
         }
 
         #endregion

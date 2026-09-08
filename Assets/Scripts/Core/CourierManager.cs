@@ -141,6 +141,12 @@ namespace Farm2Shelf.Core
                 }
             }
             SyncCouriersWithTime(false);
+
+            // Vardiya 24:00'da bitse bile bagajdaki / yoldaki sipariş teslim edilmeden kurye evine gönderilmez.
+            for (int i = 0; i < spawnedMotorcycles.Count; i++)
+            {
+                CheckAndDispatchOvernightOrders(spawnedMotorcycles[i]);
+            }
         }
 
         public void RestoreOwnedMotorcycles(int targetCount)
@@ -235,7 +241,7 @@ namespace Farm2Shelf.Core
 
             if (FinanceManager.Instance != null)
             {
-                string cat = LocalizationManager.L("FinCat_Vehicles", "Araçlar & Filo", "Vehicles & Fleet");
+                string cat = FinanceCategories.Vehicles;
                 string desc = string.Format(LocalizationManager.L("FinDesc_MotorcycleBuy", "Kurye Motorsikleti #{0} Satın Alımı", "Courier Motorcycle #{0} Purchase"), OwnedMotorcycleCount + 1);
                 FinanceManager.Instance.RecordExpense(cat, desc, MOTORCYCLE_PRICE);
             }
@@ -298,14 +304,50 @@ namespace Farm2Shelf.Core
         public bool IsMotorcycleDrivingOnRoad(CourierMotorcycleController moto)
         {
             if (moto == null) return false;
-            return moto.CurrentState == MotorcycleState.EnRouteDelivery ||
+            return moto.CurrentState == MotorcycleState.Departing ||
+                   moto.CurrentState == MotorcycleState.EnRouteDelivery ||
                    moto.CurrentState == MotorcycleState.DeliveringAtDoorstep ||
                    moto.CurrentState == MotorcycleState.ReturningToStore;
         }
 
         public bool IsMotorcycleBusy(CourierMotorcycleController moto)
         {
-            return IsMotorcycleDrivingOnRoad(moto);
+            return ShouldKeepCourierOnDuty(moto);
+        }
+
+        /// <summary>
+        /// Vardiya bitmiş olsa bile kuryenin motorda kalması gereken durum:
+        /// yüklenmiş kargo, reyoncu yüklemesi veya yoldaki teslimat.
+        /// </summary>
+        public bool ShouldKeepCourierOnDuty(CourierMotorcycleController moto)
+        {
+            if (moto == null) return false;
+            if (moto.IsDeliveryTripInProgress) return true;
+            if (IsMotorcycleDrivingOnRoad(moto)) return true;
+            if (moto.CurrentState == MotorcycleState.WaitingForStocker) return true;
+            if (moto.LoadedOrders != null && moto.LoadedOrders.Count > 0) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Gece 24:00 tahliyesi / Z raporu: müşteri gibi kurye teslimatı da bitmeli.
+        /// </summary>
+        public bool HasOutstandingNightWork()
+        {
+            if (StaffTaskController.Instance != null && StaffTaskController.Instance.HasActiveOnlineOrderCourierWork())
+            {
+                return true;
+            }
+
+            for (int i = 0; i < spawnedMotorcycles.Count; i++)
+            {
+                if (ShouldKeepCourierOnDuty(spawnedMotorcycles[i]))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static bool SameCourier(StaffMember a, StaffMember b)
@@ -391,7 +433,7 @@ namespace Farm2Shelf.Core
                     bool sameAssigned = SameCourier(state.assignedCourier, scheduledCourier);
                     bool sameIncoming = SameCourier(state.incomingCourier, scheduledCourier);
 
-                    if (IsMotorcycleDrivingOnRoad(moto))
+                    if (IsMotorcycleDrivingOnRoad(moto) || moto.IsDeliveryTripInProgress)
                     {
                         if (!sameAssigned && !sameIncoming &&
                             state.dutyState != CourierDutyState.WalkingToBay &&
@@ -440,7 +482,7 @@ namespace Farm2Shelf.Core
                 }
                 else
                 {
-                    if (IsMotorcycleDrivingOnRoad(moto))
+                    if (ShouldKeepCourierOnDuty(moto))
                     {
                         continue;
                     }
@@ -670,9 +712,8 @@ namespace Farm2Shelf.Core
         public void CheckAndDispatchOvernightOrders(CourierMotorcycleController moto)
         {
             if (moto == null || moto.LoadedOrders == null || moto.LoadedOrders.Count == 0) return;
-
-            int hour = (TimeManager.Instance != null) ? TimeManager.Instance.Hour : 8;
-            if (hour < 8 || hour >= 24) return; // Gece dükkan kapalıyken teslimata çıkılmaz
+            if (moto.AssignedCourier == null && moto.CourierRiderObj == null) return;
+            if (moto.IsDeliveryTripInProgress || IsMotorcycleDrivingOnRoad(moto)) return;
 
             bool allGathered = true;
             for (int i = 0; i < moto.LoadedOrders.Count; i++)

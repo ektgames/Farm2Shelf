@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Farm2Shelf.UI;
 
 namespace Farm2Shelf.Core
 {
@@ -133,6 +134,16 @@ namespace Farm2Shelf.Core
             return total;
         }
 
+        public int GetBarnFreeSpace()
+        {
+            return Mathf.Max(0, MaxBarnCapacity - GetTotalBarnStoredAmount());
+        }
+
+        public bool CanAddToBarn(int amount)
+        {
+            return amount > 0 && GetBarnFreeSpace() >= amount;
+        }
+
         public bool AddBarnCrop(string seedId, int amount)
         {
             return TryAddCropToBarn(seedId, amount);
@@ -141,16 +152,34 @@ namespace Farm2Shelf.Core
         public bool TryAddCropToBarn(string seedId, int amount)
         {
             if (string.IsNullOrEmpty(seedId) || amount <= 0) return false;
-            int currentTotal = GetTotalBarnStoredAmount();
-            int spaceLeft = MaxBarnCapacity - currentTotal;
-            if (spaceLeft <= 0) return false;
+            if (!CanAddToBarn(amount)) return false;
 
-            int amountToAdd = Mathf.Min(spaceLeft, amount);
             if (!barnCropInventory.ContainsKey(seedId)) barnCropInventory[seedId] = 0;
-            barnCropInventory[seedId] += amountToAdd;
-
+            barnCropInventory[seedId] += amount;
             OnInventoryUpdated?.Invoke();
             return true;
+        }
+
+        public void RestoreBarnCrops(Dictionary<string, int> crops)
+        {
+            barnCropInventory.Clear();
+            if (crops != null)
+            {
+                foreach (var kvp in crops)
+                {
+                    if (string.IsNullOrEmpty(kvp.Key) || kvp.Value <= 0) continue;
+                    barnCropInventory[kvp.Key] = kvp.Value;
+                }
+            }
+            OnInventoryUpdated?.Invoke();
+        }
+
+        public static void ShowBarnFullModal()
+        {
+            ModalManager.ShowModal(
+                LocalizationManager.L("Modal_BarnFullTitle", "Ahır Dolu! ⚠️", "Barn Full! ⚠️"),
+                LocalizationManager.L("Modal_BarnFullBody", "Ahır kapasitesi doldu. Ürünler ziyan edilmedi.\n\nAhırdaki mahsul veya atölye ürünlerini dükkana sevk edin, satın veya ahırı geliştirin; sonra tekrar deneyin.", "Barn capacity is full. Nothing was wasted.\n\nShip, sell, or upgrade barn storage first, then try again."),
+                LocalizationManager.L("Btn_Ok", "Tamam", "OK"));
         }
 
         public int GetBarnCropCount(string seedId)

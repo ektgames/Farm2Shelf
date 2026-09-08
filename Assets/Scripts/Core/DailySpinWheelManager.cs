@@ -115,7 +115,7 @@ namespace Farm2Shelf.Core
             if (FinanceManager.Instance != null)
             {
                 FinanceManager.Instance.RecordIncome(
-                    LocalizationManager.L("FinCat_DailySpin", "Günlük Çark", "Daily Wheel"),
+                    FinanceCategories.DailySpin,
                     LocalizationManager.L("FinDesc_DailySpin", "Günlük Şans Çarkı Ödülü", "Daily Fortune Wheel Reward"),
                     prizeAmount);
             }

@@ -21,6 +21,12 @@ namespace Farm2Shelf.Environment
         public const float CowMaxZ = 39.8f;
         public static readonly Vector3 CowHome = new Vector3(59.2f, 0f, 33.6f);
 
+        // EnvironmentBuilder kümes 5.4x3.6, ahır 6.6x4.8; kapılar -Z (bahçe) yüzünde.
+        private const float ChickenFootprintHalfX = 3.45f;
+        private const float ChickenFootprintHalfZ = 2.45f;
+        private const float CowFootprintHalfX = 4.15f;
+        private const float CowFootprintHalfZ = 3.20f;
+
         private readonly Dictionary<LivestockType, int> owned = new Dictionary<LivestockType, int>();
         private int eggCount;
         private int milkCount;
@@ -305,16 +311,232 @@ namespace Farm2Shelf.Environment
             for (int i = 0; i < count; i++)
             {
                 GameObject go = LivestockModelBuilder.BuildAnimal(type, animalRoot);
-                Vector3 pos = new Vector3(
-                    UnityEngine.Random.Range(min.x, max.x),
-                    0f,
-                    UnityEngine.Random.Range(min.z, max.z));
-                go.transform.position = pos;
-                go.transform.rotation = Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f);
                 LivestockYardAgent agent = go.AddComponent<LivestockYardAgent>();
-                agent.Configure(type, min, max, home);
+                agent.Configure(type, min, max, home, i);
                 spawned.Add(agent);
             }
+        }
+
+        public static void GetBuildingFootprint(bool chicken, out Vector3 bMin, out Vector3 bMax)
+        {
+            Vector3 home = chicken ? ChickenHome : CowHome;
+            float hx = chicken ? ChickenFootprintHalfX : CowFootprintHalfX;
+            float hz = chicken ? ChickenFootprintHalfZ : CowFootprintHalfZ;
+            bMin = new Vector3(home.x - hx, 0f, home.z - hz);
+            bMax = new Vector3(home.x + hx, 0f, home.z + hz);
+        }
+
+        public static Vector3 GetDoorOutside(bool chicken, float lateralOffset = 0f)
+        {
+            Vector3 home = chicken ? ChickenHome : CowHome;
+            GetBuildingFootprint(chicken, out Vector3 bMin, out Vector3 bMax);
+            float maxOffset = chicken ? 0.35f : 0.70f;
+            float x = Mathf.Clamp(home.x + lateralOffset, home.x - maxOffset, home.x + maxOffset);
+            float z = bMin.z - (chicken ? 1.05f : 1.25f);
+            return new Vector3(x, 0f, z);
+        }
+
+        public static Vector3 GetDoorInside(bool chicken, float lateralOffset = 0f)
+        {
+            Vector3 home = chicken ? ChickenHome : CowHome;
+            float maxOffset = chicken ? 0.28f : 0.55f;
+            float x = Mathf.Clamp(home.x + lateralOffset, home.x - maxOffset, home.x + maxOffset);
+            float z = home.z - (chicken ? 0.55f : 0.70f);
+            return new Vector3(x, 0f, z);
+        }
+
+        public static bool IsInDoorCorridor(bool chicken, Vector3 pos)
+        {
+            Vector3 home = chicken ? ChickenHome : CowHome;
+            Vector3 outside = GetDoorOutside(chicken);
+            Vector3 inside = GetDoorInside(chicken);
+            float halfW = chicken ? 0.70f : 1.45f;
+            float minZ = Mathf.Min(outside.z, inside.z) - 0.15f;
+            float maxZ = Mathf.Max(outside.z, inside.z) + 0.20f;
+            return Mathf.Abs(pos.x - home.x) <= halfW && pos.z >= minZ && pos.z <= maxZ;
+        }
+
+        public static bool IsInsideBuilding(bool chicken, Vector3 pos)
+        {
+            GetBuildingFootprint(chicken, out Vector3 bMin, out Vector3 bMax);
+            return pos.x >= bMin.x && pos.x <= bMax.x && pos.z >= bMin.z && pos.z <= bMax.z;
+        }
+
+        public static Vector3 ConstrainToYard(bool chicken, Vector3 pos, Vector3 min, Vector3 max, bool allowDoorTransit)
+        {
+            pos.x = Mathf.Clamp(pos.x, min.x, max.x);
+            pos.z = Mathf.Clamp(pos.z, min.z, max.z);
+            pos.y = 0f;
+
+            if (allowDoorTransit && IsInDoorCorridor(chicken, pos))
+            {
+                return pos;
+            }
+
+            if (!IsInsideBuilding(chicken, pos))
+            {
+                return pos;
+            }
+
+            GetBuildingFootprint(chicken, out Vector3 bMin, out Vector3 bMax);
+            if (IsInDoorCorridor(chicken, pos))
+            {
+                pos.z = bMin.z - 0.35f;
+                pos.x = Mathf.Clamp(pos.x, min.x, max.x);
+                pos.z = Mathf.Clamp(pos.z, min.z, max.z);
+                return pos;
+            }
+
+            float dLeft = pos.x - bMin.x;
+            float dRight = bMax.x - pos.x;
+            float dFront = pos.z - bMin.z;
+            float dBack = bMax.z - pos.z;
+            float nearest = Mathf.Min(dLeft, Mathf.Min(dRight, Mathf.Min(dFront, dBack)));
+            const float push = 0.18f;
+            if (nearest == dFront) pos.z = bMin.z - push;
+            else if (nearest == dBack) pos.z = bMax.z + push;
+            else if (nearest == dLeft) pos.x = bMin.x - push;
+            else pos.x = bMax.x + push;
+
+            pos.x = Mathf.Clamp(pos.x, min.x, max.x);
+            pos.z = Mathf.Clamp(pos.z, min.z, max.z);
+            return pos;
+        }
+
+        public static Vector3 RandomYardPoint(bool chicken, Vector3 min, Vector3 max)
+        {
+            GetBuildingFootprint(chicken, out Vector3 bMin, out Vector3 bMax);
+            int sector = UnityEngine.Random.Range(0, 4);
+            Vector3 p = Vector3.zero;
+            for (int attempt = 0; attempt < 8; attempt++)
+            {
+                int s = (sector + attempt) % 4;
+                if (s == 0)
+                {
+                    p = new Vector3(UnityEngine.Random.Range(min.x, max.x), 0f, UnityEngine.Random.Range(min.z, Mathf.Max(min.z + 0.2f, bMin.z - 0.55f)));
+                }
+                else if (s == 1)
+                {
+                    p = new Vector3(UnityEngine.Random.Range(min.x, max.x), 0f, UnityEngine.Random.Range(Mathf.Min(max.z - 0.2f, bMax.z + 0.55f), max.z));
+                }
+                else if (s == 2)
+                {
+                    p = new Vector3(UnityEngine.Random.Range(min.x, Mathf.Max(min.x + 0.2f, bMin.x - 0.55f)), 0f, UnityEngine.Random.Range(min.z, max.z));
+                }
+                else
+                {
+                    p = new Vector3(UnityEngine.Random.Range(Mathf.Min(max.x - 0.2f, bMax.x + 0.55f), max.x), 0f, UnityEngine.Random.Range(min.z, max.z));
+                }
+
+                p = ConstrainToYard(chicken, p, min, max, false);
+                if (!IsInsideBuilding(chicken, p) && !IsInDoorCorridor(chicken, p))
+                {
+                    return p;
+                }
+            }
+
+            return GetDoorOutside(chicken);
+        }
+
+        public static bool PathHitsBuilding(bool chicken, Vector3 from, Vector3 dest)
+        {
+            for (int i = 1; i <= 8; i++)
+            {
+                Vector3 p = Vector3.Lerp(from, dest, i / 8f);
+                if (IsInsideBuilding(chicken, p) && !IsInDoorCorridor(chicken, p))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public static Vector3 SlideMove(bool chicken, Vector3 from, Vector3 delta, Vector3 min, Vector3 max, bool doorTransit)
+        {
+            Vector3 desired = from + delta;
+            Vector3 full = ConstrainToYard(chicken, desired, min, max, doorTransit);
+            if (doorTransit || !IsInsideBuilding(chicken, full))
+            {
+                return full;
+            }
+
+            Vector3 xOnly = ConstrainToYard(chicken, new Vector3(from.x + delta.x, 0f, from.z), min, max, doorTransit);
+            if (doorTransit || !IsInsideBuilding(chicken, xOnly))
+            {
+                return xOnly;
+            }
+
+            Vector3 zOnly = ConstrainToYard(chicken, new Vector3(from.x, 0f, from.z + delta.z), min, max, doorTransit);
+            if (doorTransit || !IsInsideBuilding(chicken, zOnly))
+            {
+                return zOnly;
+            }
+
+            return ConstrainToYard(chicken, from, min, max, false);
+        }
+
+        public static Vector3 NextWaypointAroundBuilding(bool chicken, Vector3 from, Vector3 destination, Vector3 min, Vector3 max)
+        {
+            GetBuildingFootprint(chicken, out Vector3 bMin, out Vector3 bMax);
+            Vector3 dest = destination;
+            dest.y = 0f;
+            from.y = 0f;
+
+            bool fromSouth = from.z < bMin.z - 0.02f;
+            bool fromNorth = from.z > bMax.z + 0.02f;
+            bool destSouth = dest.z < bMin.z - 0.02f;
+            bool destNorth = dest.z > bMax.z + 0.02f;
+            bool fromWest = from.x < bMin.x - 0.02f;
+            bool fromEast = from.x > bMax.x + 0.02f;
+            bool destWest = dest.x < bMin.x - 0.02f;
+            bool destEast = dest.x > bMax.x + 0.02f;
+            bool crossZ = (fromSouth && destNorth) || (fromNorth && destSouth);
+            bool crossX = (fromWest && destEast) || (fromEast && destWest);
+            bool fromInside = IsInsideBuilding(chicken, from) && !IsInDoorCorridor(chicken, from);
+            bool hits = PathHitsBuilding(chicken, from, dest);
+
+            if (!crossZ && !crossX && !fromInside && !hits)
+            {
+                return dest;
+            }
+
+            float centerX = (bMin.x + bMax.x) * 0.5f;
+            bool goEast = from.x >= centerX;
+            if (fromEast) goEast = true;
+            if (fromWest) goEast = false;
+            float sideX = goEast
+                ? Mathf.Min(max.x, bMax.x + 0.85f)
+                : Mathf.Max(min.x, bMin.x - 0.85f);
+
+            if (fromInside || hits || (from.x > bMin.x - 0.2f && from.x < bMax.x + 0.2f && from.z > bMin.z - 0.2f && from.z < bMax.z + 0.2f))
+            {
+                if (Mathf.Abs(from.x - sideX) > 0.22f)
+                {
+                    return new Vector3(sideX, 0f, Mathf.Clamp(from.z, min.z, max.z));
+                }
+            }
+
+            if (Mathf.Abs(from.z - dest.z) > 0.28f && (crossZ || hits))
+            {
+                return new Vector3(from.x, 0f, dest.z);
+            }
+
+            if (crossX)
+            {
+                float centerZ = (bMin.z + bMax.z) * 0.5f;
+                bool goNorth = from.z >= centerZ;
+                if (fromNorth) goNorth = true;
+                if (fromSouth) goNorth = false;
+                float sideZ = goNorth
+                    ? Mathf.Min(max.z, bMax.z + 0.50f)
+                    : Mathf.Max(min.z, bMin.z - 0.50f);
+                if (Mathf.Abs(from.z - sideZ) > 0.28f)
+                {
+                    return new Vector3(Mathf.Clamp(from.x, min.x, max.x), 0f, sideZ);
+                }
+            }
+
+            return dest;
         }
 
         private void EnsureRoot()

@@ -47,11 +47,21 @@ namespace Farm2Shelf.Environment
 
         private void OnEnable()
         {
-            if (LocalizationManager.Instance != null)
-            {
-                LocalizationManager.Instance.OnLanguageChanged -= HandleLanguageChanged;
-                LocalizationManager.Instance.OnLanguageChanged += HandleLanguageChanged;
-            }
+            SubscribeLocalization();
+        }
+
+        private void Start()
+        {
+            SubscribeLocalization();
+            Refresh3DLabel();
+        }
+
+        private void SubscribeLocalization()
+        {
+            LocalizationManager.EnsureForGameplay();
+            if (LocalizationManager.Instance == null) return;
+            LocalizationManager.Instance.OnLanguageChanged -= HandleLanguageChanged;
+            LocalizationManager.Instance.OnLanguageChanged += HandleLanguageChanged;
         }
 
         private void OnDisable()
@@ -69,10 +79,8 @@ namespace Farm2Shelf.Environment
 
         public void Refresh3DLabel()
         {
-            if (worldLabelMesh != null)
-            {
-                worldLabelMesh.text = LocalizationManager.L("Label3D_Workshop", "ATÖLYE", "WORKSHOP");
-            }
+            if (worldLabelMesh == null) return;
+            worldLabelMesh.text = LocalizationManager.L("Label3D_Workshop", "ATÖLYE", "WORKSHOP");
         }
 
         private void InitializeMaterials()
@@ -315,29 +323,6 @@ namespace Farm2Shelf.Environment
                 Destroy(slat.GetComponent<Collider>());
             }
 
-            // 3D Başlık Tabelası
-            GameObject signBoard = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            signBoard.name = "Pallet_Header_Board";
-            signBoard.transform.SetParent(palletStorage.transform, false);
-            signBoard.transform.localPosition = new Vector3(0f, rackH + 0.25f, -halfD);
-            signBoard.transform.localScale = new Vector3(2.4f, 0.40f, 0.08f);
-            signBoard.GetComponent<Renderer>().sharedMaterial = CreateSolidMaterial("WorkshopSignBgMat", new Color(0.12f, 0.16f, 0.22f), 0.2f, 0.8f);
-            Destroy(signBoard.GetComponent<Collider>());
-
-            GameObject textObj = new GameObject("LabelText");
-            textObj.transform.SetParent(signBoard.transform, false);
-            textObj.transform.localPosition = new Vector3(0f, 0f, -0.55f);
-
-            TextMesh tm = textObj.AddComponent<TextMesh>();
-            tm.text = LocalizationManager.L("Label3D_RawPallet", "📦 HAMMADDE PALETİ", "📦 RAW MATERIAL PALLET");
-            tm.fontSize = 32;
-            tm.characterSize = 0.05f;
-            tm.alignment = TextAlignment.Center;
-            tm.anchor = TextAnchor.MiddleCenter;
-            tm.color = new Color(0.95f, 0.65f, 0.20f);
-            tm.fontStyle = FontStyle.Bold;
-
-            // Koli Yığını Container'ı
             Transform boxContainer = new GameObject("Workshop_Boxes_Container").transform;
             boxContainer.SetParent(palletStorage.transform, false);
             boxContainer.localPosition = Vector3.zero;
@@ -698,15 +683,16 @@ namespace Farm2Shelf.Environment
             GameObject textObj = new GameObject("Label_Text");
             textObj.transform.SetParent(signObj.transform, false);
             textObj.transform.localPosition = new Vector3(0f, 0f, -0.16f);
+            textObj.transform.localScale = Vector3.one;
 
             worldLabelMesh = textObj.AddComponent<TextMesh>();
-            worldLabelMesh.text = LocalizationManager.L("Label3D_Workshop", "ATÖLYE", "WORKSHOP");
             worldLabelMesh.fontSize = 62;
             worldLabelMesh.characterSize = 0.088f;
             worldLabelMesh.alignment = TextAlignment.Center;
             worldLabelMesh.anchor = TextAnchor.MiddleCenter;
             worldLabelMesh.color = new Color(1.0f, 0.96f, 0.88f);
             worldLabelMesh.fontStyle = FontStyle.Bold;
+            Refresh3DLabel();
         }
 
         private void BuildCeilingLightingAndTrusses(float centerX, float frontZ, float backZ, float width, float wallH)

@@ -2217,6 +2217,7 @@ namespace Farm2Shelf.Environment
 
             CreateFarmFenceAndTreeEnclosure(farmGroup);
             CreateEastLivestockYards(farmGroup);
+            CreateFarmStoneLaneNetwork(farmGroup);
 
             // GÖLÜ TAM ORTAYA KOY (Z = 15.0m, X = 33.0m)
             GameObject pond = new GameObject("Farm_Water_Pond");
@@ -2348,28 +2349,7 @@ namespace Farm2Shelf.Environment
 
         private void CreateLabel(string textTr, string textEn, Transform parent, Vector3 pos, Color color, float yRotation = 0f)
         {
-            GameObject labelObj = new GameObject("Label_" + textTr);
-            labelObj.transform.SetParent(parent);
-            labelObj.transform.localPosition = pos;
-            labelObj.transform.localRotation = Quaternion.Euler(0f, yRotation, 0f);
-
-            TextMesh textMesh = labelObj.AddComponent<TextMesh>();
-            textMesh.text = LocalizationManager.L("Label3D_" + textTr, textTr, textEn);
-            textMesh.fontSize = 32;
-            textMesh.characterSize = 0.15f;
-            textMesh.color = color;
-            textMesh.alignment = TextAlignment.Center;
-            textMesh.anchor = TextAnchor.MiddleCenter;
-            textMesh.fontStyle = FontStyle.Bold;
-
-            MeshRenderer labelRenderer = labelObj.GetComponent<MeshRenderer>();
-            if (labelRenderer != null)
-            {
-                labelRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                labelRenderer.receiveShadows = false;
-            }
-
-            activeWorldLabels.Add(new World3DLabelInfo { mesh = textMesh, textTr = textTr, textEn = textEn });
+            // Harita üzerindeki 3D yön/isim yazıları gösterilmez.
         }
 
         private void CreateLabel(string text, Transform parent, Vector3 pos, Color color, float yRotation = 0f)
@@ -2847,32 +2827,46 @@ namespace Farm2Shelf.Environment
             float maxZ = 42.0f; // Çit iç sınırı Z=42.0m
             float stepSize = 3.0f;
 
-            // 1. KUZEY (AĞAÇLAR ÇİTİN DIŞINDA Z=43.1m'DE, TOP KALDIRIMDAN 0.9m ÖNCE ÇİMDE DURUR)
+            // 1. KUZEY
             for (float x = minX; x < maxX; x += stepSize)
             {
                 float railLen = Mathf.Min(stepSize, maxX - x);
                 CreateFencePostAndRail(enclosureGroup.transform, new Vector3(x, 0f, maxZ), true, railLen);
-                CreateFarmPerimeterTree(enclosureGroup.transform, new Vector3(x + (railLen / 2f), 0f, maxZ + 1.1f));
             }
             CreateFencePostOnly(enclosureGroup.transform, new Vector3(maxX, 0f, maxZ));
+            PlantFarmTreesAlongX(enclosureGroup.transform, maxZ + 1.1f, minX + 1.6f, maxX - 1.4f);
 
-            // 2. DOĞU (AĞAÇLAR ÇİTİN DIŞINDA SAĞ KENAR X=49.7m'DE DURUR)
+            // 2. DOĞU — tarla ile kümes arasındaki ağaçlar kaldırıldı (kaldırım kenarına taşındı).
+            // Z≈21.2 taş patika için çitte açıklık bırakılır.
+            const float laneGapMinZ = 20.05f;
+            const float laneGapMaxZ = 22.35f;
             for (float z = minZ; z < maxZ; z += stepSize)
             {
                 float railLen = Mathf.Min(stepSize, maxZ - z);
-                CreateFencePostAndRail(enclosureGroup.transform, new Vector3(maxX, 0f, z), false, railLen);
-                CreateFarmPerimeterTree(enclosureGroup.transform, new Vector3(maxX + 1.2f, 0f, z + (railLen / 2f)));
+                float railEnd = z + railLen;
+                if (railEnd <= laneGapMinZ || z >= laneGapMaxZ)
+                {
+                    CreateFencePostAndRail(enclosureGroup.transform, new Vector3(maxX, 0f, z), false, railLen);
+                    continue;
+                }
+
+                if (z < laneGapMinZ)
+                    CreateFencePostAndRail(enclosureGroup.transform, new Vector3(maxX, 0f, z), false, laneGapMinZ - z);
+                if (railEnd > laneGapMaxZ)
+                    CreateFencePostAndRail(enclosureGroup.transform, new Vector3(maxX, 0f, laneGapMaxZ), false, railEnd - laneGapMaxZ);
             }
             CreateFencePostOnly(enclosureGroup.transform, new Vector3(maxX, 0f, maxZ));
+            CreateFencePostOnly(enclosureGroup.transform, new Vector3(maxX, 0f, laneGapMinZ));
+            CreateFencePostOnly(enclosureGroup.transform, new Vector3(maxX, 0f, laneGapMaxZ));
 
-            // 3. GÜNEY (AĞAÇLAR ÇİTİN DIŞINDA Z=-1.2m'DE DURUR, KALDIRIMA 3.3m UZAKTADIR)
+            // 3. GÜNEY
             for (float x = minX; x < maxX; x += stepSize)
             {
                 float railLen = Mathf.Min(stepSize, maxX - x);
                 CreateFencePostAndRail(enclosureGroup.transform, new Vector3(x, 0f, minZ), true, railLen);
-                CreateFarmPerimeterTree(enclosureGroup.transform, new Vector3(x + (railLen / 2f), 0f, -1.2f));
             }
             CreateFencePostOnly(enclosureGroup.transform, new Vector3(maxX, 0f, minZ));
+            PlantFarmTreesAlongX(enclosureGroup.transform, -1.2f, minX + 1.6f, maxX - 1.4f);
 
             // 4. BATI (SOL KENAR X=15.0m) (KAMYON YOLUNDA AĞAÇ OLMAMASI İÇİN SADECE ÇİT YER ALIR, YAYA YOLU Z: 0.0m - 4.0m AÇIK BIRAKILIR)
             for (float z = minZ; z < maxZ; z += stepSize)
@@ -2901,9 +2895,22 @@ namespace Farm2Shelf.Environment
             const float chickenMaxZ = 20.2f;
             const float cowMinZ = 22.2f;
             const float cowMaxZ = 41.2f;
+            const float livestockLaneX = 59.20f;
+            const float gateHalf = 1.28f;
+            const float gateSkipMinX = livestockLaneX - gateHalf;
+            const float gateSkipMaxX = livestockLaneX + gateHalf;
 
-            CreateFencedYard(livestockRoot, "Chicken_Yard_Fence", yardMinX, yardMaxX, chickenMinZ, chickenMaxZ);
-            CreateFencedYard(livestockRoot, "Cow_Yard_Fence", yardMinX, yardMaxX, cowMinZ, cowMaxZ);
+            CreateFencedYard(livestockRoot, "Chicken_Yard_Fence", yardMinX, yardMaxX, chickenMinZ, chickenMaxZ,
+                gateSkipMinX, gateSkipMaxX, skipMaxZ: true, skipMinZ: false);
+            CreateFencedYard(livestockRoot, "Cow_Yard_Fence", yardMinX, yardMaxX, cowMinZ, cowMaxZ,
+                gateSkipMinX, gateSkipMaxX, skipMaxZ: false, skipMinZ: true);
+
+            CreateHorizontalYardGate(livestockRoot, new Vector3(livestockLaneX, 0f, chickenMaxZ));
+            CreateHorizontalYardGate(livestockRoot, new Vector3(livestockLaneX, 0f, cowMinZ));
+
+            PlantFarmTreesAlongZ(livestockRoot, 67.88f, -1.20f, 43.10f, 19.70f, 22.70f);
+            PlantFarmTreesAlongX(livestockRoot, -1.20f, 50.60f, 64.50f);
+            PlantFarmTreesAlongX(livestockRoot, 43.10f, 50.60f, 64.50f);
 
             CreateDetailedChickenCoop(livestockRoot, new Vector3(58.6f, 0f, 10.8f));
             CreateDetailedCowBarn(livestockRoot, new Vector3(59.2f, 0f, 33.6f));
@@ -2913,20 +2920,32 @@ namespace Farm2Shelf.Environment
             }
         }
 
-        private void CreateFencedYard(Transform parent, string groupName, float minX, float maxX, float minZ, float maxZ)
+        private void CreateFencedYard(Transform parent, string groupName, float minX, float maxX, float minZ, float maxZ,
+            float skipXMin = 0f, float skipXMax = 0f, bool skipMaxZ = false, bool skipMinZ = false)
         {
             Transform fenceGroup = new GameObject(groupName).transform;
             fenceGroup.SetParent(parent, false);
             float step = 2.6f;
+            bool hasSkip = skipXMax > skipXMin;
 
             for (float x = minX; x < maxX; x += step)
             {
                 float len = Mathf.Min(step, maxX - x);
-                CreateFencePostAndRail(fenceGroup, new Vector3(x, 0f, maxZ), true, len);
-                CreateFencePostAndRail(fenceGroup, new Vector3(x, 0f, minZ), true, len);
+                PlaceHorizontalYardRail(fenceGroup, x, len, maxZ, hasSkip && skipMaxZ, skipXMin, skipXMax);
+                PlaceHorizontalYardRail(fenceGroup, x, len, minZ, hasSkip && skipMinZ, skipXMin, skipXMax);
             }
             CreateFencePostOnly(fenceGroup, new Vector3(maxX, 0f, maxZ));
             CreateFencePostOnly(fenceGroup, new Vector3(maxX, 0f, minZ));
+            if (hasSkip && skipMaxZ)
+            {
+                CreateFencePostOnly(fenceGroup, new Vector3(skipXMin, 0f, maxZ));
+                CreateFencePostOnly(fenceGroup, new Vector3(skipXMax, 0f, maxZ));
+            }
+            if (hasSkip && skipMinZ)
+            {
+                CreateFencePostOnly(fenceGroup, new Vector3(skipXMin, 0f, minZ));
+                CreateFencePostOnly(fenceGroup, new Vector3(skipXMax, 0f, minZ));
+            }
 
             for (float z = minZ; z < maxZ; z += step)
             {
@@ -2934,6 +2953,179 @@ namespace Farm2Shelf.Environment
                 CreateFencePostAndRail(fenceGroup, new Vector3(minX, 0f, z), false, len);
                 CreateFencePostAndRail(fenceGroup, new Vector3(maxX, 0f, z), false, len);
             }
+        }
+
+        private void PlaceHorizontalYardRail(Transform fenceGroup, float x, float len, float z, bool skipGap, float skipXMin, float skipXMax)
+        {
+            float railEnd = x + len;
+            if (!skipGap || railEnd <= skipXMin || x >= skipXMax)
+            {
+                CreateFencePostAndRail(fenceGroup, new Vector3(x, 0f, z), true, len);
+                return;
+            }
+
+            if (x < skipXMin)
+                CreateFencePostAndRail(fenceGroup, new Vector3(x, 0f, z), true, skipXMin - x);
+            if (railEnd > skipXMax)
+                CreateFencePostAndRail(fenceGroup, new Vector3(skipXMax, 0f, z), true, railEnd - skipXMax);
+        }
+
+        /// <summary>
+        /// İnce taş patika: çiftlik yaya yolundan tarlalar arasına, ev/ahır önüne, kümes–inek koridoruna bağlanır.
+        /// </summary>
+        private void CreateFarmStoneLaneNetwork(Transform parent)
+        {
+            Transform laneRoot = new GameObject("Farm_Stone_Lane_Network").transform;
+            laneRoot.SetParent(parent, false);
+
+            const float y = 0.024f;
+            const float w = 1.18f;
+            const float laneX = 42.80f;
+            const float corridorZ = 21.20f;
+            const float yardFrontZ = 31.55f;
+
+            CreateStoneLaneSlab(laneRoot, new Vector3(30.15f, y, 2.00f), new Vector3(25.3f, 0.038f, 1.22f));
+            CreateStoneLaneSlab(laneRoot, new Vector3(laneX, y, 16.78f), new Vector3(w, 0.038f, 29.55f));
+            CreateStoneLaneSlab(laneRoot, new Vector3(35.00f, y, yardFrontZ), new Vector3(24.6f, 0.038f, w));
+            CreateStoneLaneSlab(laneRoot, new Vector3(25.00f, y, 32.70f), new Vector3(w, 0.038f, 2.40f));
+            CreateStoneLaneSlab(laneRoot, new Vector3(37.50f, y, 32.70f), new Vector3(w, 0.038f, 2.40f));
+            CreateStoneLaneSlab(laneRoot, new Vector3(55.90f, y, corridorZ), new Vector3(26.2f, 0.038f, 1.12f));
+            CreateStoneLaneSlab(laneRoot, new Vector3(59.20f, y, 17.35f), new Vector3(1.12f, 0.036f, 7.70f));
+            CreateStoneLaneSlab(laneRoot, new Vector3(59.20f, y, 26.15f), new Vector3(1.12f, 0.036f, 9.90f));
+
+            PlacePathLightsAlong(laneRoot, new Vector3(17.6f, 0f, 2.00f), new Vector3(42.80f, 0f, 2.00f), 5.2f, 0.68f);
+            PlacePathLightsAlong(laneRoot, new Vector3(laneX, 0f, 2.40f), new Vector3(laneX, 0f, 31.20f), 5.4f, 0.68f);
+            PlacePathLightsAlong(laneRoot, new Vector3(22.80f, 0f, yardFrontZ), new Vector3(47.20f, 0f, yardFrontZ), 5.2f, 0.68f);
+            PlacePathLightsAlong(laneRoot, new Vector3(42.90f, 0f, corridorZ), new Vector3(67.40f, 0f, corridorZ), 4.8f, 0.62f);
+
+            CreateEastSidewalkFarmGate(laneRoot, new Vector3(68.92f, 0f, corridorZ));
+        }
+
+        private void CreateStoneLaneSlab(Transform parent, Vector3 center, Vector3 scale)
+        {
+            GameObject slab = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            slab.name = "Stone_Lane_Slab";
+            slab.transform.SetParent(parent, false);
+            slab.transform.position = center;
+            slab.transform.localScale = scale;
+            slab.GetComponent<Renderer>().sharedMaterial = pondStoneMat;
+        }
+
+        private void PlacePathLightsAlong(Transform parent, Vector3 from, Vector3 to, float spacing, float sideOffset)
+        {
+            Vector3 delta = to - from;
+            float length = delta.magnitude;
+            if (length < 0.5f) return;
+            Vector3 dir = delta / length;
+            Vector3 side = Vector3.Cross(Vector3.up, dir);
+            if (side.sqrMagnitude < 0.001f) side = Vector3.right;
+            side.Normalize();
+
+            int count = Mathf.Max(1, Mathf.FloorToInt(length / spacing));
+            for (int i = 0; i <= count; i++)
+            {
+                float t = count == 0 ? 0.5f : i / (float)count;
+                Vector3 along = from + dir * (length * t);
+                float sign = (i % 2 == 0) ? 1f : -1f;
+                CreatePathBollardLight(parent, along + side * (sideOffset * sign));
+            }
+        }
+
+        private void CreatePathBollardLight(Transform parent, Vector3 pos)
+        {
+            GameObject bollard = new GameObject("Stone_Lane_Bollard");
+            bollard.transform.SetParent(parent, false);
+            bollard.transform.position = pos;
+
+            CreateFarmDecor(bollard.transform, "Post", PrimitiveType.Cylinder, new Vector3(0f, 0.28f, 0f), new Vector3(0.10f, 0.28f, 0.10f), darkWallMat);
+            CreateFarmDecor(bollard.transform, "Cap", PrimitiveType.Cube, new Vector3(0f, 0.58f, 0f), new Vector3(0.16f, 0.05f, 0.16f), windowFrameMat);
+            GameObject bulb = CreateFarmDecor(bollard.transform, "Glow", PrimitiveType.Sphere, new Vector3(0f, 0.50f, 0f), new Vector3(0.11f, 0.11f, 0.11f), windowSillMat);
+
+            GameObject lightObj = new GameObject("Path_Bollard_Light");
+            lightObj.transform.SetParent(bollard.transform, false);
+            lightObj.transform.localPosition = new Vector3(0f, 0.52f, 0f);
+            Light pointLight = lightObj.AddComponent<Light>();
+            pointLight.type = LightType.Point;
+            pointLight.color = new Color(1.0f, 0.84f, 0.55f);
+            pointLight.intensity = 0.32f;
+            pointLight.range = 2.85f;
+            pointLight.shadows = LightShadows.None;
+            pointLight.enabled = false;
+
+            if (DayNightCycleManager.Instance != null)
+            {
+                DayNightCycleManager.Instance.RegisterStreetLamp(bulb, pointLight);
+            }
+        }
+
+        private void CreateHorizontalYardGate(Transform parent, Vector3 center)
+        {
+            GameObject gate = new GameObject("Livestock_Horizontal_Fence_Gate");
+            gate.transform.SetParent(parent, false);
+            gate.transform.position = center;
+
+            const float postX = 1.28f;
+            CreateFarmDecor(gate.transform, "Gate_Post_L", PrimitiveType.Cube, new Vector3(-postX, 0.55f, 0f), new Vector3(0.18f, 1.10f, 0.18f), fenceWoodMat);
+            CreateFarmDecor(gate.transform, "Gate_Post_R", PrimitiveType.Cube, new Vector3(postX, 0.55f, 0f), new Vector3(0.18f, 1.10f, 0.18f), fenceWoodMat);
+
+            float leafW = postX - 0.10f;
+            CreateFarmDecor(gate.transform, "Gate_Leaf_L", PrimitiveType.Cube, new Vector3(-leafW * 0.5f, 0.58f, 0f), new Vector3(leafW, 0.78f, 0.08f), fenceWoodMat);
+            CreateFarmDecor(gate.transform, "Gate_Leaf_R", PrimitiveType.Cube, new Vector3(leafW * 0.5f, 0.58f, 0f), new Vector3(leafW, 0.78f, 0.08f), fenceWoodMat);
+            CreateFarmDecor(gate.transform, "Rail_Top", PrimitiveType.Cube, new Vector3(0f, 0.88f, 0f), new Vector3(postX * 2f - 0.12f, 0.08f, 0.07f), windowFrameMat);
+            CreateFarmDecor(gate.transform, "Rail_Bot", PrimitiveType.Cube, new Vector3(0f, 0.28f, 0f), new Vector3(postX * 2f - 0.12f, 0.08f, 0.07f), windowFrameMat);
+            CreateFarmDecor(gate.transform, "Latch", PrimitiveType.Cube, new Vector3(0f, 0.58f, 0f), new Vector3(0.16f, 0.12f, 0.10f), windowFrameMat);
+        }
+
+        private void CreateEastSidewalkFarmGate(Transform parent, Vector3 centerPos)
+        {
+            GameObject gateRoot = new GameObject("East_Sidewalk_Farm_Gate");
+            gateRoot.transform.SetParent(parent, false);
+            gateRoot.transform.position = centerPos;
+
+            GameObject postL = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            postL.name = "Arch_Post_Left";
+            postL.transform.SetParent(gateRoot.transform, false);
+            postL.transform.localPosition = new Vector3(0f, 1.22f, -1.28f);
+            postL.transform.localScale = new Vector3(0.32f, 1.22f, 0.32f);
+            postL.GetComponent<Renderer>().sharedMaterial = fenceWoodMat;
+
+            GameObject topBallL = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            topBallL.name = "Post_Cap_Ball_Left";
+            topBallL.transform.SetParent(postL.transform, false);
+            topBallL.transform.localPosition = new Vector3(0f, 1.05f, 0f);
+            topBallL.transform.localScale = new Vector3(1.15f, 1.15f, 1.15f);
+            topBallL.GetComponent<Renderer>().sharedMaterial = barrierHousingMat;
+
+            GameObject postR = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            postR.name = "Arch_Post_Right";
+            postR.transform.SetParent(gateRoot.transform, false);
+            postR.transform.localPosition = new Vector3(0f, 1.22f, 1.28f);
+            postR.transform.localScale = new Vector3(0.32f, 1.22f, 0.32f);
+            postR.GetComponent<Renderer>().sharedMaterial = fenceWoodMat;
+
+            GameObject topBallR = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            topBallR.name = "Post_Cap_Ball_Right";
+            topBallR.transform.SetParent(postR.transform, false);
+            topBallR.transform.localPosition = new Vector3(0f, 1.05f, 0f);
+            topBallR.transform.localScale = new Vector3(1.15f, 1.15f, 1.15f);
+            topBallR.GetComponent<Renderer>().sharedMaterial = barrierHousingMat;
+
+            GameObject header = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            header.name = "Arch_Header_Beam";
+            header.transform.SetParent(gateRoot.transform, false);
+            header.transform.localPosition = new Vector3(0f, 2.52f, 0f);
+            header.transform.localScale = new Vector3(0.28f, 0.24f, 2.85f);
+            header.GetComponent<Renderer>().sharedMaterial = fenceWoodMat;
+
+            GameObject signBoard = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            signBoard.name = "Arch_Welcome_Signboard";
+            signBoard.transform.SetParent(gateRoot.transform, false);
+            signBoard.transform.localPosition = new Vector3(-0.04f, 2.52f, 0f);
+            signBoard.transform.localScale = new Vector3(0.10f, 0.52f, 1.85f);
+            signBoard.GetComponent<Renderer>().sharedMaterial = darkWallMat;
+
+            CreateFarmDecor(gateRoot.transform, "Threshold", PrimitiveType.Cube, new Vector3(0f, 0.03f, 0f), new Vector3(0.42f, 0.05f, 2.15f), pondStoneMat);
+            CreateLabel("ÇİFTLİK KAPISI", "FARM GATE", gateRoot.transform, new Vector3(-0.12f, 2.52f, 0f), Color.yellow, 90f);
         }
 
         private void CreateDetailedChickenCoop(Transform parent, Vector3 pos)
@@ -2987,7 +3179,8 @@ namespace Farm2Shelf.Environment
             }
 
             CreateFarmDecor(coop.transform, "Feed_Trough", PrimitiveType.Cube, new Vector3(2.05f, 0.22f, -halfZ - 0.55f), new Vector3(1.35f, 0.28f, 0.42f), fenceWoodMat);
-            CreateFarmDecor(coop.transform, "Water_Pan", PrimitiveType.Cylinder, new Vector3(-2.05f, 0.16f, -halfZ - 0.50f), new Vector3(0.55f, 0.12f, 0.55f), pondWaterMat);
+            CreateFarmDecor(coop.transform, "Water_Trough", PrimitiveType.Cube, new Vector3(-2.05f, 0.20f, -halfZ - 0.52f), new Vector3(1.15f, 0.24f, 0.40f), fenceWoodMat);
+            CreateFarmDecor(coop.transform, "Water_Fill", PrimitiveType.Cube, new Vector3(-2.05f, 0.30f, -halfZ - 0.52f), new Vector3(0.92f, 0.05f, 0.28f), pondWaterMat);
 
             CreateFarmLantern(coop.transform, new Vector3(-0.70f, 1.85f, doorZ - 0.10f), 4.4f, 1.05f);
             CreateFarmLantern(coop.transform, new Vector3(0.70f, 1.85f, doorZ - 0.10f), 4.4f, 1.05f);
@@ -3132,7 +3325,26 @@ namespace Farm2Shelf.Environment
             CreateLabel("ÇİFTLİK GİRİŞİ", "FARM GATE", gateRoot.transform, new Vector3(-0.15f, 2.7f, 0f), Color.yellow, 90f);
         }
 
-        private void CreateFarmPerimeterTree(Transform parent, Vector3 pos)
+        private const float FarmTreeSpacing = 3.45f;
+
+        private void PlantFarmTreesAlongX(Transform parent, float z, float xStart, float xEnd)
+        {
+            for (float x = xStart; x <= xEnd + 0.05f; x += FarmTreeSpacing)
+            {
+                CreateFarmPerimeterTree(parent, new Vector3(x, 0f, z));
+            }
+        }
+
+        private void PlantFarmTreesAlongZ(Transform parent, float x, float zStart, float zEnd, float skipZMin, float skipZMax)
+        {
+            for (float z = zStart; z <= zEnd + 0.05f; z += FarmTreeSpacing)
+            {
+                if (z > skipZMin && z < skipZMax) continue;
+                CreateFarmPerimeterTree(parent, new Vector3(x, 0f, z));
+            }
+        }
+
+        private void CreateFarmPerimeterTree(Transform parent, Vector3 pos, float foliageScale = 1.8f)
         {
             GameObject tree = new GameObject("Farm_Perimeter_Tree");
             tree.transform.SetParent(parent);
@@ -3149,7 +3361,7 @@ namespace Farm2Shelf.Environment
             foliage.name = "Foliage";
             foliage.transform.SetParent(tree.transform);
             foliage.transform.localPosition = new Vector3(0f, 2.5f, 0f);
-            foliage.transform.localScale = new Vector3(1.8f, 1.8f, 1.8f);
+            foliage.transform.localScale = new Vector3(foliageScale, foliageScale, foliageScale);
             foliage.GetComponent<Renderer>().sharedMaterial = treeFoliageMat;
         }
 

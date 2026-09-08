@@ -69,16 +69,16 @@ namespace Farm2Shelf.Core
         {
             switch (targetShelfType)
             {
-                case FurnitureType.Shelf: return LocalizationManager.L("Shelf_Display", "🗄️ Teşhir Rafı", "🗄️ Display Shelf");
-                case FurnitureType.Fridge: return LocalizationManager.L("Shelf_Fridge", "🧊 Buzdolabı", "🧊 Refrigerator");
-                case FurnitureType.Freezer: return LocalizationManager.L("Shelf_Freezer", "❄️ Dondurucu", "❄️ Freezer");
-                case FurnitureType.BakeryCounter: return LocalizationManager.L("Shelf_Bakery", "🥐 Fırın Tezgahı", "🥐 Bakery Counter");
-                case FurnitureType.CosmeticShelf: return LocalizationManager.L("Shelf_Cosmetic", "💄 Kozmetik Rafı", "💄 Cosmetic Shelf");
-                case FurnitureType.ButcherCounter: return LocalizationManager.L("Shelf_Butcher", "🥩 Kasap Reyonu", "🥩 Butcher Counter");
-                case FurnitureType.ElectronicsShelf: return LocalizationManager.L("Shelf_Electronics", "🎧 Elektronik Rafı", "🎧 Electronics Shelf");
-                case FurnitureType.GourmetShelf: return LocalizationManager.L("Shelf_Gourmet", "🥫 Lüks Gurme Reyonu", "🥫 Luxury Gourmet Shelf");
-                case FurnitureType.OrganicFridge: return LocalizationManager.L("Shelf_OrganicFridge", "🥬 Organik Buzdolabı", "🥬 Organic Fridge");
-                default: return LocalizationManager.L("Shelf_Display", "🗄️ Teşhir Rafı", "🗄️ Display Shelf");
+                case FurnitureType.Shelf: return LocalizationManager.L("Shelf_Display", "Teşhir Rafı", "Display Shelf");
+                case FurnitureType.Fridge: return LocalizationManager.L("Shelf_Fridge", "Buzdolabı", "Refrigerator");
+                case FurnitureType.Freezer: return LocalizationManager.L("Shelf_Freezer", "Dondurucu", "Freezer");
+                case FurnitureType.BakeryCounter: return LocalizationManager.L("Shelf_Bakery", "Fırın Tezgahı", "Bakery Counter");
+                case FurnitureType.CosmeticShelf: return LocalizationManager.L("Shelf_Cosmetic", "Kozmetik Rafı", "Cosmetic Shelf");
+                case FurnitureType.ButcherCounter: return LocalizationManager.L("Shelf_Butcher", "Kasap Reyonu", "Butcher Counter");
+                case FurnitureType.ElectronicsShelf: return LocalizationManager.L("Shelf_Electronics", "Elektronik Rafı", "Electronics Shelf");
+                case FurnitureType.GourmetShelf: return LocalizationManager.L("Shelf_Gourmet", "Lüks Gurme Reyonu", "Luxury Gourmet Shelf");
+                case FurnitureType.OrganicFridge: return LocalizationManager.L("Shelf_OrganicFridge", "Organik Buzdolabı", "Organic Fridge");
+                default: return LocalizationManager.L("Shelf_Display", "Teşhir Rafı", "Display Shelf");
             }
         }
     }
