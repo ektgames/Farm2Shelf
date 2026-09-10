@@ -16,6 +16,7 @@ namespace Farm2Shelf.Core
         public static WorkshopPalletManager Instance { get; private set; }
 
         private Dictionary<string, int> storedCrops = new Dictionary<string, int>();
+        private Dictionary<string, List<ProductLot>> storedCropLots = new Dictionary<string, List<ProductLot>>();
         private List<string> pendingMachineBoxes = new List<string>();
 
         public event Action OnWorkshopInventoryUpdated;
@@ -126,6 +127,11 @@ namespace Farm2Shelf.Core
 
         public void AddCrops(string cropId, int amount)
         {
+            AddCrops(cropId, amount, null);
+        }
+
+        public void AddCrops(string cropId, int amount, List<ProductLot> lots)
+        {
             if (string.IsNullOrEmpty(cropId) || amount <= 0) return;
 
             if (!storedCrops.ContainsKey(cropId))
@@ -134,6 +140,28 @@ namespace Farm2Shelf.Core
             }
 
             storedCrops[cropId] += amount;
+            EnsureLotList(cropId);
+            if (lots != null && lots.Count > 0)
+            {
+                int attached = 0;
+                for (int i = 0; i < lots.Count; i++)
+                {
+                    if (lots[i] == null || lots[i].quantity <= 0) continue;
+                    ProductLot copy = lots[i].Clone();
+                    copy.productId = cropId;
+                    ProductPassportService.MergeAdd(storedCropLots[cropId], copy);
+                    attached += copy.quantity;
+                }
+                if (attached < amount)
+                {
+                    ProductPassportService.MergeAdd(storedCropLots[cropId], ProductPassportService.CreateLegacyLot(cropId, amount - attached));
+                }
+            }
+            else
+            {
+                ProductPassportService.MergeAdd(storedCropLots[cropId], ProductPassportService.CreateLegacyLot(cropId, amount));
+            }
+
             OnWorkshopInventoryUpdated?.Invoke();
             Refresh3DVisuals();
 
@@ -142,13 +170,25 @@ namespace Farm2Shelf.Core
 
         public bool ConsumeCrop(string cropId, int amount)
         {
+            return ConsumeCrop(cropId, amount, out _);
+        }
+
+        public bool ConsumeCrop(string cropId, int amount, out List<ProductLot> consumedLots)
+        {
+            consumedLots = new List<ProductLot>();
             if (string.IsNullOrEmpty(cropId) || amount <= 0) return false;
             if (!storedCrops.ContainsKey(cropId) || storedCrops[cropId] < amount) return false;
 
+            EnsureLotList(cropId);
+            SyncCounts(cropId);
+            if (!storedCrops.ContainsKey(cropId) || storedCrops[cropId] < amount) return false;
+
+            consumedLots = ProductPassportService.TakeFifo(storedCropLots[cropId], amount);
             storedCrops[cropId] -= amount;
             if (storedCrops[cropId] <= 0)
             {
                 storedCrops.Remove(cropId);
+                storedCropLots.Remove(cropId);
             }
 
             OnWorkshopInventoryUpdated?.Invoke();
@@ -158,14 +198,77 @@ namespace Farm2Shelf.Core
 
         public void SetAllCrops(Dictionary<string, int> crops)
         {
+            SetAllCrops(crops, null);
+        }
+
+        public void SetAllCrops(Dictionary<string, int> crops, List<BarnCropSaveData> savedRows)
+        {
             storedCrops = (crops != null) ? new Dictionary<string, int>(crops) : new Dictionary<string, int>();
+            storedCropLots.Clear();
+            foreach (var kvp in storedCrops)
+            {
+                List<ProductLot> savedLots = null;
+                if (savedRows != null)
+                {
+                    BarnCropSaveData row = savedRows.Find(c => c != null && c.seedId == kvp.Key);
+                    if (row != null) savedLots = row.lots;
+                }
+                storedCropLots[kvp.Key] = ProductPassportService.RestoreLotsOrLegacy(kvp.Key, kvp.Value, savedLots);
+            }
             OnWorkshopInventoryUpdated?.Invoke();
             Refresh3DVisuals();
+        }
+
+        public List<BarnCropSaveData> ExportCropsForSave()
+        {
+            List<BarnCropSaveData> rows = new List<BarnCropSaveData>();
+            foreach (var kvp in storedCrops)
+            {
+                if (string.IsNullOrEmpty(kvp.Key) || kvp.Value <= 0) continue;
+                EnsureLotList(kvp.Key);
+                rows.Add(new BarnCropSaveData
+                {
+                    seedId = kvp.Key,
+                    count = kvp.Value,
+                    lots = ProductPassportService.CloneLots(storedCropLots[kvp.Key])
+                });
+            }
+            return rows;
+        }
+
+        public string GetPassportSummary(string cropId)
+        {
+            if (string.IsNullOrEmpty(cropId) || !storedCropLots.ContainsKey(cropId)) return "";
+            return ProductPassportService.GetCardText(ProductPassportService.ResolveProductDisplayName(cropId), storedCropLots[cropId]);
+        }
+
+        private void EnsureLotList(string cropId)
+        {
+            if (!storedCropLots.ContainsKey(cropId) || storedCropLots[cropId] == null)
+            {
+                storedCropLots[cropId] = new List<ProductLot>();
+            }
+        }
+
+        private void SyncCounts(string cropId)
+        {
+            EnsureLotList(cropId);
+            int lotSum = ProductPassportService.SumLots(storedCropLots[cropId]);
+            int count = storedCrops.ContainsKey(cropId) ? storedCrops[cropId] : 0;
+            if (count > lotSum)
+            {
+                ProductPassportService.MergeAdd(storedCropLots[cropId], ProductPassportService.CreateLegacyLot(cropId, count - lotSum));
+            }
+            else if (count < lotSum)
+            {
+                ProductPassportService.TakeFifo(storedCropLots[cropId], lotSum - count);
+            }
         }
 
         public void ClearAll()
         {
             storedCrops.Clear();
+            storedCropLots.Clear();
             OnWorkshopInventoryUpdated?.Invoke();
             Refresh3DVisuals();
         }

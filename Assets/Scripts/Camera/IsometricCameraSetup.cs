@@ -24,6 +24,7 @@ namespace Farm2Shelf.CameraSystem
     {
         public static IsometricCameraSetup Instance { get; private set; }
         public Camera Cam => cam != null ? cam : (cam = GetComponent<Camera>());
+        public Vector3 FocusPoint => currentPosition;
 
         [Header("Hedef Pozisyon & Açı")]
         [SerializeField] private Vector3 targetPosition = new Vector3(0f, 0f, 0f);
@@ -102,11 +103,12 @@ namespace Farm2Shelf.CameraSystem
             cam.orthographic = useOrthographic;
             cam.orthographicSize = orthographicSize;
             cam.nearClipPlane = 0.5f;
-            cam.farClipPlane = 180f; // Derinlik tamponu hassasiyetini 100 kat artırarak Z-fighting yırtılmalarını önler
+            cam.farClipPlane = 320f;
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = new Color(0.18f, 0.22f, 0.26f);
 
             ApplyCameraTransformInstant();
+            Farm2Shelf.Utils.LightingPipelineBinder.ConfigureMainCamera(cam);
         }
 
         private Vector2 lastMousePanPos;

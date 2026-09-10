@@ -757,7 +757,7 @@ namespace Farm2Shelf.Environment
 
             if (DayNightCycleManager.Instance != null)
             {
-                DayNightCycleManager.Instance.RegisterStoreInteriorLight(pLight);
+                DayNightCycleManager.Instance.RegisterPlayerInteriorLight(pLight);
             }
         }
 
@@ -777,7 +777,7 @@ namespace Farm2Shelf.Environment
 
             if (DayNightCycleManager.Instance != null)
             {
-                DayNightCycleManager.Instance.RegisterStoreInteriorLight(fLight);
+                DayNightCycleManager.Instance.RegisterPlayerInteriorLight(fLight);
             }
         }
     }

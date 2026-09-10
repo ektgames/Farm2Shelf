@@ -16,6 +16,11 @@ namespace Farm2Shelf.UI
             Overview,
             Controls,
             Tablet,
+            Passport,
+            TownContracts,
+            Brand,
+            EndOfDay,
+            Inspector,
             Farm,
             Barn,
             Store,
@@ -212,6 +217,11 @@ namespace Farm2Shelf.UI
                 GuideTopic.Overview,
                 GuideTopic.Controls,
                 GuideTopic.Tablet,
+                GuideTopic.Passport,
+                GuideTopic.TownContracts,
+                GuideTopic.Brand,
+                GuideTopic.EndOfDay,
+                GuideTopic.Inspector,
                 GuideTopic.Farm,
                 GuideTopic.Barn,
                 GuideTopic.Store,
@@ -382,6 +392,11 @@ namespace Farm2Shelf.UI
                 case GuideTopic.Overview: return LocalizationManager.L("GuideT_Overview", "Başlangıç Özeti", "Getting Started");
                 case GuideTopic.Controls: return LocalizationManager.L("GuideT_Controls", "Kontroller", "Controls");
                 case GuideTopic.Tablet: return LocalizationManager.L("GuideT_Tablet", "EKT Tablet", "EKT Tablet");
+                case GuideTopic.Passport: return LocalizationManager.L("GuideT_Passport", "Ürün Pasaportu", "Product Passport");
+                case GuideTopic.TownContracts: return LocalizationManager.L("GuideT_Contracts", "Kasaba Kontratları", "Town Contracts");
+                case GuideTopic.Brand: return LocalizationManager.L("GuideT_Brand", "Marka ve Tabela", "Brand & Sign");
+                case GuideTopic.EndOfDay: return LocalizationManager.L("GuideT_EOD", "Gün Sonu Defteri", "End of Day Ledger");
+                case GuideTopic.Inspector: return LocalizationManager.L("GuideT_Inspector", "Mevsim Müfettişi", "Season Inspector");
                 case GuideTopic.Farm: return LocalizationManager.L("GuideT_Farm", "Çiftlik ve Hasat", "Farm & Harvest");
                 case GuideTopic.Barn: return LocalizationManager.L("GuideT_Barn", "Ahır ve Sevkiyat", "Barn & Shipping");
                 case GuideTopic.Store: return LocalizationManager.L("GuideT_Store", "Dükkan ve Reyonlar", "Store & Shelves");
@@ -409,6 +424,11 @@ namespace Farm2Shelf.UI
                 case GuideTopic.Overview: return GetOverviewBody();
                 case GuideTopic.Controls: return GetControlsBody();
                 case GuideTopic.Tablet: return GetTabletBody();
+                case GuideTopic.Passport: return GetPassportBody();
+                case GuideTopic.TownContracts: return GetTownContractsBody();
+                case GuideTopic.Brand: return GetBrandBody();
+                case GuideTopic.EndOfDay: return GetEndOfDayBody();
+                case GuideTopic.Inspector: return GetInspectorBody();
                 case GuideTopic.Farm: return GetFarmBody();
                 case GuideTopic.Barn: return GetBarnBody();
                 case GuideTopic.Store: return GetStoreBody();
@@ -433,24 +453,22 @@ namespace Farm2Shelf.UI
         {
             return LocalizationManager.L(
                 "GuideB_Overview",
-                "<b>Farm2Shelf</b> bir çiftlik-market simülasyonu. Mahsul ekersin, hasat edersin, dükkana sevk eder veya atölyede gurme ürüne çevirirsin. Müşteriler raftan alır, kasada öder.\n\n" +
+                "<b>Farm2Shelf</b> mahallenin gıda markasını sen kurarsın. Hasadı izle, işle, vitrine koy, kasabaya kuryeyle teslim et.\n\n" +
                 "<b>İlk gün kısa yol:</b>\n" +
-                "1. Kamerayı dene, haritayı tanı.\n" +
-                "2. Sağ alttaki <b>EKT Tablet</b> ile personel işe al ve vardiya ver.\n" +
-                "3. Alışverişten reyon, kasa, depo rafı ve tohum al.\n" +
-                "4. Teslimat paletinden mobilyaları kur.\n" +
-                "5. Toptan sipariş ver veya tarlaya ek.\n" +
-                "6. Raflara ürün ata, dükkanı <b>AÇIK</b> yap.\n\n" +
-                "Soldaki butonlardan merak ettiğin konuyu aç. Atölye sayfalarında her makinenin <b>hangi mahsulü kullandığı</b> yazılıdır.",
-                "<b>Farm2Shelf</b> is a farm-to-market sim. Grow crops, harvest them, ship to the store, or refine them in the workshop. Customers pick from shelves and pay at checkout.\n\n" +
+                "1. Yeni oyunda kimlik, renk ve slogan seç; tabelan buna boyanır.\n" +
+                "2. Kamerayı dene, EKT tabletin 7 uygulamasını aç.\n" +
+                "3. Online Market ➔ Kontratlar: bir teklifi sıraya al.\n" +
+                "4. Personel, reyon, toptan sipariş; rafa ürün ata (pasaport etiketi).\n" +
+                "5. Tohum ek, dükkanı aç. Gece defteri bugünü yazar, yalnızca Ertesi güne atla 06:00'ya götürür.\n\n" +
+                "Soldaki konulardan pasaport, kontrat, marka ve gün sonunu da oku.",
+                "<b>Farm2Shelf</b> is you building the neighborhood food brand. Trace harvest, process it, put it on the shelf, deliver it by courier.\n\n" +
                 "<b>First-day shortcut:</b>\n" +
-                "1. Learn the camera and explore the map.\n" +
-                "2. Open the <b>EKT Tablet</b> (bottom right), hire staff, set shifts.\n" +
-                "3. Buy shelves, a register, storage racks, and seeds.\n" +
-                "4. Unpack furniture from the delivery pallet.\n" +
-                "5. Place a wholesale order or plant fields.\n" +
-                "6. Assign products to shelves, then set the store to <b>OPEN</b>.\n\n" +
-                "Use the buttons on the left. Workshop pages list <b>exactly which crops</b> each machine uses."
+                "1. Pick identity, color, and slogan; your sign follows.\n" +
+                "2. Learn the camera, open all 7 EKT apps.\n" +
+                "3. Online Market ➔ Contracts: queue one offer.\n" +
+                "4. Staff, shelves, wholesale; assign products (passport label).\n" +
+                "5. Plant seeds, open the store. The night ledger writes the day; only Skip to next day jumps to 06:00.\n\n" +
+                "Use the left topics for passports, contracts, brand, and end of day."
             );
         }
 
@@ -489,20 +507,89 @@ namespace Farm2Shelf.UI
         {
             return LocalizationManager.L(
                 "GuideB_Tablet",
-                "Sağ alttaki <b>📱 EKT TABLET</b> işletmenin beynidir. Beş uygulama vardır:\n\n" +
-                "🛒 <b>Mağaza Yönetimi</b> — Dükkan personeli işe al, vardiya ver, erken çağır, kadroyu gör.\n" +
-                "🌾 <b>Çiftlik</b> — Çiftçi işe al, tarla ve tohum işlerini yönet.\n" +
-                "🛍️ <b>Alışveriş (TrendyShop)</b> — Tohum, mobilya, dekor ve toptan ürün satın al. Toplu sipariş butonu buradadır.\n" +
-                "💳 <b>Finans</b> — Gelir-gider, hisse senedi ve nakit akışını izle.\n" +
-                "𝕏 <b>Sosyal Medya</b> — Müşteri yorumları ve mağaza itibarı.\n\n" +
-                "Yeni oyunda eğitim bu tableti adım adım açtırır. Tableti istediğin zaman kapatıp dünyaya dönebilirsin.",
-                "The <b>📱 EKT TABLET</b> at the bottom right is your operations hub. It has five apps:\n\n" +
-                "🛒 <b>Store Management</b> — Hire store staff, set shifts, call someone in early, review the roster.\n" +
-                "🌾 <b>Farm</b> — Hire farmers and manage field work.\n" +
-                "🛍️ <b>Shopping (TrendyShop)</b> — Buy seeds, furniture, decor, and wholesale goods. Bulk order lives here.\n" +
-                "💳 <b>Finance</b> — Track income, expenses, stocks, and cash flow.\n" +
-                "𝕏 <b>Social</b> — Customer posts and store reputation.\n\n" +
-                "The tutorial walks these apps on a new game. You can close the tablet at any time and return to the world."
+                "Sağ alttaki <b>📱 EKT TABLET</b> işletmenin beynidir. Yedi uygulama vardır:\n\n" +
+                "🛒 <b>Mağaza Yönetimi</b> — Personel, vardiya, erken çağır.\n" +
+                "🌾 <b>Çiftlik</b> — Çiftçi ve tarla.\n" +
+                "🛍️ <b>Alışveriş</b> — Tohum, mobilya, toptan, araç.\n" +
+                "💳 <b>Finans</b> — Gelir-gider ve nakit.\n" +
+                "𝕏 <b>Sosyal</b> — Tweet'ler, marka sloganı, itibar.\n" +
+                "🏭 <b>Atölye</b> — Makineler ve gurme üretim.\n" +
+                "🌐 <b>Online Market</b> — Filo ve <b>Kasaba Kontratları</b>.\n\n" +
+                "Yeni oyunda eğitim bu tableti adım adım açtırır.",
+                "The <b>📱 EKT TABLET</b> at the bottom right is HQ. It has seven apps:\n\n" +
+                "🛒 <b>Store Management</b> — Hire, shifts, call early.\n" +
+                "🌾 <b>Farm</b> — Farmers and fields.\n" +
+                "🛍️ <b>Shopping</b> — Seeds, furniture, wholesale, vehicles.\n" +
+                "💳 <b>Finance</b> — Income, spend, cash.\n" +
+                "𝕏 <b>Social</b> — Tweets, brand slogan, reputation.\n" +
+                "🏭 <b>Workshop</b> — Machines and gourmet output.\n" +
+                "🌐 <b>Online Market</b> — Fleet and <b>Town Contracts</b>.\n\n" +
+                "The tutorial walks these apps on a new game."
+            );
+        }
+
+        private static string GetPassportBody()
+        {
+            return LocalizationManager.L(
+                "GuideB_Passport",
+                "Her stok yığını sadece isim + adet değildir. <b>Pasaport</b> şunu taşır: nereden geldi (tarla / ahır / atölye / toptan), hangi gün ve saatte, hangi havada.\n\n" +
+                "Rafta küçük etiket bunu gösterir. Kasa fişinde <b>Yerel hasat</b> veya <b>Toptan</b> yazar. Taze hasat daha pahalı satılır; bayatlayan lot şikayet tweet'i üretir.\n\n" +
+                "Markan da fiyatı çarpar: yerel üretici hasada prim, mahalle marketi toptana daha yumuşak, gurme atölye işlenmiş ürüne prim verir.",
+                "A stock pile is not only name + count. The <b>passport</b> stores origin (field / barn / workshop / wholesale), day, hour, and weather.\n\n" +
+                "The shelf label shows it. The receipt prints <b>Local harvest</b> or <b>Wholesale</b>. Fresh harvest sells higher; stale lots spark complaint tweets.\n\n" +
+                "Your brand multiplies price too: local producer boosts harvest, neighborhood market is kinder to wholesale, gourmet workshop boosts crafted lots."
+            );
+        }
+
+        private static string GetTownContractsBody()
+        {
+            return LocalizationManager.L(
+                "GuideB_Contracts",
+                "Tablet ➔ <b>Online Market ➔ Kontratlar</b>. Her gün kasaba 5 teklif asar. Kalıcı imza yok; biten veya geçen aynı gün yenilenmez.\n\n" +
+                "Sıraya al, satın alınmış bir motoru <b>Kontratlara Ekle</b>. Kontrat motoru tek iş taşır; teslim + park olunca sıradaki yüklenir. Mesafe ücreti etkiler. Yerel ürünle tam teslim prim verir.\n\n" +
+                "Dükkan kapalıyken motor işe çıkmaz. Eğitimde bir teklifi sıraya almak yeter.",
+                "Tablet ➔ <b>Online Market ➔ Contracts</b>. Town posts 5 offers a day. No permanent signature; finished or skipped offers do not refresh that day.\n\n" +
+                "Queue one, then <b>Add to Contracts</b> on an owned bike. A contract bike carries one job; after delivery and parking the next loads. Distance sets the fee. Full delivery with local goods pays extra.\n\n" +
+                "Bikes will not leave while the store is closed. In the tutorial, queuing one offer is enough."
+            );
+        }
+
+        private static string GetBrandBody()
+        {
+            return LocalizationManager.L(
+                "GuideB_Brand",
+                "Yeni oyunda üç kimlikten birini seçersin: <b>Yerel üretici</b>, <b>Ekonomik mahalle marketi</b>, <b>Gurme atölye</b>. Renk ve kısa slogan tabelaya, vitrin ışığına ve sosyal profile işler.\n\n" +
+                "Harita geometrisi değişmez. Kimlik satış fiyatını ve müşterinin pahalı tepkisini etkiler. Tweet tonu da markaya göre kayar.",
+                "On a new game you pick one identity: <b>Local producer</b>, <b>Neighborhood value market</b>, or <b>Gourmet workshop</b>. Color and slogan tint the sign, interior light, and social profile.\n\n" +
+                "Map geometry does not change. Identity changes sale price and how shoppers react to high prices. Tweet tone follows the brand."
+            );
+        }
+
+        private static string GetEndOfDayBody()
+        {
+            return LocalizationManager.L(
+                "GuideB_EOD",
+                "Saat 24:00'te dükkan kapanır. Müşteri ve yoldaki kurye bitince <b>gün sonu defteri</b> açılır.\n\n" +
+                "Sayfada bugünün hikâyesi durur: kasa, pasaport karışımı, kurye, kontrat, gider, tweet, bayat stok, net kâr. Alttaki yeşil <b>Ertesi güne atla</b> saati 06:00'ya alır. Başka bir yere basmak defteri kapatmaz.",
+                "At 24:00 the store closes. When customers and road couriers finish, the <b>end-of-day ledger</b> opens.\n\n" +
+                "It writes today's story: till, passport mix, courier, contracts, spend, tweets, stale stock, net. The green <b>Skip to next day</b> button jumps to 06:00. Tapping anywhere else will not close it."
+            );
+        }
+
+        private static string GetInspectorBody()
+        {
+            return LocalizationManager.L(
+                "GuideB_Inspector",
+                "Her mevsimin <b>30. günü</b> takvimde 🕴️ müfettiş görünür. Üstüne basınca notlarını okursun.\n\n" +
+                "Dükkan açıksa sabah <b>10:00</b>'da takım elbiseli, jöleli saçlı müfettiş müşteri gibi girer, rafları gezer ve not alır. Denetim <b>11:00</b>'de biter; kapıdan çıkıp gider.\n" +
+                "• Dükkan temiz mi?\n• Raflar dolu mu, boş mu?\n• Fiyatlar uygun mu?\n\n" +
+                "Uyan her madde <b>cüzi ödül</b> (+120C), uymayan her madde <b>ağır ceza</b> (−450C) getirir. Dükkan o gün hiç açılmazsa üç madde de ceza yazar.\n\n" +
+                "Harita değişmez. Müfettiş normal yaya girişini kullanır.",
+                "On day <b>30</b> of each season the calendar shows a 🕴️ inspector. Tap him to read the notes.\n\n" +
+                "If the store is open he arrives at <b>10:00</b> in a suit and gelled hair, walks the aisles like a shopper, and scores. The visit ends at <b>11:00</b>; he walks out the door.\n" +
+                "• Is the store clean?\n• Are shelves stocked or empty?\n• Are prices fair?\n\n" +
+                "Each pass pays a <b>small bonus</b> (+120C); each fail a <b>heavy fine</b> (−450C). If you never open that day, all three fail.\n\n" +
+                "The map does not change. He uses the normal pedestrian entrance."
             );
         }
 
@@ -596,7 +683,7 @@ namespace Farm2Shelf.UI
                 "• Maskot ve vitrin dekoru itibarı / trafiği destekler.\n" +
                 "• Hırsız çıkabilir; güvenlik personeli yakalar.\n\n" +
                 "Boş raf = müşteri eli boş döner. Fiyat ve stok tablet + raf penceresinden izlenir.\n\n" +
-                "Gün bitince rapor gelir: ciro, gider, kâr. Maaşlar günde bir kez ödenir.",
+                "Gün bitince defter gelir: ciro, gider, pasaport, kontrat, tweet. Maaşlar günde bir kez ödenir. Defteri yalnızca Ertesi güne atla kapatır.",
                 "When the store is open, customers enter, take shelf items, and queue at checkout.\n\n" +
                 "• <b>Cashiers</b> clear the line. With none hired, checkout crawls.\n" +
                 "• A <b>Customer Service desk</b> speeds shopping and boosts extra purchases.\n" +
@@ -759,14 +846,14 @@ namespace Farm2Shelf.UI
                 "• Tohum, mobilya, toptan sipariş ve maaş nakit düşer.\n" +
                 "• Maaş <b>günde bir kez</b> ödenir.\n" +
                 "• Hisse senedi alıp satabilirsin; risklidir.\n\n" +
-                "Zaman oyun içinde akar. Dükkanı gece kapatmak personel ve müşteri döngüsünü durdurur. Gün sonunda rapor kaydetmeden önce bak.\n\n" +
+                "Zaman oyun içinde akar. Gece 24:00'te defter açılır; yalnızca Ertesi güne atla 06:00'ya götürür.\n\n" +
                 "Kayıt menüden veya otomatik kayıtla tutulur. Yükleyince kamyonlar, stok ve eğitim adımı korunur.",
                 "HUD cash is your live balance. Tablet ➔ <b>Finance</b> shows income, costs, and investments.\n\n" +
                 "• Sales add cash at checkout.\n" +
                 "• Seeds, furniture, wholesale, and wages spend cash.\n" +
                 "• Wages are paid <b>once per day</b>.\n" +
                 "• You can trade stocks; they are risky.\n\n" +
-                "Time flows in-game. Closing the store at night pauses the customer loop. Read the end-of-day report before you save.\n\n" +
+                "Time flows in-game. At 24:00 the ledger opens; only Skip to next day jumps to 06:00.\n\n" +
                 "Saves (manual or auto) keep trucks, stock, and tutorial step."
             );
         }

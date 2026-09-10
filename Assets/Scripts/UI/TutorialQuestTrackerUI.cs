@@ -111,8 +111,8 @@ namespace Farm2Shelf.UI
 
             Font font = UIStyleUtility.GetGlobalFont(18);
 
-            float cardW = 560f;
-            float cardH = isMinimized ? 58f : 345f;
+            float cardW = 580f;
+            float cardH = isMinimized ? 58f : 430f;
             float safeLeft = GetSafeLeftMargin();
 
             GameObject cardObj = new GameObject("TrackerCard");
@@ -221,15 +221,18 @@ namespace Farm2Shelf.UI
             dRect.anchorMax = new Vector2(1f, 1f);
             dRect.pivot = new Vector2(0.5f, 1f);
             dRect.anchoredPosition = new Vector2(0f, -82f);
-            dRect.sizeDelta = new Vector2(-24f, 92f);
+            dRect.sizeDelta = new Vector2(-24f, 128f);
 
             Text dTxt = descObj.AddComponent<Text>();
             dTxt.font = font;
             dTxt.text = GetStepInstruction(step);
-            dTxt.fontSize = 14;
-            dTxt.lineSpacing = 1.15f;
+            dTxt.fontSize = 13;
+            dTxt.lineSpacing = 1.12f;
             dTxt.alignment = TextAnchor.UpperLeft;
             dTxt.color = new Color(0.92f, 0.94f, 0.98f);
+            dTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
+            dTxt.verticalOverflow = VerticalWrapMode.Truncate;
+            dTxt.supportRichText = true;
 
             // 3. Canlı İlerleme & Kontrol Kutusu (Live Progress Checklist with Tikler)
             GameObject progObj = new GameObject("ProgressBox");
@@ -238,11 +241,11 @@ namespace Farm2Shelf.UI
             pRect.anchorMin = new Vector2(0f, 1f);
             pRect.anchorMax = new Vector2(1f, 1f);
             pRect.pivot = new Vector2(0.5f, 1f);
-            pRect.anchoredPosition = new Vector2(0f, -178f);
-            pRect.sizeDelta = new Vector2(-24f, 102f);
+            pRect.anchoredPosition = new Vector2(0f, -216f);
+            pRect.sizeDelta = new Vector2(-24f, 128f);
 
             Image pBg = progObj.AddComponent<Image>();
-            pBg.sprite = UIStyleUtility.CreateOutlinePillSprite(Mathf.RoundToInt(cardW - 24f), 102, 12, 1, new Color(0.30f, 0.40f, 0.52f, 0.6f), new Color(0.12f, 0.16f, 0.22f, 0.90f));
+            pBg.sprite = UIStyleUtility.CreateOutlinePillSprite(Mathf.RoundToInt(cardW - 24f), 128, 12, 1, new Color(0.30f, 0.40f, 0.52f, 0.6f), new Color(0.12f, 0.16f, 0.22f, 0.90f));
 
             GameObject pTxtObj = new GameObject("Txt");
             pTxtObj.transform.SetParent(progObj.transform, false);
@@ -255,27 +258,31 @@ namespace Farm2Shelf.UI
             Text pTxt = pTxtObj.AddComponent<Text>();
             pTxt.font = font;
             pTxt.text = GetStepLiveChecklist(step);
-            pTxt.fontSize = 14;
-            pTxt.lineSpacing = 1.20f;
-            pTxt.alignment = TextAnchor.MiddleLeft;
+            pTxt.fontSize = 13;
+            pTxt.lineSpacing = 1.12f;
+            pTxt.alignment = TextAnchor.UpperLeft;
             pTxt.color = new Color(0.96f, 0.96f, 0.96f);
+            pTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
+            pTxt.verticalOverflow = VerticalWrapMode.Truncate;
+            pTxt.supportRichText = true;
 
             // 4. Alt Butonlar (Devam Et & Eğitimi Geç)
             bool isStepDone = (TutorialManager.Instance != null && TutorialManager.Instance.IsCurrentStepComplete());
-            bool showNextBtn = isStepDone || (step == TutorialStep.Step1_CameraControls || step == TutorialStep.Step2_ExploreTabletApps);
 
-            if (showNextBtn)
+            if (isStepDone)
             {
-                string nextBtnTr = isStepDone ? "Görevi Tamamla ▶" : "Devam ▶";
-                string nextBtnEn = isStepDone ? "Complete Quest ▶" : "Next ▶";
-                Color nextBtnColor = isStepDone ? new Color(0.12f, 0.85f, 0.45f) : new Color(0.20f, 0.70f, 0.40f);
-
-                CreateActionButton(cardObj.transform, new Vector2(-95f, 25f), new Vector2(175f, 40f), nextBtnTr, nextBtnEn, nextBtnColor, font, 15, () => {
+                CreateActionButton(cardObj.transform, new Vector2(-95f, 25f), new Vector2(175f, 40f),
+                    LocalizationManager.L("Tut_BtnComplete", "Görevi Tamamla ▶", "Complete Quest ▶"),
+                    LocalizationManager.L("Tut_BtnComplete", "Görevi Tamamla ▶", "Complete Quest ▶"),
+                    new Color(0.12f, 0.85f, 0.45f), font, 15, () => {
                     TutorialManager.Instance.AdvanceToNextStep();
                 });
             }
 
-            CreateActionButton(cardObj.transform, new Vector2(showNextBtn ? 100f : 0f, 25f), new Vector2(175f, 40f), "Eğitimi Atla ⏭️", "Skip Tutorial ⏭️", new Color(0.35f, 0.40f, 0.48f), font, 14, () => {
+            CreateActionButton(cardObj.transform, new Vector2(isStepDone ? 100f : 0f, 25f), new Vector2(175f, 40f),
+                LocalizationManager.L("Tut_BtnSkip", "Eğitimi Atla ⏭️", "Skip Tutorial ⏭️"),
+                LocalizationManager.L("Tut_BtnSkip", "Eğitimi Atla ⏭️", "Skip Tutorial ⏭️"),
+                new Color(0.35f, 0.40f, 0.48f), font, 14, () => {
                 TutorialManager.Instance.SkipTutorial();
             });
 
@@ -412,30 +419,38 @@ namespace Farm2Shelf.UI
             txt.color = Color.white;
         }
 
+        private static string Tick(bool done, string key, string tr, string en)
+        {
+            string label = LocalizationManager.L(key, tr, en);
+            return done
+                ? $"<color=#00FFA3>✅ [✓] {label}</color>"
+                : $"<color=#FFD700>⏳ [ ] {label}</color>";
+        }
+
         private static string GetStepShortTitle(TutorialStep step)
         {
             switch (step)
             {
                 case TutorialStep.Step1_CameraControls:
-                    return LocalizationManager.L("Tut_S1_Title", "Kamera & Dokunmatik Kontroller", "Camera & Mobile Touch Controls");
+                    return LocalizationManager.L("Tut_S1_Title", "Kamera ve tabelanı gör", "Camera and your sign");
                 case TutorialStep.Step2_ExploreTabletApps:
-                    return LocalizationManager.L("Tut_S2_Title", "EKT Tablet Uygulamaları", "EKT Tablet Apps");
+                    return LocalizationManager.L("Tut_S2_Title", "EKT Tablet ve ilk kontrat", "EKT Tablet and first contract");
                 case TutorialStep.Step3_HireStoreStaffAndCallEarly:
-                    return LocalizationManager.L("Tut_S3_Title", "Personel Alımı & Erken Çağır", "Hire Staff & Call Early");
+                    return LocalizationManager.L("Tut_S3_Title", "Personel al, reyoncuyu çağır", "Hire staff, call a restocker");
                 case TutorialStep.Step4_AssignStoreShifts:
-                    return LocalizationManager.L("Tut_S4_Title", "Personel Vardiyalarını Ayarla", "Set Staff Shifts");
+                    return LocalizationManager.L("Tut_S4_Title", "Vardiya ve gece defteri", "Shifts and the night ledger");
                 case TutorialStep.Step5_BuyInitialFurniture:
-                    return LocalizationManager.L("Tut_S5_Title", "İlk Mobilyaları Satın Al", "Buy Starting Furniture");
+                    return LocalizationManager.L("Tut_S5_Title", "İlk mobilyaları satın al", "Buy starting furniture");
                 case TutorialStep.Step6_UnpackAndPlaceFurniture:
-                    return LocalizationManager.L("Tut_S6_Title", "Mobilya & Reyon Kurulumu", "Install Furniture from Pallet");
+                    return LocalizationManager.L("Tut_S6_Title", "Reyonları kur, vitrini kur", "Place shelves, set the floor");
                 case TutorialStep.Step7_PlaceWholesaleBulkOrder:
-                    return LocalizationManager.L("Tut_S7_Title", "Toplu Sipariş & Reyon Dizme", "Wholesale Order & Stock Shelves");
+                    return LocalizationManager.L("Tut_S7_Title", "Toptan sipariş ve pasaport", "Wholesale and passports");
                 case TutorialStep.Step8_HireFarmStaffAndShifts:
-                    return LocalizationManager.L("Tut_S8_Title", "Çiftlik Personeli & Vardiyalar", "Farm Staff & Shifts");
+                    return LocalizationManager.L("Tut_S8_Title", "Çiftçi ve tarla vardiyası", "Farmers and field shifts");
                 case TutorialStep.Step9_BuyStartingSeeds:
-                    return LocalizationManager.L("Tut_S9_Title", "Başlangıç Tohumları Al", "Buy Starting Crop Seeds");
+                    return LocalizationManager.L("Tut_S9_Title", "Tohum al, hasadı planla", "Buy seeds, plan harvest");
                 case TutorialStep.Step10_PlantSeedsAndOpenStore:
-                    return LocalizationManager.L("Tut_S10_Title", "Tohum Ekimi & Dükkanı Aç!", "Plant Seeds & Open Store!");
+                    return LocalizationManager.L("Tut_S10_Title", "Ek, aç, markanı yaşat", "Plant, open, run your brand");
                 default:
                     return "";
             }
@@ -448,87 +463,91 @@ namespace Farm2Shelf.UI
                 case TutorialStep.Step1_CameraControls:
                     return LocalizationManager.L(
                         "Tut_S1_Inst",
-                        "• <b>Harita Kaydırma:</b> Parmağını ekranda sürükle.\n" +
-                        "• <b>Yakınlaştır / Uzaklaştır:</b> İki parmağınla ekranı kıstır veya aç.\n" +
-                        "• <b>Kamera Açısı Döndürme:</b> İki parmağını ekranda dairesel çevir.",
-                        "• <b>Pan Map:</b> Drag across the screen with one finger.\n" +
-                        "• <b>Zoom View:</b> Pinch or spread with two fingers.\n" +
-                        "• <b>Rotate View:</b> Twist with two fingers on the screen."
+                        "Haritayı tanı: dükkan, otopark ve cadde tabelan yerinde duruyor. Yeni oyunda seçtiğin <b>marka rengi ve slogan</b> tabelada yazılı.\n" +
+                        "• Kaydır (parmak / sol sürükle / WASD)\n" +
+                        "• Yakınlaştır (kıstır veya tekerlek)\n" +
+                        "• Döndür (iki parmak veya sağ sürükle)\n" +
+                        "Tabelandaki sloganı bir kez net görene kadar gez.",
+                        "Learn the map: store, parking, and your street sign stay put. The <b>brand color and slogan</b> you picked sit on the fascia.\n" +
+                        "• Pan (finger / left-drag / WASD)\n" +
+                        "• Zoom (pinch or wheel)\n" +
+                        "• Rotate (two fingers or right-drag)\n" +
+                        "Move until you can read the slogan on your sign."
                     );
 
                 case TutorialStep.Step2_ExploreTabletApps:
                     return LocalizationManager.L(
                         "Tut_S2_Inst",
-                        "Sağ alttaki <b>📱 EKT TABLET</b> butonuna dokun. Açılan 5 uygulamayı incele:\n" +
-                        "🛒 Mağaza Yönetimi • 🌾 Çiftlik • 🛍️ Alışveriş • 💳 Finans • 𝕏 Sosyal Medya",
-                        "Tap the <b>📱 EKT TABLET</b> button at bottom right. Explore the 5 apps:\n" +
-                        "🛒 Store Mgmt • 🌾 Farm • 🛍️ Shopping • 💳 Finance • 𝕏 Social Media"
+                        "Sağ alttaki <b>EKT TABLET</b> işletmenin beyni. Yedi uygulamayı tek tek aç:\n" +
+                        "Mağaza • Çiftlik • Alışveriş • Finans • Sosyal • Atölye • Online Market.\n" +
+                        "Online Market içinde <b>Kontratlar</b> sekmesine gir. Kasaba her gün 5 teklif sunar; birine <b>Sıraya Al</b> de. Motor yoksa teslimat bekler, sıraya almak yeter. Sosyal akışta markanın sloganı da görünür.",
+                        "The <b>EKT TABLET</b> is HQ. Open all seven apps:\n" +
+                        "Store • Farm • Shopping • Finance • Social • Workshop • Online Market.\n" +
+                        "In Online Market open <b>Contracts</b>. Town posts 5 offers a day; tap <b>Queue It</b> on one. No bike yet is fine — queuing is the lesson. Your slogan also shows on the social profile."
                     );
 
                 case TutorialStep.Step3_HireStoreStaffAndCallEarly:
                     return LocalizationManager.L(
                         "Tut_S3_Inst",
-                        "Tablette <b>Mağaza Yönetimi ➔ İşe Alım</b> sekmesine git. <b>2 Kasiyer</b> ve <b>2 Reyoncu</b> işe al. Ardından <b>Personel Kadrosu</b> sekmesinde sabah vardiyasındaki bir reyoncunun <b>⚡ Erken Çağır</b> butonuna dokun!\n💡 <i>İpucu: Bir sonraki görevde personellerin vardiyalarını ayarlayacaksın.</i>",
-                        "In Tablet, go to <b>Store Mgmt ➔ Hire Staff</b>. Hire <b>2 Cashiers</b> and <b>2 Restockers</b>. Then in <b>Staff List</b>, tap <b>⚡ Call Early</b> on a morning restocker!\n💡 <i>Tip: In the next step, you will configure staff shifts.</i>"
+                        "Tablet ➔ <b>Mağaza Yönetimi ➔ İşe Alım</b>. <b>2 kasiyer</b> ve <b>2 reyoncu</b> al. Kasiyer kuyruğu eritir; reyoncu toptan kolisini ve <b>pasaportlu</b> hasadı rafa taşır.\n" +
+                        "Sonra <b>Kadro</b>da sabah vardiyalı bir reyoncuya <b>Erken Çağır</b>. Kontrat kuryesi sonra Online Market'ten eklenir; şimdi dükkan ekibi yeterli.",
+                        "Tablet ➔ <b>Store Mgmt ➔ Hire</b>. Hire <b>2 cashiers</b> and <b>2 restockers</b>. Cashiers clear the line; restockers move wholesale boxes and <b>passport</b> harvest onto shelves.\n" +
+                        "Then in <b>Roster</b> tap <b>Call Early</b> on a morning restocker. Contract couriers come later in Online Market; store staff is enough now."
                     );
 
                 case TutorialStep.Step4_AssignStoreShifts:
                     return LocalizationManager.L(
                         "Tut_S4_Inst",
-                        "Tablette <b>Mağaza Yönetimi ➔ Vardiyalar</b> sekmesini aç. İşe aldığın personellerin <b>Vardiyalarını Ayarla</b> (Sabah 08:00 - 16:00 ve Akşam 16:00 - 24:00 vardiyalarına dağıt).",
-                        "In Tablet, open <b>Store Mgmt ➔ Shifts</b> tab. <b>Set staff shifts</b> by distributing your staff across Morning (08:00 - 16:00) and Evening (16:00 - 24:00) shifts."
+                        "Tablet ➔ <b>Mağaza ➔ Vardiyalar</b>. Personeli <b>Sabah 08:00–16:00</b> ve <b>Akşam 16:00–24:00</b> diye böl. Saat 24:00'te dükkan kapanır; müşteri çıkınca <b>gün sonu defteri</b> açılır ve yalnızca Ertesi güne atla 06:00'ya götürür. Vardiya boşsa kasa ve raf gece yarısına dayanmaz.",
+                        "Tablet ➔ <b>Store ➔ Shifts</b>. Split staff across <b>Morning 08:00–16:00</b> and <b>Evening 16:00–24:00</b>. At 24:00 the store locks; after customers leave the <b>end-of-day ledger</b> opens and only Skip to next day moves you to 06:00. Empty shifts will not last until midnight."
                     );
 
                 case TutorialStep.Step5_BuyInitialFurniture:
                     return LocalizationManager.L(
                         "Tut_S5_Inst",
-                        "Tablette <b>Alışveriş (TrendyShop) ➔ Mobilyalar</b> sekmesine gir. Sepete şunları ekle:\n" +
-                        "• 3x Standart Reyon • 1x Sepet Standı • 3x Depo Rafı • 1x Kasa • 2x Buzdolabı\n" +
-                        "Sepet ikonuna dokun ve <b>Ödeme Yap</b> ile siparişi ver!",
-                        "In Tablet, open <b>Shopping ➔ Furniture</b>. Add to cart:\n" +
-                        "• 3x Display Shelf • 1x Cart Stand • 3x Storage Rack • 1x Cashier • 2x Fridge\n" +
-                        "Open Cart and tap <b>Checkout</b> to complete order!"
+                        "Tablet ➔ <b>Alışveriş ➔ Mobilyalar</b>. Sepete koy ve öde:\n" +
+                        "3 standart reyon, 1 sepet standı, 3 depo rafı, 1 kasa, 2 buzdolabı.\n" +
+                        "Reyonlar pasaport etiketinin görüneceği yer; kasa fişte yerel/toptan yazar. Depo rafları yalnızca depoya kurulur.",
+                        "Tablet ➔ <b>Shopping ➔ Furniture</b>. Add and checkout:\n" +
+                        "3 display shelves, 1 cart stand, 3 storage racks, 1 register, 2 fridges.\n" +
+                        "Shelves are where passport labels show; the receipt marks local vs wholesale. Storage racks belong in the warehouse only."
                     );
 
                 case TutorialStep.Step6_UnpackAndPlaceFurniture:
                     return LocalizationManager.L(
                         "Tut_S6_Inst",
-                        "Mal Kabul kapısının yanındaki <b>Teslimat Paletine</b> git. Gelen kutulara dokunarak mobilyaları dükkan içine ve depo raflarını depoya kur.",
-                        "Go to the <b>Delivery Pallet</b> near Goods Receipt. Tap on boxes to place shelves inside the store and storage racks in warehouse."
+                        "Mal kabul yanındaki <b>teslimat paletine</b> git. Kutulara dokun, hayaleti sürükle, <b>Kur</b>. En az 8 parça: reyon ve kasa dükkana, metal raflar depoya. Harita yollarına dokunma. Cadde tabelanın rengi markan; vitrin ışığı da aynı tona çekilir.",
+                        "Go to the <b>delivery pallet</b> by Goods Receipt. Tap boxes, drag the ghost, tap <b>Assemble</b>. Place at least 8 pieces: shelves and register in the store, metal racks in storage. Do not change the streets. Your sign color is your brand; interior light tints to match."
                     );
 
                 case TutorialStep.Step7_PlaceWholesaleBulkOrder:
                     return LocalizationManager.L(
                         "Tut_S7_Inst",
-                        "1. Tablette <b>Alışveriş</b> sekmesinde yeşil <b>📦 Toplu Sipariş</b> butonuna dokun ve onayla!\n" +
-                        "2. Dükkandaki <b>1 Standart Reyon</b> ve <b>1 Buzdolabına</b> dokunarak her ikisinin de <b>4 rafına ürün ata (📦 Ürün Seç ➔ ✅ Rafa Koy)</b>.\n" +
-                        "💡 <i>Ürünler atandıktan sonra reyoncu depodan rafları otomatik dolduracaktır.</i>",
-                        "1. In Tablet <b>Shopping</b> tab, tap the green <b>📦 Bulk Order</b> button and confirm!\n" +
-                        "2. Tap <b>1 Display Shelf</b> and <b>1 Refrigerator</b> inside store to assign products to all <b>4 rows</b> of each (📦 Select Item ➔ ✅ Place on Shelf).\n" +
-                        "💡 <i>Once assigned, restockers will automatically unpack wholesale boxes to fill the shelves.</i>"
+                        "1. Alışveriş'te yeşil <b>Toplu Sipariş</b> ver. Mavi kamyon toptan getirir; bu lotların pasaportu zayıf kalır, fiyatı markana göre değişir.\n" +
+                        "2. Bir standart reyonun ve bir buzdolabının <b>4 sırasına</b> ürün ata. Rafta <b>nereden geldiği</b> yazar. Taze hasat daha sonra prim yapar; bayat ürün şikayet tweet'i üretir.",
+                        "1. In Shopping tap green <b>Bulk Order</b>. The blue truck brings wholesale lots with a weaker passport; your brand still changes their price.\n" +
+                        "2. Assign products to all <b>4 rows</b> of one display shelf and one fridge. The shelf shows <b>where it came from</b>. Fresh harvest later earns a premium; stale lots spark complaint tweets."
                     );
 
                 case TutorialStep.Step8_HireFarmStaffAndShifts:
                     return LocalizationManager.L(
                         "Tut_S8_Inst",
-                        "Tablette <b>Çiftlik ➔ İşe Alım</b> sekmesinden <b>2 Çiftçi</b> işe al. Ardından <b>Vardiyalar</b> sekmesinden çiftçileri Sabah (08:00 - 16:00) ve Akşam (16:00 - 24:00) vardiyalarına dağıt.",
-                        "In Tablet <b>Farm ➔ Hire Staff</b>, hire <b>2 Farmers</b>. Then in <b>Shifts</b>, assign them across Morning (08:00 - 16:00) and Evening (16:00 - 24:00) shifts."
+                        "Tablet ➔ <b>Çiftlik ➔ İşe Alım</b>: <b>2 çiftçi</b>. <b>Vardiyalar</b>da birini sabah, birini akşama koy. Çiftçi eker ve hasat eder; hasat lotuna tarla, gün, saat ve hava işlenir. Yerel üretici kimliği bu mahsule prim verir.",
+                        "Tablet ➔ <b>Farm ➔ Hire</b>: <b>2 farmers</b>. In <b>Shifts</b> put one on morning, one on evening. Farmers plant and harvest; each lot stores plot, day, hour, and weather. A local-producer brand pays a premium on that crop."
                     );
 
                 case TutorialStep.Step9_BuyStartingSeeds:
                     return LocalizationManager.L(
                         "Tut_S9_Inst",
-                        "Tablette <b>Alışveriş ➔ Tohumlar</b> sekmesine gir. İlk 3 tohumdan 1'er paket satın al:\n" +
-                        "• 1x Domates Tohumu 🍅 • 1x Salatalık Tohumu 🥒 • 1x Marul Tohumu 🥬",
-                        "In Tablet <b>Shopping ➔ Seeds</b> tab, buy 1 pack of each of the first 3 seeds:\n" +
-                        "• 1x Tomato Seeds 🍅 • 1x Cucumber Seeds 🥒 • 1x Lettuce Seeds 🥬"
+                        "Alışveriş ➔ <b>Tohumlar</b>. Birer paket al: domates, salatalık, marul. Mevsim dışı ekilmez. Hasat ahıra gider; oradan markete sevk, anında sat veya atölye hammaddesi. Sevkte pasaport korunur.",
+                        "Shopping ➔ <b>Seeds</b>. Buy one pack each: tomato, cucumber, lettuce. Out-of-season plots refuse them. Harvest lands in the barn; from there ship to store, sell now, or send to the workshop. Shipping keeps the passport."
                     );
 
                 case TutorialStep.Step10_PlantSeedsAndOpenStore:
                     return LocalizationManager.L(
                         "Tut_S10_Inst",
-                        "Çiftliğin sağ tarafındaki boş tarlalara dokun ve aldığın tohumları ek. Ekim bitince ekranın üstündeki <b>DÜKKAN KAPALI</b> butonuna basarak dükkanı müşterilere aç!",
-                        "Tap on empty field plots on the right and plant your seeds. Once finished, tap <b>STORE CLOSED</b> on top HUD to open your store!"
+                        "Sağdaki boş tarlaya dokun, tohum ek. Sonra HUD'daki <b>Dükkan Kapalı</b> ile aç. Müşteri pasaportlu fiyatı görür; gece defteri bugünü yazar. Kontrat motoru dükkan açıkken sıradaki işe çıkar. Markan hazır — kapıyı aç.",
+                        "Tap an empty plot on the right and plant. Then tap HUD <b>Store Closed</b> to open. Shoppers see passport pricing; the night ledger writes today's story. Contract bikes only leave while you are open. Your brand is ready — open the door."
                     );
 
                 default:
@@ -544,36 +563,33 @@ namespace Farm2Shelf.UI
             switch (step)
             {
                 case TutorialStep.Step1_CameraControls:
-                    string pan = tm.DidPanCamera ? "<color=#00FFA3>✅ [✓] Parmağınla Haritayı Kaydır</color>" : "<color=#FFD700>⏳ [ ] Parmağınla Haritayı Kaydır</color>";
-                    string zoom = tm.DidZoomCamera ? "<color=#00FFA3>✅ [✓] İki Parmakla Yakınlaştır (Pinch)</color>" : "<color=#FFD700>⏳ [ ] İki Parmakla Yakınlaştır (Pinch)</color>";
-                    string rot = tm.DidRotateCamera ? "<color=#00FFA3>✅ [✓] İki Parmakla Açıyı Döndür (Twist)</color>" : "<color=#FFD700>⏳ [ ] İki Parmakla Açıyı Döndür (Twist)</color>";
-                    return $"• {pan}\n• {zoom}\n• {rot}";
+                    return "• " + Tick(tm.DidPanCamera, "Tut_C1_Pan", "Haritayı kaydır", "Pan the map") +
+                           "\n• " + Tick(tm.DidZoomCamera, "Tut_C1_Zoom", "Yakınlaştır / uzaklaştır", "Zoom in / out") +
+                           "\n• " + Tick(tm.DidRotateCamera, "Tut_C1_Rot", "Kamerayı döndür", "Rotate the camera");
 
                 case TutorialStep.Step2_ExploreTabletApps:
-                    string a0 = tm.IsAppExplored(0) ? "<color=#00FFA3>✅ [✓] 🛒 Mağaza</color>" : "<color=#FFD700>⏳ [ ] 🛒 Mağaza</color>";
-                    string a1 = tm.IsAppExplored(1) ? "<color=#00FFA3>✅ [✓] 🌾 Çiftlik</color>" : "<color=#FFD700>⏳ [ ] 🌾 Çiftlik</color>";
-                    string a2 = tm.IsAppExplored(2) ? "<color=#00FFA3>✅ [✓] 🛍️ Alışveriş</color>" : "<color=#FFD700>⏳ [ ] 🛍️ Alışveriş</color>";
-                    string a3 = tm.IsAppExplored(3) ? "<color=#00FFA3>✅ [✓] 💳 Finans</color>" : "<color=#FFD700>⏳ [ ] 💳 Finans</color>";
-                    string a4 = tm.IsAppExplored(4) ? "<color=#00FFA3>✅ [✓] 𝕏 Sosyal</color>" : "<color=#FFD700>⏳ [ ] 𝕏 Sosyal</color>";
-                    return $"<b>İncelenen Tablet Uygulamaları ({tm.ExploredAppsCount}/5):</b>\n{a0}  {a1}  {a2}\n{a3}  {a4}";
+                    string apps = Tick(tm.IsAppExplored(0), "Tut_C2_A0", "🛒 Mağaza", "🛒 Store") + "  " +
+                                  Tick(tm.IsAppExplored(1), "Tut_C2_A1", "🌾 Çiftlik", "🌾 Farm") + "  " +
+                                  Tick(tm.IsAppExplored(2), "Tut_C2_A2", "🛍️ Alışveriş", "🛍️ Shop") + "\n" +
+                                  Tick(tm.IsAppExplored(3), "Tut_C2_A3", "💳 Finans", "💳 Finance") + "  " +
+                                  Tick(tm.IsAppExplored(4), "Tut_C2_A4", "𝕏 Sosyal", "𝕏 Social") + "  " +
+                                  Tick(tm.IsAppExplored(5), "Tut_C2_A5", "🏭 Atölye", "🏭 Workshop") + "\n" +
+                                  Tick(tm.IsAppExplored(6), "Tut_C2_A6", "🌐 Online Market", "🌐 Online Market");
+                    string ctr = Tick(tm.HasAcceptedTownContract(), "Tut_C2_Ctr", "Bir kasaba kontratını sıraya al", "Queue one town contract");
+                    return $"{apps}\n{ctr}";
 
                 case TutorialStep.Step3_HireStoreStaffAndCallEarly:
                     int cash = tm.GetStoreRoleCount(StaffRole.Kasiyer);
                     int rest = tm.GetStoreRoleCount(StaffRole.Reyoncu);
-                    string cStr = (cash >= 2) ? $"<color=#00FFA3>✅ [✓] 2 Kasiyer İşe Alındı ({cash}/2)</color>" : $"<color=#FFD700>⏳ [ ] 2 Kasiyer İşe Al ({cash}/2)</color>";
-                    string rStr = (rest >= 2) ? $"<color=#00FFA3>✅ [✓] 2 Reyoncu İşe Alındı ({rest}/2)</color>" : $"<color=#FFD700>⏳ [ ] 2 Reyoncu İşe Al ({rest}/2)</color>";
-                    string early = tm.DidCallRestockerEarly ? "<color=#00FFA3>✅ [✓] Sabah Reyoncusu Erken Çağırıldı</color>" : "<color=#FFD700>⏳ [ ] Sabah Reyoncusunu Erken Çağır</color>";
-                    return $"• {cStr}\n• {rStr}\n• {early}";
+                    return "• " + Tick(cash >= 2, "Tut_C3_Cash", $"2 kasiyer ({cash}/2)", $"2 cashiers ({cash}/2)") +
+                           "\n• " + Tick(rest >= 2, "Tut_C3_Rest", $"2 reyoncu ({rest}/2)", $"2 restockers ({rest}/2)") +
+                           "\n• " + Tick(tm.DidCallRestockerEarly, "Tut_C3_Early", "Reyoncuyu erken çağır", "Call a restocker early");
 
                 case TutorialStep.Step4_AssignStoreShifts:
                     bool shMorn = tm.HasStoreShift("Sabah") || tm.HasStoreShift("Gündüz") || tm.HasStoreShift("08:00") || tm.HasStoreShift("Morning");
                     bool shEve = tm.HasStoreShift("Akşam") || tm.HasStoreShift("16:00 - 24:00") || tm.HasStoreShift("24:00") || tm.HasStoreShift("Gece") || tm.HasStoreShift("Evening");
-                    string sHeader = (shMorn && shEve) 
-                        ? "<color=#00FFA3>✅ [✓] Personel Vardiyalarını Ayarla (Tamamlandı)</color>" 
-                        : "<color=#FFD700>⏳ [ ] Personellerin Vardiyalarını Ayarla</color>";
-                    string sM = shMorn ? "<color=#00FFA3>  • [✓] Sabah Vardiyası (08:00 - 16:00)</color>" : "<color=#FFD700>  • [ ] Sabah Vardiyasına Personel Ata</color>";
-                    string sE = shEve ? "<color=#00FFA3>  • [✓] Akşam Vardiyası (16:00 - 24:00)</color>" : "<color=#FFD700>  • [ ] Akşam Vardiyasına Personel Ata</color>";
-                    return $"{sHeader}\n{sM}\n{sE}";
+                    return "• " + Tick(shMorn, "Tut_C4_M", "Sabah vardiyası 08:00–16:00", "Morning shift 08:00–16:00") +
+                           "\n• " + Tick(shEve, "Tut_C4_E", "Akşam vardiyası 16:00–24:00", "Evening shift 16:00–24:00");
 
                 case TutorialStep.Step5_BuyInitialFurniture:
                     int sh = tm.GetBoughtCount(FurnitureType.Shelf);
@@ -581,56 +597,51 @@ namespace Farm2Shelf.UI
                     int st = tm.GetBoughtCount(FurnitureType.StorageShelf);
                     int ca = tm.GetBoughtCount(FurnitureType.Cashier);
                     int fr = tm.GetBoughtCount(FurnitureType.Fridge);
-                    string tSh = (sh >= 3) ? $"<color=#00FFA3>✅ [✓] 3x Standart Raf ({sh}/3)</color>" : $"<color=#FFD700>⏳ [ ] 3x Standart Raf ({sh}/3)</color>";
-                    string tCs = (cs >= 1) ? $"<color=#00FFA3>✅ [✓] 1x Sepet Standı ({cs}/1)</color>" : $"<color=#FFD700>⏳ [ ] 1x Sepet Standı ({cs}/1)</color>";
-                    string tSt = (st >= 3) ? $"<color=#00FFA3>✅ [✓] 3x Depo Metal Rafı ({st}/3)</color>" : $"<color=#FFD700>⏳ [ ] 3x Depo Metal Rafı ({st}/3)</color>";
-                    string tCa = (ca >= 1) ? $"<color=#00FFA3>✅ [✓] 1x Market Kasası ({ca}/1)</color>" : $"<color=#FFD700>⏳ [ ] 1x Market Kasası ({ca}/1)</color>";
-                    string tFr = (fr >= 2) ? $"<color=#00FFA3>✅ [✓] 2x Buzdolabı ({fr}/2)</color>" : $"<color=#FFD700>⏳ [ ] 2x Buzdolabı ({fr}/2)</color>";
-                    return $"• {tSh}  • {tCs}\n• {tSt}  • {tCa}\n• {tFr}";
+                    return "• " + Tick(sh >= 3, "Tut_C5_Sh", $"3 reyon ({sh}/3)", $"3 shelves ({sh}/3)") + "  " +
+                           Tick(cs >= 1, "Tut_C5_Cs", $"1 sepet ({cs}/1)", $"1 cart stand ({cs}/1)") +
+                           "\n• " + Tick(st >= 3, "Tut_C5_St", $"3 depo rafı ({st}/3)", $"3 storage racks ({st}/3)") + "  " +
+                           Tick(ca >= 1, "Tut_C5_Ca", $"1 kasa ({ca}/1)", $"1 register ({ca}/1)") +
+                           "\n• " + Tick(fr >= 2, "Tut_C5_Fr", $"2 buzdolabı ({fr}/2)", $"2 fridges ({fr}/2)");
 
                 case TutorialStep.Step6_UnpackAndPlaceFurniture:
                     int placedFurnitureCount = PlacedFurnitureController.AllPlacedFurniture != null ? PlacedFurnitureController.AllPlacedFurniture.Count : 0;
                     int placed = Mathf.Max(tm.TotalFurniturePlacedInTutorial, placedFurnitureCount);
-                    string plStr = (placed >= 8) ? $"<color=#00FFA3>✅ [✓] Mobilya Kurulumu Tamamlandı! ({placed}/8)</color>" : $"<color=#FFD700>⏳ [ ] Teslimat Paletindeki Mobilyaları Kur ({placed}/8)</color>";
-                    return $"• {plStr}\n<color=#8EE2FF>Kutulara tıklayıp mağaza içine ve depoya yerleştir.</color>";
+                    return "• " + Tick(placed >= 8, "Tut_C6_Pl", $"Mobilya kur ({placed}/8)", $"Place furniture ({placed}/8)");
 
                 case TutorialStep.Step7_PlaceWholesaleBulkOrder:
-                    string bo = tm.DidPlaceBulkOrder ? "<color=#00FFA3>✅ [✓] Toptancı Toplu Siparişi Verildi 🚛</color>" : "<color=#FFD700>⏳ [ ] 📦 Toplu Sipariş Butonuna Dokun ve Onayla</color>";
                     int sRows = tm.GetMaxAssignedRowsOnAnyShelf();
                     int fRows = tm.GetMaxAssignedRowsOnAnyFridge();
-                    string sStr = (sRows >= 4) ? $"<color=#00FFA3>✅ [✓] Standart Reyona 4 Ürün Atandı ({sRows}/4)</color>" : $"<color=#FFD700>⏳ [ ] Standart Reyona 4 Ürün Ata ({sRows}/4)</color>";
-                    string fStr = (fRows >= 4) ? $"<color=#00FFA3>✅ [✓] Buzdolabına 4 Ürün Atandı ({fRows}/4)</color>" : $"<color=#FFD700>⏳ [ ] Buzdolabına 4 Ürün Ata ({fRows}/4)</color>";
-                    return $"• {bo}\n• {sStr}  • {fStr}";
+                    return "• " + Tick(tm.DidPlaceBulkOrder, "Tut_C7_Bo", "Toplu sipariş ver", "Place a bulk order") +
+                           "\n• " + Tick(sRows >= 4, "Tut_C7_Sh", $"Reyona 4 ürün ({sRows}/4)", $"4 shelf rows ({sRows}/4)") +
+                           "\n• " + Tick(fRows >= 4, "Tut_C7_Fr", $"Dolaba 4 ürün ({fRows}/4)", $"4 fridge rows ({fRows}/4)");
 
                 case TutorialStep.Step8_HireFarmStaffAndShifts:
                     int farm = tm.GetFarmRoleCount(StaffRole.Çiftçi);
-                    string fStr2 = (farm >= 2) ? $"<color=#00FFA3>✅ [✓] 2 Çiftçi İşe Alındı ({farm}/2)</color>" : $"<color=#FFD700>⏳ [ ] 2 Çiftçi İşe Al ({farm}/2)</color>";
                     bool fMorn = tm.HasFarmShift("Sabah") || tm.HasFarmShift("Gündüz") || tm.HasFarmShift("08:00") || tm.HasFarmShift("Morning");
                     bool fEve = tm.HasFarmShift("Akşam") || tm.HasFarmShift("16:00 - 24:00") || tm.HasFarmShift("24:00") || tm.HasFarmShift("Gece") || tm.HasFarmShift("Evening");
-                    string fSh = (fMorn && fEve) ? "<color=#00FFA3>✅ [✓] Çiftlik Vardiyaları Düzenlendi (Sabah 08-16 / Akşam 16-24)</color>" : "<color=#FFD700>⏳ [ ] Çiftçileri Sabah ve Akşam Vardiyalarına Dağıt</color>";
-                    return $"• {fStr2}\n• {fSh}";
+                    return "• " + Tick(farm >= 2, "Tut_C8_F", $"2 çiftçi ({farm}/2)", $"2 farmers ({farm}/2)") +
+                           "\n• " + Tick(fMorn && fEve, "Tut_C8_Sh", "Sabah ve akşam vardiyası", "Morning and evening shifts");
 
                 case TutorialStep.Step9_BuyStartingSeeds:
                     bool hasTomato = tm.DidBuyTomatoSeed || (GardenSeedInventoryManager.Instance != null && GardenSeedInventoryManager.Instance.GetSeedCount("spring_tomato") > 0);
                     bool hasCucumber = tm.DidBuyCucumberSeed || (GardenSeedInventoryManager.Instance != null && GardenSeedInventoryManager.Instance.GetSeedCount("spring_cucumber") > 0);
                     bool hasLettuce = tm.DidBuyLettuceSeed || (GardenSeedInventoryManager.Instance != null && GardenSeedInventoryManager.Instance.GetSeedCount("spring_lettuce") > 0);
-                    string st1 = hasTomato ? "<color=#00FFA3>✅ [✓] 1x Domates Tohumu 🍅</color>" : "<color=#FFD700>⏳ [ ] 1x Domates Tohumu 🍅</color>";
-                    string st2 = hasCucumber ? "<color=#00FFA3>✅ [✓] 1x Salatalık Tohumu 🥒</color>" : "<color=#FFD700>⏳ [ ] 1x Salatalık Tohumu 🥒</color>";
-                    string st3 = hasLettuce ? "<color=#00FFA3>✅ [✓] 1x Marul Tohumu 🥬</color>" : "<color=#FFD700>⏳ [ ] 1x Marul Tohumu 🥬</color>";
-                    return $"• {st1}\n• {st2}\n• {st3}";
+                    return "• " + Tick(hasTomato, "Tut_C9_T", "Domates tohumu", "Tomato seeds") +
+                           "\n• " + Tick(hasCucumber, "Tut_C9_C", "Salatalık tohumu", "Cucumber seeds") +
+                           "\n• " + Tick(hasLettuce, "Tut_C9_L", "Marul tohumu", "Lettuce seeds");
 
                 case TutorialStep.Step10_PlantSeedsAndOpenStore:
                     int plantedPlots = FieldPlotController.AllPlots != null ? FieldPlotController.AllPlots.FindAll(p => p != null && p.State != PlotState.Empty).Count : 0;
                     int cp = Mathf.Max(tm.CropsPlantedInTutorial, plantedPlots);
                     bool isStoreOpen = tm.DidOpenStoreInTutorial || (StoreStatusManager.Instance != null && StoreStatusManager.Instance.IsOpen);
-                    string cpStr = (cp >= 1) ? $"<color=#00FFA3>✅ [✓] Tarla Parseline Ekim Yapıldı ({cp})</color>" : $"<color=#FFD700>⏳ [ ] Tarlaya Tohumları Ek</color>";
-                    string op = isStoreOpen ? "<color=#00FFA3>✅ [✓] Dükkan Müşterilere Açıldı 🟢</color>" : "<color=#FFD700>⏳ [ ] Üstteki DÜKKANI AÇ Butonuna Bas</color>";
-                    return $"• {cpStr}\n• {op}";
+                    return "• " + Tick(cp >= 1, "Tut_C10_P", $"Tarla ekimi ({cp})", $"Plant a plot ({cp})") +
+                           "\n• " + Tick(isStoreOpen, "Tut_C10_O", "Dükkanı aç", "Open the store");
 
                 default:
                     return "";
             }
         }
+
 
         private void OnEnable()
         {

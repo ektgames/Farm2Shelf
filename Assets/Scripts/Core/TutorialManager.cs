@@ -60,6 +60,7 @@ namespace Farm2Shelf.Core
 
         // Step 7: Toplu Sipariş & Reyon Dizimi
         public bool DidPlaceBulkOrder { get; private set; }
+        public bool DidAcceptTownContract { get; private set; }
 
         // Step 9: Tohum Alımı
         public bool DidBuyTomatoSeed { get; private set; }
@@ -228,6 +229,7 @@ namespace Farm2Shelf.Core
             DidCheckoutFurniture = false;
             TotalFurniturePlacedInTutorial = 0;
             DidPlaceBulkOrder = false;
+            DidAcceptTownContract = false;
             DidBuyTomatoSeed = false;
             DidBuyCucumberSeed = false;
             DidBuyLettuceSeed = false;
@@ -252,7 +254,7 @@ namespace Farm2Shelf.Core
                     return DidPanCamera && DidZoomCamera && DidRotateCamera;
 
                 case TutorialStep.Step2_ExploreTabletApps:
-                    return ExploredAppsCount >= 5;
+                    return ExploredAppsCount >= 7 && HasAcceptedTownContract();
 
                 case TutorialStep.Step3_HireStoreStaffAndCallEarly:
                     return GetStoreRoleCount(StaffRole.Kasiyer) >= 2 &&
@@ -357,7 +359,7 @@ namespace Farm2Shelf.Core
         public void NotifyStaffHired(StaffRole role)
         {
             if (CurrentStep != TutorialStep.Step3_HireStoreStaffAndCallEarly && CurrentStep != TutorialStep.Step8_HireFarmStaffAndShifts) return;
-            CheckCurrentStepCompletion(true);
+            CheckCurrentStepCompletion(false);
         }
 
         public void NotifyStaffCalledEarly()
@@ -365,14 +367,14 @@ namespace Farm2Shelf.Core
             if (CurrentStep == TutorialStep.Step3_HireStoreStaffAndCallEarly)
             {
                 DidCallRestockerEarly = true;
-                CheckCurrentStepCompletion(true);
+                CheckCurrentStepCompletion(false);
             }
         }
 
         public void NotifyStaffShiftChanged()
         {
             if (CurrentStep != TutorialStep.Step4_AssignStoreShifts && CurrentStep != TutorialStep.Step8_HireFarmStaffAndShifts) return;
-            CheckCurrentStepCompletion(true);
+            CheckCurrentStepCompletion(false);
         }
 
         public void NotifyFurnitureItemPurchased(FurnitureType type, int count)
@@ -389,7 +391,7 @@ namespace Farm2Shelf.Core
             }
 
             DidCheckoutFurniture = true;
-            CheckCurrentStepCompletion(true);
+            CheckCurrentStepCompletion(false);
         }
 
         public void NotifyFurniturePlaced(FurnitureType type)
@@ -397,7 +399,7 @@ namespace Farm2Shelf.Core
             if (CurrentStep != TutorialStep.Step6_UnpackAndPlaceFurniture) return;
 
             TotalFurniturePlacedInTutorial++;
-            CheckCurrentStepCompletion(true);
+            CheckCurrentStepCompletion(false);
         }
 
         public void NotifyBulkOrderPlaced()
@@ -405,14 +407,42 @@ namespace Farm2Shelf.Core
             if (CurrentStep != TutorialStep.Step7_PlaceWholesaleBulkOrder) return;
 
             DidPlaceBulkOrder = true;
-            CheckCurrentStepCompletion(true);
+            CheckCurrentStepCompletion(false);
         }
 
         public void NotifyProductAssignedToShelf()
         {
             if (CurrentStep != TutorialStep.Step7_PlaceWholesaleBulkOrder) return;
 
-            CheckCurrentStepCompletion(true);
+            CheckCurrentStepCompletion(false);
+        }
+
+        public void NotifyTownContractQueued()
+        {
+            if (CurrentStep != TutorialStep.Step2_ExploreTabletApps) return;
+            DidAcceptTownContract = true;
+            CheckCurrentStepCompletion(false);
+        }
+
+        public bool HasAcceptedTownContract()
+        {
+            if (DidAcceptTownContract) return true;
+            if (TownContractManager.Instance == null) return false;
+            if (TownContractManager.Instance.QueueOfferIds != null && TownContractManager.Instance.QueueOfferIds.Count > 0) return true;
+            if (TownContractManager.Instance.SuccessCount > 0) return true;
+            var offers = TownContractManager.Instance.Offers;
+            if (offers == null) return false;
+            for (int i = 0; i < offers.Count; i++)
+            {
+                if (offers[i] == null) continue;
+                if (offers[i].status == TownContractOfferStatus.Queued
+                    || offers[i].status == TownContractOfferStatus.Active
+                    || offers[i].status == TownContractOfferStatus.Completed)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         public int GetMaxAssignedRowsOnAnyShelf()
@@ -467,7 +497,7 @@ namespace Farm2Shelf.Core
             if (seedId.Contains("cucumber")) DidBuyCucumberSeed = true;
             if (seedId.Contains("lettuce")) DidBuyLettuceSeed = true;
 
-            CheckCurrentStepCompletion(true);
+            CheckCurrentStepCompletion(false);
         }
 
         public void NotifyCropPlanted(string seedId)
@@ -475,7 +505,7 @@ namespace Farm2Shelf.Core
             if (CurrentStep != TutorialStep.Step10_PlantSeedsAndOpenStore) return;
 
             CropsPlantedInTutorial++;
-            CheckCurrentStepCompletion(true);
+            CheckCurrentStepCompletion(false);
         }
 
         private void HandleStoreStatusChanged(bool isOpen)
@@ -483,7 +513,7 @@ namespace Farm2Shelf.Core
             if (isOpen && CurrentStep == TutorialStep.Step10_PlantSeedsAndOpenStore)
             {
                 DidOpenStoreInTutorial = true;
-                CheckCurrentStepCompletion(true);
+                CheckCurrentStepCompletion(false);
             }
         }
 
@@ -542,17 +572,19 @@ namespace Farm2Shelf.Core
             string body = LocalizationManager.L(
                 "Tutorial_End_Body",
                 "<b>Harika bir iş çıkardın! 🚀</b>\n\n" +
-                "• Temel kontrolleri ve tablet uygulamalarını öğrendin,\n" +
-                "• Mağaza ve çiftlik personellerini alıp vardiyalarını düzenledin,\n" +
-                "• Reyonları kurup toptancıdan ilk toplu ürün siparişini verdin,\n" +
-                "• Tarlaya tohumları ektin ve dükkanın kapılarını müşterilere açtın!\n\n" +
-                "Artık dükkanını devasa bir süpermarkete dönüştürmek senin elinde. Bol kazançlar ve iyi eğlenceler!",
+                "• Kamerayı ve EKT tabletin 7 uygulamasını öğrendin,\n" +
+                "• İlk kasaba kontratını sıraya aldın,\n" +
+                "• Personel, vardiya, reyon ve toptan döngüsünü kurdun,\n" +
+                "• Pasaportlu taze ürün ve gece Z raporunun ne işe yaradığını gördün,\n" +
+                "• Tarlaya ektin ve dükkanı açtın.\n\n" +
+                "Bundan sonra markan, kontratların ve gün sonu defterin senin hikâyen. Bol kazançlar!",
                 "<b>Awesome job! 🚀</b>\n\n" +
-                "• Learned camera controls & tablet applications,\n" +
-                "• Hired store & farm staff and configured their shifts,\n" +
-                "• Placed shelves and ordered first wholesale bulk goods,\n" +
-                "• Planted seeds on field plots and opened the store doors!\n\n" +
-                "Now you're ready to grow your business into a massive supermarket empire. Have fun and enjoy!"
+                "• Learned the camera and all 7 EKT tablet apps,\n" +
+                "• Queued your first town contract,\n" +
+                "• Set up staff, shifts, shelves, and wholesale,\n" +
+                "• Saw how product passports and the night ledger work,\n" +
+                "• Planted fields and opened the store.\n\n" +
+                "From here your brand, contracts, and end-of-day story are yours. Have fun!"
             );
             string btnText = LocalizationManager.L("Tutorial_End_Btn", "🚀 Harika! Oyuna Başla", "🚀 Awesome! Start Playing");
 

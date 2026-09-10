@@ -55,6 +55,15 @@ namespace Farm2Shelf.Core
             return false;
         }
 
+        public void ReturnPackageToTruck(WholesaleProductDef pack)
+        {
+            if (pack == null) return;
+            if (PendingTruckPackages == null) PendingTruckPackages = new List<WholesaleProductDef>();
+            PendingTruckPackages.Insert(0, pack);
+            if (!activeDeliveryPackages.Contains(pack)) activeDeliveryPackages.Add(pack);
+            IsTruckAtDockWaitingForUnload = true;
+        }
+
         public void ClearPendingDeliveries()
         {
             StopAllCoroutines();
@@ -107,6 +116,7 @@ namespace Farm2Shelf.Core
                 if (package != null) data.originalPackageIds.Add(package.id);
             }
 
+            ProductPassportService.CapturePackageLots(data, remaining, originalDeliveryPackages);
             return data;
         }
 
@@ -116,6 +126,8 @@ namespace Farm2Shelf.Core
 
             List<WholesaleProductDef> remaining = ResolveSavedPackages(data.remainingPackageIds);
             List<WholesaleProductDef> original = ResolveSavedPackages(data.originalPackageIds);
+            ProductPassportService.ApplyPackageLots(remaining, data.remainingPackageLots);
+            ProductPassportService.ApplyPackageLots(original, data.originalPackageLots);
             if (original.Count == 0) original.AddRange(remaining);
 
             Vector3 pos = new Vector3(data.posX, data.posY, data.posZ);
@@ -142,7 +154,7 @@ namespace Farm2Shelf.Core
             if (productIds == null) return products;
             foreach (string productId in productIds)
             {
-                WholesaleProductDef product = WholesaleDatabase.GetProductById(productId);
+                WholesaleProductDef product = ProductPassportService.CreateTransitStub(productId);
                 if (product != null) products.Add(product);
             }
             return products;
@@ -175,12 +187,21 @@ namespace Farm2Shelf.Core
 
             IsTruckOnTheWay = true;
             currentPhase = DeliveryTruckPhase.Approaching;
+            List<WholesaleProductDef> prepared = new List<WholesaleProductDef>();
+            if (farmProductList != null)
+            {
+                for (int i = 0; i < farmProductList.Count; i++)
+                {
+                    WholesaleProductDef clone = ProductPassportService.CloneForTransit(farmProductList[i]);
+                    if (clone != null) prepared.Add(clone);
+                }
+            }
             originalDeliveryPackages.Clear();
-            if (farmProductList != null) originalDeliveryPackages.AddRange(farmProductList);
+            originalDeliveryPackages.AddRange(prepared);
             activeDeliveryPackages.Clear();
-            if (farmProductList != null) activeDeliveryPackages.AddRange(farmProductList);
+            activeDeliveryPackages.AddRange(prepared);
             StartCoroutine(GreenTruckLifecycleRoutine(
-                farmProductList ?? new List<WholesaleProductDef>(),
+                new List<WholesaleProductDef>(prepared),
                 originalDeliveryPackages,
                 DeliveryTruckPhase.Approaching,
                 DeliveryTruckVisuals.StartPos,

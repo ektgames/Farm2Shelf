@@ -54,6 +54,14 @@ namespace Farm2Shelf.Utils
             if (_cachedUnlitShader != null) return _cachedUnlitShader;
 
             _cachedUnlitShader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (_cachedUnlitShader == null)
+            {
+                Material resMat = Resources.Load<Material>("Shaders/DefaultURPUnlit");
+                if (resMat != null && resMat.shader != null)
+                {
+                    _cachedUnlitShader = resMat.shader;
+                }
+            }
             if (_cachedUnlitShader == null) _cachedUnlitShader = Shader.Find("Unlit/Color");
             if (_cachedUnlitShader == null) _cachedUnlitShader = GetLitShader();
             return _cachedUnlitShader;

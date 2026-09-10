@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -9,27 +8,23 @@ using Farm2Shelf.Utils;
 namespace Farm2Shelf.Environment
 {
     /// <summary>
-    /// Farm2Shelf Dükkan Önü (Otobüs Durağı Arkası) Seviyeye Göre Gelişen Işıklı Tabela Sistemi.
-    /// - Sabit Konum: Otobüs durağının hemen arkasında, ön bina cephesinde (X: 4.5, Z: -3.08).
-    /// - Dinamik Şirket İsmi: Oyuncunun belirlediği şirket ismini 7/24 büyük, tam ortalı ve okunaklı yansıtır.
-    /// - Seviyeye Göre Gelişen 3D Mimari Modeller (Seviye 1, 2, 3).
-    /// - Sabit Emissive Işıma & Mat Materyaller: Kamera hareket ettiğinde ışık kayması, parlama veya titreme yaşanmaz.
+    /// Dükkan önü şirket tabelası. Seviye 1/2/3'te model değişir; yazı her seviyede okunaklı kalır.
     /// </summary>
     public class StorefrontSignboardController : MonoBehaviour
     {
         public static StorefrontSignboardController Instance { get; private set; }
 
-        [Header("Konumlandırma")]
         private static readonly Vector3 SIGN_ROOT_POS = new Vector3(4.5f, 0.0f, -3.08f);
+        private static readonly Dictionary<string, Material> MatCache = new Dictionary<string, Material>();
 
-        [Header("Aktif Tabela Referansları")]
         private GameObject currentSignModelObj;
-        private Text companyNameTextComponent;
-        private List<Light> signboardLights = new List<Light>();
-        private List<Renderer> emissiveRenderers = new List<Renderer>();
-
+        private Text companyNameText;
+        private Text sloganText;
+        private const int CompanyNameMaxChars = 18;
+        private const int SloganMaxChars = 32;
         private int currentLevel = 1;
         private string cachedCompanyName = "";
+        private float checkTimer;
 
         private void Awake()
         {
@@ -45,19 +40,18 @@ namespace Farm2Shelf.Environment
             }
         }
 
-        private float checkTimer = 0f;
-
         private void Update()
         {
             checkTimer += Time.deltaTime;
-            if (checkTimer >= 1.0f)
+            if (checkTimer < 1.0f) return;
+            checkTimer = 0f;
+
+            if (StoreStatusManager.Instance != null
+                && !string.IsNullOrEmpty(StoreStatusManager.Instance.CompanyName)
+                && StoreStatusManager.Instance.CompanyName != cachedCompanyName)
             {
-                checkTimer = 0f;
-                if (StoreStatusManager.Instance != null && !string.IsNullOrEmpty(StoreStatusManager.Instance.CompanyName) && StoreStatusManager.Instance.CompanyName != cachedCompanyName)
-                {
-                    cachedCompanyName = StoreStatusManager.Instance.CompanyName;
-                    UpdateTextLabels();
-                }
+                cachedCompanyName = StoreStatusManager.Instance.CompanyName;
+                UpdateTextLabels();
             }
         }
 
@@ -101,9 +95,6 @@ namespace Farm2Shelf.Environment
             RefreshSignboard();
         }
 
-        /// <summary>
-        /// Tabelayı mevcut dükkan seviyesine ve şirket ismine göre baştan inşa eder.
-        /// </summary>
         public void RefreshSignboard()
         {
             if (EnvironmentBuilder.Instance != null)
@@ -125,7 +116,6 @@ namespace Farm2Shelf.Environment
 
         private void BuildSignboardModel(int level)
         {
-            // Eski modeli temizle
             if (currentSignModelObj != null)
             {
                 if (Application.isPlaying) Destroy(currentSignModelObj);
@@ -142,27 +132,24 @@ namespace Farm2Shelf.Environment
                 }
             }
 
-            signboardLights.Clear();
-            emissiveRenderers.Clear();
+            companyNameText = null;
+            sloganText = null;
 
             currentSignModelObj = new GameObject($"Storefront_Signboard_Lv{level}");
             currentSignModelObj.transform.SetParent(transform, false);
             currentSignModelObj.transform.localPosition = SIGN_ROOT_POS;
             currentSignModelObj.transform.localRotation = Quaternion.identity;
 
-            Font globalFont = UIStyleUtility.GetGlobalFont();
-
             switch (level)
             {
                 case 1:
-                    BuildLevel1BoutiqueSign(currentSignModelObj.transform, globalFont);
+                    BuildLevel1BoutiqueSign(currentSignModelObj.transform);
                     break;
                 case 2:
-                    BuildLevel2SupermarketSign(currentSignModelObj.transform, globalFont);
+                    BuildLevel2SupermarketSign(currentSignModelObj.transform);
                     break;
-                case 3:
                 default:
-                    BuildLevel3HypermarketSign(currentSignModelObj.transform, globalFont);
+                    BuildLevel3HypermarketSign(currentSignModelObj.transform);
                     break;
             }
 
@@ -170,313 +157,479 @@ namespace Farm2Shelf.Environment
         }
 
         // =========================================================================
-        // SEVİYE 1: AHŞAP & ANTRASİT KOMPOZİT LED TABELA (BUTİK DOĞAL MARKET)
+        // SEVİYE 1 — Ahşap kaset fasya + pirinç çerçeve (butik doğal market)
         // =========================================================================
-        private void BuildLevel1BoutiqueSign(Transform parent, Font font)
+        private void BuildLevel1BoutiqueSign(Transform parent)
         {
-            float baseY = 4.20f;
-            float signW = 5.20f;
-            float signH = 1.35f;
+            const float y = 4.18f;
+            const float w = 5.35f;
+            const float h = 1.28f;
+            const float depth = 0.16f;
 
-            // 1. Çelik Montaj Ayakları
-            CreateSteelBracket(parent, new Vector3(-2.0f, 3.35f, 0.04f), 0.90f);
-            CreateSteelBracket(parent, new Vector3(2.0f, 3.35f, 0.04f), 0.90f);
+            CreateRaceway(parent, new Vector3(0f, y, 0.10f), w + 0.55f, 0.10f, Mat("RacewayDark", new Color(0.22f, 0.23f, 0.25f), 0.55f, 0.35f));
+            CreateWallMount(parent, new Vector3(-2.05f, 3.42f, 0.08f), 0.82f, Mat("MountSteel", new Color(0.28f, 0.30f, 0.33f), 0.70f, 0.40f));
+            CreateWallMount(parent, new Vector3(2.05f, 3.42f, 0.08f), 0.82f, Mat("MountSteel", new Color(0.28f, 0.30f, 0.33f), 0.70f, 0.40f));
 
-            // 2. Arka Ahşap Lambrili Çerçeve
-            GameObject woodBack = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            woodBack.name = "Wood_Back_Louver";
-            woodBack.transform.SetParent(parent, false);
-            woodBack.transform.localPosition = new Vector3(0f, baseY, 0.02f);
-            woodBack.transform.localScale = new Vector3(signW + 0.30f, signH + 0.20f, 0.12f);
-            woodBack.GetComponent<Renderer>().sharedMaterial = CreateMaterial("SignWoodMat", new Color(0.55f, 0.36f, 0.18f), 0f, 0.15f);
+            CreateWoodCabinet(parent, new Vector3(0f, y, 0.02f), w + 0.28f, h + 0.22f, depth + 0.04f);
 
-            // 3. Ön Mat Antrasit Kompozit Panel
-            GameObject mainPanel = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            mainPanel.name = "Antracite_Front_Panel";
-            mainPanel.transform.SetParent(parent, false);
-            mainPanel.transform.localPosition = new Vector3(0f, baseY, -0.04f);
-            mainPanel.transform.localScale = new Vector3(signW, signH, 0.08f);
-            mainPanel.GetComponent<Renderer>().sharedMaterial = CreateMaterial("SignDarkPanelMat", new Color(0.12f, 0.14f, 0.18f), 0f, 0.15f);
+            Material brass = Mat("BrassFrame", new Color(0.72f, 0.55f, 0.22f), 0.85f, 0.62f);
+            CreateRectFrame(parent, "Brass", new Vector3(0f, y, -0.07f), w + 0.04f, h + 0.04f, 0.055f, 0.055f, brass);
 
-            // 4. Pirinç Altın Kenarlık Çerçevesi (Emissive Işıma)
-            GameObject goldTrim = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            goldTrim.name = "Gold_Brass_Trim";
-            goldTrim.transform.SetParent(parent, false);
-            goldTrim.transform.localPosition = new Vector3(0f, baseY, -0.06f);
-            goldTrim.transform.localScale = new Vector3(signW + 0.06f, signH + 0.06f, 0.02f);
-            goldTrim.GetComponent<Renderer>().sharedMaterial = CreateEmissiveMaterial("SignGoldTrimMat", new Color(0.95f, 0.78f, 0.25f), new Color(0.95f, 0.78f, 0.25f) * 1.5f);
-            emissiveRenderers.Add(goldTrim.GetComponent<Renderer>());
+            Material ivory = Mat("IvoryFace", new Color(0.93f, 0.88f, 0.76f), 0.02f, 0.38f);
+            CreatePrim(PrimitiveType.Cube, "Letter_Face", parent, new Vector3(0f, y, -0.10f), new Vector3(w - 0.10f, h - 0.10f, 0.03f), ivory);
 
-            // 5. WorldSpace UI Canvas (Tam Ortalanmış & Gölgeli Şirket İsmi)
-            CreateSignCanvas(parent, new Vector3(0f, baseY, -0.12f), new Vector2(signW - 0.5f, signH - 0.2f), font, 94,
-                new Color(1.0f, 0.96f, 0.85f));
+            CreateCornerRosette(parent, new Vector3(-(w * 0.5f) + 0.08f, y + (h * 0.5f) - 0.08f, -0.12f), brass);
+            CreateCornerRosette(parent, new Vector3((w * 0.5f) - 0.08f, y + (h * 0.5f) - 0.08f, -0.12f), brass);
+            CreateCornerRosette(parent, new Vector3(-(w * 0.5f) + 0.08f, y - (h * 0.5f) + 0.08f, -0.12f), brass);
+            CreateCornerRosette(parent, new Vector3((w * 0.5f) - 0.08f, y - (h * 0.5f) + 0.08f, -0.12f), brass);
 
-            // 6. Üst Gooseneck Siyah Metal Lambalar (Emissive Ampullü)
-            CreateGooseneckFixture(parent, new Vector3(-1.5f, baseY + (signH / 2f) + 0.25f, -0.38f), new Color(1.0f, 0.90f, 0.65f));
-            CreateGooseneckFixture(parent, new Vector3(1.5f, baseY + (signH / 2f) + 0.25f, -0.38f), new Color(1.0f, 0.90f, 0.65f));
+            CreateGooseneckLamp(parent, new Vector3(-1.55f, y + (h * 0.5f) + 0.18f, 0.02f), GetBrandWash(), Mat("HoodBronze", new Color(0.22f, 0.16f, 0.10f), 0.55f, 0.35f));
+            CreateGooseneckLamp(parent, new Vector3(1.55f, y + (h * 0.5f) + 0.18f, 0.02f), GetBrandWash(), Mat("HoodBronze", new Color(0.22f, 0.16f, 0.10f), 0.55f, 0.35f));
+            CreateSignWashLights(parent, y, w, h, GetBrandWash(), 2);
 
-            // 7. Yumuşak Difüz Işıma (Kaymayan Soft Fill Light)
-            CreateSoftFillLight(parent, new Vector3(0f, baseY, -0.6f), new Color(1.0f, 0.90f, 0.75f), 6.5f, 1.2f);
+            CreateSignTypography(
+                parent,
+                new Vector3(0f, y, -0.18f),
+                new Vector2(w - 0.22f, h - 0.18f),
+                GetBrandTitleColor(true),
+                GetBrandOutlineColor(true),
+                GetBrandPlateColor(true));
         }
 
         // =========================================================================
-        // SEVİYE 2: FIRÇALANMIŞ KOBALT & ZÜMRÜT ALÜMİNYUM LED TABELA (SÜPERMARKET)
+        // SEVİYE 2 — Alüminyum kaset LED tabela (süpermarket)
         // =========================================================================
-        private void BuildLevel2SupermarketSign(Transform parent, Font font)
+        private void BuildLevel2SupermarketSign(Transform parent)
         {
-            float baseY = 4.35f;
-            float signW = 6.60f;
-            float signH = 1.60f;
+            const float y = 4.32f;
+            const float w = 6.70f;
+            const float h = 1.48f;
+            const float depth = 0.20f;
 
-            // 1. Üçlü Güçlendirilmiş Montaj Kolonu
-            CreateSteelBracket(parent, new Vector3(-2.6f, 3.35f, 0.04f), 1.05f);
-            CreateSteelBracket(parent, new Vector3(0.0f, 3.35f, 0.04f), 1.05f);
-            CreateSteelBracket(parent, new Vector3(2.6f, 3.35f, 0.04f), 1.05f);
+            Material alum = Mat("BrushedAlu", new Color(0.62f, 0.65f, 0.70f), 0.88f, 0.48f);
+            Material navy = Mat("NavyReturn", new Color(0.08f, 0.16f, 0.28f), 0.25f, 0.42f);
+            Material face = Mat("EmeraldAcrylic", new Color(0.05f, 0.18f, 0.16f), 0.08f, 0.52f);
+            Material led = Emissive("LedCyan", new Color(0.15f, 0.85f, 0.80f), new Color(0.20f, 1.1f, 1.05f));
 
-            // 2. Kobalt Mavi Arka Panel
-            GameObject cobaltBack = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            cobaltBack.name = "Cobalt_Back_Plate";
-            cobaltBack.transform.SetParent(parent, false);
-            cobaltBack.transform.localPosition = new Vector3(0f, baseY, 0.03f);
-            cobaltBack.transform.localScale = new Vector3(signW + 0.35f, signH + 0.25f, 0.14f);
-            cobaltBack.GetComponent<Renderer>().sharedMaterial = CreateMaterial("SignCobaltMat", new Color(0.10f, 0.22f, 0.45f), 0f, 0.20f);
+            CreateRaceway(parent, new Vector3(0f, y, 0.14f), w + 0.70f, 0.12f, alum);
+            CreateWallMount(parent, new Vector3(-2.55f, 3.38f, 0.10f), 0.98f, alum);
+            CreateWallMount(parent, new Vector3(0f, 3.38f, 0.10f), 0.98f, alum);
+            CreateWallMount(parent, new Vector3(2.55f, 3.38f, 0.10f), 0.98f, alum);
 
-            // 3. Ön Zümrüt & Gece Siyahı Alüminyum Kompozit Yüzey
-            GameObject frontPanel = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            frontPanel.name = "Emerald_Front_Panel";
-            frontPanel.transform.SetParent(parent, false);
-            frontPanel.transform.localPosition = new Vector3(0f, baseY, -0.04f);
-            frontPanel.transform.localScale = new Vector3(signW, signH, 0.08f);
-            frontPanel.GetComponent<Renderer>().sharedMaterial = CreateMaterial("SignEmeraldPanelMat", new Color(0.06f, 0.16f, 0.14f), 0f, 0.20f);
+            CreateLightbox(parent, new Vector3(0f, y, 0f), w, h, depth, navy, face);
+            CreateRectFrame(parent, "AluFrame", new Vector3(0f, y, -0.11f), w + 0.06f, h + 0.06f, 0.06f, 0.07f, alum);
 
-            // 4. Üst ve Alt Çift Neon LED Şeridi (Glow Strips)
-            GameObject topLed = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            topLed.name = "Top_Neon_LED_Bar";
-            topLed.transform.SetParent(parent, false);
-            topLed.transform.localPosition = new Vector3(0f, baseY + (signH / 2f) + 0.03f, -0.07f);
-            topLed.transform.localScale = new Vector3(signW + 0.10f, 0.06f, 0.06f);
-            topLed.GetComponent<Renderer>().sharedMaterial = CreateEmissiveMaterial("NeonCyanMat", new Color(0.00f, 0.95f, 0.85f), new Color(0.00f, 0.95f, 0.85f) * 2.5f);
-            emissiveRenderers.Add(topLed.GetComponent<Renderer>());
+            CreatePrim(PrimitiveType.Cube, "LED_Top_Channel", parent, new Vector3(0f, y + (h * 0.5f) - 0.045f, -0.125f), new Vector3(w - 0.18f, 0.045f, 0.03f), led);
+            CreatePrim(PrimitiveType.Cube, "LED_Bot_Channel", parent, new Vector3(0f, y - (h * 0.5f) + 0.045f, -0.125f), new Vector3(w - 0.18f, 0.045f, 0.03f), led);
 
-            GameObject bottomLed = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            bottomLed.name = "Bottom_Neon_LED_Bar";
-            bottomLed.transform.SetParent(parent, false);
-            bottomLed.transform.localPosition = new Vector3(0f, baseY - (signH / 2f) - 0.03f, -0.07f);
-            bottomLed.transform.localScale = new Vector3(signW + 0.10f, 0.06f, 0.06f);
-            bottomLed.GetComponent<Renderer>().sharedMaterial = CreateEmissiveMaterial("NeonCyanMat", new Color(0.00f, 0.95f, 0.85f), new Color(0.00f, 0.95f, 0.85f) * 2.5f);
-            emissiveRenderers.Add(bottomLed.GetComponent<Renderer>());
+            CreateFloodLightBar(parent, new Vector3(-2.15f, y + (h * 0.5f) + 0.16f, -0.02f), alum, GetBrandWash());
+            CreateFloodLightBar(parent, new Vector3(0f, y + (h * 0.5f) + 0.16f, -0.02f), alum, GetBrandWash());
+            CreateFloodLightBar(parent, new Vector3(2.15f, y + (h * 0.5f) + 0.16f, -0.02f), alum, GetBrandWash());
+            CreateSignWashLights(parent, y, w, h, GetBrandWash(), 2);
 
-            // 5. WorldSpace UI Canvas (Tam Ortalanmış Şirket İsmi)
-            CreateSignCanvas(parent, new Vector3(0f, baseY, -0.13f), new Vector2(signW - 0.6f, signH - 0.2f), font, 114,
-                new Color(0.95f, 1.0f, 1.0f));
-
-            // 6. Üçlü Lambalar (Emissive Ampullü)
-            CreateGooseneckFixture(parent, new Vector3(-2.2f, baseY + (signH / 2f) + 0.32f, -0.45f), new Color(0.90f, 0.96f, 1.0f));
-            CreateGooseneckFixture(parent, new Vector3(0.0f, baseY + (signH / 2f) + 0.32f, -0.45f), new Color(0.90f, 0.96f, 1.0f));
-            CreateGooseneckFixture(parent, new Vector3(2.2f, baseY + (signH / 2f) + 0.32f, -0.45f), new Color(0.90f, 0.96f, 1.0f));
-
-            // 7. Yumuşak Difüz Işıma
-            CreateSoftFillLight(parent, new Vector3(0f, baseY, -0.7f), new Color(0.85f, 0.95f, 1.0f), 7.5f, 1.4f);
+            CreateSignTypography(
+                parent,
+                new Vector3(0f, y, -0.20f),
+                new Vector2(w - 0.28f, h - 0.18f),
+                GetBrandTitleColor(false),
+                GetBrandOutlineColor(false),
+                GetBrandPlateColor(false));
         }
 
         // =========================================================================
-        // SEVİYE 3: ALTIN VARAKLI & KRİSTAL AKRİLİK ÇİFT TAÇLI HİPERMARKET TOTEMİ
+        // SEVİYE 3 — Altın eloksal + akrilik hipermarket fasya
         // =========================================================================
-        private void BuildLevel3HypermarketSign(Transform parent, Font font)
+        private void BuildLevel3HypermarketSign(Transform parent)
         {
-            float baseY = 4.55f;
-            float signW = 8.40f;
-            float signH = 1.95f;
+            const float y = 4.50f;
+            const float w = 8.20f;
+            const float h = 1.72f;
+            const float depth = 0.26f;
 
-            // 1. Dörtlü Sanayi Destek Sütunları
-            CreateSteelBracket(parent, new Vector3(-3.5f, 3.35f, 0.04f), 1.25f);
-            CreateSteelBracket(parent, new Vector3(-1.2f, 3.35f, 0.04f), 1.25f);
-            CreateSteelBracket(parent, new Vector3(1.2f, 3.35f, 0.04f), 1.25f);
-            CreateSteelBracket(parent, new Vector3(3.5f, 3.35f, 0.04f), 1.25f);
+            Material chrome = Mat("Chrome", new Color(0.78f, 0.80f, 0.84f), 0.95f, 0.78f);
+            Material gold = Mat("GoldAnodized", new Color(0.83f, 0.66f, 0.22f), 0.92f, 0.72f);
+            Material piano = Mat("PianoBlack", new Color(0.04f, 0.04f, 0.05f), 0.35f, 0.72f);
+            Material whiteFace = Mat("WhiteAcrylic", new Color(0.10f, 0.10f, 0.12f), 0.06f, 0.55f);
+            Material goldGlow = Emissive("GoldEdge", new Color(0.90f, 0.72f, 0.28f), new Color(0.55f, 0.40f, 0.12f));
 
-            // 2. Üst Mimari Taç Profil
-            GameObject crownTop = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            crownTop.name = "Hypermarket_Crown_Top";
-            crownTop.transform.SetParent(parent, false);
-            crownTop.transform.localPosition = new Vector3(0f, baseY + (signH / 2f) + 0.22f, 0.02f);
-            crownTop.transform.localScale = new Vector3(signW + 0.60f, 0.28f, 0.25f);
-            crownTop.GetComponent<Renderer>().sharedMaterial = CreateEmissiveMaterial("SignGoldCrownMat", new Color(0.98f, 0.82f, 0.22f), new Color(0.98f, 0.82f, 0.22f) * 2.2f);
-            emissiveRenderers.Add(crownTop.GetComponent<Renderer>());
+            CreateRaceway(parent, new Vector3(0f, y, 0.18f), w + 0.90f, 0.14f, chrome);
+            CreateWallMount(parent, new Vector3(-3.35f, 3.32f, 0.12f), 1.18f, chrome);
+            CreateWallMount(parent, new Vector3(-1.15f, 3.32f, 0.12f), 1.18f, chrome);
+            CreateWallMount(parent, new Vector3(1.15f, 3.32f, 0.12f), 1.18f, chrome);
+            CreateWallMount(parent, new Vector3(3.35f, 3.32f, 0.12f), 1.18f, chrome);
 
-            // 3. Parlak Siyah Arka Panel
-            GameObject glossBack = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            glossBack.name = "Piano_Gloss_Black_Panel";
-            glossBack.transform.SetParent(parent, false);
-            glossBack.transform.localPosition = new Vector3(0f, baseY, 0.04f);
-            glossBack.transform.localScale = new Vector3(signW + 0.40f, signH + 0.25f, 0.18f);
-            glossBack.GetComponent<Renderer>().sharedMaterial = CreateMaterial("SignPianoBlackMat", new Color(0.06f, 0.06f, 0.08f), 0f, 0.20f);
+            CreateLightbox(parent, new Vector3(0f, y, 0.02f), w + 0.12f, h + 0.12f, depth, piano, whiteFace);
 
-            // 4. Altın Varaklı Kenar Çerçevesi
-            GameObject goldBorder = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            goldBorder.name = "Gold_Diamond_Border";
-            goldBorder.transform.SetParent(parent, false);
-            goldBorder.transform.localPosition = new Vector3(0f, baseY, -0.05f);
-            goldBorder.transform.localScale = new Vector3(signW + 0.08f, signH + 0.08f, 0.04f);
-            goldBorder.GetComponent<Renderer>().sharedMaterial = CreateEmissiveMaterial("GoldVarakMat", new Color(1.0f, 0.85f, 0.28f), new Color(1.0f, 0.85f, 0.28f) * 2.5f);
-            emissiveRenderers.Add(goldBorder.GetComponent<Renderer>());
+            CreateRectFrame(parent, "GoldOuter", new Vector3(0f, y, -0.12f), w + 0.16f, h + 0.16f, 0.07f, 0.085f, gold);
+            CreateRectFrame(parent, "BlackReveal", new Vector3(0f, y, -0.14f), w - 0.02f, h - 0.02f, 0.03f, 0.028f, piano);
 
-            // 5. WorldSpace UI Canvas (Ultra-Geniş, Tam Ortalanmış Parlak Tipografi)
-            CreateSignCanvas(parent, new Vector3(0f, baseY, -0.14f), new Vector2(signW - 0.8f, signH - 0.2f), font, 138,
-                new Color(1.0f, 0.98f, 0.90f));
+            CreateSteppedCrown(parent, new Vector3(0f, y + (h * 0.5f) + 0.22f, 0.0f), w + 0.55f, gold, chrome);
+            CreatePrim(PrimitiveType.Cube, "Gold_Pinstripe", parent, new Vector3(0f, y - 0.18f, -0.155f), new Vector3(w - 0.90f, 0.025f, 0.02f), goldGlow);
 
-            // 6. Dörtlü Lamba Armatürleri
-            CreateGooseneckFixture(parent, new Vector3(-3.0f, baseY + (signH / 2f) + 0.40f, -0.55f), new Color(1.0f, 0.92f, 0.70f));
-            CreateGooseneckFixture(parent, new Vector3(-1.0f, baseY + (signH / 2f) + 0.40f, -0.55f), new Color(1.0f, 0.92f, 0.70f));
-            CreateGooseneckFixture(parent, new Vector3(1.0f, baseY + (signH / 2f) + 0.40f, -0.55f), new Color(1.0f, 0.92f, 0.70f));
-            CreateGooseneckFixture(parent, new Vector3(3.0f, baseY + (signH / 2f) + 0.40f, -0.55f), new Color(1.0f, 0.92f, 0.70f));
+            CreateFloodLightBar(parent, new Vector3(-3.05f, y + (h * 0.5f) + 0.20f, -0.04f), chrome, GetBrandWash());
+            CreateFloodLightBar(parent, new Vector3(-1.05f, y + (h * 0.5f) + 0.20f, -0.04f), chrome, GetBrandWash());
+            CreateFloodLightBar(parent, new Vector3(1.05f, y + (h * 0.5f) + 0.20f, -0.04f), chrome, GetBrandWash());
+            CreateFloodLightBar(parent, new Vector3(3.05f, y + (h * 0.5f) + 0.20f, -0.04f), chrome, GetBrandWash());
+            CreateSignWashLights(parent, y, w, h, GetBrandWash(), 2);
 
-            // 7. Yumuşak Difüz Işıma
-            CreateSoftFillLight(parent, new Vector3(0f, baseY, -0.8f), new Color(1.0f, 0.92f, 0.75f), 9.0f, 1.6f);
+            CreateSignTypography(
+                parent,
+                new Vector3(0f, y, -0.22f),
+                new Vector2(w - 0.36f, h - 0.20f),
+                GetBrandTitleColor(false),
+                GetBrandOutlineColor(false),
+                GetBrandPlateColor(false));
         }
 
         // =========================================================================
-        // YARDIMCI 3D MİMARİ VE IŞIK OLUŞTURUCULARI
+        // TİPOGRAFİ — otobüs durağı cephesi, World Space UI (görünür, düz, taşmaz)
         // =========================================================================
-
-        private void CreateSteelBracket(Transform parent, Vector3 pos, float height)
+        private void CreateSignTypography(
+            Transform parent,
+            Vector3 streetPos,
+            Vector2 worldSize,
+            Color titleColor,
+            Color outlineColor,
+            Color plateColor)
         {
-            GameObject bracket = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            bracket.name = "Steel_Mount_Bracket";
-            bracket.transform.SetParent(parent, false);
-            bracket.transform.localPosition = pos;
-            bracket.transform.localScale = new Vector3(0.12f, height, 0.12f);
-            bracket.GetComponent<Renderer>().sharedMaterial = CreateMaterial("SignBracketMat", new Color(0.18f, 0.20f, 0.24f), 0f, 0.2f);
-        }
+            Font font = UIStyleUtility.GetGlobalFont(64);
+            if (font == null)
+            {
+                font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            }
 
-        private void CreateGooseneckFixture(Transform parent, Vector3 lampPos, Color lightColor)
-        {
-            GameObject lampFixture = new GameObject("Gooseneck_Fixture");
-            lampFixture.transform.SetParent(parent, false);
-            lampFixture.transform.localPosition = lampPos;
-
-            // Lamba Başlığı
-            GameObject hood = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            hood.name = "Lamp_Hood";
-            hood.transform.SetParent(lampFixture.transform, false);
-            hood.transform.localPosition = Vector3.zero;
-            hood.transform.localScale = new Vector3(0.24f, 0.12f, 0.24f);
-            hood.transform.localRotation = Quaternion.Euler(35f, 0f, 0f);
-            hood.GetComponent<Renderer>().sharedMaterial = CreateMaterial("LampHoodMat", new Color(0.12f, 0.14f, 0.16f), 0f, 0.2f);
-
-            // Parlayan Ampul Camı (Emissive - Işık kayması yapmaz, 7/24 pürüzsüz parlar)
-            GameObject bulb = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            bulb.name = "Bulb_Glow";
-            bulb.transform.SetParent(hood.transform, false);
-            bulb.transform.localPosition = new Vector3(0f, -0.55f, 0f);
-            bulb.transform.localScale = new Vector3(0.80f, 0.80f, 0.80f);
-            bulb.GetComponent<Renderer>().sharedMaterial = CreateEmissiveMaterial("BulbEmissiveMat", lightColor, lightColor * 3.0f);
-            emissiveRenderers.Add(bulb.GetComponent<Renderer>());
-        }
-
-        private void CreateSoftFillLight(Transform parent, Vector3 pos, Color color, float range, float intensity)
-        {
-            GameObject fillLightObj = new GameObject("Sign_Soft_Fill_Light");
-            fillLightObj.transform.SetParent(parent, false);
-            fillLightObj.transform.localPosition = pos;
-
-            Light pLight = fillLightObj.AddComponent<Light>();
-            pLight.type = LightType.Point;
-            pLight.color = color;
-            pLight.range = range;
-            pLight.intensity = intensity;
-            pLight.shadows = LightShadows.None;
-            signboardLights.Add(pLight);
-        }
-
-        // =========================================================================
-        // WORLDSPACE CANVAS & TİPOGRAFİ OLUŞTURUCUSU
-        // =========================================================================
-
-        private void CreateSignCanvas(Transform parent, Vector3 localPos, Vector2 canvasSize, Font font, int titleSize, Color titleColor)
-        {
-            GameObject canvasObj = new GameObject("Signboard_World_Canvas");
+            GameObject canvasObj = new GameObject("Signboard_Street_Canvas");
+            canvasObj.layer = 0;
             canvasObj.transform.SetParent(parent, false);
-            canvasObj.transform.localPosition = localPos;
+            canvasObj.transform.localPosition = streetPos;
             canvasObj.transform.localRotation = Quaternion.identity;
 
             Canvas canvas = canvasObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.WorldSpace;
+            canvas.overrideSorting = false;
+            if (Camera.main != null) canvas.worldCamera = Camera.main;
 
+            const float pixel = 0.0025f;
             RectTransform cRect = canvasObj.GetComponent<RectTransform>();
-            cRect.sizeDelta = new Vector2(canvasSize.x * 250f, canvasSize.y * 250f);
-            cRect.localScale = new Vector3(0.004f, 0.004f, 0.004f);
+            cRect.sizeDelta = new Vector2(worldSize.x / pixel, worldSize.y / pixel);
+            cRect.localScale = new Vector3(pixel, pixel, pixel);
 
-            // Ana Şirket İsmi Metni (Company Name)
-            GameObject titleObj = new GameObject("Title_Text");
-            titleObj.transform.SetParent(canvasObj.transform, false);
-            RectTransform tRect = titleObj.AddComponent<RectTransform>();
-            tRect.anchorMin = Vector2.zero;
-            tRect.anchorMax = Vector2.one;
-            tRect.offsetMin = Vector2.zero;
-            tRect.offsetMax = Vector2.zero;
+            canvasObj.AddComponent<RectMask2D>();
 
-            companyNameTextComponent = titleObj.AddComponent<Text>();
-            companyNameTextComponent.font = font;
-            companyNameTextComponent.fontSize = titleSize;
-            companyNameTextComponent.resizeTextForBestFit = true;
-            companyNameTextComponent.resizeTextMinSize = 44;
-            companyNameTextComponent.resizeTextMaxSize = titleSize;
-            companyNameTextComponent.fontStyle = FontStyle.Bold;
-            companyNameTextComponent.alignment = TextAnchor.MiddleCenter;
-            companyNameTextComponent.color = titleColor;
-            companyNameTextComponent.horizontalOverflow = HorizontalWrapMode.Wrap;
-            companyNameTextComponent.verticalOverflow = VerticalWrapMode.Truncate;
-            companyNameTextComponent.supportRichText = true;
+            GameObject plateObj = new GameObject("Name_Plate");
+            plateObj.transform.SetParent(canvasObj.transform, false);
+            RectTransform plateRect = plateObj.AddComponent<RectTransform>();
+            plateRect.anchorMin = Vector2.zero;
+            plateRect.anchorMax = Vector2.one;
+            plateRect.offsetMin = Vector2.zero;
+            plateRect.offsetMax = Vector2.zero;
+            Image plate = plateObj.AddComponent<Image>();
+            plate.color = plateColor;
+            plate.raycastTarget = false;
 
-            // Kontrast & Okunabilirlik için Güçlü Siyah Çerçeve ve Gölge
-            Outline tOutline = titleObj.AddComponent<Outline>();
-            tOutline.effectColor = new Color(0.05f, 0.05f, 0.08f, 0.95f);
-            tOutline.effectDistance = new Vector2(3.5f, -3.5f);
+            GameObject textObj = new GameObject("Company_Name");
+            textObj.transform.SetParent(canvasObj.transform, false);
+            RectTransform tRect = textObj.GetComponent<RectTransform>();
+            if (tRect == null) tRect = textObj.AddComponent<RectTransform>();
+            tRect.anchorMin = new Vector2(0f, 0.38f);
+            tRect.anchorMax = new Vector2(1f, 1f);
+            tRect.offsetMin = new Vector2(36f, 8f);
+            tRect.offsetMax = new Vector2(-36f, -18f);
 
-            Shadow tShadow = titleObj.AddComponent<Shadow>();
-            tShadow.effectColor = new Color(0f, 0f, 0f, 0.85f);
-            tShadow.effectDistance = new Vector2(4.5f, -4.5f);
+            companyNameText = textObj.AddComponent<Text>();
+            companyNameText.font = font;
+            companyNameText.fontSize = 120;
+            companyNameText.resizeTextForBestFit = true;
+            companyNameText.resizeTextMinSize = 28;
+            companyNameText.resizeTextMaxSize = 140;
+            companyNameText.fontStyle = FontStyle.Bold;
+            companyNameText.alignment = TextAnchor.MiddleCenter;
+            companyNameText.color = titleColor;
+            companyNameText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            companyNameText.verticalOverflow = VerticalWrapMode.Truncate;
+            companyNameText.supportRichText = false;
+            companyNameText.raycastTarget = false;
+
+            Outline outline = textObj.AddComponent<Outline>();
+            outline.effectColor = outlineColor;
+            outline.effectDistance = new Vector2(4f, -4f);
+
+            GameObject sloganObj = new GameObject("Company_Slogan");
+            sloganObj.transform.SetParent(canvasObj.transform, false);
+            RectTransform sRect = sloganObj.AddComponent<RectTransform>();
+            sRect.anchorMin = new Vector2(0f, 0f);
+            sRect.anchorMax = new Vector2(1f, 0.40f);
+            sRect.offsetMin = new Vector2(48f, 16f);
+            sRect.offsetMax = new Vector2(-48f, -4f);
+
+            sloganText = sloganObj.AddComponent<Text>();
+            sloganText.font = font;
+            sloganText.fontSize = 42;
+            sloganText.resizeTextForBestFit = true;
+            sloganText.resizeTextMinSize = 18;
+            sloganText.resizeTextMaxSize = 48;
+            sloganText.fontStyle = FontStyle.Italic;
+            sloganText.alignment = TextAnchor.UpperCenter;
+            sloganText.color = Color.Lerp(titleColor, plateColor, 0.18f);
+            sloganText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            sloganText.verticalOverflow = VerticalWrapMode.Truncate;
+            sloganText.supportRichText = false;
+            sloganText.raycastTarget = false;
+        }
+
+        private static Color GetBrandColor()
+        {
+            return StoreStatusManager.Instance != null
+                ? StoreStatusManager.Instance.BrandColor
+                : StoreStatusManager.GetDefaultBrandColor(BrandIdentity.LocalProducer);
+        }
+
+        private static Color GetBrandWash()
+        {
+            return StoreStatusManager.Instance != null
+                ? StoreStatusManager.Instance.GetBrandWashColor()
+                : Color.Lerp(GetBrandColor(), Color.white, 0.38f);
+        }
+
+        private static float GetBrandLuminance(Color c)
+        {
+            return (0.299f * c.r) + (0.587f * c.g) + (0.114f * c.b);
+        }
+
+        private static Color GetBrandPlateColor(bool ivoryBoutique)
+        {
+            Color brand = GetBrandColor();
+            if (ivoryBoutique)
+            {
+                return Color.Lerp(new Color(0.96f, 0.90f, 0.76f), brand, 0.42f);
+            }
+
+            return Color.Lerp(new Color(0.06f, 0.08f, 0.10f), brand, 0.72f);
+        }
+
+        private static Color GetBrandTitleColor(bool ivoryBoutique)
+        {
+            Color plate = GetBrandPlateColor(ivoryBoutique);
+            return GetBrandLuminance(plate) > 0.48f
+                ? new Color(0.12f, 0.08f, 0.05f)
+                : Color.white;
+        }
+
+        private static Color GetBrandOutlineColor(bool ivoryBoutique)
+        {
+            Color title = GetBrandTitleColor(ivoryBoutique);
+            return GetBrandLuminance(title) > 0.5f
+                ? new Color(0.05f, 0.05f, 0.06f, 0.85f)
+                : new Color(0.95f, 0.93f, 0.88f, 0.70f);
         }
 
         private void UpdateTextLabels()
         {
-            if (companyNameTextComponent != null)
+            if (companyNameText == null) return;
+
+            string nameToDisplay = !string.IsNullOrWhiteSpace(cachedCompanyName) ? cachedCompanyName.Trim() : "Farm2Shelf Market";
+            nameToDisplay = nameToDisplay.ToUpper();
+            if (nameToDisplay.Length > CompanyNameMaxChars)
             {
-                string nameToDisplay = !string.IsNullOrWhiteSpace(cachedCompanyName) ? cachedCompanyName : "Farm2Shelf Market";
-                companyNameTextComponent.text = $"<b>{nameToDisplay.ToUpper()}</b>";
+                nameToDisplay = nameToDisplay.Substring(0, CompanyNameMaxChars);
+            }
+
+            companyNameText.text = nameToDisplay;
+            if (nameToDisplay.Length <= 8)
+            {
+                companyNameText.horizontalOverflow = HorizontalWrapMode.Overflow;
+                companyNameText.resizeTextMinSize = 48;
+            }
+            else
+            {
+                companyNameText.horizontalOverflow = HorizontalWrapMode.Wrap;
+                companyNameText.resizeTextMinSize = 28;
+            }
+
+            if (sloganText != null)
+            {
+                string slogan = StoreStatusManager.Instance != null
+                    ? StoreStatusManager.Instance.GetResolvedSlogan()
+                    : "";
+                if (slogan.Length > SloganMaxChars)
+                {
+                    slogan = slogan.Substring(0, SloganMaxChars);
+                }
+
+                sloganText.text = slogan;
             }
         }
 
         // =========================================================================
-        // MATERYAL ÜRETİCİLERİ
+        // 3D PARÇALAR
         // =========================================================================
-
-        private Material CreateMaterial(string name, Color color, float metallic = 0.0f, float smoothness = 0.15f)
+        private void CreateWoodCabinet(Transform parent, Vector3 center, float w, float h, float depth)
         {
-            Shader shader = ShaderHelper.GetLitShader();
-            Material mat = new Material(shader) { name = name };
+            Material woodDark = Mat("WoodDark", new Color(0.32f, 0.20f, 0.10f), 0.04f, 0.22f);
+            Material wood = Mat("WoodSlat", new Color(0.52f, 0.34f, 0.16f), 0.02f, 0.28f);
+
+            CreatePrim(PrimitiveType.Cube, "Wood_Cabinet_Core", parent, center, new Vector3(w, h, depth), woodDark);
+
+            int slats = 6;
+            float slatH = (h - 0.08f) / slats;
+            float startY = center.y - (h * 0.5f) + 0.04f + slatH * 0.5f;
+            for (int i = 0; i < slats; i++)
+            {
+                float yy = startY + i * slatH;
+                Color tone = Color.Lerp(new Color(0.46f, 0.29f, 0.14f), new Color(0.58f, 0.38f, 0.18f), (i % 2) * 0.35f);
+                Material slatMat = Mat($"WoodSlat_{i % 2}", tone, 0.02f, 0.26f);
+                CreatePrim(PrimitiveType.Cube, "Wood_Slat", parent, new Vector3(center.x, yy, center.z - depth * 0.42f), new Vector3(w - 0.06f, slatH - 0.012f, 0.025f), slatMat);
+            }
+        }
+
+        private void CreateLightbox(Transform parent, Vector3 center, float w, float h, float depth, Material returnMat, Material faceMat)
+        {
+            CreatePrim(PrimitiveType.Cube, "Box_Back", parent, center + new Vector3(0f, 0f, depth * 0.35f), new Vector3(w, h, depth * 0.28f), returnMat);
+            CreatePrim(PrimitiveType.Cube, "Box_TopReturn", parent, center + new Vector3(0f, h * 0.5f - 0.03f, 0f), new Vector3(w, 0.06f, depth), returnMat);
+            CreatePrim(PrimitiveType.Cube, "Box_BotReturn", parent, center + new Vector3(0f, -h * 0.5f + 0.03f, 0f), new Vector3(w, 0.06f, depth), returnMat);
+            CreatePrim(PrimitiveType.Cube, "Box_LeftReturn", parent, center + new Vector3(-w * 0.5f + 0.03f, 0f, 0f), new Vector3(0.06f, h, depth), returnMat);
+            CreatePrim(PrimitiveType.Cube, "Box_RightReturn", parent, center + new Vector3(w * 0.5f - 0.03f, 0f, 0f), new Vector3(0.06f, h, depth), returnMat);
+            CreatePrim(PrimitiveType.Cube, "Box_Face", parent, center + new Vector3(0f, 0f, -depth * 0.42f), new Vector3(w - 0.08f, h - 0.08f, 0.035f), faceMat);
+        }
+
+        private void CreateRectFrame(Transform parent, string prefix, Vector3 center, float w, float h, float depth, float thick, Material mat)
+        {
+            CreatePrim(PrimitiveType.Cube, prefix + "_Top", parent, center + new Vector3(0f, h * 0.5f, 0f), new Vector3(w + thick, thick, depth), mat);
+            CreatePrim(PrimitiveType.Cube, prefix + "_Bot", parent, center + new Vector3(0f, -h * 0.5f, 0f), new Vector3(w + thick, thick, depth), mat);
+            CreatePrim(PrimitiveType.Cube, prefix + "_L", parent, center + new Vector3(-w * 0.5f, 0f, 0f), new Vector3(thick, h, depth), mat);
+            CreatePrim(PrimitiveType.Cube, prefix + "_R", parent, center + new Vector3(w * 0.5f, 0f, 0f), new Vector3(thick, h, depth), mat);
+        }
+
+        private void CreateRaceway(Transform parent, Vector3 pos, float width, float height, Material mat)
+        {
+            CreatePrim(PrimitiveType.Cube, "Wall_Raceway", parent, pos, new Vector3(width, height, 0.08f), mat);
+        }
+
+        private void CreateWallMount(Transform parent, Vector3 pos, float height, Material mat)
+        {
+            Material boltMat = Mat("BoltSteel", new Color(0.35f, 0.36f, 0.38f), 0.80f, 0.50f);
+            CreatePrim(PrimitiveType.Cube, "Mount_Plate", parent, pos + new Vector3(0f, 0.08f, 0.06f), new Vector3(0.22f, 0.28f, 0.04f), mat);
+            CreatePrim(PrimitiveType.Cube, "Mount_Post", parent, pos + new Vector3(0f, height * 0.35f, 0.02f), new Vector3(0.09f, height, 0.09f), mat);
+            CreatePrim(PrimitiveType.Cylinder, "Mount_Bolt_TL", parent, pos + new Vector3(-0.06f, 0.16f, 0.035f), new Vector3(0.035f, 0.012f, 0.035f), boltMat, new Vector3(90f, 0f, 0f));
+            CreatePrim(PrimitiveType.Cylinder, "Mount_Bolt_TR", parent, pos + new Vector3(0.06f, 0.16f, 0.035f), new Vector3(0.035f, 0.012f, 0.035f), boltMat, new Vector3(90f, 0f, 0f));
+            CreatePrim(PrimitiveType.Cylinder, "Mount_Bolt_BL", parent, pos + new Vector3(-0.06f, 0.00f, 0.035f), new Vector3(0.035f, 0.012f, 0.035f), boltMat, new Vector3(90f, 0f, 0f));
+            CreatePrim(PrimitiveType.Cylinder, "Mount_Bolt_BR", parent, pos + new Vector3(0.06f, 0.00f, 0.035f), new Vector3(0.035f, 0.012f, 0.035f), boltMat, new Vector3(90f, 0f, 0f));
+        }
+
+        private void CreateCornerRosette(Transform parent, Vector3 pos, Material mat)
+        {
+            CreatePrim(PrimitiveType.Cylinder, "Corner_Rosette", parent, pos, new Vector3(0.10f, 0.012f, 0.10f), mat, new Vector3(90f, 0f, 0f));
+        }
+
+        private void CreateGooseneckLamp(Transform parent, Vector3 wallPos, Color glow, Material hoodMat)
+        {
+            GameObject root = new GameObject("Gooseneck_Lamp");
+            root.transform.SetParent(parent, false);
+            root.transform.localPosition = wallPos;
+
+            Material armMat = Mat("GooseneckArm", new Color(0.18f, 0.18f, 0.20f), 0.70f, 0.40f);
+            CreatePrim(PrimitiveType.Cylinder, "Arm_Rise", root.transform, new Vector3(0f, 0.08f, 0.02f), new Vector3(0.045f, 0.10f, 0.045f), armMat);
+            CreatePrim(PrimitiveType.Cylinder, "Arm_Reach", root.transform, new Vector3(0f, 0.16f, -0.18f), new Vector3(0.04f, 0.16f, 0.04f), armMat, new Vector3(90f, 0f, 0f));
+            CreatePrim(PrimitiveType.Cylinder, "Hood", root.transform, new Vector3(0f, 0.05f, -0.34f), new Vector3(0.22f, 0.08f, 0.22f), hoodMat, new Vector3(28f, 0f, 0f));
+            CreatePrim(PrimitiveType.Sphere, "Lamp_Lens", root.transform, new Vector3(0f, -0.02f, -0.36f), new Vector3(0.11f, 0.11f, 0.11f), Emissive("GooseLens", glow, glow * 1.35f));
+            CreateSignSpot(root.transform, new Vector3(0f, -0.04f, -0.38f), new Vector3(55f, 180f, 0f), glow, 2.6f, 7.5f);
+        }
+
+        private void CreateFloodLightBar(Transform parent, Vector3 pos, Material housingMat, Color glow)
+        {
+            GameObject root = new GameObject("Flood_Fixture");
+            root.transform.SetParent(parent, false);
+            root.transform.localPosition = pos;
+
+            CreatePrim(PrimitiveType.Cube, "Housing", root.transform, new Vector3(0f, 0.02f, -0.12f), new Vector3(0.38f, 0.10f, 0.16f), housingMat);
+            CreatePrim(PrimitiveType.Cube, "Bracket", root.transform, new Vector3(0f, 0.06f, 0.02f), new Vector3(0.08f, 0.06f, 0.18f), housingMat);
+            CreatePrim(PrimitiveType.Cube, "Lens", root.transform, new Vector3(0f, -0.01f, -0.20f), new Vector3(0.32f, 0.05f, 0.03f), Emissive("FloodLens", glow, glow * 1.2f));
+            CreateSignSpot(root.transform, new Vector3(0f, -0.04f, -0.22f), new Vector3(50f, 180f, 0f), glow, 2.8f, 8.0f);
+        }
+
+        private void CreateSignWashLights(Transform parent, float y, float w, float h, Color color, int count)
+        {
+            count = Mathf.Clamp(count, 2, 4);
+            float span = w * 0.62f;
+            float startX = count == 1 ? 0f : -span * 0.5f;
+            float step = count <= 1 ? 0f : span / (count - 1);
+            for (int i = 0; i < count; i++)
+            {
+                float x = startX + step * i;
+                CreateSignSpot(parent, new Vector3(x, y + (h * 0.5f) + 0.08f, -0.22f), new Vector3(42f, 180f, 0f), color, 2.4f, 8.5f);
+            }
+        }
+
+        private static void CreateSignSpot(Transform parent, Vector3 localPos, Vector3 euler, Color color, float intensity, float range)
+        {
+            GameObject go = new GameObject("Sign_SpotLight");
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = localPos;
+            go.transform.localRotation = Quaternion.Euler(euler);
+
+            Light light = go.AddComponent<Light>();
+            light.type = LightType.Spot;
+            light.color = color;
+            light.intensity = intensity * 1.35f;
+            light.range = range + 1.5f;
+            light.spotAngle = 80f;
+            light.innerSpotAngle = 35f;
+            light.shadows = LightShadows.None;
+            light.bounceIntensity = 0f;
+            light.enabled = true;
+        }
+
+        private void CreateSteppedCrown(Transform parent, Vector3 pos, float width, Material gold, Material chrome)
+        {
+            CreatePrim(PrimitiveType.Cube, "Crown_Step1", parent, pos + new Vector3(0f, 0.00f, 0.02f), new Vector3(width, 0.08f, 0.22f), gold);
+            CreatePrim(PrimitiveType.Cube, "Crown_Step2", parent, pos + new Vector3(0f, 0.08f, 0.00f), new Vector3(width - 0.22f, 0.07f, 0.18f), chrome);
+            CreatePrim(PrimitiveType.Cube, "Crown_Step3", parent, pos + new Vector3(0f, 0.15f, -0.02f), new Vector3(width - 0.42f, 0.06f, 0.14f), gold);
+        }
+
+        private static GameObject CreatePrim(PrimitiveType type, string name, Transform parent, Vector3 localPos, Vector3 localScale, Material mat, Vector3 euler = default)
+        {
+            GameObject go = GameObject.CreatePrimitive(type);
+            go.name = name;
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = localPos;
+            go.transform.localRotation = Quaternion.Euler(euler);
+            go.transform.localScale = localScale;
+            if (mat != null)
+            {
+                go.GetComponent<Renderer>().sharedMaterial = mat;
+            }
+
+            Collider col = go.GetComponent<Collider>();
+            if (col != null)
+            {
+                if (Application.isPlaying) Object.Destroy(col);
+                else Object.DestroyImmediate(col);
+            }
+
+            return go;
+        }
+
+        private static Material Mat(string name, Color color, float metallic, float smoothness)
+        {
+            if (MatCache.TryGetValue(name, out Material cached) && cached != null) return cached;
+
+            Material mat = new Material(ShaderHelper.GetLitShader()) { name = name };
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
             else mat.color = color;
-
             if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", metallic);
             if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", smoothness);
-
+            MatCache[name] = mat;
             return mat;
         }
 
-        private Material CreateEmissiveMaterial(string name, Color baseColor, Color emissionColor)
+        private static Material Emissive(string name, Color baseColor, Color emission)
         {
-            Shader shader = ShaderHelper.GetLitShader();
-            Material mat = new Material(shader) { name = name };
-            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", baseColor);
-            else mat.color = baseColor;
+            if (MatCache.TryGetValue(name, out Material cached) && cached != null) return cached;
 
-            if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", 0f);
-            if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 0.15f);
-
+            Material mat = Mat(name, baseColor, 0.15f, 0.45f);
             if (mat.HasProperty("_EmissionColor"))
             {
-                mat.SetColor("_EmissionColor", emissionColor);
+                mat.SetColor("_EmissionColor", emission);
                 mat.EnableKeyword("_EMISSION");
             }
 

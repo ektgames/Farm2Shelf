@@ -58,6 +58,8 @@ namespace Farm2Shelf.Environment
             public WholesaleProductDef carriedProduct2;
             public int carriedAmount1;
             public int carriedAmount2;
+            public List<ProductLot> carriedLots1 = new List<ProductLot>();
+            public List<ProductLot> carriedLots2 = new List<ProductLot>();
 
             public PlacedFurnitureController targetShelf1;
             public int targetRowId1 = -1;
@@ -213,18 +215,25 @@ namespace Farm2Shelf.Environment
             return IsStaffShiftActive(staff, currentHour, minute, out isEarlyArrivalWindow);
         }
 
+        public static bool IsEveningStaffShift(StaffMember staff)
+        {
+            if (staff == null) return false;
+            string shift = staff.shiftHours ?? "";
+            return shift.Contains("Akşam") || shift.Contains("Evening") || shift.Contains("Gece") ||
+                   shift.Contains("Night") || shift.Contains("16:00 - 24:00") || shift.Contains("24:00");
+        }
+
         public static bool IsStaffShiftActive(StaffMember staff, int currentHour, int currentMinute, out bool isEarlyArrivalWindow)
         {
             isEarlyArrivalWindow = false;
             if (staff == null || !staff.isActive) return false;
 
             int totalMinsCalc = currentHour * 60 + currentMinute;
-            string shift = staff.shiftHours ?? "";
 
             // Akşam Vardiyası Tespiti:
             // "☀️ Sabah (08:00 - 16:00)" -> Sabah Vardiyası
             // "🌆 Akşam (16:00 - 24:00)" -> Akşam Vardiyası
-            bool isEveningShift = shift.Contains("Akşam") || shift.Contains("Evening") || shift.Contains("Gece") || shift.Contains("Night") || shift.Contains("16:00 - 24:00") || shift.Contains("24:00");
+            bool isEveningShift = IsEveningStaffShift(staff);
 
             // ⚡ Eğer personel erken göreve çağrıldıysa:
             // Sabah personeli: Vardiya bitişi olan 16:00'a (960 dk) kadar KESİNTİSİZ AKTİFTİR!
@@ -1678,15 +1687,31 @@ namespace Farm2Shelf.Environment
             data.targetShelf1 = null;
             data.targetRowId1 = -1;
             data.carriedAmount1 = 0;
+            data.carriedLots1 = new List<ProductLot>();
 
             data.targetShelf2 = null;
             data.targetRowId2 = -1;
             data.carriedAmount2 = 0;
+            data.carriedLots2 = new List<ProductLot>();
 
             data.sourceStorageShelf = null;
             data.sourceStorageRowId = -1;
             data.sourceStorageShelf2 = null;
             data.sourceStorageRowId2 = -1;
+        }
+
+        private static void ReturnUndeliveredPackageToTruck(WholesaleProductDef pack)
+        {
+            if (pack == null) return;
+            if (GreenTruckDeliveryManager.Instance != null && GreenTruckDeliveryManager.Instance.IsTruckOnTheWay)
+            {
+                GreenTruckDeliveryManager.Instance.ReturnPackageToTruck(pack);
+                return;
+            }
+            if (WholesaleTruckManager.Instance != null && WholesaleTruckManager.Instance.IsTruckOnTheWay)
+            {
+                WholesaleTruckManager.Instance.ReturnPackageToTruck(pack);
+            }
         }
 
         private static bool IsStoreShelf(FurnitureType t)
@@ -1863,7 +1888,7 @@ namespace Farm2Shelf.Environment
                                         if (row != null)
                                         {
                                             int actualTake = Mathf.Min(gatherItem.amountToGather, row.currentStock);
-                                            row.currentStock -= actualTake;
+                                            ProductPassportService.RemoveStock(row, actualTake);
                                             if (row.currentStock <= 0 && gatherItem.shelf.FurnitureType == FurnitureType.StorageShelf)
                                             {
                                                 row.productName = "";
@@ -1994,12 +2019,18 @@ namespace Farm2Shelf.Environment
 
                             if (data.carriedProduct1 != null)
                             {
-                                WholesaleTruckManager.DepositPackageToStorageShelf(data.carriedProduct1, out _, out _);
+                                if (!WholesaleTruckManager.DepositPackageToStorageShelf(data.carriedProduct1, out _, out _))
+                                {
+                                    ReturnUndeliveredPackageToTruck(data.carriedProduct1);
+                                }
                                 data.carriedProduct1 = null;
                             }
                             if (data.carriedProduct2 != null)
                             {
-                                WholesaleTruckManager.DepositPackageToStorageShelf(data.carriedProduct2, out _, out _);
+                                if (!WholesaleTruckManager.DepositPackageToStorageShelf(data.carriedProduct2, out _, out _))
+                                {
+                                    ReturnUndeliveredPackageToTruck(data.carriedProduct2);
+                                }
                                 data.carriedProduct2 = null;
                             }
 
@@ -2057,7 +2088,7 @@ namespace Farm2Shelf.Environment
                                 desiredAmount1 = Mathf.Max(1, desiredAmount1);
 
                                 int amountToTake1 = Mathf.Min(sRow1.currentStock, desiredAmount1);
-                                sRow1.currentStock = Mathf.Max(0, sRow1.currentStock - amountToTake1);
+                                data.carriedLots1 = ProductPassportService.RemoveStock(sRow1, amountToTake1);
                                 if (sRow1.currentStock <= 0 && data.sourceStorageShelf.FurnitureType == FurnitureType.StorageShelf)
                                 {
                                     sRow1.productName = "";
@@ -2086,7 +2117,7 @@ namespace Farm2Shelf.Environment
                                 desiredAmount2 = Mathf.Max(1, desiredAmount2);
 
                                 int amountToTake2 = Mathf.Min(sRow2.currentStock, desiredAmount2);
-                                sRow2.currentStock = Mathf.Max(0, sRow2.currentStock - amountToTake2);
+                                data.carriedLots2 = ProductPassportService.RemoveStock(sRow2, amountToTake2);
                                 if (sRow2.currentStock <= 0 && data.sourceStorageShelf2.FurnitureType == FurnitureType.StorageShelf)
                                 {
                                     sRow2.productName = "";
@@ -2114,49 +2145,54 @@ namespace Farm2Shelf.Environment
                                     if (sRowExtra != null && sRowExtra.currentStock > 0)
                                     {
                                         int extraAmount = Mathf.Min(sRowExtra.currentStock, 20);
-                                        sRowExtra.currentStock = Mathf.Max(0, sRowExtra.currentStock - extraAmount);
+                                        string extraName = sRowExtra.productName;
+                                        string extraId = sRowExtra.productId;
+                                        float extraPrice = sRowExtra.unitPrice;
+                                        List<ProductLot> extraLots = ProductPassportService.RemoveStock(sRowExtra, extraAmount);
+
+                                        PlacedFurnitureController extraTarget = null;
+                                        int extraTargetRow = -1;
+                                        foreach (var storeShelf in allShelves)
+                                        {
+                                            if (storeShelf == null || storeShelf.rows == null || !IsStoreShelf(storeShelf.FurnitureType)) continue;
+                                            for (int rId = 0; rId < storeShelf.rows.Length; rId++)
+                                            {
+                                                var rInfo = storeShelf.rows[rId];
+                                                if (rInfo == null || rInfo.IsUnassigned) continue;
+                                                if (!ProductPassportService.RowHoldsProduct(rInfo, extraId, extraName)) continue;
+                                                int curFill = (storeShelf == data.targetShelf1 && rId == data.targetRowId1) ? rInfo.currentStock + data.carriedAmount1 : rInfo.currentStock;
+                                                if (curFill < rInfo.maxCapacity)
+                                                {
+                                                    extraTarget = storeShelf;
+                                                    extraTargetRow = rId;
+                                                    break;
+                                                }
+                                            }
+                                            if (extraTarget != null) break;
+                                        }
+
+                                        if (extraTarget == null)
+                                        {
+                                            sRowExtra.productName = extraName;
+                                            sRowExtra.productId = extraId;
+                                            sRowExtra.unitPrice = extraPrice;
+                                            ProductPassportService.AddStock(sRowExtra, extraLots, sRowExtra.maxCapacity);
+                                            storage.UpdateRow3DProductMeshes(sr + 1);
+                                            continue;
+                                        }
+
                                         if (sRowExtra.currentStock <= 0)
                                         {
                                             sRowExtra.productName = "";
                                             sRowExtra.productId = "";
                                             sRowExtra.unitPrice = 0f;
                                         }
+                                        data.carriedLots2 = extraLots;
                                         data.carriedAmount2 = extraAmount;
                                         data.sourceStorageShelf2 = storage;
                                         data.sourceStorageRowId2 = sr;
-
-                                        // 2. Koli için mağaza raflarında eksik stoklu uygun sıra bul:
-                                        if (data.targetShelf2 == null)
-                                        {
-                                            foreach (var storeShelf in allShelves)
-                                            {
-                                                if (storeShelf != null && storeShelf.rows != null && IsStoreShelf(storeShelf.FurnitureType))
-                                                {
-                                                    for (int rId = 0; rId < storeShelf.rows.Length; rId++)
-                                                    {
-                                                        var rInfo = storeShelf.rows[rId];
-                                                        bool isMatchingProduct = rInfo != null && !rInfo.IsUnassigned && (rInfo.productName == sRowExtra.productName || (!string.IsNullOrEmpty(rInfo.productId) && rInfo.productId == sRowExtra.productId));
-                                                        if (isMatchingProduct)
-                                                        {
-                                                            int curFill = (storeShelf == data.targetShelf1 && rId == data.targetRowId1) ? rInfo.currentStock + data.carriedAmount1 : rInfo.currentStock;
-                                                            if (curFill < rInfo.maxCapacity)
-                                                            {
-                                                                data.targetShelf2 = storeShelf;
-                                                                data.targetRowId2 = rId;
-                                                                break;
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                                if (data.targetShelf2 != null) break;
-                                            }
-
-                                            if (data.targetShelf2 == null)
-                                            {
-                                                data.targetShelf2 = data.targetShelf1;
-                                                data.targetRowId2 = data.targetRowId1;
-                                            }
-                                        }
+                                        data.targetShelf2 = extraTarget;
+                                        data.targetRowId2 = extraTargetRow;
 
                                         storage.UpdateRow3DProductMeshes(sr + 1);
                                         totalBoxesFetched++;
@@ -2197,7 +2233,7 @@ namespace Farm2Shelf.Environment
                             ShelfRowData rData1 = data.targetShelf1.rows[data.targetRowId1];
                             if (rData1 != null)
                             {
-                                rData1.currentStock = Mathf.Min(rData1.maxCapacity, rData1.currentStock + data.carriedAmount1);
+                                ProductPassportService.AddStock(rData1, data.carriedLots1, rData1.maxCapacity);
                                 data.targetShelf1.UpdateRow3DProductMeshes(data.targetRowId1);
                                 Vector3 popupPos = data.targetShelf1.GetFrontInteractionPosition(1.2f);
                                 ShowStockPopup(popupPos, string.Format(LocalizationManager.L("StaffPopup_FirstBoxFmt", "+{0} Stok (1. Koli) 📦", "+{0} Stock (Box 1) 📦"), data.carriedAmount1));
@@ -2207,6 +2243,7 @@ namespace Farm2Shelf.Environment
                         data.targetShelf1 = null;
                         data.targetRowId1 = -1;
                         data.carriedAmount1 = 0;
+                        data.carriedLots1 = new List<ProductLot>();
                         RemoveOneCarriedBox(data);
 
                         // EĞER 2. KOLİ VARSA, 2. MAĞAZA RAFINA DOĞRU YÜRÜ:
@@ -2240,7 +2277,7 @@ namespace Farm2Shelf.Environment
                             ShelfRowData rData2 = data.targetShelf2.rows[data.targetRowId2];
                             if (rData2 != null)
                             {
-                                rData2.currentStock = Mathf.Min(rData2.maxCapacity, rData2.currentStock + data.carriedAmount2);
+                                ProductPassportService.AddStock(rData2, data.carriedLots2, rData2.maxCapacity);
                                 data.targetShelf2.UpdateRow3DProductMeshes(data.targetRowId2);
                                 Vector3 popupPos = data.targetShelf2.GetFrontInteractionPosition(1.2f);
                                 ShowStockPopup(popupPos, string.Format(LocalizationManager.L("StaffPopup_SecondBoxFmt", "+{0} Stok (2. Koli) 📦", "+{0} Stock (Box 2) 📦"), data.carriedAmount2));
@@ -2250,6 +2287,7 @@ namespace Farm2Shelf.Environment
                         data.targetShelf2 = null;
                         data.targetRowId2 = -1;
                         data.carriedAmount2 = 0;
+                        data.carriedLots2 = new List<ProductLot>();
                         ClearCarriedBoxesOnStaff(data);
                     }
                 }
@@ -2377,7 +2415,7 @@ namespace Farm2Shelf.Environment
                             for (int sr = 0; sr < storage.rows.Length; sr++)
                             {
                                 var sRow = storage.rows[sr];
-                                bool isMatch1 = sRow != null && sRow.currentStock > 0 && (sRow.productName == rData.productName || (!string.IsNullOrEmpty(sRow.productId) && sRow.productId == rData.productId));
+                                bool isMatch1 = sRow != null && sRow.currentStock > 0 && ProductPassportService.RowHoldsProduct(sRow, rData.productId, rData.productName);
                                 if (isMatch1 && !IsStorageRowClaimedByOtherRestocker(data, storage, sr))
                                 {
                                     data.targetShelf1 = s;
@@ -2424,7 +2462,7 @@ namespace Farm2Shelf.Environment
                                 for (int sr = 0; sr < storage.rows.Length; sr++)
                                 {
                                     var sRow = storage.rows[sr];
-                                    bool isMatch2 = sRow != null && (sRow.productName == rData.productName || (!string.IsNullOrEmpty(sRow.productId) && sRow.productId == rData.productId));
+                                    bool isMatch2 = sRow != null && ProductPassportService.RowHoldsProduct(sRow, rData.productId, rData.productName);
                                     int availableStorage = isMatch2 ? sRow.currentStock : 0;
                                     if (storage == data.sourceStorageShelf && sr == data.sourceStorageRowId) availableStorage -= 20;
 

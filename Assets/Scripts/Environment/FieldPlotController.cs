@@ -132,7 +132,8 @@ namespace Farm2Shelf.Environment
             if (sDef == null) return;
 
             int yieldAmount = sDef.yieldPerPlot;
-            bool added = GardenSeedInventoryManager.Instance.TryAddCropToBarn(PlantedSeedId, yieldAmount);
+            ProductLot harvestLot = ProductPassportService.CreateHarvestLot(PlantedSeedId, yieldAmount, this);
+            bool added = GardenSeedInventoryManager.Instance.TryAddCropToBarn(PlantedSeedId, yieldAmount, harvestLot);
 
             if (added)
             {

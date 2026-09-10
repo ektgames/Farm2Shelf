@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -16,6 +17,7 @@ namespace Farm2Shelf.Core
         public int packQuantity;          // Koli İçi Adedi (Sabit 50 Adet)
         public float profitMarginPercent; // %20 Kar Marjı
         public bool isOrderable;          // Toptancıdan veya Mağazadan Satın Alınabilir mi? (Gurme ve Mahsuller için FALSE!)
+        [NonSerialized] public List<ProductLot> attachedLots;
 
         // Dinamik Dil Desteği
         public string LocalizedName => LocalizationManager.L("Prod_" + id, name, !string.IsNullOrEmpty(nameEn) ? nameEn : name);
@@ -214,6 +216,27 @@ namespace Farm2Shelf.Core
             if (liveDef != null) return liveDef;
 
             // Atölye Gurme Ürünlerini Otomatik Olarak Eşle (isOrderable: false)
+            GardenSeedDef seed = GardenSeedDatabase.GetSeedById(id);
+            if (seed != null)
+            {
+                int wholesale = Mathf.Max(1, Mathf.RoundToInt(seed.unitSalePrice / 1.40f));
+                string cropTr = seed.name.Replace(" Tohumu", "").Replace(" tohumu", "");
+                string cropEn = !string.IsNullOrEmpty(seed.nameEn)
+                    ? seed.nameEn.Replace(" Seeds", "").Replace(" seeds", "")
+                    : cropTr;
+                return new WholesaleProductDef(
+                    seed.id,
+                    cropTr,
+                    cropEn,
+                    seed.iconEmoji,
+                    FurnitureType.ProduceShelf,
+                    seed.requiredLevel,
+                    wholesale,
+                    1,
+                    40f,
+                    isOrderable: false);
+            }
+
             WorkshopRecipeDef recipe = WorkshopMachineDatabase.GetRecipeByOutputId(id);
             if (recipe != null)
             {

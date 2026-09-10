@@ -58,6 +58,15 @@ namespace Farm2Shelf.Core
             return false;
         }
 
+        public void ReturnPackageToTruck(WholesaleProductDef pack)
+        {
+            if (pack == null) return;
+            if (PendingTruckPackages == null) PendingTruckPackages = new List<WholesaleProductDef>();
+            PendingTruckPackages.Insert(0, pack);
+            if (!activeDeliveryPackages.Contains(pack)) activeDeliveryPackages.Add(pack);
+            IsTruckAtDockWaitingForUnload = true;
+        }
+
         public void ClearAllPackages()
         {
             StopAllCoroutines();
@@ -110,6 +119,7 @@ namespace Farm2Shelf.Core
                 if (package != null) data.originalPackageIds.Add(package.id);
             }
 
+            ProductPassportService.CapturePackageLots(data, remaining, originalDeliveryPackages);
             return data;
         }
 
@@ -119,6 +129,8 @@ namespace Farm2Shelf.Core
 
             List<WholesaleProductDef> remaining = ResolveSavedPackages(data.remainingPackageIds);
             List<WholesaleProductDef> original = ResolveSavedPackages(data.originalPackageIds);
+            ProductPassportService.ApplyPackageLots(remaining, data.remainingPackageLots);
+            ProductPassportService.ApplyPackageLots(original, data.originalPackageLots);
             if (original.Count == 0) original.AddRange(remaining);
 
             Vector3 pos = new Vector3(data.posX, data.posY, data.posZ);
@@ -145,7 +157,7 @@ namespace Farm2Shelf.Core
             if (productIds == null) return products;
             foreach (string productId in productIds)
             {
-                WholesaleProductDef product = WholesaleDatabase.GetProductById(productId);
+                WholesaleProductDef product = ProductPassportService.CreateTransitStub(productId);
                 if (product != null) products.Add(product);
             }
             return products;
@@ -157,30 +169,140 @@ namespace Farm2Shelf.Core
             usedRow = -1;
             if (pDef == null) return false;
 
-            var placedFurniture = PlacedFurnitureController.AllPlacedFurniture;
+            int remaining = Mathf.Max(pDef.packQuantity, ProductPassportService.SumLots(pDef.attachedLots));
+            if (remaining <= 0) remaining = pDef.packQuantity;
+            if (remaining <= 0) return true;
 
-            foreach (var f in placedFurniture)
+            string canonicalName = ProductPassportService.GetCanonicalShelfName(pDef.id, pDef.name);
+            if (string.IsNullOrEmpty(canonicalName)) canonicalName = pDef.name;
+
+            while (remaining > 0)
             {
-                if (f == null || f.rows == null || f.FurnitureType != FurnitureType.StorageShelf) continue;
-                for (int i = 0; i < f.rows.Length; i++)
+                if (!TryFindDepositRow(pDef, canonicalName, out PlacedFurnitureController shelf, out int rowIndex, out ShelfRowData row))
                 {
-                    var row = f.rows[i];
-                    if (row != null && (row.IsUnassigned || row.IsEmpty || row.productName == pDef.name))
-                    {
-                        int spaceLeft = row.maxCapacity - row.currentStock;
-                        if (spaceLeft > 0)
-                        {
-                            row.productName = pDef.name;
-                            row.productId = pDef.id;
-                            row.unitPrice = WholesaleDatabase.GetProductSalePrice(pDef.id);
+                    break;
+                }
 
-                            int amountToAdd = Mathf.Min(spaceLeft, pDef.packQuantity);
-                            row.currentStock += amountToAdd;
-                            f.UpdateRow3DProductMeshes(row.rowId);
-                            usedShelf = f;
-                            usedRow = i;
-                            return true;
-                        }
+                int spaceLeft = Mathf.Max(0, row.maxCapacity - row.currentStock);
+                if (spaceLeft <= 0) break;
+
+                if (row.IsUnassigned || row.IsEmpty || row.currentStock <= 0)
+                {
+                    ProductPassportService.ClearRowContents(row);
+                    row.productName = canonicalName;
+                    row.productId = pDef.id;
+                    row.unitPrice = ResolveDepositUnitPrice(pDef);
+                }
+
+                int amountToAdd = Mathf.Min(spaceLeft, remaining);
+                List<ProductLot> incoming = ProductPassportService.TakeAttachedLots(pDef, amountToAdd);
+                if (ProductPassportService.SumLots(incoming) <= 0)
+                {
+                    incoming = new List<ProductLot> { ProductPassportService.CreateLegacyLot(pDef.id, amountToAdd) };
+                }
+
+                int added = ProductPassportService.AddStock(row, incoming, row.maxCapacity);
+                if (added <= 0)
+                {
+                    if (pDef.attachedLots == null) pDef.attachedLots = new List<ProductLot>();
+                    if (incoming != null)
+                    {
+                        for (int i = 0; i < incoming.Count; i++) ProductPassportService.MergeAdd(pDef.attachedLots, incoming[i]);
+                    }
+                    break;
+                }
+
+                remaining -= added;
+                pDef.packQuantity = Mathf.Max(0, remaining);
+                shelf.UpdateRow3DProductMeshes(row.rowId);
+                usedShelf = shelf;
+                usedRow = rowIndex;
+            }
+
+            return remaining <= 0;
+        }
+
+        private static int ResolveDepositUnitPrice(WholesaleProductDef pDef)
+        {
+            if (pDef == null) return 0;
+            int sale = WholesaleDatabase.GetProductSalePrice(pDef.id);
+            if (sale > 0) return sale;
+            GardenSeedDef seed = GardenSeedDatabase.GetSeedById(pDef.id);
+            if (seed != null) return seed.unitSalePrice;
+            return Mathf.Max(0, pDef.SalePricePerUnit);
+        }
+
+        private static bool TryFindDepositRow(WholesaleProductDef pDef, string canonicalName, out PlacedFurnitureController shelf, out int rowIndex, out ShelfRowData row)
+        {
+            shelf = null;
+            rowIndex = -1;
+            row = null;
+            var placedFurniture = PlacedFurnitureController.AllPlacedFurniture;
+            if (placedFurniture == null || pDef == null) return false;
+
+            FurnitureType storeType = pDef.targetShelfType;
+            bool farmLike = !pDef.isOrderable || GardenSeedDatabase.GetSeedById(pDef.id) != null
+                || WorkshopMachineDatabase.GetRecipeByOutputId(pDef.id) != null
+                || LivestockProductDatabase.GetById(pDef.id) != null;
+
+            if (farmLike)
+            {
+                if (TryFindRowByPredicate(placedFurniture, f => f.FurnitureType == storeType, r => ProductPassportService.RowHoldsProduct(r, pDef.id, canonicalName) && r.currentStock < r.maxCapacity, out shelf, out rowIndex, out row))
+                {
+                    return true;
+                }
+
+                if (TryFindRowByPredicate(placedFurniture, f => f.FurnitureType == storeType, r => r.IsUnassigned || r.IsEmpty || r.currentStock <= 0, out shelf, out rowIndex, out row))
+                {
+                    return true;
+                }
+            }
+
+            if (TryFindRowByPredicate(placedFurniture, f => f.FurnitureType == FurnitureType.StorageShelf, r => ProductPassportService.RowHoldsProduct(r, pDef.id, canonicalName) && r.currentStock > 0 && r.currentStock < r.maxCapacity, out shelf, out rowIndex, out row))
+            {
+                return true;
+            }
+
+            if (TryFindRowByPredicate(placedFurniture, f => f.FurnitureType == FurnitureType.StorageShelf, r => (r.IsUnassigned || r.IsEmpty || r.currentStock <= 0) && r.maxCapacity > 0, out shelf, out rowIndex, out row))
+            {
+                return true;
+            }
+
+            if (!farmLike)
+            {
+                if (TryFindRowByPredicate(placedFurniture, f => f.FurnitureType == storeType, r => ProductPassportService.RowHoldsProduct(r, pDef.id, canonicalName) && r.currentStock < r.maxCapacity, out shelf, out rowIndex, out row))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryFindRowByPredicate(
+            List<PlacedFurnitureController> furniture,
+            System.Func<PlacedFurnitureController, bool> shelfMatch,
+            System.Func<ShelfRowData, bool> rowMatch,
+            out PlacedFurnitureController shelf,
+            out int rowIndex,
+            out ShelfRowData row)
+        {
+            shelf = null;
+            rowIndex = -1;
+            row = null;
+            for (int f = 0; f < furniture.Count; f++)
+            {
+                PlacedFurnitureController candidate = furniture[f];
+                if (candidate == null || candidate.rows == null || !shelfMatch(candidate)) continue;
+                for (int i = 0; i < candidate.rows.Length; i++)
+                {
+                    ShelfRowData r = candidate.rows[i];
+                    if (r != null && rowMatch(r))
+                    {
+                        shelf = candidate;
+                        rowIndex = i;
+                        row = r;
+                        return true;
                     }
                 }
             }
@@ -217,12 +339,13 @@ namespace Farm2Shelf.Core
 
             IsTruckOnTheWay = true;
             currentPhase = DeliveryTruckPhase.Approaching;
+            List<WholesaleProductDef> prepared = ProductPassportService.PrepareWholesaleTransit(orderList);
             originalDeliveryPackages.Clear();
-            if (orderList != null) originalDeliveryPackages.AddRange(orderList);
+            originalDeliveryPackages.AddRange(prepared);
             activeDeliveryPackages.Clear();
-            if (orderList != null) activeDeliveryPackages.AddRange(orderList);
+            activeDeliveryPackages.AddRange(prepared);
             StartCoroutine(TruckLifecycleRoutine(
-                orderList ?? new List<WholesaleProductDef>(),
+                new List<WholesaleProductDef>(prepared),
                 originalDeliveryPackages,
                 DeliveryTruckPhase.Approaching,
                 DeliveryTruckVisuals.StartPos,
@@ -435,7 +558,7 @@ namespace Farm2Shelf.Core
                 for (int i = 0; i < f.rows.Length; i++)
                 {
                     var row = f.rows[i];
-                    if (row != null && (row.IsUnassigned || row.IsEmpty || row.productName == pDef.name))
+                    if (row != null && (row.IsUnassigned || row.IsEmpty || ProductPassportService.RowHoldsProduct(row, pDef.id, pDef.name)))
                     {
                         int spaceLeft = row.maxCapacity - row.currentStock;
                         if (spaceLeft > 0)
@@ -470,7 +593,8 @@ namespace Farm2Shelf.Core
                             if (spaceLeft > 0)
                             {
                                 int amountToAdd = Mathf.Min(spaceLeft, pDef.packQuantity);
-                                row.currentStock += amountToAdd;
+                                List<ProductLot> incoming = ProductPassportService.TakeAttachedLots(pDef, amountToAdd);
+                                ProductPassportService.AddStock(row, incoming, row.maxCapacity);
                                 depositedUnits = amountToAdd;
                                 f.UpdateRow3DProductMeshes(row.rowId);
                                 return true;
@@ -493,10 +617,12 @@ namespace Farm2Shelf.Core
                         if (spaceLeft > 0)
                         {
                             row.productName = pDef.name;
+                            row.productId = pDef.id;
                             row.unitPrice = WholesaleDatabase.GetProductSalePrice(pDef.id);
 
                             int amountToAdd = Mathf.Min(spaceLeft, pDef.packQuantity);
-                            row.currentStock += amountToAdd;
+                            List<ProductLot> incoming = ProductPassportService.TakeAttachedLots(pDef, amountToAdd);
+                            ProductPassportService.AddStock(row, incoming, row.maxCapacity);
                             depositedUnits = amountToAdd;
                             f.UpdateRow3DProductMeshes(row.rowId);
                             return true;

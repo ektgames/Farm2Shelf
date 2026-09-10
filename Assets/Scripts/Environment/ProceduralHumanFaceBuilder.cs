@@ -21,7 +21,8 @@ namespace Farm2Shelf.Environment
             ElderlyFemale,
             WavyMale,
             ModelFemale,
-            CoveredShort
+            CoveredShort,
+            SlickMale
         }
 
         public struct FaceSettings
@@ -196,6 +197,14 @@ namespace Farm2Shelf.Environment
                     CreateBlock(root, "Hair_UnderHat", new Vector3(0f, 1.66f, -0.04f), new Vector3(0.30f, 0.06f, 0.26f), hair);
                     CreateBlock(root, "Hair_Side_L", new Vector3(-0.16f, 1.56f, -0.02f), new Vector3(0.06f, 0.12f, 0.16f), hair);
                     CreateBlock(root, "Hair_Side_R", new Vector3(0.16f, 1.56f, -0.02f), new Vector3(0.06f, 0.12f, 0.16f), hair);
+                    break;
+
+                case HairStyle.SlickMale:
+                    CreateBlock(root, "Hair_SlickTop", new Vector3(0f, 1.71f, -0.01f), new Vector3(0.32f, 0.08f, 0.30f), hair);
+                    CreateBlock(root, "Hair_SlickFront", new Vector3(0f, 1.66f, 0.13f), new Vector3(0.22f, 0.05f, 0.06f), hair);
+                    CreateBlock(root, "Hair_Side_L", new Vector3(-0.16f, 1.56f, -0.01f), new Vector3(0.06f, 0.14f, 0.16f), hair);
+                    CreateBlock(root, "Hair_Side_R", new Vector3(0.16f, 1.56f, -0.01f), new Vector3(0.06f, 0.14f, 0.16f), hair);
+                    CreateBlock(root, "Hair_Back", new Vector3(0f, 1.58f, -0.15f), new Vector3(0.24f, 0.12f, 0.08f), hair);
                     break;
 
                 default:

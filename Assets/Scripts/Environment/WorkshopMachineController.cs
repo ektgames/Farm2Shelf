@@ -26,6 +26,7 @@ namespace Farm2Shelf.Environment
         public string activeRecipeId = "";
         public float remainingSeconds = 0f;
         public float totalDuration = 0f;
+        public List<ProductLot> consumedInputLots = new List<ProductLot>();
 
         public float remainingProductionSeconds
         {
@@ -262,7 +263,11 @@ namespace Farm2Shelf.Environment
             }
 
             // Hammaddeyi atölye paletinden tüket
-            WorkshopPalletManager.Instance.ConsumeCrop(recipe.cropId, recipe.requiredCropKg);
+            if (!WorkshopPalletManager.Instance.ConsumeCrop(recipe.cropId, recipe.requiredCropKg, out List<ProductLot> consumed))
+            {
+                return false;
+            }
+            consumedInputLots = consumed ?? new List<ProductLot>();
 
             activeRecipeId = recipeId;
             totalDuration = recipe.durationSeconds;
@@ -292,12 +297,14 @@ namespace Farm2Shelf.Environment
                 activeRecipeId = "";
                 remainingSeconds = 0f;
                 totalDuration = 0f;
+                consumedInputLots = new List<ProductLot>();
                 UpdateOverheadDisplay();
                 return false;
             }
 
             GardenSeedInventoryManager barn = GardenSeedInventoryManager.Instance;
-            if (barn == null || !barn.TryAddCropToBarn(recipe.outputProductId, recipe.outputPackCount))
+            ProductLot crafted = ProductPassportService.CreateWorkshopLot(recipe.outputProductId, recipe.outputPackCount, recipe, consumedInputLots);
+            if (barn == null || !barn.TryAddCropToBarn(recipe.outputProductId, recipe.outputPackCount, crafted))
             {
                 GardenSeedInventoryManager.ShowBarnFullModal();
                 return false;
@@ -316,6 +323,7 @@ namespace Farm2Shelf.Environment
             activeRecipeId = "";
             remainingSeconds = 0f;
             totalDuration = 0f;
+            consumedInputLots = new List<ProductLot>();
 
             UpdateOverheadDisplay();
             return true;
@@ -350,13 +358,14 @@ namespace Farm2Shelf.Environment
         /// <summary>
         /// Kayıtlı oyundan veya taşıma işleminden makine durumunu geri yükler.
         /// </summary>
-        public void RestoreState(string recipeId, bool producing, bool ready, float remainingSec, float duration)
+        public void RestoreState(string recipeId, bool producing, bool ready, float remainingSec, float duration, List<ProductLot> consumedLots = null)
         {
             activeRecipeId = recipeId;
             isProducing = producing;
             isReadyToCollect = ready;
             remainingSeconds = remainingSec;
             totalDuration = duration;
+            consumedInputLots = consumedLots != null ? ProductPassportService.CloneLots(consumedLots) : new List<ProductLot>();
             UpdateOverheadDisplay();
         }
     }
@@ -374,6 +383,7 @@ namespace Farm2Shelf.Environment
         public bool isReadyToCollect;
         public float remainingSeconds;
         public float totalDuration;
+        public List<ProductLot> consumedInputLots = new List<ProductLot>();
 
         public WorkshopMachineState() {}
 
@@ -388,6 +398,7 @@ namespace Farm2Shelf.Environment
                 this.isReadyToCollect = machine.isReadyToCollect;
                 this.remainingSeconds = machine.remainingSeconds;
                 this.totalDuration = machine.totalDuration;
+                this.consumedInputLots = ProductPassportService.CloneLots(machine.consumedInputLots);
             }
         }
 
@@ -403,7 +414,8 @@ namespace Farm2Shelf.Environment
                 this.isProducing,
                 this.isReadyToCollect,
                 this.remainingSeconds,
-                this.totalDuration
+                this.totalDuration,
+                this.consumedInputLots
             );
         }
     }

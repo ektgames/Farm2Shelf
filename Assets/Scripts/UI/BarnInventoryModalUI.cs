@@ -582,7 +582,7 @@ namespace Farm2Shelf.UI
                 GameObject rowObj = new GameObject("Row_" + seedId);
                 rowObj.transform.SetParent(listContentTransform, false);
                 RectTransform rRect = rowObj.AddComponent<RectTransform>();
-                rRect.sizeDelta = new Vector2(760f, 64f);
+                rRect.sizeDelta = new Vector2(760f, 78f);
 
                 Image rBg = rowObj.AddComponent<Image>();
                 Color rowBorder = (wRecipe != null) ? new Color(0.95f, 0.75f, 0.20f) : new Color(0.25f, 0.35f, 0.45f);
@@ -602,12 +602,12 @@ namespace Farm2Shelf.UI
                 {
                     string gourmetDetailFmt = LocalizationManager.L("Barn_GourmetRowDetailFmt", "Market: <b>{0}C</b> (%80 Kâr) | Hızlı Satış: <b>{1}C</b> (%20 Kâr)", "Store: <b>{0}C</b> (+80%) | Quick Sell: <b>{1}C</b> (+20%)");
                     string gourmetTag = LocalizationManager.L("Barn_GourmetTag", "(🌟 Lüks Gurme Ürün)", "(🌟 Premium Gourmet Product)");
-                    txt.text = $"{itemEmoji}  <b><size=16>{itemShortName}</size></b> <color=#FFD700><size=12>{gourmetTag}</size></color>\n<color=#80D8FF><size=12>{string.Format(gourmetDetailFmt, salePrice, quickSellUnitPrice)}</size></color>";
+                    txt.text = $"{itemEmoji}  <b><size=16>{itemShortName}</size></b> <color=#FFD700><size=12>{gourmetTag}</size></color>\n<color=#80D8FF><size=12>{string.Format(gourmetDetailFmt, salePrice, quickSellUnitPrice)}</size></color>\n<color=#B2FF59><size=11>{GardenSeedInventoryManager.Instance.GetBarnPassportSummary(seedId)}</size></color>";
                 }
                 else
                 {
                     string rowDetailFmt = LocalizationManager.L("Barn_RowDetailFmt", "Market: <b>{0}C</b> (%40 Kâr) | Hızlı Satış: <b>{1}C</b> (%20 Kâr)", "Store: <b>{0}C</b> (+40%) | Quick Sell: <b>{1}C</b> (+20%)");
-                    txt.text = $"{itemEmoji}  <b><size=16>{itemShortName}</size></b>\n<color=#80D8FF><size=12>{string.Format(rowDetailFmt, salePrice, quickSellUnitPrice)}</size></color>";
+                    txt.text = $"{itemEmoji}  <b><size=16>{itemShortName}</size></b>\n<color=#80D8FF><size=12>{string.Format(rowDetailFmt, salePrice, quickSellUnitPrice)}</size></color>\n<color=#B2FF59><size=11>{GardenSeedInventoryManager.Instance.GetBarnPassportSummary(seedId)}</size></color>";
                 }
                 txt.fontSize = 14;
                 txt.alignment = TextAnchor.MiddleLeft;
@@ -1067,20 +1067,24 @@ namespace Farm2Shelf.UI
                     break;
                 }
                 int rawCost = (wRecipe != null) ? Mathf.Max(1, Mathf.RoundToInt(wRecipe.unitSalePrice / 1.80f)) : 10;
-                WholesaleProductDef pDef = liveDef != null
-                    ? LivestockProductDatabase.CreateDeliveryPack(seedId, packAmount)
-                    : (sDef != null)
-                    ? new WholesaleProductDef(
-                        sDef.id,
-                        sDef.LocalizedName.Replace(" Tohumu", "").Replace(" Seeds", "").Replace(" Seed", ""),
-                        sDef.iconEmoji,
-                        FurnitureType.ProduceShelf,
-                        1,
-                        sDef.unitSalePrice,
-                        packAmount,
-                        40f
-                    )
-                    : new WholesaleProductDef(
+                WholesaleProductDef pDef = null;
+                if (!GardenSeedInventoryManager.Instance.ConsumeBarnCrop(seedId, packAmount, out List<ProductLot> shippedLots))
+                {
+                    break;
+                }
+
+                if (liveDef != null)
+                {
+                    pDef = LivestockProductDatabase.CreateDeliveryPack(seedId, packAmount);
+                    ProductPassportService.AttachConsumedLotsToPack(pDef, shippedLots);
+                }
+                else if (sDef != null)
+                {
+                    pDef = ProductPassportService.CreateFarmCropDeliveryPack(sDef, packAmount, shippedLots);
+                }
+                else
+                {
+                    pDef = new WholesaleProductDef(
                         wRecipe.outputProductId,
                         wRecipe.outputNameTr,
                         wRecipe.outputNameEn,
@@ -1089,13 +1093,14 @@ namespace Farm2Shelf.UI
                         1,
                         rawCost,
                         packAmount,
-                        80f
-                    );
+                        80f,
+                        false);
+                    ProductPassportService.AttachConsumedLotsToPack(pDef, shippedLots);
+                }
 
                 if (pDef == null) break;
                 farmProductList.Add(pDef);
                 count -= packAmount;
-                GardenSeedInventoryManager.Instance.ConsumeBarnCrop(seedId, packAmount);
             }
 
             if (farmProductList.Count > 0)
@@ -1119,10 +1124,14 @@ namespace Farm2Shelf.UI
             GardenSeedDef sDef = GardenSeedDatabase.GetSeedById(seedId);
             if (sDef == null || amount <= 0) return;
 
-            GardenSeedInventoryManager.Instance.ConsumeBarnCrop(seedId, amount);
+            if (!GardenSeedInventoryManager.Instance.ConsumeBarnCrop(seedId, amount, out List<ProductLot> movedLots))
+            {
+                return;
+            }
+
             if (WorkshopPalletManager.Instance != null)
             {
-                WorkshopPalletManager.Instance.AddCrops(seedId, amount);
+                WorkshopPalletManager.Instance.AddCrops(seedId, amount, movedLots);
             }
 
             RefreshList();
@@ -1233,20 +1242,24 @@ namespace Farm2Shelf.UI
                         break;
                     }
                     int rawCost = (wRecipe != null) ? Mathf.Max(1, Mathf.RoundToInt(wRecipe.unitSalePrice / 1.80f)) : 10;
-                    WholesaleProductDef pDef = liveDef != null
-                        ? LivestockProductDatabase.CreateDeliveryPack(seedId, packAmount)
-                        : (sDef != null)
-                        ? new WholesaleProductDef(
-                            sDef.id,
-                            sDef.LocalizedName.Replace(" Tohumu", "").Replace(" Seeds", "").Replace(" Seed", ""),
-                            sDef.iconEmoji,
-                            FurnitureType.ProduceShelf,
-                            1,
-                            sDef.unitSalePrice,
-                            packAmount,
-                            40f
-                        )
-                        : new WholesaleProductDef(
+                    WholesaleProductDef pDef = null;
+                    if (!GardenSeedInventoryManager.Instance.ConsumeBarnCrop(seedId, packAmount, out List<ProductLot> shippedLots))
+                    {
+                        break;
+                    }
+
+                    if (liveDef != null)
+                    {
+                        pDef = LivestockProductDatabase.CreateDeliveryPack(seedId, packAmount);
+                        ProductPassportService.AttachConsumedLotsToPack(pDef, shippedLots);
+                    }
+                    else if (sDef != null)
+                    {
+                        pDef = ProductPassportService.CreateFarmCropDeliveryPack(sDef, packAmount, shippedLots);
+                    }
+                    else
+                    {
+                        pDef = new WholesaleProductDef(
                             wRecipe.outputProductId,
                             wRecipe.outputNameTr,
                             wRecipe.outputNameEn,
@@ -1255,13 +1268,14 @@ namespace Farm2Shelf.UI
                             1,
                             rawCost,
                             packAmount,
-                            80f
-                        );
+                            80f,
+                            false);
+                        ProductPassportService.AttachConsumedLotsToPack(pDef, shippedLots);
+                    }
 
                     if (pDef == null) break;
                     farmProductList.Add(pDef);
                     count -= packAmount;
-                    GardenSeedInventoryManager.Instance.ConsumeBarnCrop(seedId, packAmount);
                 }
             }
 
@@ -1416,10 +1430,13 @@ namespace Farm2Shelf.UI
                     int count = crops[seedId];
                     if (count <= 0) continue;
 
-                    GardenSeedInventoryManager.Instance.ConsumeBarnCrop(seedId, count);
+                    if (!GardenSeedInventoryManager.Instance.ConsumeBarnCrop(seedId, count, out List<ProductLot> movedLots))
+                    {
+                        continue;
+                    }
                     if (WorkshopPalletManager.Instance != null)
                     {
-                        WorkshopPalletManager.Instance.AddCrops(seedId, count);
+                        WorkshopPalletManager.Instance.AddCrops(seedId, count, movedLots);
                     }
                     transferredTotal += count;
                 }

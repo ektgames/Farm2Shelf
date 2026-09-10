@@ -314,7 +314,7 @@ namespace Farm2Shelf.UI
                 Text txt = txtObj.AddComponent<Text>();
                 txt.font = font;
                 string rawMaterialLabel = LocalizationManager.L("WorkshopPallet_RawMaterialLabel", "(İşlenmeye Hazır Hammadde / Koli)", "(Raw Material / Box Ready for Processing)");
-                txt.text = $"{emoji}  <b>{cropName}</b>  <color=#B0BEC5>{rawMaterialLabel}</color>";
+                txt.text = $"{emoji}  <b>{cropName}</b>  <color=#B0BEC5>{rawMaterialLabel}</color>\n<color=#B2FF59><size=12>{WorkshopPalletManager.Instance.GetPassportSummary(cropId)}</size></color>";
                 txt.fontSize = 16;
                 txt.alignment = TextAnchor.MiddleLeft;
                 txt.color = Color.white;

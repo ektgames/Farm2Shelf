@@ -897,11 +897,6 @@ namespace Farm2Shelf.Environment
 
         private void BuildDynamicStoreInteriorLighting(Transform parent, float storeDepth, float storageDepth, float staffDepth, float frontWallZ, float backWallZ, float storageBackZ)
         {
-            if (DayNightCycleManager.Instance != null)
-            {
-                DayNightCycleManager.Instance.ClearStoreInteriorLights();
-            }
-
             Transform lightGroup = new GameObject("Store_Interior_Ceiling_Lights_Group").transform;
             lightGroup.SetParent(parent);
 
@@ -956,15 +951,22 @@ namespace Farm2Shelf.Environment
             // Işık Kaynağı (Görsel kirlilik yaratmayan saf ışık kaynağı - PointLight)
             Light ceilingLight = fixtureObj.AddComponent<Light>();
             ceilingLight.type = LightType.Point;
-            ceilingLight.color = new Color(1.0f, 0.96f, 0.88f); // Canlı Sıcak Beyaz
-            ceilingLight.intensity = 3.8f;
-            ceilingLight.range = 18.0f;
+            ceilingLight.color = StoreStatusManager.Instance != null
+                ? StoreStatusManager.Instance.GetBrandInteriorLightColor()
+                : new Color(1.0f, 0.96f, 0.88f);
+            ceilingLight.intensity = 5.8f;
+            ceilingLight.range = 15.0f;
             ceilingLight.shadows = LightShadows.None;
-            ceilingLight.enabled = false; // Gündüz kapalı, gece DayNightCycleManager ile açılır
+            ceilingLight.enabled = true;
 
             if (DayNightCycleManager.Instance != null)
             {
-                DayNightCycleManager.Instance.RegisterStoreInteriorLight(ceilingLight);
+                DayNightCycleManager.Instance.RegisterPlayerInteriorLight(ceilingLight);
+            }
+
+            if (StoreStatusManager.Instance != null)
+            {
+                ceilingLight.color = StoreStatusManager.Instance.GetBrandInteriorLightColor();
             }
         }
 

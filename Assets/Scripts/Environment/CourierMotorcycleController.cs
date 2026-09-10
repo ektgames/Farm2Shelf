@@ -94,7 +94,11 @@ namespace Farm2Shelf.Environment
             StaffClickableTarget motoClick = GetComponent<StaffClickableTarget>() ?? gameObject.AddComponent<StaffClickableTarget>();
             motoClick.courierMoto = this;
 
-            if (headlight != null) headlight.enabled = false;
+            if (headlight != null)
+            {
+                Farm2Shelf.Utils.LightingPipelineBinder.ConfigureRealtimeLight(headlight);
+                headlight.enabled = false;
+            }
         }
 
         private void Update()
@@ -174,7 +178,16 @@ namespace Farm2Shelf.Environment
 
         public bool CanTakeOrders()
         {
-            return (CurrentState == MotorcycleState.ParkedInBay || CurrentState == MotorcycleState.WaitingForStocker) && AssignedCourier != null && LoadedOrders.Count < 2;
+            return (CurrentState == MotorcycleState.ParkedInBay || CurrentState == MotorcycleState.WaitingForStocker)
+                && AssignedCourier != null
+                && LoadedOrders.Count < 2;
+        }
+
+        public bool CanTakeContractOrder()
+        {
+            return (CurrentState == MotorcycleState.ParkedInBay)
+                && AssignedCourier != null
+                && (LoadedOrders == null || LoadedOrders.Count == 0);
         }
 
         public void SetWaitingForStocker(OnlineCustomerOrder order)

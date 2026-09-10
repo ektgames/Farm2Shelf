@@ -251,7 +251,7 @@ namespace Farm2Shelf.UI
 
             if (!LivestockManager.Instance.ConsumeCrates(IsChicken, crates)) return;
 
-            if (!barn.TryAddCropToBarn(ProductId, amount))
+            if (!barn.TryAddCropToBarn(ProductId, amount, ProductPassportService.CreateLivestockLot(ProductId, amount, IsChicken)))
             {
                 if (IsChicken) LivestockManager.Instance.AddEggs(amount);
                 else LivestockManager.Instance.AddMilk(amount);

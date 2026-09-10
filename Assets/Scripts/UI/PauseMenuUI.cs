@@ -53,6 +53,7 @@ namespace Farm2Shelf.UI
 
         public void ShowPauseMenu()
         {
+            if (EndOfDayReportModalUI.IsReportModalOpen) return;
             Time.timeScale = 0f; // Oyunu duraklat
             ModalManager.SetModalOpen(true);
             BuildUI();

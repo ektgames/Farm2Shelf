@@ -39,20 +39,22 @@ namespace Farm2Shelf.UI
         private Transform virtualMarketContent;
         private Transform virtualMarketViewportObj;
 
-        // Online Market ScrollRect Content Transform'ları (4 Sekme)
+        // Online Market ScrollRect Content Transform'ları (5 Sekme)
         private Transform onlineMarketFleetContent;
+        private Transform onlineMarketContractsContent;
         private Transform onlineMarketStaffContent;
         private Transform onlineMarketCandidateContent;
         private Transform onlineMarketShiftContent;
 
         private Transform onlineMarketFleetViewportObj;
+        private Transform onlineMarketContractsViewportObj;
         private Transform onlineMarketStaffViewportObj;
         private Transform onlineMarketCandidateViewportObj;
         private Transform onlineMarketShiftViewportObj;
 
-        private int activeOnlineMarketTab = 0; // 0: Filo & Siparişler, 1: Kadro, 2: İşe Alım, 3: Vardiyalar
-        private Image[] onlineMarketTabBtnImgs = new Image[4];
-        private Text[] onlineMarketTabBtnTexts = new Text[4];
+        private int activeOnlineMarketTab = 0; // 0: Filo, 1: Kontratlar, 2: Kadro, 3: İşe Alım, 4: Vardiyalar
+        private Image[] onlineMarketTabBtnImgs = new Image[5];
+        private Text[] onlineMarketTabBtnTexts = new Text[5];
 
         private int activeWorkshopTab = 0; // 0: Atölye Binası (Geliştirme), 1: Makine Yönetimi
         private float lastWorkshopLiveRefreshTime = 0f;
@@ -235,6 +237,11 @@ namespace Farm2Shelf.UI
                 OnlineMarketOrderManager.Instance.OnOrdersChanged += RefreshVirtualMarketViews;
             }
 
+            if (TownContractManager.Instance != null)
+            {
+                TownContractManager.Instance.OnContractsChanged += RefreshVirtualMarketViews;
+            }
+
             storeUpgradedHandler = _ => RefreshStoreManagementViews();
             workshopUpgradedHandler = _ => RefreshWorkshopsViews();
             EnvironmentBuilder.OnStoreUpgraded += storeUpgradedHandler;
@@ -290,10 +297,12 @@ namespace Farm2Shelf.UI
                 virtualMarketContent = null;
                 virtualMarketViewportObj = null;
                 onlineMarketFleetContent = null;
+                onlineMarketContractsContent = null;
                 onlineMarketStaffContent = null;
                 onlineMarketCandidateContent = null;
                 onlineMarketShiftContent = null;
                 onlineMarketFleetViewportObj = null;
+                onlineMarketContractsViewportObj = null;
                 onlineMarketStaffViewportObj = null;
                 onlineMarketCandidateViewportObj = null;
                 onlineMarketShiftViewportObj = null;
@@ -1810,11 +1819,12 @@ namespace Farm2Shelf.UI
             tText.color = new Color(0.00f, 0.85f, 0.65f);
             tText.raycastTarget = false;
 
-            // 2. 4'LÜ SEKME ÇUBUĞU
+            // 2. 5'Lİ SEKME ÇUBUĞU
             CreateOnlineMarketTabs(viewObj.transform);
 
-            // 3. 4 AYRI SCROLLABLE VIEWPORT
+            // 3. 5 AYRI SCROLLABLE VIEWPORT
             onlineMarketFleetContent = CreateScrollableViewContainer(viewObj.transform, "FleetList", new Vector2(0f, -50f), new Vector2(850f, 350f), out onlineMarketFleetViewportObj);
+            onlineMarketContractsContent = CreateScrollableViewContainer(viewObj.transform, "ContractsList", new Vector2(0f, -50f), new Vector2(850f, 350f), out onlineMarketContractsViewportObj);
             onlineMarketStaffContent = CreateScrollableViewContainer(viewObj.transform, "StaffList", new Vector2(0f, -50f), new Vector2(850f, 350f), out onlineMarketStaffViewportObj);
             onlineMarketCandidateContent = CreateScrollableViewContainer(viewObj.transform, "CandidateList", new Vector2(0f, -50f), new Vector2(850f, 350f), out onlineMarketCandidateViewportObj);
             onlineMarketShiftContent = CreateScrollableViewContainer(viewObj.transform, "ShiftList", new Vector2(0f, -50f), new Vector2(850f, 350f), out onlineMarketShiftViewportObj);
@@ -1823,6 +1833,15 @@ namespace Farm2Shelf.UI
             fLayout.spacing = 12f;
             fLayout.childControlWidth = true;
             fLayout.childControlHeight = false;
+
+            VerticalLayoutGroup kLayout = onlineMarketContractsContent.gameObject.AddComponent<VerticalLayoutGroup>();
+            kLayout.spacing = 10f;
+            kLayout.childControlWidth = true;
+            kLayout.childControlHeight = true;
+            kLayout.childForceExpandHeight = false;
+            kLayout.childForceExpandWidth = true;
+            kLayout.childAlignment = TextAnchor.UpperCenter;
+            kLayout.padding = new RectOffset(8, 8, 8, 16);
 
             VerticalLayoutGroup sLayout = onlineMarketStaffContent.gameObject.AddComponent<VerticalLayoutGroup>();
             sLayout.spacing = 10f;
@@ -1853,24 +1872,26 @@ namespace Farm2Shelf.UI
             tRect.sizeDelta = new Vector2(850f, 40f);
 
             HorizontalLayoutGroup layout = tabsObj.AddComponent<HorizontalLayoutGroup>();
-            layout.spacing = 12;
+            layout.spacing = 8;
             layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.childForceExpandWidth = true;
 
             string[] tabs = new string[] {
                 LocalizationManager.L("Tab_OM_Fleet", "Filo & Siparişler", "Fleet & Orders"),
+                LocalizationManager.L("Tab_OM_Contracts", "Kontratlar", "Contracts"),
                 LocalizationManager.L("Tab_OM_Staff", "Personel Kadrosu", "Staff List"),
                 LocalizationManager.L("Tab_OM_Recruit", "İşe Alım", "Recruitment"),
                 LocalizationManager.L("Tab_OM_Shifts", "Vardiyalar", "Shifts")
             };
 
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < 5; i++)
             {
                 int tabIndex = i;
                 GameObject tabBtn = new GameObject("OM_Tab_" + i);
                 tabBtn.transform.SetParent(tabsObj.transform, false);
 
                 RectTransform tabRect = tabBtn.AddComponent<RectTransform>();
-                tabRect.sizeDelta = new Vector2(195f, 40f);
+                tabRect.sizeDelta = new Vector2(158f, 40f);
 
                 Image tabBg = tabBtn.AddComponent<Image>();
                 tabBg.raycastTarget = true;
@@ -1892,7 +1913,7 @@ namespace Farm2Shelf.UI
                 Text tabText = textObj.AddComponent<Text>();
                 tabText.font = globalFont;
                 tabText.text = tabs[i];
-                tabText.fontSize = 17;
+                tabText.fontSize = 14;
                 tabText.fontStyle = FontStyle.Bold;
                 tabText.alignment = TextAnchor.MiddleCenter;
                 tabText.raycastTarget = false;
@@ -1904,18 +1925,18 @@ namespace Farm2Shelf.UI
 
         private void UpdateOnlineMarketTabVisuals()
         {
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < 5; i++)
             {
                 if (onlineMarketTabBtnImgs[i] == null) continue;
                 bool isActive = (activeOnlineMarketTab == i);
                 if (isActive)
                 {
-                    onlineMarketTabBtnImgs[i].sprite = UIStyleUtility.CreateOutlinePillSprite(195, 40, 20, 2, new Color(0.00f, 0.85f, 0.65f), new Color(0.06f, 0.22f, 0.18f, 0.95f));
+                    onlineMarketTabBtnImgs[i].sprite = UIStyleUtility.CreateOutlinePillSprite(158, 40, 16, 2, new Color(0.00f, 0.85f, 0.65f), new Color(0.06f, 0.22f, 0.18f, 0.95f));
                     if (onlineMarketTabBtnTexts[i] != null) onlineMarketTabBtnTexts[i].color = new Color(0.20f, 1.0f, 0.80f);
                 }
                 else
                 {
-                    onlineMarketTabBtnImgs[i].sprite = UIStyleUtility.CreateRoundedPillSprite(195, 40, 20, new Color(0.12f, 0.16f, 0.22f, 0.85f));
+                    onlineMarketTabBtnImgs[i].sprite = UIStyleUtility.CreateRoundedPillSprite(158, 40, 16, new Color(0.12f, 0.16f, 0.22f, 0.85f));
                     if (onlineMarketTabBtnTexts[i] != null) onlineMarketTabBtnTexts[i].color = new Color(0.70f, 0.78f, 0.85f);
                 }
             }
@@ -1926,14 +1947,16 @@ namespace Farm2Shelf.UI
             UpdateOnlineMarketTabVisuals();
 
             if (onlineMarketFleetViewportObj != null) onlineMarketFleetViewportObj.gameObject.SetActive(activeOnlineMarketTab == 0);
-            if (onlineMarketStaffViewportObj != null) onlineMarketStaffViewportObj.gameObject.SetActive(activeOnlineMarketTab == 1);
-            if (onlineMarketCandidateViewportObj != null) onlineMarketCandidateViewportObj.gameObject.SetActive(activeOnlineMarketTab == 2);
-            if (onlineMarketShiftViewportObj != null) onlineMarketShiftViewportObj.gameObject.SetActive(activeOnlineMarketTab == 3);
+            if (onlineMarketContractsViewportObj != null) onlineMarketContractsViewportObj.gameObject.SetActive(activeOnlineMarketTab == 1);
+            if (onlineMarketStaffViewportObj != null) onlineMarketStaffViewportObj.gameObject.SetActive(activeOnlineMarketTab == 2);
+            if (onlineMarketCandidateViewportObj != null) onlineMarketCandidateViewportObj.gameObject.SetActive(activeOnlineMarketTab == 3);
+            if (onlineMarketShiftViewportObj != null) onlineMarketShiftViewportObj.gameObject.SetActive(activeOnlineMarketTab == 4);
 
             if (activeOnlineMarketTab == 0) RenderOnlineMarketFleetView();
-            else if (activeOnlineMarketTab == 1) RenderOnlineMarketStaffView();
-            else if (activeOnlineMarketTab == 2) RenderOnlineMarketCandidateView();
-            else if (activeOnlineMarketTab == 3) RenderOnlineMarketShiftView();
+            else if (activeOnlineMarketTab == 1) RenderOnlineMarketContractsView();
+            else if (activeOnlineMarketTab == 2) RenderOnlineMarketStaffView();
+            else if (activeOnlineMarketTab == 3) RenderOnlineMarketCandidateView();
+            else if (activeOnlineMarketTab == 4) RenderOnlineMarketShiftView();
         }
 
         private void RenderOnlineMarketFleetView()
@@ -2001,6 +2024,12 @@ namespace Farm2Shelf.UI
                         ? string.Format(LocalizationManager.L("OM_OrdersLoadedFmt", "📦 Bagajda {0} Adres Siparişi Var", "📦 {0} Address Orders in Bag"), moto.LoadedOrders.Count)
                         : LocalizationManager.L("OM_BagEmpty", "📦 Bagaj Boş (Yeni Sipariş Bekleniyor)", "📦 Cargo Bag Empty (Waiting for Orders)");
 
+                    bool isContractBike = TownContractManager.Instance != null && TownContractManager.Instance.IsSlotAssignedToContracts(slotIdx);
+                    if (isContractBike)
+                    {
+                        cargoStr = LocalizationManager.L("OM_ContractFleetTag", "📋 Kontrat Filosu — yalnızca kasaba kontratlarına çıkar", "📋 Contract fleet — town contracts only") + "  |  " + cargoStr;
+                    }
+
                     string motoTitleFmt = LocalizationManager.L("OM_MotoTitleFmt", "🛵 Motorsiklet #{0} (Park Yuvası #{0})", "🛵 Motorcycle #{0} (Bay #{0})");
                     Text titleTxt = CreateTextInPanel(infoPanel.transform, new Vector2(0f, 24f), new Vector2(560f, 22f), string.Format(motoTitleFmt, slotIdx + 1), 18, Color.white);
                     titleTxt.fontStyle = FontStyle.Bold;
@@ -2024,6 +2053,374 @@ namespace Farm2Shelf.UI
                     descTxt.alignment = TextAnchor.MiddleLeft;
                 }
             }
+        }
+
+        private void RenderOnlineMarketContractsView()
+        {
+            if (onlineMarketContractsContent == null) return;
+            foreach (Transform child in onlineMarketContractsContent) Destroy(child.gameObject);
+
+            TownContractManager mgr = TownContractManager.Instance;
+            bool english = LocalizationManager.Instance != null && LocalizationManager.Instance.IsEnglish;
+            int assignedCount = mgr != null ? mgr.ContractMotorcycleSlots.Count : 0;
+            int queuedCount = mgr != null ? mgr.CountQueued() : 0;
+            int openCount = mgr != null ? mgr.CountOpenOffers() : 0;
+            string verdict = mgr != null ? mgr.GetOverallVerdict(english) : "";
+
+            Transform introInfo, introActions;
+            CreateOmSplitCard(onlineMarketContractsContent, "ContractIntro",
+                new Color(0.18f, 0.55f, 0.42f, 0.85f), new Color(0.08f, 0.14f, 0.20f, 0.96f), out introInfo, out introActions);
+            CreateOmLayoutText(introInfo, LocalizationManager.L("OM_ContractIntroTitle", "Kasaba Kontratları", "Town Contracts"), 20, Color.white, FontStyle.Bold);
+            CreateOmLayoutText(introInfo, string.Format(
+                LocalizationManager.L(
+                    "OM_ContractIntroBody",
+                    "Her gün 5 yeni teklif gelir (yapmasan da yenilenir). Karlı gördüğünü sıraya al, diğerlerini geç. Motor eklenince işler tek tek gider: teslim, park, sonraki yükleme.\nBugün açık teklif: {0}  •  Sıra: {1}  •  Motor: {2}  •  {3} ({4}/{5})",
+                    "Each day brings 5 new offers (they refresh even if you skip them). Queue the profitable ones. A contract bike runs jobs one by one: deliver, park, then load the next.\nOpen today: {0}  •  Queue: {1}  •  Bike: {2}  •  {3} ({4}/{5})"),
+                openCount, queuedCount, assignedCount, verdict,
+                mgr != null ? mgr.SuccessCount : 0,
+                mgr != null ? mgr.SuccessCount + mgr.FailCount : 0), 16, new Color(0.88f, 0.91f, 0.95f), FontStyle.Normal);
+            introActions.gameObject.SetActive(false);
+            LayoutElement introActLe = introActions.GetComponent<LayoutElement>();
+            if (introActLe != null) introActLe.ignoreLayout = true;
+
+            CreateOmSectionLabel(onlineMarketContractsContent, LocalizationManager.L("OM_ContractFleetHeader", "🛵 Kontrat Motoru Atama", "🛵 Assign Contract Motorcycle"));
+
+            int maxSlots = CourierManager.MAX_MOTORCYCLES;
+            bool anyOwned = false;
+            for (int i = 0; i < maxSlots; i++)
+            {
+                int slotIdx = i;
+                CourierMotorcycleController moto = CourierManager.Instance != null ? CourierManager.Instance.GetMotorcycleBySlot(slotIdx) : null;
+                if (moto == null) continue;
+                anyOwned = true;
+                bool assigned = mgr != null && mgr.IsSlotAssignedToContracts(slotIdx);
+
+                Transform info, actions;
+                CreateOmSplitCard(onlineMarketContractsContent, "ContractMoto_" + (slotIdx + 1),
+                    assigned ? new Color(0.18f, 0.62f, 0.46f, 0.95f) : new Color(0.00f, 0.85f, 0.65f, 0.75f),
+                    new Color(0.10f, 0.15f, 0.22f, 0.96f), out info, out actions);
+
+                CreateOmLayoutText(info, string.Format(LocalizationManager.L("OM_MotoTitleFmt", "🛵 Motorsiklet #{0} (Park Yuvası #{0})", "🛵 Motorcycle #{0} (Bay #{0})"), slotIdx + 1), 18, Color.white, FontStyle.Bold);
+                string sub = assigned
+                    ? LocalizationManager.L("OM_ContractBikeAssigned", "Bu motor yalnızca kontrat kuyruğuna çalışır. 1. işi bitirir, park eder, sonra 2. iş yüklenir.", "This bike only runs the contract queue. It finishes job 1, parks, then job 2 is loaded.")
+                    : LocalizationManager.L("OM_ContractBikeFree", "Şu an online filoda. Kontratlara ekle; kuyruktaki ilk işten başlar.", "Currently on the online fleet. Add it to contracts to start the first queued job.");
+                CreateOmLayoutText(info, sub, 15, new Color(0.80f, 0.86f, 0.92f), FontStyle.Normal);
+
+                string btnLabel = assigned
+                    ? LocalizationManager.L("OM_BtnUnassignContractMoto", "Online Filoya Al", "Back to Online")
+                    : LocalizationManager.L("OM_BtnAssignContractMoto", "Kontratlara Ekle", "Add to Contracts");
+                Color btnColor = assigned ? new Color(0.62f, 0.38f, 0.16f) : new Color(0.12f, 0.62f, 0.48f);
+                CreateOmLayoutButton(actions, btnLabel, btnColor, () =>
+                {
+                    if (mgr == null) return;
+                    bool ok = assigned
+                        ? mgr.TryUnassignMotorcycleFromContracts(slotIdx, out string errTr, out string errEn)
+                        : mgr.TryAssignMotorcycleToContracts(slotIdx, out errTr, out errEn);
+                    if (!ok)
+                    {
+                        ModalManager.ShowModal(
+                            LocalizationManager.L("OM_ContractMotoFailTitle", "Motor Atanamadı", "Could Not Assign Bike"),
+                            english ? errEn : errTr,
+                            LocalizationManager.L("Btn_OK", "Tamam", "OK"));
+                    }
+                    RefreshVirtualMarketViews();
+                });
+            }
+
+            if (!anyOwned)
+            {
+                Transform info, actions;
+                CreateOmSplitCard(onlineMarketContractsContent, "NoMoto",
+                    new Color(0.40f, 0.45f, 0.52f, 0.7f), new Color(0.08f, 0.10f, 0.14f, 0.92f), out info, out actions);
+                CreateOmLayoutText(info, LocalizationManager.L("OM_ContractNeedBuyTitle", "🔒 Satın alınmış motor yok", "🔒 No motorcycle owned"), 18, Color.white, FontStyle.Bold);
+                CreateOmLayoutText(info, LocalizationManager.L("OM_ContractNeedBuy", "Alışveriş → Araçlar'dan motorsiklet alın. Satın alınca burada Kontratlara Ekle butonu açılır.", "Buy a motorcycle in Shopping → Vehicles. Then the Add to Contracts button appears here."), 15, new Color(0.88f, 0.91f, 0.95f), FontStyle.Normal);
+                actions.gameObject.SetActive(false);
+                LayoutElement noMotoAct = actions.GetComponent<LayoutElement>();
+                if (noMotoAct != null) noMotoAct.ignoreLayout = true;
+            }
+
+            CreateOmSectionLabel(onlineMarketContractsContent, LocalizationManager.L("OM_ContractQueueHeader", "📦 Teslimat Sırası", "📦 Delivery Queue"));
+            if (mgr == null || queuedCount == 0)
+            {
+                Transform qInfo, qActions;
+                CreateOmSplitCard(onlineMarketContractsContent, "EmptyQueue",
+                    new Color(0.35f, 0.42f, 0.50f, 0.6f), new Color(0.08f, 0.11f, 0.16f, 0.92f), out qInfo, out qActions);
+                CreateOmLayoutText(qInfo, LocalizationManager.L("OM_ContractQueueEmpty", "Sırada kontrat yok. Karlı gördüğün teklifi aşağıdan sıraya al.", "Queue is empty. Queue a profitable offer from the list below."), 16, new Color(0.88f, 0.91f, 0.95f), FontStyle.Normal);
+                qActions.gameObject.SetActive(false);
+                LayoutElement qActLe = qActions.GetComponent<LayoutElement>();
+                if (qActLe != null) qActLe.ignoreLayout = true;
+            }
+            else
+            {
+                for (int i = 0; i < mgr.QueueOfferIds.Count; i++)
+                {
+                    TownContractOffer offer = mgr.GetOffer(mgr.QueueOfferIds[i]);
+                    if (offer == null) continue;
+                    RenderContractOfferCard(offer, i + 1, true, english);
+                }
+            }
+
+            CreateOmSectionLabel(onlineMarketContractsContent, LocalizationManager.L("OM_ContractOffersHeader", "Bugünün 5 kontrat teklifi", "Today's 5 contract offers"));
+            int shownOpen = 0;
+            if (mgr != null)
+            {
+                for (int i = 0; i < mgr.Offers.Count; i++)
+                {
+                    TownContractOffer offer = mgr.Offers[i];
+                    if (offer == null || offer.status != TownContractOfferStatus.Open) continue;
+                    shownOpen++;
+                    RenderContractOfferCard(offer, shownOpen, false, english);
+                }
+            }
+            if (shownOpen == 0)
+            {
+                Transform oInfo, oActions;
+                CreateOmSplitCard(onlineMarketContractsContent, "NoOffers",
+                    new Color(0.35f, 0.42f, 0.50f, 0.6f), new Color(0.08f, 0.11f, 0.16f, 0.92f), out oInfo, out oActions);
+                CreateOmLayoutText(oInfo, LocalizationManager.L("OM_ContractNoOpen", "Bugünün teklifleri bitti veya hepsini geçtin. Yeni 5 kontrat yarın (gün sonundan sonra) gelir.", "Today's offers are done or skipped. A new set of 5 arrives tomorrow after end of day."), 16, new Color(0.88f, 0.91f, 0.95f), FontStyle.Normal);
+                oActions.gameObject.SetActive(false);
+                LayoutElement oActLe = oActions.GetComponent<LayoutElement>();
+                if (oActLe != null) oActLe.ignoreLayout = true;
+            }
+        }
+
+        private void RenderContractOfferCard(TownContractOffer offer, int index, bool inQueue, bool english)
+        {
+            TownContractPartner partner = TownContractManager.GetPartner(offer.partnerId);
+            if (partner == null) return;
+
+            Color border = offer.status == TownContractOfferStatus.Active
+                ? new Color(0.30f, 0.75f, 1.0f, 0.95f)
+                : (inQueue ? new Color(0.95f, 0.78f, 0.25f, 0.95f) : new Color(0.00f, 0.85f, 0.65f, 0.75f));
+
+            Transform info, actions;
+            CreateOmSplitCard(onlineMarketContractsContent, "Offer_" + offer.offerId,
+                border, new Color(0.09f, 0.12f, 0.18f, 0.97f), out info, out actions);
+
+            string queueTag = inQueue
+                ? string.Format(LocalizationManager.L("OM_ContractQueueIndex", "Sıra {0}", "Queue {0}"), index)
+                : string.Format(LocalizationManager.L("OM_ContractOfferIndex", "Teklif {0}", "Offer {0}"), index);
+            if (offer.status == TownContractOfferStatus.Active)
+            {
+                queueTag = LocalizationManager.L("OM_ContractActiveNow", "Şu an yükleniyor / yolda", "Loading / on the road now");
+            }
+
+            CreateOmLayoutText(info, $"{partner.iconEmoji}  {partner.LocalizedName}", 18, Color.white, FontStyle.Bold);
+            CreateOmLayoutText(info, $"{queueTag}  •  {partner.LocalizedKind}", 15, new Color(0.92f, 0.94f, 0.96f), FontStyle.Bold);
+
+            string distPay = string.Format(
+                LocalizationManager.L(
+                    "OM_ContractDistPayFmt",
+                    "Dükkana uzaklık: {0} m   •   Kontrat ücreti: {1:N0}C   •   {2} adet ürün",
+                    "Distance from store: {0} m   •   Contract fee: {1:N0}C   •   {2} units"),
+                offer.distanceMeters, offer.payout, offer.TotalUnits);
+            CreateOmLayoutText(info, distPay, 16, new Color(0.95f, 0.86f, 0.40f), FontStyle.Normal);
+            CreateOmLayoutText(info, FormatOfferProducts(offer, english), 15, new Color(0.80f, 0.86f, 0.92f), FontStyle.Normal);
+
+            if (inQueue)
+            {
+                CreateOmLayoutText(actions, offer.status == TownContractOfferStatus.Active
+                    ? LocalizationManager.L("OM_ContractBusy", "Devam ediyor", "In progress")
+                    : LocalizationManager.L("OM_ContractWaiting", "Bekliyor", "Waiting"), 15, Color.white, FontStyle.Bold);
+            }
+            else
+            {
+                string oid = offer.offerId;
+                CreateOmLayoutButton(actions, LocalizationManager.L("OM_BtnAcceptContract", "Sıraya Al", "Queue It"), new Color(0.14f, 0.58f, 0.36f), () =>
+                {
+                    if (TownContractManager.Instance == null) return;
+                    bool ok = TownContractManager.Instance.AcceptOffer(oid, out string errTr, out string errEn);
+                    if (!ok)
+                    {
+                        ModalManager.ShowModal(
+                            LocalizationManager.L("OM_ContractActionFailTitle", "Kontrat İşlemi", "Contract Action"),
+                            english ? errEn : errTr,
+                            LocalizationManager.L("Btn_OK", "Tamam", "OK"));
+                    }
+                    else if (TownContractManager.Instance.ContractMotorcycleSlots.Count == 0)
+                    {
+                        ModalManager.ShowModal(
+                            LocalizationManager.L("OM_ContractNeedMotoTitle", "Sıraya Alındı", "Queued"),
+                            LocalizationManager.L("OM_ContractNeedMotoBody", "Kontrat sıraya girdi. Teslimat için yukarıdan satın alınmış bir motoru kontratlara ekleyin.", "The contract is queued. Assign an owned motorcycle above so delivery can start."),
+                            LocalizationManager.L("Btn_OK", "Tamam", "OK"));
+                    }
+                    RefreshVirtualMarketViews();
+                });
+                CreateOmLayoutButton(actions, LocalizationManager.L("OM_BtnDeclineContract", "Geç", "Skip"), new Color(0.42f, 0.28f, 0.32f), () =>
+                {
+                    if (TownContractManager.Instance == null) return;
+                    TownContractManager.Instance.DeclineOffer(oid, out _, out _);
+                    RefreshVirtualMarketViews();
+                });
+            }
+        }
+
+        private static string FormatOfferProducts(TownContractOffer offer, bool english)
+        {
+            if (offer == null || offer.productIds == null || offer.productIds.Count == 0)
+            {
+                return english ? "Product list pending" : "Ürün listesi hazırlanıyor";
+            }
+
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            for (int i = 0; i < offer.productIds.Count; i++)
+            {
+                WholesaleProductDef prod = WholesaleDatabase.GetProductById(offer.productIds[i]);
+                int qty = i < offer.quantities.Count ? offer.quantities[i] : 1;
+                string name = prod != null ? prod.LocalizedName : offer.productIds[i];
+                string icon = prod != null ? prod.iconEmoji : "📦";
+                if (i > 0) sb.Append("   •   ");
+                sb.Append(icon).Append(' ').Append(name).Append(" ×").Append(qty);
+            }
+            return sb.ToString();
+        }
+
+        private GameObject CreateOmSplitCard(Transform parent, string name, Color border, Color fill, out Transform infoColumn, out Transform actionsColumn)
+        {
+            GameObject card = new GameObject(name);
+            card.transform.SetParent(parent, false);
+
+            Image bg = card.AddComponent<Image>();
+            bg.sprite = UIStyleUtility.CreateOutlinePillSprite(820, 150, 16, 2, border, fill);
+            bg.raycastTarget = true;
+            bg.type = Image.Type.Simple;
+
+            HorizontalLayoutGroup row = card.AddComponent<HorizontalLayoutGroup>();
+            row.padding = new RectOffset(18, 16, 16, 16);
+            row.spacing = 12;
+            row.childAlignment = TextAnchor.UpperLeft;
+            row.childControlWidth = true;
+            row.childControlHeight = true;
+            row.childForceExpandWidth = true;
+            row.childForceExpandHeight = true;
+
+            ContentSizeFitter fit = card.AddComponent<ContentSizeFitter>();
+            fit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            fit.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+
+            LayoutElement cardLe = card.AddComponent<LayoutElement>();
+            cardLe.minHeight = 100f;
+            cardLe.flexibleWidth = 1f;
+
+            GameObject info = new GameObject("Info");
+            info.transform.SetParent(card.transform, false);
+            VerticalLayoutGroup infoLayout = info.AddComponent<VerticalLayoutGroup>();
+            infoLayout.padding = new RectOffset(0, 8, 0, 0);
+            infoLayout.spacing = 5;
+            infoLayout.childAlignment = TextAnchor.UpperLeft;
+            infoLayout.childControlWidth = true;
+            infoLayout.childControlHeight = true;
+            infoLayout.childForceExpandWidth = true;
+            infoLayout.childForceExpandHeight = false;
+            LayoutElement infoLe = info.AddComponent<LayoutElement>();
+            infoLe.flexibleWidth = 1f;
+            infoLe.minWidth = 420f;
+            infoLe.preferredWidth = 580f;
+
+            GameObject actions = new GameObject("Actions");
+            actions.transform.SetParent(card.transform, false);
+            VerticalLayoutGroup actLayout = actions.AddComponent<VerticalLayoutGroup>();
+            actLayout.spacing = 8;
+            actLayout.childAlignment = TextAnchor.UpperCenter;
+            actLayout.childControlWidth = true;
+            actLayout.childControlHeight = true;
+            actLayout.childForceExpandWidth = true;
+            actLayout.childForceExpandHeight = false;
+            LayoutElement actLe = actions.AddComponent<LayoutElement>();
+            actLe.preferredWidth = 176f;
+            actLe.minWidth = 176f;
+            actLe.flexibleWidth = 0f;
+
+            infoColumn = info.transform;
+            actionsColumn = actions.transform;
+            return card;
+        }
+
+        private Text CreateOmLayoutText(Transform parent, string text, int fontSize, Color color, FontStyle style)
+        {
+            GameObject txtObj = new GameObject("Txt");
+            txtObj.transform.SetParent(parent, false);
+            RectTransform rect = txtObj.AddComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(0f, 0f);
+
+            Text txt = txtObj.AddComponent<Text>();
+            txt.font = globalFont;
+            txt.text = text;
+            txt.fontSize = fontSize;
+            txt.fontStyle = style;
+            txt.color = color;
+            txt.alignment = TextAnchor.UpperLeft;
+            txt.horizontalOverflow = HorizontalWrapMode.Wrap;
+            txt.verticalOverflow = VerticalWrapMode.Overflow;
+            txt.raycastTarget = false;
+
+            LayoutElement le = txtObj.AddComponent<LayoutElement>();
+            le.minHeight = fontSize + 8;
+            le.flexibleWidth = 1f;
+            le.preferredHeight = -1f;
+            return txt;
+        }
+
+        private GameObject CreateOmLayoutButton(Transform parent, string label, Color bgColor, UnityEngine.Events.UnityAction onClick)
+        {
+            GameObject btnObj = new GameObject("Btn");
+            btnObj.transform.SetParent(parent, false);
+
+            LayoutElement le = btnObj.AddComponent<LayoutElement>();
+            le.minHeight = 44f;
+            le.preferredHeight = 44f;
+            le.minWidth = 170f;
+            le.preferredWidth = 176f;
+
+            Image img = btnObj.AddComponent<Image>();
+            img.sprite = UIStyleUtility.CreateRoundedPillSprite(176, 44, 14, bgColor);
+            img.raycastTarget = true;
+
+            Button btn = btnObj.AddComponent<Button>();
+            btn.targetGraphic = img;
+            if (onClick != null) btn.onClick.AddListener(onClick);
+
+            GameObject tObj = new GameObject("Label");
+            tObj.transform.SetParent(btnObj.transform, false);
+            RectTransform tRect = tObj.AddComponent<RectTransform>();
+            tRect.anchorMin = Vector2.zero;
+            tRect.anchorMax = Vector2.one;
+            tRect.offsetMin = new Vector2(6f, 2f);
+            tRect.offsetMax = new Vector2(-6f, -2f);
+
+            Text txt = tObj.AddComponent<Text>();
+            txt.font = globalFont;
+            txt.text = label;
+            txt.fontSize = 15;
+            txt.fontStyle = FontStyle.Bold;
+            txt.alignment = TextAnchor.MiddleCenter;
+            txt.color = Color.white;
+            txt.horizontalOverflow = HorizontalWrapMode.Wrap;
+            txt.verticalOverflow = VerticalWrapMode.Overflow;
+            txt.raycastTarget = false;
+            return btnObj;
+        }
+
+        private void CreateOmSectionLabel(Transform parent, string text)
+        {
+            GameObject row = new GameObject("SectionLabel");
+            row.transform.SetParent(parent, false);
+
+            LayoutElement le = row.AddComponent<LayoutElement>();
+            le.minHeight = 38f;
+            le.preferredHeight = 38f;
+            le.flexibleWidth = 1f;
+
+            Text t = row.AddComponent<Text>();
+            t.font = globalFont;
+            t.text = text;
+            t.fontSize = 17;
+            t.fontStyle = FontStyle.Bold;
+            t.color = new Color(0.95f, 0.97f, 0.98f);
+            t.alignment = TextAnchor.MiddleLeft;
+            t.horizontalOverflow = HorizontalWrapMode.Wrap;
+            t.verticalOverflow = VerticalWrapMode.Truncate;
+            t.raycastTarget = false;
         }
 
         private void RenderOnlineMarketStaffView()
@@ -2065,7 +2462,6 @@ namespace Farm2Shelf.UI
                 StaffMember courier = couriers[i];
                 if (courier == null) continue;
 
-                int courierIdx = i;
                 GameObject cardObj = new GameObject("CourierCard_" + courier.id);
                 cardObj.transform.SetParent(onlineMarketStaffContent, false);
 
@@ -2093,8 +2489,11 @@ namespace Farm2Shelf.UI
                 ipRect.anchoredPosition = new Vector2(-30f, 0f);
                 ipRect.sizeDelta = new Vector2(500f, 75f);
 
-                string assignedMotoStr = (CourierManager.Instance != null && courierIdx < CourierManager.Instance.SpawnedMotorcycles.Count)
-                    ? string.Format(LocalizationManager.L("OM_AssignedMotorcycleFmt", "🛵 Motorsiklet #{0}", "🛵 Motorcycle #{0}"), courierIdx + 1)
+                int assignedSlot = (CourierManager.Instance != null)
+                    ? CourierManager.Instance.GetMotorcycleSlotForCourier(courier)
+                    : -1;
+                string assignedMotoStr = (assignedSlot >= 0)
+                    ? string.Format(LocalizationManager.L("OM_AssignedMotorcycleFmt", "🛵 Motorsiklet #{0}", "🛵 Motorcycle #{0}"), assignedSlot + 1)
                     : LocalizationManager.L("OM_WaitingMotorcycle", "⚠️ Motor Bekleniyor (Boşta)", "⚠️ Waiting for Motorcycle (Idle)");
 
                 string courierRole = LocalizationManager.L("Role_Courier", "Kurye", "Courier");
@@ -2119,7 +2518,7 @@ namespace Farm2Shelf.UI
                 fbBtn.targetGraphic = fbBg;
                 fbBtn.onClick.AddListener(() => {
                     string confirmTitle = LocalizationManager.L("Modal_FireCourier_Title", "İşten Çıkarma Onayı", "Dismissal Confirmation");
-                    string confirmBody = string.Format(LocalizationManager.L("Modal_FireCourier_Body", "**{0}** isimli kurye personelini işten çıkarmak istiyor musunuz?", "Are you sure you want to dismiss courier **{0}**?"), courier.name);
+                    string confirmBody = string.Format(LocalizationManager.L("Modal_FireCourier_Body", "**{0}** isimli kurye personelini işten çıkarmak istiyor musunuz?\n\nVardiyaya gelmiş olsun olmasın bugünkü maaşı ({1:N0}C) ödenecektir.", "Are you sure you want to dismiss courier **{0}**?\n\nThey will be paid today's wage ({1:N0}C) whether they worked this shift or not."), courier.name, courier.dailySalary);
                     string btnFire = LocalizationManager.L("Btn_ConfirmFire", "Evet, İşten Çıkar", "Yes, Dismiss");
                     string btnCancel = LocalizationManager.L("Btn_Cancel", "Vazgeç", "Cancel");
 
@@ -2218,7 +2617,7 @@ namespace Farm2Shelf.UI
                             LocalizationManager.L("Btn_Ok", "Harika!", "Awesome!")
                         );
 
-                        activeOnlineMarketTab = 1; // Kadro sekmesine geç
+                        activeOnlineMarketTab = 2; // Kadro sekmesine geç
                         RefreshVirtualMarketViews();
                     }
                 });
@@ -3237,8 +3636,8 @@ namespace Farm2Shelf.UI
                 cardObj.transform.SetParent(furnitureListContent, false);
 
                 LayoutElement lElem = cardObj.AddComponent<LayoutElement>();
-                lElem.minHeight = 136f;
-                lElem.preferredHeight = 136f;
+                lElem.minHeight = 156f;
+                lElem.preferredHeight = 156f;
 
                 Image cardBg = cardObj.AddComponent<Image>();
                 cardBg.sprite = UIStyleUtility.CreateOutlinePillSprite(520, 136, 12, 1, new Color(0.95f, 0.55f, 0.20f, 0.6f), new Color(0.14f, 0.16f, 0.22f, 0.90f));
@@ -3264,6 +3663,28 @@ namespace Farm2Shelf.UI
                 Text titleText = CreateTextInPanel(infoPanel.transform, Vector2.zero, new Vector2(300f, 24f), $"{def.LocalizedName} (50)", 19, Color.white);
                 titleText.fontStyle = FontStyle.Bold;
                 FinishShoppingInfoLine(titleText, 24);
+
+                int storeStock = GetProductStockInStore(def);
+                List<ProductLot> storeLots = ProductPassportService.CollectStoreLots(def.id, def.name);
+                string stockPassport = storeStock > 0
+                    ? string.Format(LocalizationManager.L("Passport_EktStockFmt", "Rafta {0} adet • {1}", "On shelf {0} pcs • {1}"), storeStock, ProductPassportService.GetLotsTag(storeLots))
+                    : LocalizationManager.L("Passport_EktNoStock", "Rafta stok yok", "None on shelf");
+                Text stockPassText = CreateTextInPanel(infoPanel.transform, Vector2.zero, new Vector2(300f, 20f), stockPassport, 14, new Color(0.70f, 0.95f, 0.75f));
+                FinishShoppingInfoLine(stockPassText, 20);
+
+                Button passBtn = iconBox.AddComponent<Button>();
+                passBtn.targetGraphic = ibBg;
+                WholesaleProductDef captured = def;
+                passBtn.onClick.AddListener(() =>
+                {
+                    List<ProductLot> lotsNow = ProductPassportService.CollectStoreLots(captured.id, captured.name);
+                    string body = lotsNow.Count > 0
+                        ? ProductPassportService.GetCardText(captured.LocalizedName, lotsNow)
+                        : LocalizationManager.L("Passport_EktEmptyBody", "Bu üründen mağaza reyonunda henüz pasaportlu stok yok.", "No passport stock of this item is on store shelves yet.");
+                    ProductPassportService.ShowPassportModal(
+                        LocalizationManager.L("Passport_ModalTitle", "Ürün Pasaportu", "Product Passport"),
+                        body);
+                });
 
                 string priceLineFmt = LocalizationManager.L("Wholesale_PriceLineFmt", "Toptan Koli Alış: {0:N0}C ({1:N0}C/Birim)", "Wholesale Pack Cost: {0:N0}C ({1:N0}C/Pcs)");
                 Text priceText = CreateTextInPanel(infoPanel.transform, Vector2.zero, new Vector2(300f, 22f), string.Format(priceLineFmt, def.TotalPackCost, def.wholesaleUnitPrice), 16, new Color(0.95f, 0.85f, 0.30f));
@@ -4091,7 +4512,7 @@ namespace Farm2Shelf.UI
             }
         }
 
-        private void CheckoutShoppingCart()
+        private bool CheckoutShoppingCart()
         {
             bool isAnyTruckActive = (WholesaleTruckManager.Instance != null && WholesaleTruckManager.Instance.IsTruckOnTheWay) ||
                                     (GreenTruckDeliveryManager.Instance != null && GreenTruckDeliveryManager.Instance.IsTruckOnTheWay);
@@ -4102,7 +4523,7 @@ namespace Farm2Shelf.UI
                     LocalizationManager.L("DeliveryDockBusy_Title", "Teslimat Noktası Dolu! ⚠️", "Delivery Dock Busy! ⚠️"),
                     LocalizationManager.L("DeliveryDockBusy_Body", "Şu anda yolda veya teslimat noktasında aktif bir kamyon (Toptancı veya Çiftlik Kamyonu) bulunmaktadır!\n\nKamyon teslimatı tamamlayıp ayrılana kadar yeni toptan sipariş verilemez.", "A wholesale or farm delivery truck is currently en route or using the delivery dock.\n\nPlease wait until it completes the delivery and leaves before placing another wholesale order."),
                     LocalizationManager.L("Btn_OK", "Tamam", "OK"));
-                return;
+                return false;
             }
 
             int totalItems = 0;
@@ -4159,7 +4580,7 @@ namespace Farm2Shelf.UI
                 }
             }
 
-            if (totalItems == 0) return;
+            if (totalItems == 0) return false;
 
             string btnOk = LocalizationManager.L("Btn_Ok", "Tamam", "OK");
             string btnGreat = LocalizationManager.L("Btn_Great", "Harika!", "Great!");
@@ -4170,7 +4591,7 @@ namespace Farm2Shelf.UI
                 string busyTitle = LocalizationManager.L("Modal_DockBusy_Title", "Teslimat Noktası Dolu! ⚠️", "Delivery Dock Occupied! ⚠️");
                 string busyBody = LocalizationManager.L("Modal_DockBusy_Body", "Şu anda yolda veya teslimat noktasında aktif bir kamyon bulunmaktadır!\n\nKamyon teslimatı tamamlayıp ayrılana kadar yeni toptan sipariş verilemez.", "There is currently an active truck on the way or at the dock!\n\nPlease wait until it leaves.");
                 ModalManager.ShowModal(busyTitle, busyBody, btnOk);
-                return;
+                return false;
             }
 
             // Bakiye Kontrolü
@@ -4183,13 +4604,16 @@ namespace Farm2Shelf.UI
                 string noBalTitle = LocalizationManager.L("Modal_NoBalance_Title", "Yetersiz Bakiye ⚠️", "Insufficient Balance ⚠️");
                 string noBalBodyFmt = LocalizationManager.L("Modal_NoBalance_Body", "Siparişi tamamlamak için {0:N0}C gereklidir!\nMevcut Bakiyeniz: {1:N0}C.", "You need {0:N0}C to complete this order!\nCurrent Balance: {1:N0}C.");
                 ModalManager.ShowModal(noBalTitle, string.Format(noBalBodyFmt, totalCost, currentBalance), btnOk);
-                return;
+                return false;
             }
 
             // Paradan Düş (EconomyManager)
-            if (EconomyManager.Instance != null)
+            if (EconomyManager.Instance != null && !EconomyManager.Instance.SpendCredits(totalCost))
             {
-                EconomyManager.Instance.SpendCredits(totalCost);
+                string noBalTitle = LocalizationManager.L("Modal_NoBalance_Title", "Yetersiz Bakiye ⚠️", "Insufficient Balance ⚠️");
+                string noBalBodyFmt = LocalizationManager.L("Modal_NoBalance_Body", "Siparişi tamamlamak için {0:N0}C gereklidir!\nMevcut Bakiyeniz: {1:N0}C.", "You need {0:N0}C to complete this order!\nCurrent Balance: {1:N0}C.");
+                ModalManager.ShowModal(noBalTitle, string.Format(noBalBodyFmt, totalCost, EconomyManager.Instance.Credits), btnOk);
+                return false;
             }
 
             // Harcama Kaydı (FinanceManager)
@@ -4285,12 +4709,14 @@ namespace Farm2Shelf.UI
             }
 
             Dictionary<LivestockType, int> purchasedAnimals = new Dictionary<LivestockType, int>(animalCart);
+            Dictionary<string, int> purchasedSeeds = new Dictionary<string, int>(seedCart);
 
             // Satın Alınan Tohumları Doğrudan Ahır Tohum Envanterine Ekle!
-            foreach (var kvp in seedCart)
+            if (GardenSeedInventoryManager.Instance != null)
             {
-                if (kvp.Value > 0)
+                foreach (var kvp in purchasedSeeds)
                 {
+                    if (kvp.Value <= 0) continue;
                     GardenSeedInventoryManager.Instance.AddSeeds(kvp.Key, kvp.Value * 10);
                     if (TutorialManager.Instance != null)
                     {
@@ -4315,6 +4741,7 @@ namespace Farm2Shelf.UI
             seedCart.Clear();
             animalCart.Clear();
             RenderShoppingCategoryContent();
+            UpdateCartSummary();
 
             if (orderWholesale.Count > 0)
             {
@@ -4346,6 +4773,8 @@ namespace Farm2Shelf.UI
                 string bodyFmt = LocalizationManager.L("Modal_OrderReceived_Body", "Toplam {0} kalem siparişiniz başarıyla alındı ve ödemesi yapıldı!", "Your order of {0} items was successfully placed and paid!");
                 ModalManager.ShowModal(title, string.Format(bodyFmt, totalItems), btnGreat);
             }
+
+            return true;
         }
 
         /// <summary>
@@ -4426,8 +4855,10 @@ namespace Farm2Shelf.UI
 
             string payBtnLabel = LocalizationManager.L("Btn_PlaceOrderPay", "💳 ÖDEME YAP VE SİPARİŞ VER", "💳 PLACE ORDER & PAY");
             GameObject payBtnObj = CreateButtonInPanel(footerObj.transform, new Vector2(165f, 0f), new Vector2(230f, 44f), payBtnLabel, new Color(0.20f, 0.75f, 0.35f), () => {
-                Destroy(canvasObj);
-                CheckoutShoppingCart();
+                if (CheckoutShoppingCart())
+                {
+                    if (canvasObj != null) Destroy(canvasObj);
+                }
             }, 17);
             Button payBtn = payBtnObj.GetComponent<Button>();
 
@@ -4452,6 +4883,8 @@ namespace Farm2Shelf.UI
 
                 Text emptyTxt = CreateTextInPanel(emptyObj.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Cart_EmptyMsg", "🛒 Sepetiniz şu anda boş!\nKatalogdan ürün seçerek sepete ekleyebilirsiniz.", "🛒 Your cart is currently empty!\nYou can add items from the catalog."), 18, Color.gray);
                 emptyTxt.alignment = TextAnchor.MiddleCenter;
+                emptyTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
+                emptyTxt.verticalOverflow = VerticalWrapMode.Overflow;
             }
             else
             {
@@ -7276,12 +7709,13 @@ namespace Farm2Shelf.UI
             int followers = SocialMediaManager.Instance != null ? SocialMediaManager.Instance.FollowerCount : 1420;
 
             Text pcTxt = CreateTextInPanel(profileCard.transform, Vector2.zero, Vector2.one, "", 15, Color.white);
-            string profileFmt = LocalizationManager.L(
-                "Social_ProfileCardFmt",
-                "<b><size=18>{0}</size></b>\n<size=13><color=#80B0FF>{1}</color></size>\n\n<color=#00E676><b>@{2}</b></color>\n<b><size=15>{3:N0}</size></b> Takipçi  •  <b><color=#FFD700>4.9 ★</color></b>\n<size=12><color=#A0AAB5>\"Tarladan rafa taptaze mahsuller!\"</color></size>\n\n<size=13><color=#00E676><b>Profile Gitmek İçin Dokun</b></color></size>",
-                "<b><size=18>{0}</size></b>\n<size=13><color=#80B0FF>{1}</color></size>\n\n<color=#00E676><b>@{2}</b></color>\n<b><size=15>{3:N0}</size></b> Followers  •  <b><color=#FFD700>4.9 ★</color></b>\n<size=12><color=#A0AAB5>\"Fresh farm crops to your shelves!\"</color></size>\n\n<size=13><color=#00E676><b>Tap to View Profile</b></color></size>"
-            );
-            pcTxt.text = string.Format(profileFmt, pName, pHandle, sName.Replace(" ", ""), followers);
+                string profileFmt = LocalizationManager.L(
+                    "Social_ProfileCardFmt",
+                    "<b><size=18>{0}</size></b>\n<size=13><color=#80B0FF>{1}</color></size>\n\n<color=#00E676><b>@{2}</b></color>\n<b><size=15>{3:N0}</size></b> Takipçi  •  <b><color=#FFD700>4.9 ★</color></b>\n<size=12><color=#A0AAB5>\"{4}\"</color></size>\n\n<size=13><color=#00E676><b>Profile Gitmek İçin Dokun</b></color></size>",
+                    "<b><size=18>{0}</size></b>\n<size=13><color=#80B0FF>{1}</color></size>\n\n<color=#00E676><b>@{2}</b></color>\n<b><size=15>{3:N0}</size></b> Followers  •  <b><color=#FFD700>4.9 ★</color></b>\n<size=12><color=#A0AAB5>\"{4}\"</color></size>\n\n<size=13><color=#00E676><b>Tap to View Profile</b></color></size>"
+                );
+                string slogan = SocialMediaManager.Instance != null ? SocialMediaManager.Instance.GetBrandSloganDisplay() : "";
+                pcTxt.text = string.Format(profileFmt, pName, pHandle, sName.Replace(" ", ""), followers, slogan);
             pcTxt.alignment = TextAnchor.MiddleCenter;
             pcTxt.lineSpacing = 1.1f;
 
@@ -7431,10 +7865,11 @@ namespace Farm2Shelf.UI
 
                 string profileFmt = LocalizationManager.L(
                     "Social_ProfileCardFmt",
-                    "<b><size=18>{0}</size></b>\n<size=13><color=#80B0FF>{1}</color></size>\n\n<color=#00E676><b>@{2}</b></color>\n<b><size=15>{3:N0}</size></b> Takipçi  •  <b><color=#FFD700>{4:F1} ★</color></b>\n<size=12><color=#A0AAB5>\"Tarladan rafa taptaze mahsuller!\"</color></size>\n\n<size=13><color=#00E676><b>Profile Gitmek İçin Dokun</b></color></size>",
-                    "<b><size=18>{0}</size></b>\n<size=13><color=#80B0FF>{1}</color></size>\n\n<color=#00E676><b>@{2}</b></color>\n<b><size=15>{3:N0}</size></b> Followers  •  <b><color=#FFD700>{4:F1} ★</color></b>\n<size=12><color=#A0AAB5>\"Fresh farm crops to your shelves!\"</color></size>\n\n<size=13><color=#00E676><b>Tap to View Profile</b></color></size>"
+                    "<b><size=18>{0}</size></b>\n<size=13><color=#80B0FF>{1}</color></size>\n\n<color=#00E676><b>@{2}</b></color>\n<b><size=15>{3:N0}</size></b> Takipçi  •  <b><color=#FFD700>{4:F1} ★</color></b>\n<size=12><color=#A0AAB5>\"{5}\"</color></size>\n\n<size=13><color=#00E676><b>Profile Gitmek İçin Dokun</b></color></size>",
+                    "<b><size=18>{0}</size></b>\n<size=13><color=#80B0FF>{1}</color></size>\n\n<color=#00E676><b>@{2}</b></color>\n<b><size=15>{3:N0}</size></b> Followers  •  <b><color=#FFD700>{4:F1} ★</color></b>\n<size=12><color=#A0AAB5>\"{5}\"</color></size>\n\n<size=13><color=#00E676><b>Tap to View Profile</b></color></size>"
                 );
-                socialProfileCardTxt.text = string.Format(profileFmt, pName, pHandle, sName.Replace(" ", ""), followers, rating);
+                string slogan = SocialMediaManager.Instance.GetBrandSloganDisplay();
+                socialProfileCardTxt.text = string.Format(profileFmt, pName, pHandle, sName.Replace(" ", ""), followers, rating, slogan);
             }
 
             if (socialTrendCardTxt != null && SocialMediaManager.Instance != null)
@@ -7945,6 +8380,12 @@ namespace Farm2Shelf.UI
             if (orderManager != null)
             {
                 orderManager.OnOrdersChanged -= RefreshVirtualMarketViews;
+            }
+
+            TownContractManager contractManager = UnityEngine.Object.FindFirstObjectByType<TownContractManager>();
+            if (contractManager != null)
+            {
+                contractManager.OnContractsChanged -= RefreshVirtualMarketViews;
             }
 
             SocialMediaManager socialManager = UnityEngine.Object.FindFirstObjectByType<SocialMediaManager>();

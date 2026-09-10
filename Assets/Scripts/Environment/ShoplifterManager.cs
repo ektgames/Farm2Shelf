@@ -333,7 +333,7 @@ namespace Farm2Shelf.Environment
                 if (rData != null && rData.currentStock > 0)
                 {
                     int stealCount = Mathf.Min(rData.currentStock, 5);
-                    rData.currentStock = Mathf.Max(0, rData.currentStock - stealCount);
+                    ProductPassportService.RemoveStock(rData, stealCount);
                     data.targetShelf.UpdateRow3DProductMeshes(data.targetRowId + 1);
 
                     data.stolenProductName = rData.productName;

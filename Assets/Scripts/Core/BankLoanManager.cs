@@ -264,21 +264,10 @@ namespace Farm2Shelf.Core
                 ActiveLoanData loan = activeLoans[i];
                 int installment = loan.dailyInstallment;
 
-                bool success = false;
+                bool success = true;
                 if (EconomyManager.Instance != null)
                 {
-                    if (EconomyManager.Instance.Credits >= installment)
-                    {
-                        EconomyManager.Instance.SpendCredits(installment);
-                        success = true;
-                    }
-                    else
-                    {
-                        // Bakiyesi yetersizse bakiyeyi sıfırlar, kalan borcu kaydeder
-                        int currentCreds = EconomyManager.Instance.Credits;
-                        EconomyManager.Instance.SpendCredits(currentCreds);
-                        success = false;
-                    }
+                    EconomyManager.Instance.ForceDeductCredits(installment);
                 }
 
                 loan.paidAmount += installment;

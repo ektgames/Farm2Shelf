@@ -23,7 +23,7 @@ namespace Farm2Shelf.Core
 
         private const string SAVE_SLOT_PREFIX = "Farm2Shelf_SaveSlot_";
         private const string BACKUP_SUFFIX = "_Backup";
-        private const int CURRENT_SAVE_FORMAT_VERSION = 5;
+        private const int CURRENT_SAVE_FORMAT_VERSION = 6;
         private int activeSessionSlot;
         private float lastAutosaveTime = float.NegativeInfinity;
         private const float AUTOSAVE_DEBOUNCE_SECONDS = 5f;
@@ -137,6 +137,11 @@ namespace Farm2Shelf.Core
                 saveData.isStoreOpen = StoreStatusManager.Instance.IsOpen;
                 saveData.companyName = StoreStatusManager.Instance.CompanyName;
                 saveData.playerName = StoreStatusManager.Instance.PlayerName;
+                saveData.brandIdentity = (int)StoreStatusManager.Instance.Identity;
+                saveData.brandColorR = StoreStatusManager.Instance.BrandColor.r;
+                saveData.brandColorG = StoreStatusManager.Instance.BrandColor.g;
+                saveData.brandColorB = StoreStatusManager.Instance.BrandColor.b;
+                saveData.brandSlogan = StoreStatusManager.Instance.Slogan;
             }
 
             // 4. OYUN ZAMANI, GÜNÜ, MEVSİMİ VE YILI
@@ -252,10 +257,7 @@ namespace Farm2Shelf.Core
                 Dictionary<string, int> barnCrops = GardenSeedInventoryManager.Instance.GetBarnCropInventory();
                 if (barnCrops != null)
                 {
-                    foreach (var kvp in barnCrops)
-                    {
-                        saveData.barnCrops.Add(new BarnCropSaveData { seedId = kvp.Key, count = kvp.Value });
-                    }
+                    saveData.barnCrops.AddRange(GardenSeedInventoryManager.Instance.ExportBarnCropsForSave());
                 }
             }
 
@@ -277,10 +279,7 @@ namespace Farm2Shelf.Core
                 Dictionary<string, int> wsCrops = WorkshopPalletManager.Instance.GetCropInventory();
                 if (wsCrops != null)
                 {
-                    foreach (var kvp in wsCrops)
-                    {
-                        saveData.workshopCrops.Add(new BarnCropSaveData { seedId = kvp.Key, count = kvp.Value });
-                    }
+                    saveData.workshopCrops.AddRange(WorkshopPalletManager.Instance.ExportCropsForSave());
                 }
 
                 List<string> wsMachines = WorkshopPalletManager.Instance.GetPendingMachineBoxTypes();
@@ -375,6 +374,11 @@ namespace Farm2Shelf.Core
                 saveData.onlineOrders = OnlineMarketOrderManager.Instance.CreateSaveSnapshot();
             }
 
+            if (TownContractManager.Instance != null)
+            {
+                saveData.townContracts = TownContractManager.Instance.CreateSaveSnapshot();
+            }
+
             if (WholesaleTruckManager.Instance != null)
             {
                 foreach (var package in WholesaleTruckManager.Instance.PackagesForSave)
@@ -457,7 +461,8 @@ namespace Farm2Shelf.Core
                                 iconEmoji = "",
                                 unitPrice = r.unitPrice,
                                 currentStock = r.currentStock,
-                                maxCapacity = r.maxCapacity
+                                maxCapacity = r.maxCapacity,
+                                lots = ProductPassportService.CloneLots(r.lots)
                             });
                         }
                     }
@@ -485,7 +490,8 @@ namespace Farm2Shelf.Core
                         isReadyToCollect = ws.isReadyToCollect,
                         activeRecipeId = ws.activeRecipeId,
                         remainingSeconds = ws.remainingProductionSeconds,
-                        totalDuration = ws.totalProductionSeconds
+                        totalDuration = ws.totalProductionSeconds,
+                        consumedInputLots = ProductPassportService.CloneLots(ws.consumedInputLots)
                     });
                 }
             }
@@ -494,6 +500,11 @@ namespace Farm2Shelf.Core
             if (TutorialManager.Instance != null)
             {
                 saveData.tutorialStep = TutorialManager.Instance.CurrentStep.ToString();
+            }
+
+            if (SeasonalInspectorManager.Instance != null)
+            {
+                saveData.inspectorVisits = SeasonalInspectorManager.Instance.ExportForSave();
             }
 
             // 16. GÜNLÜK ŞANS ÇARKI
@@ -622,6 +633,7 @@ namespace Farm2Shelf.Core
                                     rData.unitPrice,
                                     rData.productId
                                 );
+                                rows[i].lots = ProductPassportService.RestoreLotsOrLegacy(rData.productId, rData.currentStock, rData.lots);
                             }
                         }
 
@@ -656,7 +668,8 @@ namespace Farm2Shelf.Core
                                 mData.isProducing,
                                 mData.isReadyToCollect,
                                 mData.remainingSeconds,
-                                mData.totalDuration);
+                                mData.totalDuration,
+                                mData.consumedInputLots);
                         }
                     }
                 }
@@ -732,7 +745,7 @@ namespace Farm2Shelf.Core
                         if (!barnDict.ContainsKey(crop.seedId)) barnDict[crop.seedId] = 0;
                         barnDict[crop.seedId] += crop.count;
                     }
-                    GardenSeedInventoryManager.Instance.RestoreBarnCrops(barnDict);
+                    GardenSeedInventoryManager.Instance.RestoreBarnCrops(barnDict, saveData.barnCrops);
                 }
             }
 
@@ -761,7 +774,7 @@ namespace Farm2Shelf.Core
                         if (crop == null || string.IsNullOrEmpty(crop.seedId)) continue;
                         wsDict[crop.seedId] = crop.count;
                     }
-                    WorkshopPalletManager.Instance.SetAllCrops(wsDict);
+                    WorkshopPalletManager.Instance.SetAllCrops(wsDict, saveData.workshopCrops);
                 }
 
                 if (saveData.pendingWorkshopMachineBoxes != null)
@@ -856,6 +869,16 @@ namespace Farm2Shelf.Core
 
             WholesaleDatabase.RestoreCustomPrices(saveData.customProductPrices);
 
+            if (TownContractManager.Instance != null)
+            {
+                TownContractManager.Instance.RestoreFromSave(saveData.townContracts);
+            }
+
+            if (SeasonalInspectorManager.Instance != null)
+            {
+                SeasonalInspectorManager.Instance.RestoreFromSave(saveData.inspectorVisits);
+            }
+
             if (OnlineMarketOrderManager.Instance != null)
             {
                 OnlineMarketOrderManager.Instance.RestoreOrders(saveData.onlineOrders);
@@ -875,6 +898,11 @@ namespace Farm2Shelf.Core
                 {
                     StoreStatusManager.Instance.SetPlayerAndCompany(saveData.playerName, saveData.companyName);
                 }
+
+                StoreStatusManager.Instance.RestoreBrand(
+                    saveData.brandIdentity,
+                    new Color(saveData.brandColorR, saveData.brandColorG, saveData.brandColorB, 1f),
+                    saveData.brandSlogan);
 
                 StoreStatusManager.Instance.RestoreStoreStatus(saveData.isStoreOpen && saveData.gameHour < 24);
             }
@@ -904,9 +932,14 @@ namespace Farm2Shelf.Core
             if ((saveData.gameHour >= 24 || (saveData.gameHour == 0 && !saveData.isStoreOpen)) && !saveData.isStoreOpen)
             {
                 int activeCustomers = (CustomerShoppingManager.Instance != null) ? CustomerShoppingManager.Instance.ActiveCustomerCount : 0;
-                if (activeCustomers == 0 && EndOfDayReportModalUI.Instance != null)
+                bool courierBusy = CourierManager.Instance != null && CourierManager.Instance.HasOutstandingNightWork();
+                if (activeCustomers == 0 && !courierBusy && EndOfDayReportModalUI.Instance != null)
                 {
                     EndOfDayReportModalUI.Instance.ShowReport();
+                }
+                else if (GameHUDManager.Instance != null)
+                {
+                    GameHUDManager.Instance.SetWaitingForEvacuation(true);
                 }
             }
 
@@ -1007,6 +1040,8 @@ namespace Farm2Shelf.Core
             }
 
             CourierManager.Instance?.ResetFleet();
+            TownContractManager.Instance?.ResetToDefaults();
+            SeasonalInspectorManager.Instance?.ResetToDefaults();
             OnlineMarketOrderManager.Instance?.ResetToDefaults();
             WholesaleTruckManager.Instance?.ClearAllPackages();
             GreenTruckDeliveryManager.Instance?.ClearPendingDeliveries();
@@ -1091,12 +1126,21 @@ namespace Farm2Shelf.Core
             }
             data.customProductPrices ??= new List<CustomPriceSaveData>();
             data.onlineOrders ??= new List<OnlineOrderSaveData>();
+            if (data.townContracts == null)
+            {
+                data.townContracts = new TownContractSaveData();
+            }
+            data.townContracts.contractMotorcycleSlots ??= new List<int>();
+            data.townContracts.offers ??= new List<TownContractOffer>();
+            data.townContracts.queueOfferIds ??= new List<string>();
             data.wholesaleTruckPackageIds ??= new List<string>();
             data.greenTruckPackageIds ??= new List<string>();
             if (data.activeDeliveryTruck != null)
             {
                 data.activeDeliveryTruck.remainingPackageIds ??= new List<string>();
                 data.activeDeliveryTruck.originalPackageIds ??= new List<string>();
+                data.activeDeliveryTruck.remainingPackageLots ??= new List<ProductLot>();
+                data.activeDeliveryTruck.originalPackageLots ??= new List<ProductLot>();
             }
             data.stockMarket ??= new List<StockSaveItem>();
             data.transactionLog ??= new List<TransactionRecord>();
@@ -1112,6 +1156,7 @@ namespace Farm2Shelf.Core
             data.staffList ??= new List<StaffSaveData>();
             data.farmStaffList ??= new List<StaffSaveData>();
             data.courierStaffList ??= new List<StaffSaveData>();
+            data.inspectorVisits ??= new List<InspectorVisitSaveData>();
             data.fieldCrops ??= new List<CropSaveData>();
             data.furnitureList ??= new List<ShelfSaveData>();
             if (data.lastDailySpinDate == null) data.lastDailySpinDate = "";
@@ -1124,7 +1169,7 @@ namespace Farm2Shelf.Core
             if (productIds == null) return products;
             foreach (string productId in productIds)
             {
-                WholesaleProductDef product = WholesaleDatabase.GetProductById(productId);
+                WholesaleProductDef product = ProductPassportService.CreateTransitStub(productId);
                 if (product != null) products.Add(product);
             }
             return products;

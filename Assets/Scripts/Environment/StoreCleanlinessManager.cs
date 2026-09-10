@@ -42,6 +42,18 @@ namespace Farm2Shelf.Environment
             return cachedTrashMat;
         }
 
+        public int ActiveTrashCount
+        {
+            get
+            {
+                for (int i = activeTrashItems.Count - 1; i >= 0; i--)
+                {
+                    if (activeTrashItems[i] == null) activeTrashItems.RemoveAt(i);
+                }
+                return activeTrashItems.Count;
+            }
+        }
+
         public void TrySpawnCustomerTrash(Vector3 customerPosition)
         {
             // %15 ihtimalle dükkan zeminine küçük çöp/leke düşer

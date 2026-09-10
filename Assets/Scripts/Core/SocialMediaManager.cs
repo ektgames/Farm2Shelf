@@ -304,6 +304,8 @@ namespace Farm2Shelf.Core
                 authorName = p.name; handle = p.handle; emoji = p.emoji; avatarColor = p.color; tweetTr = p.tr; tweetEn = p.en;
             }
 
+            ApplyBrandVoiceToTweet(storeName, ref tweetTr, ref tweetEn);
+
             SocialTweetData hourlyTweet = new SocialTweetData(
                 recId,
                 authorName,
@@ -355,8 +357,8 @@ namespace Farm2Shelf.Core
                     new Color(0.20f, 0.70f, 0.95f),
                     true,
                     true,
-                    $"🚀 Marketimizin kapıları açıldı! Taze çiftlik mahsullerimizle hizmetinizdeyiz. Hepinizi @{storeName} bekliyoruz! 🌾🛒",
-                    $"🚀 Our store is officially open! Fresh farm crops served daily. Welcome to @{storeName}! 🌾🛒",
+                    GetBrandOpeningTweetTr(storeName),
+                    GetBrandOpeningTweetEn(storeName),
                     "Az önce",
                     "Just now",
                     48,
@@ -512,6 +514,21 @@ namespace Farm2Shelf.Core
             return pool[idx];
         }
 
+        public (string tr, string en) GenerateStaleProductTweet(string storeName)
+        {
+            var pool = new (string tr, string en)[]
+            {
+                ($"@{storeName} reyonundan aldığım ürünlerin hasat tarihi geçmişti, tazelik pasaportu hayal kırıklığı 😕🥬", $"Produce I bought at @{storeName} was past its harvest date, the freshness passport was disappointing 😕🥬"),
+                ($"@{storeName} raflarında 'N gün önce' yazan mahsuller vardı, tarladan yeni gelmiş hissi yoktu ⏳🌾", $"Shelves at @{storeName} showed produce harvested days ago, didn't feel farm-fresh ⏳🌾"),
+                ($"Bugün @{storeName} kasasında toptan ve bayat karışımı denk geldi, yerel hasat bekliyordum 🧾⚠️", $"Checkout at @{storeName} mixed wholesale and tired stock, I was hoping for local harvest 🧾⚠️"),
+                ($"@{storeName} ürün pasaportunda eski gün yazıyordu, fiyat da tazeliğe göre düşmeliydi 📉🍓", $"The product passport at @{storeName} showed an old harvest day, price should match freshness 📉🍓"),
+                ($"Tarladan izlenebilir gıda vaadi güzel ama raftaki etiket dünü değil geçen haftayı gösteriyordu @{storeName} 🏷️😞", $"Traceable food is a great promise but the shelf tag at @{storeName} wasn't yesterday 🏷️😞")
+            };
+
+            int idx = UnityEngine.Random.Range(0, pool.Length);
+            return pool[idx];
+        }
+
         public (string tr, string en) GenerateComplaintTweet(string storeName)
         {
             var pool = new (string tr, string en)[]
@@ -580,6 +597,87 @@ namespace Farm2Shelf.Core
             return handle;
         }
 
+        public string GetBrandSloganDisplay()
+        {
+            if (StoreStatusManager.Instance == null) return StoreStatusManager.GetDefaultSlogan(BrandIdentity.LocalProducer);
+            return StoreStatusManager.Instance.GetResolvedSlogan();
+        }
+
+        private static BrandIdentity GetActiveIdentity()
+        {
+            return StoreStatusManager.Instance != null ? StoreStatusManager.Instance.Identity : BrandIdentity.LocalProducer;
+        }
+
+        private static string GetBrandHashtagTr()
+        {
+            switch (GetActiveIdentity())
+            {
+                case BrandIdentity.NeighborhoodMarket: return "UygunFiyat";
+                case BrandIdentity.GourmetWorkshop: return "GurmeAtolye";
+                default: return "YerelUretici";
+            }
+        }
+
+        private static string GetBrandHashtagEn()
+        {
+            switch (GetActiveIdentity())
+            {
+                case BrandIdentity.NeighborhoodMarket: return "FairPrice";
+                case BrandIdentity.GourmetWorkshop: return "GourmetWorkshop";
+                default: return "LocalProducer";
+            }
+        }
+
+        private static string GetBrandOpeningTweetTr(string storeName)
+        {
+            switch (GetActiveIdentity())
+            {
+                case BrandIdentity.NeighborhoodMarket:
+                    return $"🚀 @{storeName} mahalleye açıldı! Uygun fiyat, dolu reyon — her gün uğrayın. 🛒💙";
+                case BrandIdentity.GourmetWorkshop:
+                    return $"🚀 @{storeName} kapılarını açtı! Atölyeden taze gurme lezzetler sizi bekliyor. 🧀✨";
+                default:
+                    return $"🚀 @{storeName} açıldı! Tarladan sofraya pasaportlu taze mahsul. 🌾🛒";
+            }
+        }
+
+        private static string GetBrandOpeningTweetEn(string storeName)
+        {
+            switch (GetActiveIdentity())
+            {
+                case BrandIdentity.NeighborhoodMarket:
+                    return $"🚀 @{storeName} is open in the neighborhood! Fair prices, full shelves — drop by daily. 🛒💙";
+                case BrandIdentity.GourmetWorkshop:
+                    return $"🚀 @{storeName} is open! Fresh gourmet lots from our workshop await. 🧀✨";
+                default:
+                    return $"🚀 @{storeName} is open! Passport-tracked harvest from field to table. 🌾🛒";
+            }
+        }
+
+        private static void ApplyBrandVoiceToTweet(string storeName, ref string tweetTr, ref string tweetEn)
+        {
+            if (UnityEngine.Random.value > 0.45f) return;
+            string slogan = StoreStatusManager.Instance != null
+                ? StoreStatusManager.Instance.GetResolvedSlogan()
+                : StoreStatusManager.GetDefaultSlogan(BrandIdentity.LocalProducer);
+
+            switch (GetActiveIdentity())
+            {
+                case BrandIdentity.NeighborhoodMarket:
+                    tweetTr += $" 💙 @{storeName}: {slogan}";
+                    tweetEn += $" 💙 @{storeName}: {slogan}";
+                    break;
+                case BrandIdentity.GourmetWorkshop:
+                    tweetTr += $" 🧀 Atölye imzası @{storeName} — {slogan}";
+                    tweetEn += $" 🧀 Workshop signature @{storeName} — {slogan}";
+                    break;
+                default:
+                    tweetTr += $" 🌾 Yerel üretici @{storeName} — {slogan}";
+                    tweetEn += $" 🌾 Local producer @{storeName} — {slogan}";
+                    break;
+            }
+        }
+
         public float GetStoreRating()
         {
             int praiseCount = 0;
@@ -609,12 +707,14 @@ namespace Farm2Shelf.Core
 
             cachedDayForTrends = currentDay;
             string sName = GetStoreName().Replace(" ", "");
+            string brandTagTr = GetBrandHashtagTr();
+            string brandTagEn = GetBrandHashtagEn();
 
             // Her gün değişen zengin gündem havuzu
             string[][] trendPoolTr = new string[][]
             {
-                new string[] { $"#{sName} (18.4B)", "#TazeHasat (14.2B)", "#HızlıKasa (10.5B)", "#OrganikTarım (7.1B)", "#Farm2Shelf (4.3B)" },
-                new string[] { "#GününFırsatı (22.1B)", $"#{sName} (16.9B)", "#YerliÜretim (11.4B)", "#ÇiftliktenSofraya (8.2B)", "#SağlıklıBeslenme (5.0B)" },
+                new string[] { $"#{sName} (18.4B)", $"#{brandTagTr} (14.2B)", "#HızlıKasa (10.5B)", "#OrganikTarım (7.1B)", "#Farm2Shelf (4.3B)" },
+                new string[] { "#GününFırsatı (22.1B)", $"#{sName} (16.9B)", $"#{brandTagTr} (11.4B)", "#ÇiftliktenSofraya (8.2B)", "#SağlıklıBeslenme (5.0B)" },
                 new string[] { "#SüpermarketGündemi (25.3B)", "#TazeMeyve (17.0B)", $"#{sName} (13.8B)", "#İndirimGünü (9.6B)", "#MüşteriMemnuniyeti (6.2B)" },
                 new string[] { "#HaftaSonuAlışverişi (28.7B)", $"#{sName} (19.4B)", "#SütÜrünleri (13.1B)", "#YerelEsnaf (8.9B)", "#AkıllıMarket (5.8B)" },
                 new string[] { "#TarlaFiyatına (21.5B)", $"#{sName} (15.7B)", "#EnTazeReyon (12.3B)", "#OrganikSebze (7.9B)", "#KasaSırası (4.7B)" }
@@ -622,8 +722,8 @@ namespace Farm2Shelf.Core
 
             string[][] trendPoolEn = new string[][]
             {
-                new string[] { $"#{sName} (18.4K)", "#FreshHarvest (14.2K)", "#FastCheckout (10.5K)", "#OrganicFarming (7.1K)", "#Farm2Shelf (4.3K)" },
-                new string[] { "#DealOfTheDay (22.1K)", $"#{sName} (16.9K)", "#LocalProduce (11.4K)", "#FarmToTable (8.2K)", "#HealthyLiving (5.0K)" },
+                new string[] { $"#{sName} (18.4K)", $"#{brandTagEn} (14.2K)", "#FastCheckout (10.5K)", "#OrganicFarming (7.1K)", "#Farm2Shelf (4.3K)" },
+                new string[] { "#DealOfTheDay (22.1K)", $"#{sName} (16.9K)", $"#{brandTagEn} (11.4K)", "#FarmToTable (8.2K)", "#HealthyLiving (5.0K)" },
                 new string[] { "#SupermarketTrends (25.3K)", "#FreshFruit (17.0K)", $"#{sName} (13.8K)", "#DiscountDay (9.6K)", "#HappyShoppers (6.2K)" },
                 new string[] { "#WeekendShopping (28.7K)", $"#{sName} (19.4K)", "#DairyFresh (13.1K)", "#LocalMarket (8.9K)", "#SmartGrocery (5.8K)" },
                 new string[] { "#DirectFromFarm (21.5K)", $"#{sName} (15.7K)", "#FreshShelves (12.3K)", "#OrganicVeggies (7.9K)", "#ExpressQueue (4.7K)" }

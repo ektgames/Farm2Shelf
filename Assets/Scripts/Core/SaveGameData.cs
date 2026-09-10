@@ -17,6 +17,33 @@ namespace Farm2Shelf.Core
     }
 
     [Serializable]
+    public class InspectorVisitSaveData
+    {
+        public int year;
+        public int season;
+        public bool completed;
+        public bool cleanlinessPassed;
+        public bool shelvesPassed;
+        public bool pricesPassed;
+        public int passCount;
+        public int netAmount;
+        public int trashCount;
+        public int stockedRows;
+        public int emptyRows;
+        public int overpricedCount;
+        public int pricedProductCount;
+        public string inspectorName = "Harun Yıldız";
+        public string noteCleanTr;
+        public string noteCleanEn;
+        public string noteShelfTr;
+        public string noteShelfEn;
+        public string notePriceTr;
+        public string notePriceEn;
+        public string summaryTr;
+        public string summaryEn;
+    }
+
+    [Serializable]
     public class ShelfSaveRowData
     {
         public int rowId;
@@ -26,6 +53,7 @@ namespace Farm2Shelf.Core
         public float unitPrice;
         public int currentStock;
         public int maxCapacity;
+        public List<ProductLot> lots = new List<ProductLot>();
     }
 
     [Serializable]
@@ -55,6 +83,7 @@ namespace Farm2Shelf.Core
     {
         public string seedId;
         public int count;
+        public List<ProductLot> lots = new List<ProductLot>();
     }
 
     [Serializable]
@@ -69,6 +98,7 @@ namespace Farm2Shelf.Core
         public string activeRecipeId;
         public float remainingSeconds;
         public float totalDuration;
+        public List<ProductLot> consumedInputLots = new List<ProductLot>();
     }
 
     [Serializable]
@@ -113,6 +143,9 @@ namespace Farm2Shelf.Core
         public int courierDeliveryFee;
         public bool isGatheringCompleted;
         public int assignedMotorcycleSlot = -1;
+        public bool isTownContract;
+        public string contractPartnerId;
+        public string contractOfferId;
     }
 
     /// <summary>
@@ -134,6 +167,11 @@ namespace Farm2Shelf.Core
         // Oyun Durumu Özeti
         public string playerName = "Çiftçi Ali";
         public string companyName = "Farm2Shelf Market";
+        public int brandIdentity;
+        public float brandColorR = 0.22f;
+        public float brandColorG = 0.55f;
+        public float brandColorB = 0.28f;
+        public string brandSlogan = "";
         public int playerMoney;             // Bakiye (ör. 400,000 TL)
         public int storeLevel;              // Mağaza Seviyesi (1, 2, 3)
         public int workshopLevel = 1;       // Atölye Seviyesi (1, 2, 3)
@@ -195,6 +233,7 @@ namespace Farm2Shelf.Core
         public List<StaffSaveData> courierStaffList = new List<StaffSaveData>();
         public int ownedMotorcycleCount;
         public List<OnlineOrderSaveData> onlineOrders = new List<OnlineOrderSaveData>();
+        public TownContractSaveData townContracts;
         public List<string> wholesaleTruckPackageIds = new List<string>();
         public List<string> greenTruckPackageIds = new List<string>();
         public DeliveryTruckSaveData activeDeliveryTruck;
@@ -214,6 +253,8 @@ namespace Farm2Shelf.Core
         public float dailySpinIconPosX = -72f;
         public float dailySpinIconPosY = 0f;
         public bool dailySpinIconPosSaved;
+
+        public List<InspectorVisitSaveData> inspectorVisits = new List<InspectorVisitSaveData>();
 
         public int whiteChickenCount;
         public int blackChickenCount;
@@ -246,6 +287,8 @@ namespace Farm2Shelf.Core
         public float rotX, rotY, rotZ;
         public List<string> remainingPackageIds = new List<string>();
         public List<string> originalPackageIds = new List<string>();
+        public List<ProductLot> remainingPackageLots = new List<ProductLot>();
+        public List<ProductLot> originalPackageLots = new List<ProductLot>();
         public bool doorsOpen;
     }
 }

@@ -284,6 +284,7 @@ namespace Farm2Shelf.Core
             StaffMember staff = farmStaffList.Find(s => s.id == staffId);
             if (staff != null)
             {
+                PayTodaysWageOnDismissal(staff);
                 farmStaffList.Remove(staff);
                 OnStaffListChanged?.Invoke();
                 OnFarmStaffListChanged?.Invoke();
@@ -345,6 +346,7 @@ namespace Farm2Shelf.Core
             StaffMember staff = courierStaffList.Find(s => s.id == staffId);
             if (staff != null)
             {
+                PayTodaysWageOnDismissal(staff);
                 courierStaffList.Remove(staff);
                 OnStaffListChanged?.Invoke();
                 OnCourierStaffListChanged?.Invoke();
@@ -416,18 +418,13 @@ namespace Farm2Shelf.Core
                 return;
             }
 
-            int available = EconomyManager.Instance.Credits;
-            int toPay = Mathf.Min(totalPayroll, available);
-            if (toPay > 0)
-            {
-                EconomyManager.Instance.SpendCredits(toPay);
-            }
+            EconomyManager.Instance.ForceDeductCredits(totalPayroll);
 
-            int remainingPay = toPay;
+            int remainingPay = totalPayroll;
             int paidStore = AllocatePayroll(ref remainingPay, storePayroll);
             int paidFarm = AllocatePayroll(ref remainingPay, farmPayroll);
             int paidCourier = AllocatePayroll(ref remainingPay, courierPayroll);
-            bool shortfall = toPay < totalPayroll;
+            bool shortfall = false;
 
             if (FinanceManager.Instance != null)
             {
@@ -455,7 +452,7 @@ namespace Farm2Shelf.Core
             }
 
             lastSalaryPaidDay = currentDay;
-            Debug.Log($"[GECE YARISI MAAŞ ÖDEMESİ 00:00] Ödenen {toPay}/{totalPayroll}C | Mağaza {storeCount} | Çiftlik {farmCount} | Kurye {courierCount}");
+            Debug.Log($"[GECE YARISI MAAŞ ÖDEMESİ 00:00] Ödenen {totalPayroll}C | Mağaza {storeCount} | Çiftlik {farmCount} | Kurye {courierCount} | Bakiye {EconomyManager.Instance.Credits}C");
         }
 
         private static int SumActivePayroll(List<StaffMember> list, out int activeCount)
@@ -523,9 +520,44 @@ namespace Farm2Shelf.Core
             StaffMember staff = activeStaffList.Find(s => s.id == staffId);
             if (staff != null)
             {
+                PayTodaysWageOnDismissal(staff);
                 activeStaffList.Remove(staff);
                 OnStaffListChanged?.Invoke();
                 Debug.Log($"[StaffManager] {staff.name} işten çıkarıldı.");
+            }
+        }
+
+        /// <summary>
+        /// İşten çıkarılan personel vardiyaya gelmiş olsun olmasın o günün maaşını alır.
+        /// Gece 00:00 bordrosu aynı takvim günü için zaten kesildiyse tekrar ödenmez.
+        /// </summary>
+        private void PayTodaysWageOnDismissal(StaffMember staff)
+        {
+            if (staff == null) return;
+
+            int amount = staff.dailySalary;
+            if (amount <= 0) return;
+
+            int currentDay = TimeManager.Instance != null ? TimeManager.Instance.Day : -1;
+            if (currentDay >= 0 && lastSalaryPaidDay == currentDay)
+            {
+                return;
+            }
+
+            if (EconomyManager.Instance != null)
+            {
+                EconomyManager.Instance.ForceDeductCredits(amount);
+            }
+
+            if (FinanceManager.Instance != null)
+            {
+                string desc = string.Format(
+                    LocalizationManager.L(
+                        "Payroll_FireSeveranceFmt",
+                        "İşten çıkarma • günlük maaş ({0})",
+                        "Dismissal • day's wage ({0})"),
+                    staff.name);
+                FinanceManager.Instance.RecordExpense(FinanceCategories.Salary, desc, amount);
             }
         }
 

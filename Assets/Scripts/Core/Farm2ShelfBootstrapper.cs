@@ -2,6 +2,7 @@ using UnityEngine;
 using Farm2Shelf.Environment;
 using Farm2Shelf.CameraSystem;
 using Farm2Shelf.UI;
+using Farm2Shelf.Utils;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -21,8 +22,10 @@ namespace Farm2Shelf.Core
 
         private void Awake()
         {
+            LightingPipelineBinder.Apply();
             ConfigureMobilePerformance();
-            Farm2Shelf.Utils.ShaderHelper.GetLitShader();
+            ShaderHelper.GetLitShader();
+            ShaderHelper.GetUnlitShader();
             Farm2Shelf.Utils.PrimitiveFactory.Warmup();
             if (autoBuildOnStart)
             {
@@ -67,6 +70,15 @@ namespace Farm2Shelf.Core
                 GameObject courierGo = new GameObject("CourierManager");
                 courierGo.AddComponent<CourierManager>();
             }
+
+            if (FindFirstObjectByType<TownContractManager>() == null)
+            {
+                GameObject contractGo = new GameObject("TownContractManager");
+                contractGo.AddComponent<TownContractManager>();
+            }
+
+            if (managersObj.GetComponent<SeasonalInspectorManager>() == null)
+                managersObj.AddComponent<SeasonalInspectorManager>();
 
             if (managersObj.GetComponent<FinanceManager>() == null)
                 managersObj.AddComponent<FinanceManager>();
@@ -168,6 +180,7 @@ namespace Farm2Shelf.Core
             }
 
             camSetup.FocusOn(new Vector3(0f, 0f, 1f));
+            LightingPipelineBinder.ConfigureMainCamera(mainCam);
 
             if (StoreQualityManager.Instance == null)
             {
@@ -205,6 +218,9 @@ namespace Farm2Shelf.Core
 
             if (uiManagerObj.GetComponent<PauseMenuUI>() == null)
                 uiManagerObj.AddComponent<PauseMenuUI>();
+
+            if (uiManagerObj.GetComponent<GameOverUI>() == null)
+                uiManagerObj.AddComponent<GameOverUI>();
 
             if (uiManagerObj.GetComponent<SaveLoadSlotModalUI>() == null)
                 uiManagerObj.AddComponent<SaveLoadSlotModalUI>();

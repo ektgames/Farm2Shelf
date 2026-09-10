@@ -44,6 +44,7 @@ namespace Farm2Shelf.Core
         public const string Renovation = "Tadilat";
         public const string Expansion = "Geliştirme";
         public const string OnlineDelivery = "Online Market & Kurye Geliri";
+        public const string TownContracts = "Kasaba Kontratları";
         public const string Vehicles = "Araçlar & Filo";
         public const string StocksBuy = "Borsa Yatırımı";
         public const string StocksSell = "Borsa Geliri";
@@ -53,6 +54,7 @@ namespace Farm2Shelf.Core
         public const string Passive = "Pasif Gelir";
         public const string DailySpin = "Günlük Çark";
         public const string Overtime = "Personel Mesai";
+        public const string Inspection = "Müfettiş Denetimi";
 
         public static string Localize(string category)
         {
@@ -68,6 +70,7 @@ namespace Farm2Shelf.Core
                 case Renovation: return LocalizationManager.L("TrxCat_Renovation", "Tadilat", "Renovation");
                 case Expansion: return LocalizationManager.L("TrxCat_Expansion", "Geliştirme", "Expansion");
                 case OnlineDelivery: return LocalizationManager.L("TrxCat_OnlineDelivery", "Online Market & Kurye Geliri", "Online Market & Courier Revenue");
+                case TownContracts: return LocalizationManager.L("TrxCat_TownContracts", "Kasaba Kontratları", "Town Contracts");
                 case Vehicles: return LocalizationManager.L("TrxCat_Vehicles", "Araçlar & Filo", "Vehicles & Fleet");
                 case StocksBuy: return LocalizationManager.L("TrxCat_Stock", "Borsa Yatırımı", "Stock Investment");
                 case StocksSell: return LocalizationManager.L("TrxCat_StockIncome", "Borsa Geliri", "Stock Revenue");
@@ -77,6 +80,7 @@ namespace Farm2Shelf.Core
                 case Passive: return LocalizationManager.L("TrxCat_Passive", "Pasif Gelir", "Passive Income");
                 case DailySpin: return LocalizationManager.L("TrxCat_DailySpin", "Günlük Çark", "Daily Wheel");
                 case Overtime: return LocalizationManager.L("TrxCat_Overtime", "Personel Mesai", "Staff Overtime");
+                case Inspection: return LocalizationManager.L("TrxCat_Inspection", "Müfettiş Denetimi", "Inspector Visit");
                 default: return category;
             }
         }
@@ -359,6 +363,22 @@ namespace Farm2Shelf.Core
         }
 
         public List<TransactionRecord> GetTransactionHistory() => transactionLog;
+
+        public List<TransactionRecord> GetTransactionsForDate(string dateStamp)
+        {
+            List<TransactionRecord> result = new List<TransactionRecord>();
+            if (string.IsNullOrEmpty(dateStamp)) return result;
+            for (int i = 0; i < transactionLog.Count; i++)
+            {
+                TransactionRecord rec = transactionLog[i];
+                if (rec == null || string.IsNullOrEmpty(rec.timeStamp)) continue;
+                if (rec.timeStamp.IndexOf(dateStamp, StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    result.Add(rec);
+                }
+            }
+            return result;
+        }
 
         private void OnDestroy()
         {

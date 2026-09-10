@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Farm2Shelf.Environment;
+using Farm2Shelf.UI;
 
 namespace Farm2Shelf.Core
 {
@@ -330,21 +331,24 @@ namespace Farm2Shelf.Core
         }
 
         /// <summary>
-        /// Gece 24:00 tahliyesi / Z raporu: müşteri gibi kurye teslimatı da bitmeli.
+        /// Gece 24:00 tahliyesi / Z raporu: müşteriler çıktıktan sonra kuryenin teslimatı bitip park etmesi gerekir.
+        /// Reyoncu bayrakları tek başına raporu kilitlemez; motor yolda / yükte / reyoncu bekliyorsa beklenir.
         /// </summary>
         public bool HasOutstandingNightWork()
         {
-            if (StaffTaskController.Instance != null && StaffTaskController.Instance.HasActiveOnlineOrderCourierWork())
-            {
-                return true;
-            }
-
             for (int i = 0; i < spawnedMotorcycles.Count; i++)
             {
-                if (ShouldKeepCourierOnDuty(spawnedMotorcycles[i]))
-                {
-                    return true;
-                }
+                var moto = spawnedMotorcycles[i];
+                if (moto == null) continue;
+                if (moto.IsDeliveryTripInProgress) return true;
+                if (IsMotorcycleDrivingOnRoad(moto)) return true;
+                if (moto.CurrentState == MotorcycleState.WaitingForStocker) return true;
+                if (moto.LoadedOrders != null && moto.LoadedOrders.Count > 0) return true;
+            }
+
+            if (OnlineMarketOrderManager.Instance != null && OnlineMarketOrderManager.Instance.HasPendingCourierDeliveries())
+            {
+                return true;
             }
 
             return false;
@@ -455,7 +459,10 @@ namespace Farm2Shelf.Core
                         continue;
                     }
 
-                    if (!sameAssigned && moto.CourierRiderObj != null)
+                    bool walkerIsWrongPerson = !sameAssigned && state.characterObj != null &&
+                        (state.dutyState == CourierDutyState.WalkingToBay || state.dutyState == CourierDutyState.WaitingAtBay);
+
+                    if ((!sameAssigned && moto.CourierRiderObj != null) || walkerIsWrongPerson)
                     {
                         PerformCourierDismountAndExit(state, moto);
                     }
@@ -487,11 +494,18 @@ namespace Farm2Shelf.Core
                         continue;
                     }
 
-                    if (moto.CourierRiderObj != null)
+                    bool hasWalkingCourier = state.characterObj != null &&
+                        (state.dutyState == CourierDutyState.WalkingToBay || state.dutyState == CourierDutyState.WaitingAtBay);
+
+                    if (moto.CourierRiderObj != null || hasWalkingCourier)
                     {
                         PerformCourierDismountAndExit(state, moto);
                     }
-                    ClearSlotCharacter(state);
+                    else
+                    {
+                        ClearSlotCharacter(state);
+                    }
+
                     state.assignedCourier = null;
                     state.incomingCourier = null;
                     state.dutyState = CourierDutyState.OffDuty;
@@ -505,34 +519,44 @@ namespace Farm2Shelf.Core
         private StaffMember GetScheduledCourierForSlot(int slotIndex, List<StaffMember> couriers, int currentHour, int currentMinute)
         {
             if (couriers == null || couriers.Count == 0) return null;
+            if (slotIndex < 0) return null;
 
-            // SADECE ve SADECE şu anki saat diliminde vardiyası veya erken gelişi aktif olan kuryeler
-            List<StaffMember> onDutyCandidates = new List<StaffMember>();
+            List<StaffMember> morningRoster = new List<StaffMember>();
+            List<StaffMember> eveningRoster = new List<StaffMember>();
             for (int c = 0; c < couriers.Count; c++)
             {
-                var courier = couriers[c];
-                if (courier != null && courier.isActive)
-                {
-                    bool isShiftActive = StaffTaskController.IsStaffShiftActive(courier, currentHour, currentMinute, out _);
-                    if (isShiftActive)
-                    {
-                        onDutyCandidates.Add(courier);
-                    }
-                }
+                StaffMember courier = couriers[c];
+                if (courier == null || !courier.isActive) continue;
+                if (StaffTaskController.IsEveningStaffShift(courier)) eveningRoster.Add(courier);
+                else morningRoster.Add(courier);
             }
 
-            // Nöbetteki kuryeler sırayla motor yuvalarına oturur (örneğin 2 kurye varsa sadece slot 0 ve slot 1 dolar)
-            if (slotIndex < onDutyCandidates.Count)
-            {
-                return onDutyCandidates[slotIndex];
-            }
+            StaffMember morningForSlot = (slotIndex < morningRoster.Count) ? morningRoster[slotIndex] : null;
+            StaffMember eveningForSlot = (slotIndex < eveningRoster.Count) ? eveningRoster[slotIndex] : null;
 
-            return null; // Slot indexi nöbetteki kurye sayısını aşıyorsa motor BOŞ kalır!
+            bool morningOnDuty = morningForSlot != null &&
+                StaffTaskController.IsStaffShiftActive(morningForSlot, currentHour, currentMinute, out _);
+            bool eveningOnDuty = eveningForSlot != null &&
+                StaffTaskController.IsStaffShiftActive(eveningForSlot, currentHour, currentMinute, out _);
+
+            // Aynı park yuvasını vardiyalar paylaşır. 15:30-16:00 çakışmasında sabah kuryesi
+            // motorda kalır; akşam kuryesi 16:00'da aynı motora gelir. İki vardiya aynı anda
+            // ayrı motorlara yürüyüp 16:00'da geri dönmesin.
+            if (morningOnDuty) return morningForSlot;
+            if (eveningOnDuty) return eveningForSlot;
+            return null;
         }
 
         private void StartIncomingCourierArrival(CourierSlotState state, StaffMember courier, CourierMotorcycleController moto)
         {
             if (state == null || courier == null || moto == null) return;
+
+            int hour = (TimeManager.Instance != null) ? TimeManager.Instance.Hour : 8;
+            int minute = (TimeManager.Instance != null) ? TimeManager.Instance.Minute : 0;
+            if (!StaffTaskController.IsStaffShiftActive(courier, hour, minute, out _))
+            {
+                return;
+            }
             if (state.characterObj != null)
             {
                 if (state.activeRoutine != null) StopCoroutine(state.activeRoutine);
@@ -562,6 +586,14 @@ namespace Farm2Shelf.Core
         private void StartCourierArrival(CourierSlotState state, StaffMember courier, CourierMotorcycleController moto, bool instantSpawn)
         {
             if (state == null || courier == null || moto == null) return;
+
+            int hour = (TimeManager.Instance != null) ? TimeManager.Instance.Hour : 8;
+            int minute = (TimeManager.Instance != null) ? TimeManager.Instance.Minute : 0;
+            if (!StaffTaskController.IsStaffShiftActive(courier, hour, minute, out _) && !ShouldKeepCourierOnDuty(moto))
+            {
+                return;
+            }
+
             if (state.dutyState == CourierDutyState.WalkingToBay && state.characterObj != null) return;
             if (state.dutyState == CourierDutyState.MountedOnMotorcycle && moto.CourierRiderObj != null) return;
 
@@ -886,16 +918,73 @@ namespace Farm2Shelf.Core
             }
 
             OnFleetUpdated?.Invoke();
+
+            if (TownContractManager.Instance != null)
+            {
+                TownContractManager.Instance.NotifyMotorcycleParked(moto);
+            }
+
+            if (GameHUDManager.Instance != null)
+            {
+                GameHUDManager.Instance.NotifyEndOfDayGateChanged();
+            }
+        }
+
+        /// <summary>
+        /// Sabah ve akşam kuryeleri aynı yuva numarasını vardiya içinde paylaşır
+        /// (1. sabah kuryesi ve 1. akşam kuryesi motorsiklet #1).
+        /// </summary>
+        public int GetMotorcycleSlotForCourier(StaffMember courier)
+        {
+            if (courier == null || StaffManager.Instance == null) return -1;
+
+            List<StaffMember> roster = StaffManager.Instance.GetCourierStaffList();
+            if (roster == null) return -1;
+
+            bool evening = StaffTaskController.IsEveningStaffShift(courier);
+            int rank = 0;
+            for (int i = 0; i < roster.Count; i++)
+            {
+                StaffMember other = roster[i];
+                if (other == null || !other.isActive) continue;
+                if (StaffTaskController.IsEveningStaffShift(other) != evening) continue;
+                if (SameCourier(other, courier))
+                {
+                    return (rank >= 0 && rank < spawnedMotorcycles.Count) ? rank : -1;
+                }
+                rank++;
+            }
+
+            return -1;
+        }
+
+        public CourierMotorcycleController GetMotorcycleBySlot(int slotIndex)
+        {
+            for (int i = 0; i < spawnedMotorcycles.Count; i++)
+            {
+                if (spawnedMotorcycles[i] != null && spawnedMotorcycles[i].SlotIndex == slotIndex)
+                {
+                    return spawnedMotorcycles[i];
+                }
+            }
+            return null;
+        }
+
+        public void NotifyFleetChanged()
+        {
+            OnFleetUpdated?.Invoke();
         }
 
         public CourierMotorcycleController GetAvailableMotorcycleForOrder()
         {
             foreach (var moto in spawnedMotorcycles)
             {
-                if (moto != null && moto.CanTakeOrders())
+                if (moto == null || !moto.CanTakeOrders()) continue;
+                if (TownContractManager.Instance != null && TownContractManager.Instance.IsSlotAssignedToContracts(moto.SlotIndex))
                 {
-                    return moto;
+                    continue;
                 }
+                return moto;
             }
             return null;
         }

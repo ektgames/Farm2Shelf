@@ -30,6 +30,7 @@ namespace Farm2Shelf.UI
         private Font globalFont;
         private bool isAnimating = false;
         private Transform closeBtnTransform;
+        private GameObject inspectorNoteOverlay;
 
         private readonly string[] rawSeasonKeys = new string[] { "İlkbahar", "Yaz", "Sonbahar", "Kış" };
         private readonly Color[] seasonColors = new Color[] {
@@ -106,7 +107,7 @@ namespace Farm2Shelf.UI
         public void CloseCalendar()
         {
             if (isAnimating || popupRoot == null || !popupRoot.activeSelf) return;
-
+            HideInspectorNoteOverlay();
             StartCoroutine(AnimateClose());
         }
 
@@ -222,11 +223,11 @@ namespace Farm2Shelf.UI
             modalBoxRect.anchorMin = new Vector2(0.5f, 0.5f);
             modalBoxRect.anchorMax = new Vector2(0.5f, 0.5f);
             modalBoxRect.pivot = new Vector2(0.5f, 0.5f);
-            modalBoxRect.sizeDelta = new Vector2(900f, 650f);
+            modalBoxRect.sizeDelta = new Vector2(900f, 690f);
             modalBoxRect.anchoredPosition = Vector2.zero;
 
             Image boxBg = modalBox.AddComponent<Image>();
-            boxBg.sprite = UIStyleUtility.CreateOutlinePillSprite(900, 650, 24, 4, new Color(0.95f, 0.75f, 0.20f, 0.90f), new Color(0.10f, 0.13f, 0.17f, 0.98f));
+            boxBg.sprite = UIStyleUtility.CreateOutlinePillSprite(900, 690, 24, 4, new Color(0.95f, 0.75f, 0.20f, 0.90f), new Color(0.10f, 0.13f, 0.17f, 0.98f));
             boxBg.raycastTarget = true;
 
             globalFont = UIStyleUtility.GetGlobalFont(22);
@@ -236,7 +237,7 @@ namespace Farm2Shelf.UI
             headerObj.transform.SetParent(modalBox.transform, false);
 
             RectTransform hRect = headerObj.AddComponent<RectTransform>();
-            hRect.anchoredPosition = new Vector2(0f, 285f);
+            hRect.anchoredPosition = new Vector2(0f, 305f);
             hRect.sizeDelta = new Vector2(840f, 50f);
 
             titleText = headerObj.AddComponent<Text>();
@@ -257,7 +258,7 @@ namespace Farm2Shelf.UI
             tabsObj.transform.SetParent(modalBox.transform, false);
 
             RectTransform tabsRect = tabsObj.AddComponent<RectTransform>();
-            tabsRect.anchoredPosition = new Vector2(0f, 226f);
+            tabsRect.anchoredPosition = new Vector2(0f, 246f);
             tabsRect.sizeDelta = new Vector2(840f, 48f);
 
             HorizontalLayoutGroup layout = tabsObj.AddComponent<HorizontalLayoutGroup>();
@@ -271,12 +272,12 @@ namespace Farm2Shelf.UI
             gridObj.transform.SetParent(modalBox.transform, false);
 
             RectTransform gRect = gridObj.AddComponent<RectTransform>();
-            gRect.anchoredPosition = new Vector2(0f, -14f);
-            gRect.sizeDelta = new Vector2(840f, 395f);
+            gRect.anchoredPosition = new Vector2(0f, -8f);
+            gRect.sizeDelta = new Vector2(840f, 445f);
 
             GridLayoutGroup grid = gridObj.AddComponent<GridLayoutGroup>();
-            grid.cellSize = new Vector2(130f, 68f);
-            grid.spacing = new Vector2(10f, 8f);
+            grid.cellSize = new Vector2(130f, 82f);
+            grid.spacing = new Vector2(10f, 7f);
             grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             grid.constraintCount = 6;
 
@@ -287,7 +288,7 @@ namespace Farm2Shelf.UI
             footerObj.transform.SetParent(modalBox.transform, false);
 
             RectTransform fRect = footerObj.AddComponent<RectTransform>();
-            fRect.anchoredPosition = new Vector2(0f, -282f);
+            fRect.anchoredPosition = new Vector2(0f, -308f);
             fRect.sizeDelta = new Vector2(840f, 44f);
 
             footerSummaryText = footerObj.AddComponent<Text>();
@@ -422,17 +423,23 @@ namespace Farm2Shelf.UI
                 Image cardBg = cardObj.AddComponent<Image>();
                 cardBg.raycastTarget = true;
 
+                bool isInspectorDay = currentDayNum == SeasonalInspectorManager.InspectorDay;
+
                 if (isToday)
                 {
-                    cardBg.sprite = UIStyleUtility.CreateOutlinePillSprite(130, 68, 14, 3, new Color(1.0f, 0.85f, 0.20f), new Color(0.25f, 0.45f, 0.25f, 0.95f));
+                    cardBg.sprite = UIStyleUtility.CreateOutlinePillSprite(130, 82, 14, 3, new Color(1.0f, 0.85f, 0.20f), new Color(0.25f, 0.45f, 0.25f, 0.95f));
+                }
+                else if (isInspectorDay)
+                {
+                    cardBg.sprite = UIStyleUtility.CreateOutlinePillSprite(130, 82, 14, 2, new Color(0.85f, 0.72f, 0.28f), new Color(0.16f, 0.18f, 0.28f, 0.96f));
                 }
                 else if (isSelectedDay)
                 {
-                    cardBg.sprite = UIStyleUtility.CreateOutlinePillSprite(130, 68, 14, 2, themeColor, new Color(0.20f, 0.26f, 0.35f, 0.95f));
+                    cardBg.sprite = UIStyleUtility.CreateOutlinePillSprite(130, 82, 14, 2, themeColor, new Color(0.20f, 0.26f, 0.35f, 0.95f));
                 }
                 else
                 {
-                    cardBg.sprite = UIStyleUtility.CreateRoundedPillSprite(130, 68, 14, new Color(0.15f, 0.19f, 0.24f, 0.88f));
+                    cardBg.sprite = UIStyleUtility.CreateRoundedPillSprite(130, 82, 14, new Color(0.15f, 0.19f, 0.24f, 0.88f));
                 }
 
                 Button dayBtn = cardObj.AddComponent<Button>();
@@ -440,6 +447,10 @@ namespace Farm2Shelf.UI
                 dayBtn.onClick.AddListener(() => {
                     selectedDay = currentDayNum;
                     RefreshGrid();
+                    if (currentDayNum == SeasonalInspectorManager.InspectorDay)
+                    {
+                        ShowInspectorNotesForSelectedDay();
+                    }
                 });
 
                 // Gün Sayısı Metni
@@ -447,16 +458,26 @@ namespace Farm2Shelf.UI
                 dayTextObj.transform.SetParent(cardObj.transform, false);
 
                 RectTransform dRect = dayTextObj.AddComponent<RectTransform>();
-                dRect.anchorMin = new Vector2(0f, 0.42f);
-                dRect.anchorMax = new Vector2(1f, 0.98f);
+                if (isInspectorDay)
+                {
+                    dRect.anchorMin = new Vector2(0.04f, 0.66f);
+                    dRect.anchorMax = new Vector2(0.96f, 0.98f);
+                }
+                else
+                {
+                    dRect.anchorMin = new Vector2(0f, 0.48f);
+                    dRect.anchorMax = new Vector2(1f, 0.98f);
+                }
                 dRect.offsetMin = Vector2.zero;
                 dRect.offsetMax = Vector2.zero;
 
                 Text dText = dayTextObj.AddComponent<Text>();
                 dText.font = globalFont;
                 string dayPrefix = LocalizationManager.L("Day_UpperWord", "GÜN", "DAY");
-                dText.text = isToday ? $"★ {dayPrefix} {currentDayNum} ★" : $"{dayPrefix} {currentDayNum}";
-                dText.fontSize = isToday ? 17 : 16;
+                dText.text = isInspectorDay
+                    ? $"{dayPrefix} {currentDayNum}"
+                    : (isToday ? $"★ {dayPrefix} {currentDayNum} ★" : $"{dayPrefix} {currentDayNum}");
+                dText.fontSize = isInspectorDay ? 14 : (isToday ? 17 : 16);
                 dText.fontStyle = FontStyle.Bold;
                 dText.alignment = TextAnchor.MiddleCenter;
                 dText.horizontalOverflow = HorizontalWrapMode.Overflow;
@@ -494,21 +515,51 @@ namespace Farm2Shelf.UI
                 weatherObj.transform.SetParent(cardObj.transform, false);
 
                 RectTransform wRect = weatherObj.AddComponent<RectTransform>();
-                wRect.anchorMin = new Vector2(0f, 0.04f);
-                wRect.anchorMax = new Vector2(1f, 0.46f);
+                if (isInspectorDay)
+                {
+                    wRect.anchorMin = new Vector2(0.04f, 0.36f);
+                    wRect.anchorMax = new Vector2(0.96f, 0.66f);
+                }
+                else
+                {
+                    wRect.anchorMin = new Vector2(0f, 0.04f);
+                    wRect.anchorMax = new Vector2(1f, 0.48f);
+                }
                 wRect.offsetMin = Vector2.zero;
                 wRect.offsetMax = Vector2.zero;
 
                 Text wText = weatherObj.AddComponent<Text>();
                 wText.font = globalFont;
                 wText.text = weatherLabel;
-                wText.fontSize = 14;
+                wText.fontSize = isInspectorDay ? 12 : 14;
                 wText.fontStyle = FontStyle.Bold;
                 wText.alignment = TextAnchor.MiddleCenter;
                 wText.horizontalOverflow = HorizontalWrapMode.Overflow;
                 wText.verticalOverflow = VerticalWrapMode.Overflow;
                 wText.color = weatherCol;
                 wText.raycastTarget = false;
+
+                if (isInspectorDay)
+                {
+                    GameObject inspectorLabelObj = new GameObject("InspectorLabel");
+                    inspectorLabelObj.transform.SetParent(cardObj.transform, false);
+                    RectTransform ilRect = inspectorLabelObj.AddComponent<RectTransform>();
+                    ilRect.anchorMin = new Vector2(0.04f, 0.02f);
+                    ilRect.anchorMax = new Vector2(0.96f, 0.36f);
+                    ilRect.offsetMin = Vector2.zero;
+                    ilRect.offsetMax = Vector2.zero;
+
+                    Text ilText = inspectorLabelObj.AddComponent<Text>();
+                    ilText.font = globalFont;
+                    ilText.text = LocalizationManager.L("Cal_InspectorLabel", "Müfettiş", "Inspector");
+                    ilText.fontSize = 13;
+                    ilText.fontStyle = FontStyle.Bold;
+                    ilText.alignment = TextAnchor.MiddleCenter;
+                    ilText.horizontalOverflow = HorizontalWrapMode.Overflow;
+                    ilText.verticalOverflow = VerticalWrapMode.Overflow;
+                    ilText.color = new Color(1.0f, 0.86f, 0.38f);
+                    ilText.raycastTarget = false;
+                }
             }
         }
 
@@ -530,7 +581,7 @@ namespace Farm2Shelf.UI
             }
             else if (selectedDay == 30)
             {
-                eventDetail = LocalizationManager.L("Cal_FooterDay30", $"{selectedSeasonStr} Mevsiminin 30. Günü (Son Gün - Sezon Sonu)", $"{selectedSeasonStr} Season Day 30 (Last Day - Season End)");
+                eventDetail = LocalizationManager.L("Cal_FooterDay30", $"{selectedSeasonStr} Mevsiminin 30. Günü (Son Gün - Müfettiş)", $"{selectedSeasonStr} Season Day 30 (Last Day - Inspector)");
             }
             else if (selectedDay > 0)
             {
@@ -542,6 +593,128 @@ namespace Farm2Shelf.UI
                 $"Seçilen: {eventDetail}  •  Güncel Tarih: {activeSeasonStr}, Gün {activeDay}",
                 $"Selected: {eventDetail}  •  Current Date: {activeSeasonStr}, Day {activeDay}"
             );
+        }
+
+        public void RefreshInspectorMarkers()
+        {
+            if (popupRoot != null && popupRoot.activeSelf)
+            {
+                RefreshGrid();
+            }
+        }
+
+        private void ShowInspectorNotesForSelectedDay()
+        {
+            if (selectedDay != SeasonalInspectorManager.InspectorDay || popupRoot == null) return;
+
+            HideInspectorNoteOverlay();
+
+            int year = TimeManager.Instance != null ? TimeManager.Instance.Year : 1;
+            InspectorVisitSaveData report = SeasonalInspectorManager.Instance != null
+                ? SeasonalInspectorManager.Instance.GetVisit(year, selectedSeason)
+                : null;
+
+            bool english = LocalizationManager.Instance != null && LocalizationManager.Instance.CurrentLanguage == GameLanguage.English;
+            string title = LocalizationManager.L("Inspector_CalTitle", "🕴️ Mevsim Sonu Müfettişi", "🕴️ Season-End Inspector");
+            string body;
+            if (report != null && report.completed)
+            {
+                body = SeasonalInspectorManager.BuildReportBody(report, english);
+            }
+            else
+            {
+                body = LocalizationManager.L(
+                    "Inspector_CalUpcoming",
+                    "Her mevsimin 30. günü sabah 10:00'da takım elbiseli müfettiş dükkana müşteri gibi gelir, notlarını alır ve 11:00'de çıkar. Temizlik, raf doluluğu ve fiyat uygunluğunu not eder.\n\nUygun maddeler cüzi ödül, uymayanlar ağır ceza getirir. Denetim bitince notlar burada durur.",
+                    "On day 30 of each season at 10:00 the suited inspector enters like a shopper, takes notes, and leaves at 11:00. He scores cleanliness, shelf stock, and fair prices.\n\nPassing checks pay a small bonus; failing ones levy a heavy fine. After the visit the notes stay here.");
+            }
+
+            inspectorNoteOverlay = new GameObject("Inspector_Note_Overlay");
+            inspectorNoteOverlay.transform.SetParent(popupRoot.transform, false);
+            RectTransform ovRect = inspectorNoteOverlay.AddComponent<RectTransform>();
+            ovRect.anchorMin = Vector2.zero;
+            ovRect.anchorMax = Vector2.one;
+            ovRect.offsetMin = Vector2.zero;
+            ovRect.offsetMax = Vector2.zero;
+
+            Image ovBg = inspectorNoteOverlay.AddComponent<Image>();
+            ovBg.color = new Color(0.04f, 0.06f, 0.10f, 0.55f);
+            ovBg.raycastTarget = true;
+
+            GameObject box = new GameObject("NoteBox");
+            box.transform.SetParent(inspectorNoteOverlay.transform, false);
+            RectTransform boxRect = box.AddComponent<RectTransform>();
+            boxRect.sizeDelta = new Vector2(620f, 430f);
+            boxRect.anchoredPosition = Vector2.zero;
+            Image boxImg = box.AddComponent<Image>();
+            boxImg.sprite = UIStyleUtility.CreateOutlinePillSprite(620, 430, 18, 2, new Color(0.85f, 0.72f, 0.28f), new Color(0.10f, 0.13f, 0.18f, 0.98f));
+            boxImg.raycastTarget = true;
+
+            GameObject titleObj = new GameObject("Title");
+            titleObj.transform.SetParent(box.transform, false);
+            RectTransform tRect = titleObj.AddComponent<RectTransform>();
+            tRect.anchoredPosition = new Vector2(0f, 175f);
+            tRect.sizeDelta = new Vector2(560f, 40f);
+            Text tText = titleObj.AddComponent<Text>();
+            tText.font = globalFont;
+            tText.text = title;
+            tText.fontSize = 22;
+            tText.fontStyle = FontStyle.Bold;
+            tText.alignment = TextAnchor.MiddleCenter;
+            tText.color = new Color(1f, 0.88f, 0.35f);
+            tText.raycastTarget = false;
+
+            GameObject msgObj = new GameObject("Body");
+            msgObj.transform.SetParent(box.transform, false);
+            RectTransform mRect = msgObj.AddComponent<RectTransform>();
+            mRect.anchoredPosition = new Vector2(0f, 10f);
+            mRect.sizeDelta = new Vector2(560f, 280f);
+            Text mText = msgObj.AddComponent<Text>();
+            mText.font = globalFont;
+            mText.text = body;
+            mText.fontSize = 16;
+            mText.alignment = TextAnchor.UpperLeft;
+            mText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            mText.verticalOverflow = VerticalWrapMode.Overflow;
+            mText.color = Color.white;
+            mText.raycastTarget = false;
+            mText.supportRichText = true;
+
+            GameObject closeObj = new GameObject("Close");
+            closeObj.transform.SetParent(box.transform, false);
+            RectTransform cRect = closeObj.AddComponent<RectTransform>();
+            cRect.anchoredPosition = new Vector2(0f, -175f);
+            cRect.sizeDelta = new Vector2(200f, 42f);
+            Image cBg = closeObj.AddComponent<Image>();
+            cBg.sprite = UIStyleUtility.CreateRoundedPillSprite(200, 42, 14, new Color(0.20f, 0.70f, 0.40f));
+            Button cBtn = closeObj.AddComponent<Button>();
+            cBtn.targetGraphic = cBg;
+            cBtn.onClick.AddListener(HideInspectorNoteOverlay);
+
+            GameObject cTxtObj = new GameObject("Label");
+            cTxtObj.transform.SetParent(closeObj.transform, false);
+            RectTransform ctRect = cTxtObj.AddComponent<RectTransform>();
+            ctRect.anchorMin = Vector2.zero;
+            ctRect.anchorMax = Vector2.one;
+            ctRect.offsetMin = Vector2.zero;
+            ctRect.offsetMax = Vector2.zero;
+            Text cTxt = cTxtObj.AddComponent<Text>();
+            cTxt.font = globalFont;
+            cTxt.text = LocalizationManager.L("Btn_OK", "Tamam", "OK");
+            cTxt.fontSize = 17;
+            cTxt.fontStyle = FontStyle.Bold;
+            cTxt.alignment = TextAnchor.MiddleCenter;
+            cTxt.color = Color.white;
+            cTxt.raycastTarget = false;
+        }
+
+        private void HideInspectorNoteOverlay()
+        {
+            if (inspectorNoteOverlay != null)
+            {
+                Destroy(inspectorNoteOverlay);
+                inspectorNoteOverlay = null;
+            }
         }
     }
 }

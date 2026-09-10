@@ -52,6 +52,8 @@ namespace Farm2Shelf.Environment
                 case CustomerType.L3_VIP_Influencer: return LocalizationManager.L("Occ_Influencer", "Sosyal Medya Fenomeni", "Social Media Influencer");
                 case CustomerType.L3_BoutiqueLady: return LocalizationManager.L("Occ_BoutiqueOwner", "Butik Sahibi", "Boutique Owner");
                 case CustomerType.L3_JewelryLady: return LocalizationManager.L("Occ_Jeweler", "Mücevher Tasarımcısı", "Jewelry Designer");
+                case CustomerType.L3_LuxuryCollector: return LocalizationManager.L("Occ_Collector", "Antika & Sanat Koleksiyoneri", "Antique & Art Collector");
+                case CustomerType.L3_SeasonalInspector: return LocalizationManager.L("Occ_Inspector", "Gıda ve Hijyen Müfettişi", "Food & Hygiene Inspector");
                 default: return LocalizationManager.L("Occ_Customer", "Müşteri", "Customer");
             }
         }
@@ -293,6 +295,9 @@ namespace Farm2Shelf.Environment
                 case CustomerType.L3_LuxuryCollector:
                     minAge = 50; maxAge = 66; occ = "Antika & Sanat Koleksiyoneri"; emoji = "🏺";
                     bgColor = new Color(0.50f, 0.15f, 0.30f); break;
+                case CustomerType.L3_SeasonalInspector:
+                    minAge = 40; maxAge = 52; occ = "Gıda ve Hijyen Müfettişi"; emoji = "🕴️";
+                    bgColor = new Color(0.12f, 0.18f, 0.32f); break;
 
                 default:
                     minAge = 25; maxAge = 45; occ = "Müşteri"; emoji = isFemale ? "👩" : "👨";

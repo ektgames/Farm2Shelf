@@ -108,10 +108,12 @@ namespace Farm2Shelf.UI
             dTxt.font = font;
             dTxt.text = LocalizationManager.L(
                 "TutPrompt_Desc",
-                "<b>Farm2Shelf dünyasına hoş geldin! 🌾🛒</b>\n\n" +
-                "Oyunun temel dokunmatik kontrollerini, EKT Tablet uygulamalarını, personel işe alımını, vardiyaları, mobilya kurulumunu, toptancı siparişlerini ve reyon dizilimini, çiftlik tarımını adım adım öğrenmek için <b>10 Adımlı Başlangıç Eğitimine</b> girmek ister misin?",
-                "<b>Welcome to Farm2Shelf! 🌾🛒</b>\n\n" +
-                "Would you like to start the <b>10-Step Guided Tutorial</b> to learn mobile camera controls, EKT Tablet apps, hiring staff, shifts, furniture setup, wholesale orders & stocking, and crop farming step by step?"
+                "<b>Farm2Shelf'e hoş geldin! 🌾</b>\n\n" +
+                "10 kısa görevle kamerayı, EKT tableti, <b>kasaba kontratını</b>, personeli, reyonu, <b>ürün pasaportunu</b> ve dükkan açılışını öğrenirsin. Markan tabelada durur; gece <b>gün sonu defteri</b> bugünü yazar.\n\n" +
+                "Eğitime girersen her hedef yeşil tik alır, sonra sıradaki göreve geçilir.",
+                "<b>Welcome to Farm2Shelf! 🌾</b>\n\n" +
+                "Ten short quests cover the camera, EKT tablet, a <b>town contract</b>, staff, shelves, <b>product passports</b>, and opening the store. Your brand sits on the sign; at night the <b>ledger</b> writes the day.\n\n" +
+                "If you join, each goal turns into a green tick, then the next quest starts."
             );
             dTxt.fontSize = 15;
             dTxt.lineSpacing = 1.18f;

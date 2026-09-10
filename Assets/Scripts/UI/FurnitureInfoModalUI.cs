@@ -390,8 +390,8 @@ namespace Farm2Shelf.UI
             cardObj.transform.SetParent(parent.transform, false);
 
             LayoutElement le = cardObj.AddComponent<LayoutElement>();
-            le.minHeight = 85;
-            le.preferredHeight = 85;
+            le.minHeight = 118;
+            le.preferredHeight = 118;
 
             Image cImg = cardObj.AddComponent<Image>();
             cImg.color = new Color(0.15f, 0.20f, 0.28f, 0.90f);
@@ -420,6 +420,7 @@ namespace Farm2Shelf.UI
                 rData.productId = "";
                 rData.unitPrice = 0f;
                 rData.currentStock = 0;
+                ProductPassportService.ClearRowContents(rData);
             }
 
             GameObject infoBox = new GameObject("InfoBox");
@@ -471,13 +472,35 @@ namespace Farm2Shelf.UI
             }
 
             string unitLabel = isStorageShelf ? (isEnglish ? "Box" : "Koli") : (isEnglish ? "Unit" : "Adet");
-            Text sText = CreateText(infoBox, $"{rData.currentStock} / {rData.maxCapacity} {unitLabel}", 16, FontStyle.Bold, stockColor);
+            string passportLine = "";
+            if (!isUnassigned && rData.currentStock > 0)
+            {
+                ProductPassportService.EnsureRowLots(rData);
+                passportLine = ProductPassportService.GetCardText(rData);
+            }
+            string stockLine = string.IsNullOrEmpty(passportLine)
+                ? $"{rData.currentStock} / {rData.maxCapacity} {unitLabel}"
+                : $"{rData.currentStock} / {rData.maxCapacity} {unitLabel}\n{passportLine}";
+            Text sText = CreateText(infoBox, stockLine, 13, FontStyle.Bold, stockColor);
             RectTransform stRect = sText.GetComponent<RectTransform>();
-            stRect.anchorMin = new Vector2(0, 0.05f);
-            stRect.anchorMax = new Vector2(1, 0.45f);
+            stRect.anchorMin = new Vector2(0, 0.02f);
+            stRect.anchorMax = new Vector2(1, 0.52f);
             stRect.offsetMin = Vector2.zero;
             stRect.offsetMax = Vector2.zero;
             sText.alignment = TextAnchor.MiddleLeft;
+            sText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            sText.verticalOverflow = VerticalWrapMode.Truncate;
+
+            Button passportBtn = cardObj.AddComponent<Button>();
+            passportBtn.transition = Selectable.Transition.None;
+            ShelfRowData capturedRow = rData;
+            passportBtn.onClick.AddListener(() =>
+            {
+                if (capturedRow == null || capturedRow.currentStock <= 0 || capturedRow.IsUnassigned) return;
+                ProductPassportService.ShowPassportModal(
+                    LocalizationManager.L("Passport_ModalTitle", "Ürün Pasaportu", "Product Passport"),
+                    ProductPassportService.GetCardText(capturedRow));
+            });
 
             // AKSİYON BUTONLARI (Yalnızca Mağaza Raflarında Gösterilir):
             if (!isStorageShelf)
@@ -550,14 +573,15 @@ namespace Farm2Shelf.UI
                 targetRow.productName = sRow.productName;
                 targetRow.productId = sRow.productId;
                 targetRow.unitPrice = sRow.unitPrice;
-                targetRow.currentStock += transferAmount;
+                List<ProductLot> moved = ProductPassportService.RemoveStock(sRow, transferAmount);
+                ProductPassportService.AddStock(targetRow, moved, targetRow.maxCapacity);
 
-                sRow.currentStock -= transferAmount;
                 if (sRow.currentStock <= 0)
                 {
                     sRow.currentStock = 0;
                     sRow.productName = "";
                     sRow.productId = "";
+                    ProductPassportService.ClearRowContents(sRow);
                 }
 
                 storageShelf.UpdateAll3DProductMeshes();
@@ -863,13 +887,15 @@ namespace Farm2Shelf.UI
                             string pId = rData.productId;
                             float pPrice = rData.unitPrice;
 
-                            TransferStockToStorageShelves(pName, pId, pPrice, stock);
+                            List<ProductLot> movingLots = ProductPassportService.RemoveStock(rData, stock);
+                            TransferLotsToStorageShelves(pName, pId, pPrice, movingLots);
                         }
 
                         rData.productName = "Boş";
                         rData.productId = "";
                         rData.unitPrice = 0f;
                         rData.currentStock = 0;
+                        ProductPassportService.ClearRowContents(rData);
 
                         furniture.UpdateRow3DProductMeshes(rData.rowId);
                         Destroy(subPanel);
@@ -953,6 +979,7 @@ namespace Farm2Shelf.UI
                             rData.productId = selectedProd.id;
                             rData.unitPrice = selectedProd.SalePricePerUnit;
                             rData.currentStock = 0; // ÜRÜN İLK DEFA ATANDIĞINDA 0 GELECEK, REYONCU DİZİNCE DOLACAK!
+                            ProductPassportService.ClearRowContents(rData);
 
                             furniture.UpdateRow3DProductMeshes(rData.rowId);
                             Destroy(subBackdrop);
@@ -1404,33 +1431,26 @@ namespace Farm2Shelf.UI
             return totalSpace;
         }
 
-        private bool TransferStockToStorageShelves(string productName, string productId, float unitPrice, int stockToTransfer)
+        private bool TransferLotsToStorageShelves(string productName, string productId, float unitPrice, List<ProductLot> lots)
         {
-            if (stockToTransfer <= 0) return true;
+            if (lots == null || ProductPassportService.SumLots(lots) <= 0) return true;
 
-            int remainingToTransfer = stockToTransfer;
             var allFurniture = PlacedFurnitureController.AllPlacedFurniture;
 
-            // 1. ÖNCELİK: Zaten bu ürünün bulunduğu depo raflarına doldur
             foreach (var f in allFurniture)
             {
-                if (remainingToTransfer <= 0) break;
+                if (ProductPassportService.SumLots(lots) <= 0) break;
                 if (f == null || f.rows == null || f.FurnitureType != FurnitureType.StorageShelf) continue;
 
                 bool shelfUpdated = false;
                 foreach (var r in f.rows)
                 {
-                    if (remainingToTransfer <= 0) break;
+                    if (ProductPassportService.SumLots(lots) <= 0) break;
                     if (r != null && !r.IsUnassigned && r.productName == productName && r.currentStock > 0)
                     {
-                        int spaceLeft = r.maxCapacity - r.currentStock;
-                        if (spaceLeft > 0)
-                        {
-                            int add = Mathf.Min(spaceLeft, remainingToTransfer);
-                            r.currentStock += add;
-                            remainingToTransfer -= add;
-                            shelfUpdated = true;
-                        }
+                        int before = ProductPassportService.SumLots(lots);
+                        ProductPassportService.AddStock(r, lots, r.maxCapacity);
+                        if (ProductPassportService.SumLots(lots) < before) shelfUpdated = true;
                     }
                 }
                 if (shelfUpdated)
@@ -1439,27 +1459,23 @@ namespace Farm2Shelf.UI
                 }
             }
 
-            // 2. ÖNCELİK: Boş / Atanmamış depo raflarına doldur
             foreach (var f in allFurniture)
             {
-                if (remainingToTransfer <= 0) break;
+                if (ProductPassportService.SumLots(lots) <= 0) break;
                 if (f == null || f.rows == null || f.FurnitureType != FurnitureType.StorageShelf) continue;
 
                 bool shelfUpdated = false;
                 for (int i = 0; i < f.rows.Length; i++)
                 {
-                    if (remainingToTransfer <= 0) break;
+                    if (ProductPassportService.SumLots(lots) <= 0) break;
                     var r = f.rows[i];
                     if (r != null && (r.IsUnassigned || r.IsEmpty || r.currentStock <= 0))
                     {
                         r.productName = productName;
                         r.productId = productId;
                         r.unitPrice = unitPrice;
-
-                        int spaceLeft = r.maxCapacity;
-                        int add = Mathf.Min(spaceLeft, remainingToTransfer);
-                        r.currentStock = add;
-                        remainingToTransfer -= add;
+                        ProductPassportService.ClearRowContents(r);
+                        ProductPassportService.AddStock(r, lots, r.maxCapacity);
                         shelfUpdated = true;
                     }
                 }
@@ -1469,7 +1485,7 @@ namespace Farm2Shelf.UI
                 }
             }
 
-            return remainingToTransfer == 0;
+            return ProductPassportService.SumLots(lots) <= 0;
         }
 
         private void ShowStorageWarningModal(string title, string message)

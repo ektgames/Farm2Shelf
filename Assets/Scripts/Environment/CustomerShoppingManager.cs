@@ -84,6 +84,9 @@ namespace Farm2Shelf.Environment
             public int missedShelvesCount = 0;
             public int totalCartValue;
             public int totalItemsBought;
+            public int localHarvestItemsBought;
+            public int wholesaleItemsBought;
+            public int staleItemsBought;
 
             // Anti-Stuck Takılma Koruyucusu
             public Vector3 lastTrackedPos;
@@ -479,7 +482,10 @@ namespace Farm2Shelf.Environment
                 float fairPrice = sDef.unitSalePrice;
                 if (fairPrice > 0)
                 {
-                    return currentUnitPrice > (fairPrice * 1.35f);
+                    float tolerance = StoreStatusManager.Instance != null
+                        ? StoreStatusManager.Instance.GetFarmOverpriceTolerance()
+                        : 1.35f;
+                    return currentUnitPrice > (fairPrice * tolerance);
                 }
             }
 
@@ -1473,7 +1479,7 @@ namespace Farm2Shelf.Environment
                 AudioManager.Instance.PlayCoins();
             }
 
-            string paymentMsg = LocalizationManager.L("Payment_Success", "Ödeme Yapıldı", "Payment Completed");
+            string paymentMsg = ProductPassportService.GetReceiptOriginLabel(cData.localHarvestItemsBought, cData.wholesaleItemsBought);
             Vector3 custPos = cData.customerObj.transform.position;
             ShowPaymentPopup(custPos, $"+{paymentAmount}C {paymentMsg} 💳");
 
@@ -1566,6 +1572,10 @@ namespace Farm2Shelf.Environment
                 if (StaffVisualManager.Instance != null)
                 {
                     StaffVisualManager.Instance.SyncStaff3DModels();
+                }
+                if (GameHUDManager.Instance != null)
+                {
+                    GameHUDManager.Instance.NotifyEndOfDayGateChanged();
                 }
             }
         }
@@ -2139,7 +2149,11 @@ namespace Farm2Shelf.Environment
                                 if (cData.visitedCustomerServiceDesk) paymentAmount += Random.Range(50, 100);
 
                                 if (EconomyManager.Instance != null) EconomyManager.Instance.AddCredits(paymentAmount);
-                                if (FinanceManager.Instance != null) FinanceManager.Instance.RecordIncome("Satış", $"Müşteri Alışverişi ({cData.totalItemsBought} Parça Ürün)", paymentAmount);
+                                if (FinanceManager.Instance != null)
+                                {
+                                    string originNote = ProductPassportService.GetReceiptOriginLabel(cData.localHarvestItemsBought, cData.wholesaleItemsBought);
+                                    FinanceManager.Instance.RecordIncome("Satış", $"Müşteri Alışverişi ({cData.totalItemsBought} Parça • {originNote})", paymentAmount);
+                                }
 
                                 // KASADA KALİTE PUANI HESAPLAMA:
                                 if (StoreQualityManager.Instance != null)
@@ -2427,6 +2441,19 @@ namespace Farm2Shelf.Environment
                                 cName, cEmoji, cColor, isVIP, TweetSentiment.Complaint,
                                 tr, en
                             );
+                        }
+                        else if (cData.staleItemsBought > 0 && cData.staleItemsBought >= Mathf.Max(1, cData.totalItemsBought / 3))
+                        {
+                            var (tr, en) = SocialMediaManager.Instance.GenerateStaleProductTweet(sName);
+                            SocialMediaManager.Instance.AddCustomerTweet(
+                                cName, cEmoji, cColor, isVIP, TweetSentiment.Complaint,
+                                tr, en
+                            );
+
+                            if (StoreQualityManager.Instance != null)
+                            {
+                                StoreQualityManager.Instance.SubtractQualityScore(8, cData.customerObj.transform.position, LocalizationManager.L("Quality_StaleComplaint", "Bayat ürün şikayeti!", "Stale product complaint!"));
+                            }
                         }
                         else if (hasMissedItems && cData.missedShelvesCount >= 1)
                         {
@@ -2723,7 +2750,12 @@ namespace Farm2Shelf.Environment
                 {
                     string tName = cData.type.ToString();
                     bool isWealthy = tName.Contains("VIP") || tName.Contains("Billionaire") || tName.Contains("Business");
-                    if (!isWealthy && Random.value < 0.70f)
+                    bool isFarm = IsFarmCropProduct(rData.productName);
+                    bool isGourmet = IsWorkshopOrGourmet(rData.productName);
+                    float skipChance = StoreStatusManager.Instance != null
+                        ? StoreStatusManager.Instance.GetOverpriceSkipChance(isFarm, isGourmet)
+                        : 0.70f;
+                    if (!isWealthy && Random.value < skipChance)
                     {
                         ShowShoppingPickPopup(cData.customerObj.transform.position, $"💸 {rData.productName} (Çok Pahalı!)");
                         continue;
@@ -2742,11 +2774,13 @@ namespace Farm2Shelf.Environment
 
                 if (buyCount > 0)
                 {
-                    rData.currentStock = Mathf.Max(0, rData.currentStock - buyCount);
+                    ProductPassportService.EnsureRowLots(rData);
+                    List<ProductLot> soldLots = ProductPassportService.RemoveStock(rData, buyCount);
                     shelf.UpdateRow3DProductMeshes(rData.rowId);
 
                     int itemUnitPrice = (rData.unitPrice > 0) ? Mathf.RoundToInt(rData.unitPrice) : 25;
-                    int cost = itemUnitPrice * buyCount;
+                    int cost = ProductPassportService.PriceForLots(itemUnitPrice, soldLots);
+                    if (cost <= 0) cost = itemUnitPrice * buyCount;
 
                     cData.totalCartValue += cost;
                     cData.totalItemsBought += buyCount;
@@ -2754,16 +2788,37 @@ namespace Farm2Shelf.Environment
                     if (cData.boughtProductNames == null) cData.boughtProductNames = new HashSet<string>();
                     cData.boughtProductNames.Add(rData.productName);
 
+                    for (int li = 0; li < soldLots.Count; li++)
+                    {
+                        ProductLot sold = soldLots[li];
+                        if (sold == null) continue;
+                        if (ProductPassportService.IsLocalOrigin(sold)) cData.localHarvestItemsBought += sold.quantity;
+                        if (sold.originKind == ProductOriginKind.Wholesale) cData.wholesaleItemsBought += sold.quantity;
+                        if (ProductPassportService.IsStale(sold)) cData.staleItemsBought += sold.quantity;
+                    }
+
                     if (cData.hasShoppingCart)
                     {
                         AddProductItemToCarriedCart(cData, rData.productName, buyCount);
                     }
 
-                    ShowShoppingPickPopup(cData.customerObj.transform.position, $"🛒 {rData.productName} ({buyCount} Adet)");
+                    string originTag = ProductPassportService.GetLotsTag(soldLots);
+                    string pickLabel = string.IsNullOrEmpty(originTag)
+                        ? $"🛒 {rData.productName} ({buyCount} Adet)"
+                        : $"🛒 {rData.productName} ({buyCount}) • {originTag}";
+                    ShowShoppingPickPopup(cData.customerObj.transform.position, pickLabel);
 
                     if (StoreQualityManager.Instance != null && Random.value < 0.40f)
                     {
-                        StoreQualityManager.Instance.AddQualityScore(2, cData.customerObj.transform.position, "Taze Ürün!");
+                        bool staleSale = cData.staleItemsBought > 0 && ProductPassportService.GetDominantFreshnessDays(soldLots) >= ProductPassportService.StaleDayThreshold;
+                        if (staleSale)
+                        {
+                            StoreQualityManager.Instance.SubtractQualityScore(3, cData.customerObj.transform.position, LocalizationManager.L("Quality_StaleProduct", "Bayat ürün!", "Stale product!"));
+                        }
+                        else
+                        {
+                            StoreQualityManager.Instance.AddQualityScore(2, cData.customerObj.transform.position, LocalizationManager.L("Quality_FreshProduct", "Taze Ürün!", "Fresh Product!"));
+                        }
                     }
                 }
             }

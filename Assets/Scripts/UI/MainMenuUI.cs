@@ -359,10 +359,10 @@ namespace Farm2Shelf.UI
             dpRect.anchorMin = new Vector2(0.5f, 0.5f);
             dpRect.anchorMax = new Vector2(0.5f, 0.5f);
             dpRect.pivot = new Vector2(0.5f, 0.5f);
-            dpRect.sizeDelta = new Vector2(700f, 560f);
+            dpRect.sizeDelta = new Vector2(720f, 820f);
 
             Image dpImg = dialogPanel.AddComponent<Image>();
-            dpImg.sprite = UIStyleUtility.CreateOutlinePillSprite(700, 560, 24, 3, new Color(0.25f, 0.80f, 0.45f), new Color(0.10f, 0.14f, 0.20f, 0.98f));
+            dpImg.sprite = UIStyleUtility.CreateOutlinePillSprite(720, 820, 24, 3, new Color(0.25f, 0.80f, 0.45f), new Color(0.10f, 0.14f, 0.20f, 0.98f));
             dpImg.raycastTarget = true;
 
             // Giriş Yaylı Animasyonu
@@ -495,6 +495,235 @@ namespace Farm2Shelf.UI
             companyCounterText = CreateTextChild(companyCounterObj, "(0/18)", 16, FontStyle.Bold, new Color(0.65f, 0.75f, 0.85f));
             if (companyCounterText != null) companyCounterText.alignment = TextAnchor.MiddleRight;
 
+            BrandIdentity selectedIdentity = BrandIdentity.LocalProducer;
+            Color selectedColor = StoreStatusManager.GetDefaultBrandColor(selectedIdentity);
+            InputField sloganInputField = null;
+            Image[] identityButtonImages = new Image[3];
+            Image[] colorSwatchImages = new Image[5];
+            Color[] colorSwatches = new Color[]
+            {
+                StoreStatusManager.GetDefaultBrandColor(BrandIdentity.LocalProducer),
+                StoreStatusManager.GetDefaultBrandColor(BrandIdentity.NeighborhoodMarket),
+                StoreStatusManager.GetDefaultBrandColor(BrandIdentity.GourmetWorkshop),
+                new Color(0.82f, 0.28f, 0.18f, 1f),
+                new Color(0.90f, 0.72f, 0.22f, 1f)
+            };
+
+            GameObject identityLabelObj = new GameObject("IdentityLabel");
+            identityLabelObj.transform.SetParent(dialogPanel.transform, false);
+            RectTransform ilRect = identityLabelObj.AddComponent<RectTransform>();
+            ilRect.anchorMin = new Vector2(0.08f, 1f);
+            ilRect.anchorMax = new Vector2(0.92f, 1f);
+            ilRect.pivot = new Vector2(0f, 1f);
+            ilRect.anchoredPosition = new Vector2(0f, -322f);
+            ilRect.sizeDelta = new Vector2(0f, 26f);
+            Text ilText = CreateTextChild(identityLabelObj, LocalizationManager.L("Modal_IdentityLabel", "Dükkan kimliği:", "Store identity:"), 18, FontStyle.Bold, new Color(0.55f, 0.92f, 0.62f));
+            if (ilText != null) ilText.alignment = TextAnchor.MiddleLeft;
+
+            GameObject identityRow = new GameObject("IdentityRow");
+            identityRow.transform.SetParent(dialogPanel.transform, false);
+            RectTransform irRect = identityRow.AddComponent<RectTransform>();
+            irRect.anchorMin = new Vector2(0.08f, 1f);
+            irRect.anchorMax = new Vector2(0.92f, 1f);
+            irRect.pivot = new Vector2(0.5f, 1f);
+            irRect.anchoredPosition = new Vector2(0f, -350f);
+            irRect.sizeDelta = new Vector2(0f, 86f);
+
+            BrandIdentity[] identities =
+            {
+                BrandIdentity.LocalProducer,
+                BrandIdentity.NeighborhoodMarket,
+                BrandIdentity.GourmetWorkshop
+            };
+
+            System.Action refreshIdentityButtons = () =>
+            {
+                for (int i = 0; i < identityButtonImages.Length; i++)
+                {
+                    if (identityButtonImages[i] == null) continue;
+                    bool on = identities[i] == selectedIdentity;
+                    identityButtonImages[i].sprite = UIStyleUtility.CreateOutlinePillSprite(
+                        200, 86, 12, on ? 3 : 1,
+                        on ? StoreStatusManager.GetDefaultBrandColor(identities[i]) : new Color(0.30f, 0.38f, 0.48f, 0.80f),
+                        on ? new Color(0.12f, 0.20f, 0.16f, 0.96f) : new Color(0.10f, 0.14f, 0.20f, 0.95f));
+                }
+            };
+
+            System.Action refreshColorSwatches = null;
+
+            for (int i = 0; i < identities.Length; i++)
+            {
+                int idx = i;
+                BrandIdentity identity = identities[idx];
+                GameObject btnObj = new GameObject("Identity_" + identity);
+                btnObj.transform.SetParent(identityRow.transform, false);
+                RectTransform bRect = btnObj.AddComponent<RectTransform>();
+                float x0 = idx / 3f;
+                float x1 = (idx + 1) / 3f;
+                bRect.anchorMin = new Vector2(x0, 0f);
+                bRect.anchorMax = new Vector2(x1, 1f);
+                bRect.offsetMin = new Vector2(idx == 0 ? 0f : 4f, 0f);
+                bRect.offsetMax = new Vector2(idx == 2 ? 0f : -4f, 0f);
+
+                Image bg = btnObj.AddComponent<Image>();
+                identityButtonImages[idx] = bg;
+                Button btn = btnObj.AddComponent<Button>();
+                btn.targetGraphic = bg;
+
+                string caption = StoreStatusManager.GetIdentityDisplayName(identity) + "\n<size=11>" + StoreStatusManager.GetIdentityHint(identity) + "</size>";
+                Text cap = CreateTextChild(btnObj, caption, 13, FontStyle.Bold, Color.white);
+                if (cap != null)
+                {
+                    cap.supportRichText = true;
+                    cap.horizontalOverflow = HorizontalWrapMode.Wrap;
+                    cap.verticalOverflow = VerticalWrapMode.Truncate;
+                    cap.resizeTextForBestFit = true;
+                    cap.resizeTextMinSize = 10;
+                    cap.resizeTextMaxSize = 14;
+                    RectTransform capRect = cap.GetComponent<RectTransform>();
+                    if (capRect != null)
+                    {
+                        capRect.offsetMin = new Vector2(6f, 4f);
+                        capRect.offsetMax = new Vector2(-6f, -4f);
+                    }
+                }
+
+                btn.onClick.AddListener(() =>
+                {
+                    if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
+                    selectedIdentity = identity;
+                    selectedColor = StoreStatusManager.GetDefaultBrandColor(identity);
+                    if (sloganInputField != null)
+                    {
+                        sloganInputField.text = StoreStatusManager.GetDefaultSlogan(identity);
+                    }
+                    refreshIdentityButtons();
+                    if (refreshColorSwatches != null) refreshColorSwatches();
+                });
+            }
+
+            refreshIdentityButtons();
+
+            GameObject colorLabelObj = new GameObject("ColorLabel");
+            colorLabelObj.transform.SetParent(dialogPanel.transform, false);
+            RectTransform colLRect = colorLabelObj.AddComponent<RectTransform>();
+            colLRect.anchorMin = new Vector2(0.08f, 1f);
+            colLRect.anchorMax = new Vector2(0.92f, 1f);
+            colLRect.pivot = new Vector2(0f, 1f);
+            colLRect.anchoredPosition = new Vector2(0f, -446f);
+            colLRect.sizeDelta = new Vector2(0f, 24f);
+            Text colLText = CreateTextChild(colorLabelObj, LocalizationManager.L("Modal_ColorLabel", "Tabela rengi:", "Sign color:"), 18, FontStyle.Bold, new Color(1.0f, 0.78f, 0.42f));
+            if (colLText != null) colLText.alignment = TextAnchor.MiddleLeft;
+
+            GameObject swatchRow = new GameObject("ColorSwatchRow");
+            swatchRow.transform.SetParent(dialogPanel.transform, false);
+            RectTransform swRect = swatchRow.AddComponent<RectTransform>();
+            swRect.anchorMin = new Vector2(0.08f, 1f);
+            swRect.anchorMax = new Vector2(0.92f, 1f);
+            swRect.pivot = new Vector2(0.5f, 1f);
+            swRect.anchoredPosition = new Vector2(0f, -472f);
+            swRect.sizeDelta = new Vector2(0f, 48f);
+
+            refreshColorSwatches = () =>
+            {
+                for (int s = 0; s < colorSwatchImages.Length; s++)
+                {
+                    if (colorSwatchImages[s] == null) continue;
+                    bool on = ColorsClose(colorSwatches[s], selectedColor);
+                    colorSwatchImages[s].sprite = UIStyleUtility.CreateOutlinePillSprite(
+                        72, 48, 10, on ? 3 : 1,
+                        Color.white,
+                        colorSwatches[s]);
+                }
+            };
+
+            for (int s = 0; s < colorSwatches.Length; s++)
+            {
+                int sIdx = s;
+                GameObject swObj = new GameObject("Swatch_" + sIdx);
+                swObj.transform.SetParent(swatchRow.transform, false);
+                RectTransform sRect = swObj.AddComponent<RectTransform>();
+                float x0 = sIdx / 5f;
+                float x1 = (sIdx + 1) / 5f;
+                sRect.anchorMin = new Vector2(x0, 0f);
+                sRect.anchorMax = new Vector2(x1, 1f);
+                sRect.offsetMin = new Vector2(4f, 2f);
+                sRect.offsetMax = new Vector2(-4f, -2f);
+
+                Image swImg = swObj.AddComponent<Image>();
+                swImg.color = colorSwatches[sIdx];
+                colorSwatchImages[sIdx] = swImg;
+                Button swBtn = swObj.AddComponent<Button>();
+                swBtn.targetGraphic = swImg;
+                swBtn.onClick.AddListener(() =>
+                {
+                    if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
+                    selectedColor = colorSwatches[sIdx];
+                    refreshColorSwatches();
+                });
+            }
+
+            refreshColorSwatches();
+
+            GameObject sloganLabelObj = new GameObject("SloganLabel");
+            sloganLabelObj.transform.SetParent(dialogPanel.transform, false);
+            RectTransform slRect = sloganLabelObj.AddComponent<RectTransform>();
+            slRect.anchorMin = new Vector2(0.08f, 1f);
+            slRect.anchorMax = new Vector2(0.92f, 1f);
+            slRect.pivot = new Vector2(0f, 1f);
+            slRect.anchoredPosition = new Vector2(0f, -530f);
+            slRect.sizeDelta = new Vector2(0f, 24f);
+            Text slText = CreateTextChild(sloganLabelObj, LocalizationManager.L("Modal_SloganLabel", "Kısa slogan (tabela):", "Short slogan (sign):"), 18, FontStyle.Bold, new Color(0.75f, 0.88f, 1.0f));
+            if (slText != null) slText.alignment = TextAnchor.MiddleLeft;
+
+            GameObject sloganInputBox = new GameObject("SloganInputBox");
+            sloganInputBox.transform.SetParent(dialogPanel.transform, false);
+            RectTransform sibRect = sloganInputBox.AddComponent<RectTransform>();
+            sibRect.anchorMin = new Vector2(0.08f, 1f);
+            sibRect.anchorMax = new Vector2(0.92f, 1f);
+            sibRect.pivot = new Vector2(0.5f, 1f);
+            sibRect.anchoredPosition = new Vector2(0f, -556f);
+            sibRect.sizeDelta = new Vector2(0f, 52f);
+
+            Text sloganCounterText = null;
+            string[] sloganDice = new string[]
+            {
+                StoreStatusManager.GetDefaultSlogan(BrandIdentity.LocalProducer),
+                StoreStatusManager.GetDefaultSlogan(BrandIdentity.NeighborhoodMarket),
+                StoreStatusManager.GetDefaultSlogan(BrandIdentity.GourmetWorkshop)
+            };
+            sloganInputField = CreateInputFieldWithDice(
+                sloganInputBox,
+                LocalizationManager.L("Modal_SloganPlaceholder", "Örn: Tarladan sofraya...", "Ex: From field to table..."),
+                StoreStatusManager.SloganMaxChars,
+                sloganDice,
+                (val, textLen) =>
+                {
+                    if (sloganCounterText != null)
+                    {
+                        sloganCounterText.text = $"({textLen}/{StoreStatusManager.SloganMaxChars})";
+                        sloganCounterText.color = (textLen > StoreStatusManager.SloganMaxChars)
+                            ? new Color(0.95f, 0.40f, 0.30f)
+                            : new Color(0.65f, 0.75f, 0.85f);
+                    }
+                });
+
+            GameObject sloganCounterObj = new GameObject("Counter");
+            sloganCounterObj.transform.SetParent(sloganInputBox.transform, false);
+            RectTransform scnRect = sloganCounterObj.AddComponent<RectTransform>();
+            scnRect.anchorMin = new Vector2(0.83f, 0f);
+            scnRect.anchorMax = new Vector2(0.83f, 1f);
+            scnRect.pivot = new Vector2(1f, 0.5f);
+            scnRect.anchoredPosition = new Vector2(-14f, 0f);
+            scnRect.sizeDelta = new Vector2(80f, 0f);
+            sloganCounterText = CreateTextChild(sloganCounterObj, $"(0/{StoreStatusManager.SloganMaxChars})", 16, FontStyle.Bold, new Color(0.65f, 0.75f, 0.85f));
+            if (sloganCounterText != null) sloganCounterText.alignment = TextAnchor.MiddleRight;
+
+            if (sloganInputField != null)
+            {
+                sloganInputField.text = StoreStatusManager.GetDefaultSlogan(selectedIdentity);
+            }
+
             // ================= ALT AKSİYON BUTONLARI =================
             GameObject footerObj = new GameObject("Footer");
             footerObj.transform.SetParent(dialogPanel.transform, false);
@@ -561,6 +790,8 @@ namespace Farm2Shelf.UI
                 if (StoreStatusManager.Instance != null)
                 {
                     StoreStatusManager.Instance.SetPlayerAndCompany(pName, cName);
+                    string slogan = sloganInputField != null ? sloganInputField.text.Trim() : "";
+                    StoreStatusManager.Instance.SetBrand(selectedIdentity, selectedColor, slogan);
                 }
 
                 Destroy(backdrop);
@@ -730,6 +961,11 @@ namespace Farm2Shelf.UI
             try { txt.text = content ?? ""; } catch {}
 
             return txt;
+        }
+
+        private static bool ColorsClose(Color a, Color b)
+        {
+            return (a.r - b.r) * (a.r - b.r) + (a.g - b.g) * (a.g - b.g) + (a.b - b.b) * (a.b - b.b) < 0.0025f;
         }
 
         private System.Collections.IEnumerator AnimateModalEntrance(Transform dialogTransform)

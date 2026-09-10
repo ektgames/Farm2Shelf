@@ -30,6 +30,7 @@ namespace Farm2Shelf.Core
 
         // Ahır Ürün Envanteri (seedId -> biçilen mahsul adedi)
         private Dictionary<string, int> barnCropInventory = new Dictionary<string, int>();
+        private Dictionary<string, List<ProductLot>> barnCropLots = new Dictionary<string, List<ProductLot>>();
 
         // Ahır Geliştirme Seviyesi (1: 500 KG, 2: 1500 KG, 3: 4000 KG)
         public int BarnUpgradeLevel { get; private set; } = 1;
@@ -89,6 +90,7 @@ namespace Farm2Shelf.Core
             // Ahır varsayılan olarak tamamen boş başlar (0 KG).
             // Yalnızca oyuncunun tarlalarına ektiği ve hasat ettiği mahsuller burada birikir.
             barnCropInventory.Clear();
+            barnCropLots.Clear();
         }
 
         public void AddSeeds(string seedId, int count)
@@ -151,27 +153,121 @@ namespace Farm2Shelf.Core
 
         public bool TryAddCropToBarn(string seedId, int amount)
         {
+            return TryAddCropToBarn(seedId, amount, null);
+        }
+
+        public bool TryAddCropToBarn(string seedId, int amount, ProductLot lot)
+        {
             if (string.IsNullOrEmpty(seedId) || amount <= 0) return false;
             if (!CanAddToBarn(amount)) return false;
 
             if (!barnCropInventory.ContainsKey(seedId)) barnCropInventory[seedId] = 0;
             barnCropInventory[seedId] += amount;
+            EnsureBarnLotList(seedId);
+            if (lot != null)
+            {
+                ProductLot copy = lot.Clone();
+                copy.productId = seedId;
+                copy.quantity = amount;
+                ProductPassportService.MergeAdd(barnCropLots[seedId], copy);
+            }
+            else
+            {
+                ProductPassportService.MergeAdd(barnCropLots[seedId], ProductPassportService.CreateLegacyLot(seedId, amount));
+            }
+            SyncBarnCounts(seedId);
             OnInventoryUpdated?.Invoke();
             return true;
         }
 
         public void RestoreBarnCrops(Dictionary<string, int> crops)
         {
+            RestoreBarnCrops(crops, null);
+        }
+
+        public void RestoreBarnCrops(Dictionary<string, int> crops, List<BarnCropSaveData> savedRows)
+        {
             barnCropInventory.Clear();
+            barnCropLots.Clear();
             if (crops != null)
             {
                 foreach (var kvp in crops)
                 {
                     if (string.IsNullOrEmpty(kvp.Key) || kvp.Value <= 0) continue;
                     barnCropInventory[kvp.Key] = kvp.Value;
+                    List<ProductLot> savedLots = null;
+                    if (savedRows != null)
+                    {
+                        BarnCropSaveData row = savedRows.Find(c => c != null && c.seedId == kvp.Key);
+                        if (row != null) savedLots = row.lots;
+                    }
+                    barnCropLots[kvp.Key] = ProductPassportService.RestoreLotsOrLegacy(kvp.Key, kvp.Value, savedLots);
                 }
             }
             OnInventoryUpdated?.Invoke();
+        }
+
+        public List<BarnCropSaveData> ExportBarnCropsForSave()
+        {
+            List<BarnCropSaveData> rows = new List<BarnCropSaveData>();
+            foreach (var kvp in barnCropInventory)
+            {
+                if (string.IsNullOrEmpty(kvp.Key) || kvp.Value <= 0) continue;
+                EnsureBarnLotList(kvp.Key);
+                rows.Add(new BarnCropSaveData
+                {
+                    seedId = kvp.Key,
+                    count = kvp.Value,
+                    lots = ProductPassportService.CloneLots(barnCropLots[kvp.Key])
+                });
+            }
+            return rows;
+        }
+
+        public string GetBarnPassportSummary(string seedId)
+        {
+            if (string.IsNullOrEmpty(seedId) || !barnCropLots.ContainsKey(seedId)) return "";
+            return ProductPassportService.GetCardText(ProductPassportService.ResolveProductDisplayName(seedId), barnCropLots[seedId]);
+        }
+
+        private void EnsureBarnLotList(string seedId)
+        {
+            if (!barnCropLots.ContainsKey(seedId) || barnCropLots[seedId] == null)
+            {
+                barnCropLots[seedId] = new List<ProductLot>();
+            }
+        }
+
+        private void SyncBarnCounts(string seedId)
+        {
+            if (string.IsNullOrEmpty(seedId)) return;
+            EnsureBarnLotList(seedId);
+            int lotSum = ProductPassportService.SumLots(barnCropLots[seedId]);
+            int count = barnCropInventory.ContainsKey(seedId) ? barnCropInventory[seedId] : 0;
+            if (count <= 0)
+            {
+                barnCropInventory.Remove(seedId);
+                barnCropLots.Remove(seedId);
+                return;
+            }
+
+            if (count > lotSum)
+            {
+                ProductPassportService.MergeAdd(barnCropLots[seedId], ProductPassportService.CreateLegacyLot(seedId, count - lotSum));
+            }
+            else if (count < lotSum)
+            {
+                ProductPassportService.TakeFifo(barnCropLots[seedId], lotSum - count);
+            }
+
+            lotSum = ProductPassportService.SumLots(barnCropLots[seedId]);
+            if (lotSum < count)
+            {
+                ProductPassportService.MergeAdd(barnCropLots[seedId], ProductPassportService.CreateLegacyLot(seedId, count - lotSum));
+                lotSum = ProductPassportService.SumLots(barnCropLots[seedId]);
+            }
+
+            barnCropInventory[seedId] = Mathf.Max(count, lotSum);
         }
 
         public static void ShowBarnFullModal()
@@ -195,19 +291,40 @@ namespace Farm2Shelf.Core
         public void ClearBarnInventory()
         {
             barnCropInventory.Clear();
+            barnCropLots.Clear();
             OnInventoryUpdated?.Invoke();
         }
 
         public bool ConsumeBarnCrop(string seedId, int amount)
         {
-            if (barnCropInventory.ContainsKey(seedId) && barnCropInventory[seedId] >= amount)
+            return ConsumeBarnCrop(seedId, amount, out _);
+        }
+
+        public bool ConsumeBarnCrop(string seedId, int amount, out List<ProductLot> consumedLots)
+        {
+            consumedLots = new List<ProductLot>();
+            if (string.IsNullOrEmpty(seedId) || amount <= 0) return false;
+            if (!barnCropInventory.ContainsKey(seedId) || barnCropInventory[seedId] < amount) return false;
+
+            EnsureBarnLotList(seedId);
+            SyncBarnCounts(seedId);
+            if (!barnCropInventory.ContainsKey(seedId) || barnCropInventory[seedId] < amount) return false;
+
+            consumedLots = ProductPassportService.TakeFifo(barnCropLots[seedId], amount);
+            int taken = ProductPassportService.SumLots(consumedLots);
+            if (taken < amount)
             {
-                barnCropInventory[seedId] -= amount;
-                if (barnCropInventory[seedId] <= 0) barnCropInventory.Remove(seedId);
-                OnInventoryUpdated?.Invoke();
-                return true;
+                ProductPassportService.MergeAdd(consumedLots, ProductPassportService.CreateLegacyLot(seedId, amount - taken));
             }
-            return false;
+
+            barnCropInventory[seedId] -= amount;
+            if (barnCropInventory[seedId] <= 0)
+            {
+                barnCropInventory.Remove(seedId);
+                barnCropLots.Remove(seedId);
+            }
+            OnInventoryUpdated?.Invoke();
+            return true;
         }
 
         public bool UpgradeBarn()

@@ -22,6 +22,7 @@ namespace Farm2Shelf.Environment
         private readonly List<Light> streetPointLights = new List<Light>();
         private readonly List<Renderer> streetLampBulbs = new List<Renderer>();
         private readonly List<Light> storeInteriorLights = new List<Light>();
+        private readonly List<Light> playerInteriorLights = new List<Light>();
         private readonly List<Light> vehicleHeadlights = new List<Light>();
         private readonly List<Renderer> headlightRenderers = new List<Renderer>();
         private readonly List<Renderer> buildingWindows = new List<Renderer>();
@@ -44,6 +45,8 @@ namespace Farm2Shelf.Environment
         private bool isNight = false;
         private float nextLightingUpdateTime;
         private const float LIGHTING_UPDATE_INTERVAL = 0.25f;
+        private readonly HashSet<int> configuredLightIds = new HashSet<int>();
+        private readonly HashSet<int> playerInteriorIds = new HashSet<int>();
 
         private void Awake()
         {
@@ -152,7 +155,12 @@ namespace Farm2Shelf.Environment
 
         public void RegisterStreetLamp(GameObject bulbObj, Light pLight)
         {
-            if (pLight != null && !streetPointLights.Contains(pLight)) streetPointLights.Add(pLight);
+            ConfigureAndTrackLight(pLight);
+            if (pLight != null && !streetPointLights.Contains(pLight))
+            {
+                streetPointLights.Add(pLight);
+                pLight.enabled = isNight;
+            }
             if (bulbObj != null)
             {
                 Renderer r = bulbObj.GetComponent<Renderer>();
@@ -160,17 +168,31 @@ namespace Farm2Shelf.Environment
                 {
                     PrepareNightSurfaceRenderer(r);
                     streetLampBulbs.Add(r);
+                    if (isNight && bulbOnMat != null) r.sharedMaterial = bulbOnMat;
                 }
             }
         }
 
         public void RegisterStoreInteriorLight(Light iLight)
         {
+            ConfigureAndTrackLight(iLight);
             if (iLight != null && !storeInteriorLights.Contains(iLight))
             {
                 storeInteriorLights.Add(iLight);
                 iLight.enabled = isNight;
             }
+        }
+
+        public void RegisterPlayerInteriorLight(Light iLight)
+        {
+            if (iLight == null) return;
+            LightingPipelineBinder.ConfigurePlayerInteriorLight(iLight);
+            playerInteriorIds.Add(iLight.GetInstanceID());
+            if (!playerInteriorLights.Contains(iLight))
+            {
+                playerInteriorLights.Add(iLight);
+            }
+            iLight.enabled = true;
         }
 
         public void RegisterVehicleHeadlightController(VehicleHeadlightController ctrl)
@@ -184,6 +206,7 @@ namespace Farm2Shelf.Environment
 
         public void RegisterVehicleHeadlight(Light sLight, GameObject hlObj = null)
         {
+            ConfigureAndTrackLight(sLight);
             if (sLight != null && !vehicleHeadlights.Contains(sLight))
             {
                 vehicleHeadlights.Add(sLight);
@@ -245,6 +268,18 @@ namespace Farm2Shelf.Environment
         public void ClearStoreInteriorLights()
         {
             storeInteriorLights.Clear();
+        }
+
+        public void ClearPlayerInteriorLights()
+        {
+            for (int i = 0; i < playerInteriorLights.Count; i++)
+            {
+                if (playerInteriorLights[i] != null)
+                {
+                    playerInteriorIds.Remove(playerInteriorLights[i].GetInstanceID());
+                }
+            }
+            playerInteriorLights.Clear();
         }
 
         private void ScanAndCollectSceneNightObjects()
@@ -342,9 +377,11 @@ namespace Farm2Shelf.Environment
             else
             {
                 // GECE (20:00 - 06:00)
-                sunColor = new Color(0.22f, 0.30f, 0.55f);
-                skyAmbientColor = new Color(0.08f, 0.10f, 0.22f);
-                sunIntensity = 0.12f;
+                sunColor = new Color(0.28f, 0.36f, 0.58f);
+                skyAmbientColor = Application.isMobilePlatform
+                    ? new Color(0.16f, 0.18f, 0.30f)
+                    : new Color(0.12f, 0.14f, 0.26f);
+                sunIntensity = Application.isMobilePlatform ? 0.22f : 0.16f;
             }
 
             ApplyWeatherAtmosphere(timeInHours, ref sunColor, ref skyAmbientColor, ref sunIntensity);
@@ -405,13 +442,26 @@ namespace Farm2Shelf.Environment
             }
         }
 
+        public void ApplyPlayerInteriorBrandTint(Color tint)
+        {
+            for (int i = playerInteriorLights.Count - 1; i >= 0; i--)
+            {
+                if (playerInteriorLights[i] == null)
+                {
+                    playerInteriorLights.RemoveAt(i);
+                    continue;
+                }
+
+                playerInteriorLights[i].color = tint;
+            }
+        }
+
         private void ToggleNightLights(bool turnOn)
         {
-            // A) Sokak Lambaları Işıkları ve Ampul Materyalleri
-            foreach (var pLight in streetPointLights)
-            {
-                if (pLight != null) pLight.enabled = turnOn;
-            }
+            SetListLightsEnabled(streetPointLights, turnOn);
+            SetListLightsEnabled(storeInteriorLights, turnOn);
+            SetListLightsEnabled(vehicleHeadlights, turnOn);
+            SetListLightsEnabled(playerInteriorLights, true);
 
             Material targetBulbMat = turnOn ? bulbOnMat : bulbOffMat;
             foreach (var r in streetLampBulbs)
@@ -419,35 +469,46 @@ namespace Farm2Shelf.Environment
                 if (r != null && targetBulbMat != null) r.sharedMaterial = targetBulbMat;
             }
 
-            // B) Mağaza İçi Tüm Oda Tavan Işıkları (Canlı ve Parlak Aydınlatma)
-            foreach (var iLight in storeInteriorLights)
-            {
-                if (iLight != null) iLight.enabled = turnOn;
-            }
-
-            // C) Binaların Cam Işıkları (Gece Işıldayan Camlar)
             Material targetWinMat = turnOn ? windowGlowOnMat : windowGlowOffMat;
             foreach (var r in buildingWindows)
             {
                 if (r != null && targetWinMat != null) r.sharedMaterial = targetWinMat;
             }
 
-            // D) Araç Farları ve Ön Işık Huzmeleri
             vehicleHeadlightControllers.RemoveAll(c => c == null);
             foreach (var ctrl in vehicleHeadlightControllers)
             {
                 if (ctrl != null) ctrl.UpdateHeadlights();
             }
 
-            foreach (var vLight in vehicleHeadlights)
-            {
-                if (vLight != null) vLight.enabled = turnOn;
-            }
-
             Material targetHlMat = turnOn ? headlightOnMat : headlightOffMat;
             foreach (var r in headlightRenderers)
             {
                 if (r != null && targetHlMat != null) r.sharedMaterial = targetHlMat;
+            }
+        }
+
+        private static void SetListLightsEnabled(List<Light> lights, bool enabled)
+        {
+            for (int i = lights.Count - 1; i >= 0; i--)
+            {
+                if (lights[i] == null)
+                {
+                    lights.RemoveAt(i);
+                    continue;
+                }
+                lights[i].enabled = enabled;
+            }
+        }
+
+        private void ConfigureAndTrackLight(Light light)
+        {
+            if (light == null) return;
+            int id = light.GetInstanceID();
+            if (playerInteriorIds.Contains(id)) return;
+            if (configuredLightIds.Add(id))
+            {
+                LightingPipelineBinder.ConfigureRealtimeLight(light);
             }
         }
     }

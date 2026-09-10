@@ -17,6 +17,7 @@ namespace Farm2Shelf.Core
         public int currentStock;
         public int maxCapacity;
         public float unitPrice;
+        public List<ProductLot> lots = new List<ProductLot>();
 
         public ShelfRowData(int rowId, string productName, int currentStock, int maxCapacity, float unitPrice, string productId = "")
         {
@@ -26,6 +27,7 @@ namespace Farm2Shelf.Core
             this.currentStock = currentStock;
             this.maxCapacity = maxCapacity;
             this.unitPrice = unitPrice;
+            this.lots = new List<ProductLot>();
         }
 
         public bool IsFull => currentStock >= maxCapacity;
@@ -122,11 +124,22 @@ namespace Farm2Shelf.Core
         private void HandleDateUpdatedForSeasonBadge(TimeManager.Season season, int day, int year)
         {
             UpdateSeasonWarningBadge();
+            RefreshAllRowMeshes();
         }
 
         private void HandleLanguageChanged(GameLanguage language)
         {
             UpdateSeasonWarningBadge();
+            RefreshAllRowMeshes();
+        }
+
+        private void RefreshAllRowMeshes()
+        {
+            if (rows == null) return;
+            for (int i = 0; i < rows.Length; i++)
+            {
+                UpdateRow3DProductMeshes(i + 1);
+            }
         }
 
         public void OnPointerDown(PointerEventData eventData)
@@ -620,6 +633,7 @@ namespace Farm2Shelf.Core
                 rData.productId = "";
                 rData.unitPrice = 0f;
                 rData.currentStock = 0;
+                ProductPassportService.ClearRowContents(rData);
             }
 
             if (rData == null || rData.IsEmpty || rData.currentStock <= 0 || rData.IsUnassigned) return;
@@ -642,6 +656,34 @@ namespace Farm2Shelf.Core
             }
 
             EnsureChildClickForwarders();
+            CreateFreshnessWorldLabel(rowContainer.transform, rData, targetIndex);
+        }
+
+        private void CreateFreshnessWorldLabel(Transform rowContainer, ShelfRowData rData, int rowIndex)
+        {
+            if (rowContainer == null || rData == null) return;
+            if (FurnitureType == FurnitureType.StorageShelf) return;
+
+            ProductPassportService.EnsureRowLots(rData);
+            string tag = ProductPassportService.GetShelfTag(rData);
+            if (string.IsNullOrEmpty(tag)) return;
+
+            GameObject labelObj = new GameObject("FreshnessTag");
+            labelObj.transform.SetParent(rowContainer, false);
+            float y = 0.55f + rowIndex * 0.48f;
+            if (FurnitureType == FurnitureType.ProduceShelf) y = 0.50f + rowIndex * 0.42f;
+            else if (FurnitureType == FurnitureType.Fridge || FurnitureType == FurnitureType.OrganicFridge) y = 0.45f + rowIndex * 0.40f;
+            labelObj.transform.localPosition = new Vector3(0f, y, -0.42f);
+
+            TextMesh tm = labelObj.AddComponent<TextMesh>();
+            tm.text = tag;
+            tm.fontSize = 42;
+            tm.characterSize = 0.032f;
+            tm.anchor = TextAnchor.MiddleCenter;
+            tm.alignment = TextAlignment.Center;
+            tm.color = ProductPassportService.GetTagColor(rData.lots);
+            tm.fontStyle = FontStyle.Bold;
+            labelObj.AddComponent<WorldLabelBillboard>();
         }
 
         private void GetShelfRowGridPlacement(

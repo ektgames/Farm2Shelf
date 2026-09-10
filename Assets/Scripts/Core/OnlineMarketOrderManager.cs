@@ -25,6 +25,9 @@ namespace Farm2Shelf.Core
         public bool isGatheringCompleted = false;
         public bool isAssignedToStocker = false;
         public CourierMotorcycleController assignedMotorcycle;
+        public bool isTownContract;
+        public string contractPartnerId;
+        public string contractOfferId;
 
         public string LocalizedDestination => (LocalizationManager.Instance != null && LocalizationManager.Instance.IsEnglish)
             ? destinationNameEn
@@ -335,6 +338,22 @@ namespace Farm2Shelf.Core
             Debug.Log($"[Online Market] Yeni Sipariş Geldi: {order.orderId} -> {order.LocalizedDestination} ({order.requestedProducts.Count} Çeşit Ürün)");
         }
 
+        public void EnqueueExistingOrder(OnlineCustomerOrder order)
+        {
+            if (order == null) return;
+            pendingOrders.Add(order);
+            OnOrdersChanged?.Invoke();
+        }
+
+        public bool HasPendingCourierDeliveries()
+        {
+            for (int i = 0; i < pendingOrders.Count; i++)
+            {
+                if (pendingOrders[i] != null) return true;
+            }
+            return false;
+        }
+
         public OnlineCustomerOrder GetNextOrderNeedingStocker()
         {
             for (int i = 0; i < pendingOrders.Count; i++)
@@ -413,7 +432,10 @@ namespace Farm2Shelf.Core
                     totalEstimatedValue = order.totalEstimatedValue,
                     courierDeliveryFee = order.courierDeliveryFee,
                     isGatheringCompleted = order.isGatheringCompleted,
-                    assignedMotorcycleSlot = order.assignedMotorcycle != null ? order.assignedMotorcycle.SlotIndex : -1
+                    assignedMotorcycleSlot = order.assignedMotorcycle != null ? order.assignedMotorcycle.SlotIndex : -1,
+                    isTownContract = order.isTownContract,
+                    contractPartnerId = order.contractPartnerId,
+                    contractOfferId = order.contractOfferId
                 };
 
                 foreach (var product in order.requestedProducts)
@@ -454,7 +476,10 @@ namespace Farm2Shelf.Core
                         totalEstimatedValue = data.totalEstimatedValue,
                         courierDeliveryFee = data.courierDeliveryFee > 0 ? data.courierDeliveryFee : 60,
                         isGatheringCompleted = data.isGatheringCompleted,
-                        isAssignedToStocker = false
+                        isAssignedToStocker = false,
+                        isTownContract = data.isTownContract,
+                        contractPartnerId = data.contractPartnerId,
+                        contractOfferId = data.contractOfferId
                     };
 
                     if (data.productIds != null)
@@ -542,16 +567,31 @@ namespace Farm2Shelf.Core
 
             if (FinanceManager.Instance != null)
             {
-                string cat = FinanceCategories.OnlineDelivery;
-                string desc = isFullDelivery
-                    ? string.Format(LocalizationManager.L("FinDesc_DeliveryFull", "Online Sipariş #{0} Tam Teslimat (+Kurye Ücreti)", "Online Order #{0} Full Delivery (+Courier Fee)"), order.orderId)
-                    : string.Format(LocalizationManager.L("FinDesc_DeliveryPartial", "Online Sipariş #{0} Kısmi Teslimat", "Online Order #{0} Partial Delivery"), order.orderId);
+                string cat = order.isTownContract ? FinanceCategories.TownContracts : FinanceCategories.OnlineDelivery;
+                string desc;
+                if (order.isTownContract)
+                {
+                    desc = isFullDelivery
+                        ? string.Format(LocalizationManager.L("FinDesc_ContractFull", "Kasaba Kontratı #{0} Tam Teslimat", "Town Contract #{0} Full Delivery"), order.orderId)
+                        : string.Format(LocalizationManager.L("FinDesc_ContractPartial", "Kasaba Kontratı #{0} Eksik Teslimat", "Town Contract #{0} Short Delivery"), order.orderId);
+                }
+                else
+                {
+                    desc = isFullDelivery
+                        ? string.Format(LocalizationManager.L("FinDesc_DeliveryFull", "Online Sipariş #{0} Tam Teslimat (+Kurye Ücreti)", "Online Order #{0} Full Delivery (+Courier Fee)"), order.orderId)
+                        : string.Format(LocalizationManager.L("FinDesc_DeliveryPartial", "Online Sipariş #{0} Kısmi Teslimat", "Online Order #{0} Partial Delivery"), order.orderId);
+                }
 
                 FinanceManager.Instance.RecordIncome(cat, desc, earnedMoney);
             }
 
-            // Chirper Sosyal Medya Tweet'i Tetikle
-            if (SocialMediaManager.Instance != null)
+            if (order.isTownContract && TownContractManager.Instance != null)
+            {
+                TownContractManager.Instance.NotifyContractDelivery(order, isFullDelivery);
+            }
+
+            // Chirper Sosyal Medya Tweet'i Tetikle (kontrat yorumları TownContractManager'da)
+            if (!order.isTownContract && SocialMediaManager.Instance != null)
             {
                 string storeName = SocialMediaManager.Instance.GetStoreName();
                 if (isFullDelivery)

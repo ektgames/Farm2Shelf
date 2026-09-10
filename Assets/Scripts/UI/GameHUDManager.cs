@@ -461,6 +461,17 @@ namespace Farm2Shelf.UI
 
         private void OnStoreButtonClicked()
         {
+            if (EndOfDayReportModalUI.IsReportModalOpen) return;
+
+            if (TimeManager.Instance != null && TimeManager.Instance.Hour >= 24)
+            {
+                if (StoreStatusManager.Instance != null)
+                {
+                    StoreStatusManager.Instance.SetStoreStatus(true);
+                }
+                return;
+            }
+
             if (ModalManager.IsModalOpen) return;
 
             if (StoreStatusManager.Instance != null)
@@ -506,6 +517,22 @@ namespace Farm2Shelf.UI
             if (StoreStatusManager.Instance != null)
             {
                 StoreStatusManager.Instance.OnStoreStatusChanged += HandleStoreStatusChanged;
+            }
+        }
+
+        public void NotifyEndOfDayGateChanged()
+        {
+            bool dayEndedAtMidnight = TimeManager.Instance != null && TimeManager.Instance.Hour >= 24;
+            if (!isWaitingForEvacuation && !dayEndedAtMidnight) return;
+            if (EndOfDayReportModalUI.IsReportModalOpen) return;
+
+            bool isStoreClosed = (StoreStatusManager.Instance != null && !StoreStatusManager.Instance.IsOpen);
+            if (!isStoreClosed) return;
+
+            if (CanOpenEndOfDayReport())
+            {
+                isWaitingForEvacuation = true;
+                TryOpenEndOfDayReport();
             }
         }
 
@@ -591,6 +618,9 @@ namespace Farm2Shelf.UI
             if (creditsText != null)
             {
                 creditsText.text = $"💳 {currentCredits:N0}C";
+                creditsText.color = currentCredits < 0
+                    ? new Color(1.0f, 0.42f, 0.38f)
+                    : new Color(0.30f, 0.88f, 1.0f);
             }
         }
 

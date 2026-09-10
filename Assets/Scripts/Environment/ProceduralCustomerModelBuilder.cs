@@ -55,7 +55,8 @@ namespace Farm2Shelf.Environment
         L3_Supermodel,         // Siyah podyum elbiseli pırlanta küpeli süpermodel
         L3_TechInvestor,       // Minimalist blazer ceketli melek yatırımcı
         L3_OperaSinger,        // Papyonlu smokinli fraklı opera sanatçısı
-        L3_LuxuryCollector     // Bordo kadife ceketli inci kolyeli sanat koleksiyoneri
+        L3_LuxuryCollector,    // Bordo kadife ceketli inci kolyeli sanat koleksiyoneri
+        L3_SeasonalInspector   // Takım elbiseli, jöleli saçlı mevsim sonu müfettişi
     }
 
     public static class ProceduralCustomerModelBuilder
@@ -234,6 +235,13 @@ namespace Farm2Shelf.Environment
                     beard = true;
                     mustache = true;
                     break;
+                case CustomerType.L3_SeasonalInspector:
+                    hair = hairBlack;
+                    style = ProceduralHumanFaceBuilder.HairStyle.SlickMale;
+                    beard = false;
+                    mustache = false;
+                    lipstick = false;
+                    break;
                 case CustomerType.L1_VillageGirl:
                 case CustomerType.L2_ArtistGirl:
                     hair = hairBrown;
@@ -296,6 +304,7 @@ namespace Farm2Shelf.Environment
 
                 // Level 3
                 case CustomerType.L3_CEO_Executive: return new Color(0.12f, 0.14f, 0.18f); // Siyah Lüks Takım
+                case CustomerType.L3_SeasonalInspector: return new Color(0.10f, 0.14f, 0.22f); // Lacivert takım ceket
                 case CustomerType.L3_VIP_Influencer: return new Color(0.95f, 0.75f, 0.85f); // Stil Pembe Ceket
                 case CustomerType.L3_RichGentleman: return new Color(0.20f, 0.15f, 0.25f); // Koyu Mor Takım
                 case CustomerType.L3_BoutiqueLady: return new Color(0.85f, 0.75f, 0.55f); // Krem Kürk Ceket
@@ -334,6 +343,7 @@ namespace Farm2Shelf.Environment
                 case CustomerType.L2_BaristaGirl: return new Color(0.15f, 0.22f, 0.35f); // Koyu Kot Pantolon
                 case CustomerType.L2_Veterinarian: return new Color(0.35f, 0.65f, 0.50f); // Mint Scrub Pantolonu
                 case CustomerType.L3_CEO_Executive: return new Color(0.12f, 0.14f, 0.18f);
+                case CustomerType.L3_SeasonalInspector: return new Color(0.08f, 0.09f, 0.12f);
                 case CustomerType.L3_GoldChainRapper: return new Color(0.12f, 0.12f, 0.14f);
                 case CustomerType.L3_GourmetCritic: return new Color(0.85f, 0.80f, 0.70f); // Krem Pantolon
                 case CustomerType.L3_Supermodel: return new Color(0.08f, 0.08f, 0.10f); // Saten Etek
@@ -519,6 +529,18 @@ namespace Farm2Shelf.Environment
                     CreateBlock(parent, "Pearl_Necklace", new Vector3(0f, 1.28f, 0.16f), new Vector3(0.24f, 0.10f, 0.04f), pearlMat);
                     CreateBlock(parent, "Ruby_Cane_Shaft", new Vector3(0.35f, 0.50f, 0.15f), new Vector3(0.05f, 0.90f, 0.05f), hatBlack);
                     CreateBlock(parent, "Ruby_Cane_Head", new Vector3(0.35f, 0.96f, 0.15f), new Vector3(0.09f, 0.09f, 0.09f), rubyMat);
+                    break;
+
+                case CustomerType.L3_SeasonalInspector:
+                    Material shirtWhite = GetMaterial("Mat_InspectorShirt", new Color(0.96f, 0.96f, 0.97f));
+                    Material gelShine = GetMaterial("Mat_InspectorGel", new Color(0.18f, 0.16f, 0.14f), 0.55f, 0.92f);
+                    CreateBlock(parent, "Shirt_Placket", new Vector3(0f, 1.12f, 0.16f), new Vector3(0.16f, 0.38f, 0.03f), shirtWhite);
+                    CreateBlock(parent, "Navy_Tie", new Vector3(0f, 1.12f, 0.18f), new Vector3(0.07f, 0.38f, 0.02f), GetMaterial("Mat_InspectorTie", new Color(0.12f, 0.22f, 0.48f)));
+                    CreateBlock(parent, "Lapel_L", new Vector3(-0.18f, 1.22f, 0.16f), new Vector3(0.10f, 0.28f, 0.03f), GetMaterial("Mat_InspectorSuit", new Color(0.10f, 0.14f, 0.22f)));
+                    CreateBlock(parent, "Lapel_R", new Vector3(0.18f, 1.22f, 0.16f), new Vector3(0.10f, 0.28f, 0.03f), GetMaterial("Mat_InspectorSuit", new Color(0.10f, 0.14f, 0.22f)));
+                    CreateBlock(parent, "Gel_Highlight", new Vector3(0f, 1.73f, 0.10f), new Vector3(0.18f, 0.04f, 0.08f), gelShine);
+                    CreateBlock(parent, "Clipboard", new Vector3(0.36f, 0.92f, 0.08f), new Vector3(0.05f, 0.28f, 0.20f), hatWhite);
+                    CreateBlock(parent, "Clipboard_Clip", new Vector3(0.36f, 1.04f, 0.08f), new Vector3(0.06f, 0.04f, 0.10f), hatBlack);
                     break;
 
                 // Diğer tiplerin saç/yüzü ProceduralHumanFaceBuilder tarafından üretilir.
