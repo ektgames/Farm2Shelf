@@ -1366,24 +1366,7 @@ namespace Farm2Shelf.Environment
                 // Akşam olunca bazılarının ışığı yansın (Gerçekçi Rastgelelik: %65 ihtimalle odada ışık yanar)
                 bool isFloorLit = (Random.value < 0.65f);
 
-                if (isFloorLit)
-                {
-                    GameObject lightObj = new GameObject($"Villa_Interior_Light_F{f + 1}");
-                    lightObj.transform.SetParent(parent, false);
-                    lightObj.transform.localPosition = new Vector3(0f, winY, 0f);
-                    Light pLight = lightObj.AddComponent<Light>();
-                    pLight.type = LightType.Point;
-                    pLight.color = new Color(1.0f, 0.92f, 0.65f);
-                    pLight.intensity = 2.2f;
-                    pLight.range = 11.0f;
-                    pLight.shadows = LightShadows.None;
-                    pLight.enabled = (DayNightCycleManager.Instance != null && DayNightCycleManager.Instance.IsNight);
-
-                    if (DayNightCycleManager.Instance != null)
-                    {
-                        DayNightCycleManager.Instance.RegisterStoreInteriorLight(pLight);
-                    }
-                }
+                // Villa içi görünüm Unlit cam. Point Light yok (kamera kayınca sönme/patlama olmasın).
 
                 // Ön Panoramik Pencereler (Doğu / Cadde ve Havuz Cephesi)
                 bool frontLit = isFloorLit && (Random.value < 0.85f);

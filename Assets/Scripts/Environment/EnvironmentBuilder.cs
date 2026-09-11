@@ -385,8 +385,7 @@ namespace Farm2Shelf.Environment
 
             Material mat = new Material(shader);
             mat.name = name;
-            mat.color = color;
-            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
+            ShaderHelper.BindOpaqueColorMaps(mat, color);
             if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", metallic);
             if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", smoothness);
 
@@ -399,7 +398,9 @@ namespace Farm2Shelf.Environment
                 mat.SetInt("_ZWrite", 0);
                 mat.DisableKeyword("_ALPHATEST_ON");
                 mat.EnableKeyword("_ALPHABLEND_ON");
+                mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
                 mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                mat.SetOverrideTag("RenderType", "Transparent");
                 mat.renderQueue = 3000;
             }
 

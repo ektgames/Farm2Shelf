@@ -91,59 +91,35 @@ namespace Farm2Shelf.Environment
             if (bulbOnMat != null && windowGlowOnMat != null) return;
 
             Shader litShader = ShaderHelper.GetLitShader() ?? Shader.Find("Standard");
-            Shader unlitShader = ShaderHelper.GetUnlitShader() ?? litShader;
 
-            // 1. Sokak Lamba Ampulü (Gece Yanan Sıcak Sarı — Unlit: mobilde bloom/HDR şart değil)
-            Color bulbGlow = new Color(1.0f, 0.90f, 0.52f, 1.0f);
-            bulbOnMat = CreateSelfLitSurfaceMaterial(unlitShader, "LampBulb_ON", bulbGlow);
+            // 1. Sokak Lamba Ampulü — Unlit opak (mobilde magenta/bloom yok)
+            Color bulbGlow = new Color(1.0f, 0.88f, 0.48f, 1.0f);
+            bulbOnMat = ShaderHelper.CreateUnlitOpaqueMaterial(bulbGlow, "LampBulb_ON");
 
-            bulbOffMat = new Material(litShader) { name = "LampBulb_OFF", color = new Color(0.35f, 0.35f, 0.38f) };
-            if (bulbOffMat.HasProperty("_BaseColor")) bulbOffMat.SetColor("_BaseColor", new Color(0.35f, 0.35f, 0.38f));
-            if (bulbOffMat.HasProperty("_Color")) bulbOffMat.SetColor("_Color", new Color(0.35f, 0.35f, 0.38f));
+            bulbOffMat = ShaderHelper.CreateLitMaterial(new Color(0.35f, 0.35f, 0.38f, 1.0f), "LampBulb_OFF");
+            if (bulbOffMat != null && bulbOffMat.HasProperty("_Smoothness")) bulbOffMat.SetFloat("_Smoothness", 0.35f);
 
-            // 2. Çevre Binaların Camları — Unlit opak amber (gece ambient/gölge camı soldurmaz, bloom patlamaz)
-            Color windowGlow = new Color(1.0f, 0.82f, 0.36f, 1.0f);
-            windowGlowOnMat = CreateSelfLitSurfaceMaterial(unlitShader, "WindowGlass_ON", windowGlow);
+            // 2. Çevre bina camları — sıcak amber Unlit. Emission yok (mobilde pembe hata shader'ı).
+            Color windowGlow = new Color(1.0f, 0.78f, 0.32f, 1.0f);
+            windowGlowOnMat = ShaderHelper.CreateUnlitOpaqueMaterial(windowGlow, "WindowGlass_ON");
 
-            windowGlowOffMat = new Material(litShader) { name = "WindowGlass_OFF", color = new Color(0.14f, 0.22f, 0.34f, 1.0f) };
-            if (windowGlowOffMat.HasProperty("_BaseColor")) windowGlowOffMat.SetColor("_BaseColor", new Color(0.14f, 0.22f, 0.34f, 1.0f));
-            if (windowGlowOffMat.HasProperty("_Color")) windowGlowOffMat.SetColor("_Color", new Color(0.14f, 0.22f, 0.34f, 1.0f));
-            if (windowGlowOffMat.HasProperty("_Metallic")) windowGlowOffMat.SetFloat("_Metallic", 0.05f);
-            if (windowGlowOffMat.HasProperty("_Smoothness")) windowGlowOffMat.SetFloat("_Smoothness", 0.55f);
-
-            // 3. Araba Farları (Gece: Unlit, gündüz: Lit cam)
-            Color headlightGlow = new Color(1.0f, 0.97f, 0.88f, 1.0f);
-            headlightOnMat = CreateSelfLitSurfaceMaterial(unlitShader, "Headlight_ON", headlightGlow);
-
-            headlightOffMat = new Material(litShader) { name = "Headlight_OFF", color = new Color(0.85f, 0.85f, 0.88f) };
-            if (headlightOffMat.HasProperty("_BaseColor")) headlightOffMat.SetColor("_BaseColor", new Color(0.85f, 0.85f, 0.88f));
-            if (headlightOffMat.HasProperty("_Color")) headlightOffMat.SetColor("_Color", new Color(0.85f, 0.85f, 0.88f));
-        }
-
-        private static Material CreateSelfLitSurfaceMaterial(Shader shader, string name, Color glow)
-        {
-            Material mat = new Material(shader) { name = name, color = glow };
-            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", glow);
-            if (mat.HasProperty("_Color")) mat.SetColor("_Color", glow);
-            if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", 0f);
-            if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 0.18f);
-            if (mat.HasProperty("_Glossiness")) mat.SetFloat("_Glossiness", 0.18f);
-            if (mat.HasProperty("_Surface")) mat.SetFloat("_Surface", 0f);
-            if (mat.HasProperty("_Blend")) mat.SetFloat("_Blend", 0f);
-            if (mat.HasProperty("_SrcBlend")) mat.SetInt("_SrcBlend", (int)BlendMode.One);
-            if (mat.HasProperty("_DstBlend")) mat.SetInt("_DstBlend", (int)BlendMode.Zero);
-            if (mat.HasProperty("_ZWrite")) mat.SetInt("_ZWrite", 1);
-            if (mat.HasProperty("_ReceiveShadows")) mat.SetFloat("_ReceiveShadows", 0f);
-            mat.DisableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            mat.EnableKeyword("_RECEIVE_SHADOWS_OFF");
-            if (mat.HasProperty("_EmissionColor"))
+            windowGlowOffMat = ShaderHelper.CreateLitMaterial(new Color(0.16f, 0.24f, 0.36f, 1.0f), "WindowGlass_OFF");
+            if (windowGlowOffMat != null)
             {
-                mat.SetColor("_EmissionColor", glow);
-                mat.EnableKeyword("_EMISSION");
+                if (windowGlowOffMat.HasProperty("_Metallic")) windowGlowOffMat.SetFloat("_Metallic", 0.05f);
+                if (windowGlowOffMat.HasProperty("_Smoothness")) windowGlowOffMat.SetFloat("_Smoothness", 0.45f);
             }
-            mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
-            mat.renderQueue = 2000;
-            return mat;
+
+            // 3. Araba farları
+            Color headlightGlow = new Color(1.0f, 0.96f, 0.86f, 1.0f);
+            headlightOnMat = ShaderHelper.CreateUnlitOpaqueMaterial(headlightGlow, "Headlight_ON");
+
+            headlightOffMat = ShaderHelper.CreateLitMaterial(new Color(0.85f, 0.85f, 0.88f, 1.0f), "Headlight_OFF");
+
+            if (litShader == null)
+            {
+                Debug.LogWarning("[DayNightCycleManager] Lit shader bulunamadı; gece yüzeyleri Unlit ile devam ediyor.");
+            }
         }
 
         private static void PrepareNightSurfaceRenderer(Renderer r)
@@ -303,6 +279,14 @@ namespace Farm2Shelf.Environment
                     }
                 }
             }
+
+            Light[] allLights = Object.FindObjectsByType<Light>(FindObjectsSortMode.None);
+            for (int i = 0; i < allLights.Length; i++)
+            {
+                Light l = allLights[i];
+                if (l == null || l.type == LightType.Directional) continue;
+                ConfigureAndTrackLight(l);
+            }
         }
 
         private void Update()
@@ -378,10 +362,10 @@ namespace Farm2Shelf.Environment
             {
                 // GECE (20:00 - 06:00)
                 sunColor = new Color(0.28f, 0.36f, 0.58f);
-                skyAmbientColor = Application.isMobilePlatform
+                skyAmbientColor = LightingPipelineBinder.IsMobileLightingProfile()
                     ? new Color(0.16f, 0.18f, 0.30f)
                     : new Color(0.12f, 0.14f, 0.26f);
-                sunIntensity = Application.isMobilePlatform ? 0.22f : 0.16f;
+                sunIntensity = LightingPipelineBinder.IsMobileLightingProfile() ? 0.22f : 0.16f;
             }
 
             ApplyWeatherAtmosphere(timeInHours, ref sunColor, ref skyAmbientColor, ref sunIntensity);

@@ -17,9 +17,31 @@ namespace Farm2Shelf.Utils
             Apply();
         }
 
+        public static bool IsMobileLightingProfile()
+        {
+            if (Application.isMobilePlatform) return true;
+            if (QualitySettings.names != null)
+            {
+                int qi = QualitySettings.GetQualityLevel();
+                if (qi >= 0 && qi < QualitySettings.names.Length
+                    && QualitySettings.names[qi].IndexOf("Mobile", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    return true;
+                }
+            }
+#if UNITY_EDITOR
+            UnityEditor.BuildTarget t = UnityEditor.EditorUserBuildSettings.activeBuildTarget;
+            if (t == UnityEditor.BuildTarget.Android || t == UnityEditor.BuildTarget.iOS)
+            {
+                return true;
+            }
+#endif
+            return false;
+        }
+
         public static void Apply()
         {
-            QualitySettings.pixelLightCount = 8;
+            QualitySettings.pixelLightCount = 16;
             applied = true;
         }
 
@@ -35,7 +57,8 @@ namespace Farm2Shelf.Utils
                 Apply();
             }
 
-            cam.allowHDR = true;
+            bool mobileLook = IsMobileLightingProfile();
+            cam.allowHDR = !mobileLook;
             cam.allowMSAA = false;
             if (cam.farClipPlane < 320f)
             {
@@ -48,7 +71,7 @@ namespace Farm2Shelf.Utils
                 return;
             }
 
-            camData.renderPostProcessing = true;
+            camData.renderPostProcessing = !mobileLook;
             camData.renderShadows = true;
             camData.requiresDepthOption = CameraOverrideOption.On;
             camData.requiresColorOption = CameraOverrideOption.UsePipelineSettings;
@@ -62,32 +85,29 @@ namespace Farm2Shelf.Utils
             }
 
             light.shadows = LightShadows.None;
-            light.renderMode = LightRenderMode.Auto;
+            light.renderMode = LightRenderMode.ForcePixel;
             light.bounceIntensity = 0f;
             light.cullingMask = ~0;
 
-            float mobileBoost = Application.isMobilePlatform ? 1.40f : 1.12f;
-
+            // Menzili şişirme: örtüşen ışık HDR patlatır. Kotayı doldurmasın diye tavan koy.
             if (light.type == LightType.Spot)
             {
-                light.intensity = Mathf.Clamp(light.intensity * mobileBoost, 2.4f, 4.2f);
-                light.range = Mathf.Clamp(light.range, 12f, 20f);
+                if (light.intensity > 2.8f) light.intensity = 2.8f;
+                if (light.range > 16f) light.range = 16f;
                 if (light.spotAngle < 50f) light.spotAngle = 60f;
                 if (light.innerSpotAngle < 20f) light.innerSpotAngle = 28f;
-                return;
             }
-
-            // Kısa menzilli dekor (bollard vb.): zemini görünsün ama patlamasın.
-            if (light.range <= 6.5f)
+            else
             {
-                light.intensity = Mathf.Clamp(Mathf.Max(light.intensity, 1.15f) * mobileBoost, 1.15f, 2.2f);
-                light.range = Mathf.Clamp(Mathf.Max(light.range, 4.8f), 4.8f, 8.0f);
-                return;
+                if (light.intensity > 2.2f) light.intensity = 2.2f;
+                if (light.range > 12f) light.range = 12f;
             }
 
-            // İç mekân / sokak: örtüşen yüksek yoğunluk kamera hareketinde HDR patlaması yapar.
-            light.intensity = Mathf.Clamp(light.intensity * mobileBoost, 1.8f, 3.4f);
-            light.range = Mathf.Clamp(light.range, 10f, 16f);
+            UniversalAdditionalLightData extra = light.GetUniversalAdditionalLightData();
+            if (extra != null)
+            {
+                extra.usePipelineSettings = true;
+            }
         }
 
         public static void ConfigurePlayerInteriorLight(Light light)
@@ -98,13 +118,19 @@ namespace Farm2Shelf.Utils
             }
 
             light.shadows = LightShadows.None;
-            light.renderMode = LightRenderMode.Auto;
+            light.renderMode = LightRenderMode.ForcePixel;
             light.bounceIntensity = 0f;
             light.cullingMask = ~0;
             light.color = new Color(1.0f, 0.96f, 0.88f);
-            light.intensity = Application.isMobilePlatform ? 6.4f : 5.6f;
-            light.range = 15.0f;
+            light.intensity = 3.4f;
+            light.range = 12.0f;
             light.enabled = true;
+
+            UniversalAdditionalLightData extra = light.GetUniversalAdditionalLightData();
+            if (extra != null)
+            {
+                extra.usePipelineSettings = true;
+            }
         }
     }
 }

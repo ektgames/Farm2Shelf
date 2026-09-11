@@ -16,9 +16,13 @@ namespace Farm2Shelf.UI
         public static bool IsPromptOpen => modalInstance != null && modalInstance.activeInHierarchy;
         private static Action onAcceptCallback;
         private static Action onDeclineCallback;
+        private static Action onSkipConfirmCallback;
+        private static Action onSkipStayCallback;
+        private static bool isSkipConfirmMode;
 
         public static void ShowModal(Action onAccept, Action onDecline)
         {
+            isSkipConfirmMode = false;
             onAcceptCallback = onAccept;
             onDeclineCallback = onDecline;
 
@@ -139,6 +143,118 @@ namespace Farm2Shelf.UI
                 });
         }
 
+        public static void ShowSkipConfirmModal(Action onConfirmSkip, Action onStay)
+        {
+            isSkipConfirmMode = true;
+            onSkipConfirmCallback = onConfirmSkip;
+            onSkipStayCallback = onStay;
+
+            if (modalInstance != null) Destroy(modalInstance);
+
+            modalInstance = new GameObject("Modal_TutorialSkipConfirm");
+            modalInstance.AddComponent<TutorialPromptModalUI>();
+
+            Canvas canvas = modalInstance.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 2100;
+
+            CanvasScaler scaler = modalInstance.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920, 1080);
+            scaler.matchWidthOrHeight = 0.5f;
+
+            modalInstance.AddComponent<GraphicRaycaster>();
+
+            Font font = UIStyleUtility.GetGlobalFont(20);
+
+            GameObject backdrop = new GameObject("Backdrop");
+            backdrop.transform.SetParent(modalInstance.transform, false);
+            RectTransform bdRect = backdrop.AddComponent<RectTransform>();
+            bdRect.anchorMin = Vector2.zero;
+            bdRect.anchorMax = Vector2.one;
+            bdRect.sizeDelta = Vector2.zero;
+
+            Image bdImg = backdrop.AddComponent<Image>();
+            bdImg.color = new Color(0.04f, 0.07f, 0.11f, 0.85f);
+            bdImg.raycastTarget = true;
+
+            GameObject boxObj = new GameObject("CardBox");
+            boxObj.transform.SetParent(backdrop.transform, false);
+            RectTransform bRect = boxObj.AddComponent<RectTransform>();
+            bRect.anchoredPosition = Vector2.zero;
+            bRect.sizeDelta = new Vector2(580f, 400f);
+
+            Image bImg = boxObj.AddComponent<Image>();
+            bImg.sprite = UIStyleUtility.CreateOutlinePillSprite(580, 400, 24, 3, new Color(0.95f, 0.55f, 0.35f), new Color(0.10f, 0.13f, 0.18f, 0.98f));
+
+            GameObject headerObj = new GameObject("HeaderBadge");
+            headerObj.transform.SetParent(boxObj.transform, false);
+            RectTransform hRect = headerObj.AddComponent<RectTransform>();
+            hRect.anchoredPosition = new Vector2(0f, 148f);
+            hRect.sizeDelta = new Vector2(500f, 54f);
+
+            Image hBg = headerObj.AddComponent<Image>();
+            hBg.sprite = UIStyleUtility.CreateRoundedPillSprite(500, 54, 16, new Color(0.14f, 0.20f, 0.28f, 0.95f));
+
+            GameObject hTextObj = new GameObject("Text");
+            hTextObj.transform.SetParent(headerObj.transform, false);
+            RectTransform htRect = hTextObj.AddComponent<RectTransform>();
+            htRect.anchorMin = Vector2.zero;
+            htRect.anchorMax = Vector2.one;
+
+            Text hTxt = hTextObj.AddComponent<Text>();
+            hTxt.font = font;
+            hTxt.text = "⚠️ " + LocalizationManager.L("TutSkip_Title", "EMİN MİSİN?", "ARE YOU SURE?");
+            hTxt.fontSize = 22;
+            hTxt.fontStyle = FontStyle.Bold;
+            hTxt.alignment = TextAnchor.MiddleCenter;
+            hTxt.color = new Color(1.0f, 0.82f, 0.42f);
+
+            GameObject descObj = new GameObject("DescBox");
+            descObj.transform.SetParent(boxObj.transform, false);
+            RectTransform dRect = descObj.AddComponent<RectTransform>();
+            dRect.anchoredPosition = new Vector2(0f, 18f);
+            dRect.sizeDelta = new Vector2(500f, 170f);
+
+            Image dBg = descObj.AddComponent<Image>();
+            dBg.sprite = UIStyleUtility.CreateOutlinePillSprite(500, 170, 14, 1, new Color(0.45f, 0.32f, 0.22f, 0.6f), new Color(0.12f, 0.16f, 0.22f, 0.90f));
+
+            GameObject dTextObj = new GameObject("Text");
+            dTextObj.transform.SetParent(descObj.transform, false);
+            RectTransform dtRect = dTextObj.AddComponent<RectTransform>();
+            dtRect.anchorMin = Vector2.zero;
+            dtRect.anchorMax = Vector2.one;
+            dtRect.offsetMin = new Vector2(20f, 12f);
+            dtRect.offsetMax = new Vector2(-20f, -12f);
+
+            Text dTxt = dTextObj.AddComponent<Text>();
+            dTxt.font = font;
+            dTxt.text = LocalizationManager.L(
+                "TutSkip_Desc",
+                "<b>Eğitimi atlamak üzeresin.</b>\n\nGörev paneli kapanır ve serbest oyuna geçersin. Bu işlem geri alınamaz. Yanlışlıkla bastıysan eğitime devam et.",
+                "<b>You are about to skip the tutorial.</b>\n\nThe quest panel will close and free play will start. This cannot be undone. If you tapped by mistake, keep learning."
+            );
+            dTxt.fontSize = 16;
+            dTxt.lineSpacing = 1.18f;
+            dTxt.alignment = TextAnchor.MiddleCenter;
+            dTxt.color = new Color(0.92f, 0.94f, 0.97f);
+            dTxt.supportRichText = true;
+
+            CreateButton(boxObj.transform, new Vector2(-130f, -135f), new Vector2(230f, 52f),
+                LocalizationManager.L("TutSkip_Stay", "HAYIR, DEVAM ET", "NO, KEEP LEARNING"),
+                new Color(0.20f, 0.72f, 0.48f), font, () => {
+                    CloseModal();
+                    onSkipStayCallback?.Invoke();
+                });
+
+            CreateButton(boxObj.transform, new Vector2(130f, -135f), new Vector2(230f, 52f),
+                LocalizationManager.L("TutSkip_Confirm", "EVET, ATLA", "YES, SKIP"),
+                new Color(0.78f, 0.32f, 0.32f), font, () => {
+                    CloseModal();
+                    onSkipConfirmCallback?.Invoke();
+                });
+        }
+
         private static void CreateButton(Transform parent, Vector2 pos, Vector2 size, string text, Color color, Font font, Action onClick)
         {
             GameObject btnObj = new GameObject("Btn_" + text);
@@ -193,7 +309,13 @@ namespace Farm2Shelf.UI
 
         private void HandleLanguageChanged(GameLanguage lang)
         {
-            if (modalInstance != null)
+            if (modalInstance == null) return;
+
+            if (isSkipConfirmMode)
+            {
+                ShowSkipConfirmModal(onSkipConfirmCallback, onSkipStayCallback);
+            }
+            else
             {
                 ShowModal(onAcceptCallback, onDeclineCallback);
             }

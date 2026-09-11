@@ -44,7 +44,7 @@ namespace Farm2Shelf.Environment
         private static void EnsureMaterials()
         {
             if (basePlinthMat == null) basePlinthMat = CreateMat("Apt_PlinthMat", new Color(0.22f, 0.24f, 0.28f));
-            if (glassWindowMat == null) glassWindowMat = CreateMat("Apt_GlassMat", new Color(0.20f, 0.65f, 0.85f, 0.90f), 0.1f, 0.3f);
+            if (glassWindowMat == null) glassWindowMat = CreateMat("Apt_GlassMat", new Color(0.22f, 0.55f, 0.72f, 1.0f), 0.08f, 0.35f);
             if (frameDarkMat == null) frameDarkMat = CreateMat("Apt_FrameMat", new Color(0.15f, 0.16f, 0.18f));
             if (roofGravelMat == null) roofGravelMat = CreateMat("Apt_RoofGravelMat", new Color(0.30f, 0.32f, 0.35f));
             if (roofDetailMat == null) roofDetailMat = CreateMat("Apt_RoofDetailMat", new Color(0.45f, 0.48f, 0.52f));
@@ -75,8 +75,7 @@ namespace Farm2Shelf.Environment
             Shader s = ShaderHelper.GetLitShader();
             if (s == null) s = Shader.Find("Standard");
             Material m = new Material(s) { name = name };
-            m.color = color;
-            if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", color);
+            ShaderHelper.BindOpaqueColorMaps(m, color);
             if (m.HasProperty("_Metallic")) m.SetFloat("_Metallic", metallic);
             if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", smoothness);
             return m;
@@ -284,42 +283,8 @@ namespace Farm2Shelf.Environment
                 bool isFlatNorthLit = (Random.value < 0.55f);
                 bool isFlatSouthLit = (Random.value < 0.55f);
 
-                // Daire içi aydınlatma ışıkları (Akşam olunca dairenin içinden dışarı sıcak sarı ışık yayar)
-                if (isFlatNorthLit)
-                {
-                    GameObject lightObj = new GameObject($"Apartment_Flat_Light_F{f + 1}_North");
-                    lightObj.transform.SetParent(parent, false);
-                    lightObj.transform.localPosition = new Vector3(0f, windowCenterY, halfD * 0.5f);
-                    Light pLight = lightObj.AddComponent<Light>();
-                    pLight.type = LightType.Point;
-                    pLight.color = new Color(1.0f, 0.88f, 0.55f);
-                    pLight.intensity = 1.6f;
-                    pLight.range = 9.0f;
-                    pLight.shadows = LightShadows.None;
-                    pLight.enabled = (DayNightCycleManager.Instance != null && DayNightCycleManager.Instance.IsNight);
-                    if (DayNightCycleManager.Instance != null)
-                    {
-                        DayNightCycleManager.Instance.RegisterStoreInteriorLight(pLight);
-                    }
-                }
-
-                if (isFlatSouthLit)
-                {
-                    GameObject lightObj = new GameObject($"Apartment_Flat_Light_F{f + 1}_South");
-                    lightObj.transform.SetParent(parent, false);
-                    lightObj.transform.localPosition = new Vector3(0f, windowCenterY, -halfD * 0.5f);
-                    Light pLight = lightObj.AddComponent<Light>();
-                    pLight.type = LightType.Point;
-                    pLight.color = new Color(1.0f, 0.88f, 0.55f);
-                    pLight.intensity = 1.6f;
-                    pLight.range = 9.0f;
-                    pLight.shadows = LightShadows.None;
-                    pLight.enabled = (DayNightCycleManager.Instance != null && DayNightCycleManager.Instance.IsNight);
-                    if (DayNightCycleManager.Instance != null)
-                    {
-                        DayNightCycleManager.Instance.RegisterStoreInteriorLight(pLight);
-                    }
-                }
+                // Gece camları Unlit amber. Daire içi Point Light yok — telefonda kamera kayınca
+                // URP ışık kotası dolup sokak lambalarının sönmesine yol açıyordu.
 
                 // 1. Yan Cephe Pencereleri (Kuzey & Güney Cepheler)
                 for (float x = -halfW + 2.5f; x <= halfW - 2.5f; x += 3.4f)

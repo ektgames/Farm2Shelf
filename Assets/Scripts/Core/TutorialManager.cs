@@ -160,6 +160,16 @@ namespace Farm2Shelf.Core
             Debug.Log("[TutorialManager] Eğitim Bölümü Başlatıldı! Adım: Step 1 (Kamera Kontrolleri)");
         }
 
+        public void RequestSkipTutorial()
+        {
+            if (!IsTutorialActive) return;
+            if (TutorialPromptModalUI.IsPromptOpen) return;
+
+            TutorialPromptModalUI.ShowSkipConfirmModal(
+                onConfirmSkip: SkipTutorial,
+                onStay: null);
+        }
+
         public void SkipTutorial()
         {
             didShowCompletionModal = true;

@@ -312,24 +312,8 @@ namespace Farm2Shelf.Environment
                 // Akşam olunca dairenin ışıkları yansın mı? (%60 rastgele olasılık)
                 bool isFloorLit = (Random.value < 0.60f);
 
-                // Daire içi oda ışığı (Point Light)
-                if (isFloorLit)
-                {
-                    GameObject lightObj = new GameObject($"House_Interior_Light_F{f + 1}");
-                    lightObj.transform.SetParent(parent, false);
-                    lightObj.transform.localPosition = new Vector3(0f, winY, 0f);
-                    Light pLight = lightObj.AddComponent<Light>();
-                    pLight.type = LightType.Point;
-                    pLight.color = new Color(1.0f, 0.88f, 0.55f);
-                    pLight.intensity = 1.8f;
-                    pLight.range = 8.5f;
-                    pLight.shadows = LightShadows.None;
-                    pLight.enabled = (DayNightCycleManager.Instance != null && DayNightCycleManager.Instance.IsNight);
-                    if (DayNightCycleManager.Instance != null)
-                    {
-                        DayNightCycleManager.Instance.RegisterStoreInteriorLight(pLight);
-                    }
-                }
+                // Daire içi görünüm Unlit camlarla sağlanır. Gerçek Point Light eklenmez:
+                // mobil Forward'da kamera kayınca ışık kotası dolar ve lambalar sönüp yanar.
 
                 // Ön Cephe Pencereleri (Giriş kapısının sol ve sağında)
                 CreateHouseWindowUnit(parent, new Vector3(-3.2f, winY, frontZ), new Vector2(1.6f, 1.4f), frontDir, isFloorLit, glassMat, frameMat);

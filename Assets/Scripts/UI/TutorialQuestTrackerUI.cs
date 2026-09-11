@@ -283,7 +283,7 @@ namespace Farm2Shelf.UI
                 LocalizationManager.L("Tut_BtnSkip", "Eğitimi Atla ⏭️", "Skip Tutorial ⏭️"),
                 LocalizationManager.L("Tut_BtnSkip", "Eğitimi Atla ⏭️", "Skip Tutorial ⏭️"),
                 new Color(0.35f, 0.40f, 0.48f), font, 14, () => {
-                TutorialManager.Instance.SkipTutorial();
+                TutorialManager.Instance.RequestSkipTutorial();
             });
 
             // 5. Eğer "Tüm Görevler" açık ise detaylı liste kartını göster
