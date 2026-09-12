@@ -149,6 +149,7 @@ namespace Farm2Shelf.Environment
             CreateGrassTerrain();
             CreateRectangleRingRoadAndLanes();
             CreateNorthernApartmentDistrict();
+            NortheastTaxiDistrictBuilder.Build(environmentRoot);
             CreateSidewalk();
             CreateUnifiedBuilding();
             CreateSingleLaneDeliveryRoad();
@@ -200,6 +201,8 @@ namespace Farm2Shelf.Environment
                 if (n == "Farm2Shelf_Environment" || n == "Core_Managers" || n == "UI_Manager" ||
                     n == "Workshop_Complex" || n == "Workshop_Manager_Host" ||
                     n == "EnvironmentManager" || n == "[Farm2ShelfBootstrapper]" ||
+                    n == "CourierManager" || n.Contains("Courier_Motorcycle") ||
+                    n == "TownContractManager" || n == "ProductPassport" ||
                     n == "Placed_Furniture_Container" || n.Contains("Placed_Furniture") || n.Contains("PlacedFurniture") ||
                     n == "Main Camera" || n == "Directional Light" || n == "EventSystem" || 
                     n == "Farm2Shelf_HUD_Canvas" || n.Contains("Canvas") || n.Contains("Camera"))
@@ -244,6 +247,8 @@ namespace Farm2Shelf.Environment
                 bool isProtectedParent = (topName == "Farm2Shelf_Environment" || topName == "Core_Managers" || topName == "UI_Manager" ||
                     topName == "Workshop_Complex" || topName == "Workshop_Manager_Host" || topName.Contains("Workshop") ||
                     topName == "EnvironmentManager" || topName == "[Farm2ShelfBootstrapper]" ||
+                    topName == "CourierManager" || topName.Contains("Courier_Motorcycle") ||
+                    topName == "TownContractManager" ||
                     topName == "Placed_Furniture_Container" || topName.Contains("Placed_Furniture") || topName.Contains("PlacedFurniture") ||
                     topName == "Main Camera" || topName == "Directional Light" || topName == "EventSystem" || 
                     topName == "Farm2Shelf_HUD_Canvas" || topName.Contains("Canvas") || topName.Contains("Camera"));
@@ -417,6 +422,13 @@ namespace Farm2Shelf.Environment
             grassEast.transform.localScale = new Vector3(173.5f, 0.1f, 335.0f);
             grassEast.GetComponent<Renderer>().sharedMaterial = grassMat;
 
+            GameObject grassFarEast = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            grassFarEast.name = "Grass_Terrain_Ground_FarEast";
+            grassFarEast.transform.SetParent(environmentRoot);
+            grassFarEast.transform.position = new Vector3(207.5f, -0.15f, 22.5f);
+            grassFarEast.transform.localScale = new Vector3(235.0f, 0.1f, 335.0f);
+            grassFarEast.GetComponent<Renderer>().sharedMaterial = grassMat;
+
             // Batı Çim Tabanı (Batı Alanı: X = -106.5m ile -245m arası | Z: -145m ile +190m)
             GameObject grassWest = GameObject.CreatePrimitive(PrimitiveType.Cube);
             grassWest.name = "Grass_Terrain_Ground_West";
@@ -453,11 +465,11 @@ namespace Farm2Shelf.Environment
             GameObject midRoad = GameObject.CreatePrimitive(PrimitiveType.Cube);
             midRoad.name = "Mid_Asphalt_Road";
             midRoad.transform.SetParent(roadGroup);
-            midRoad.transform.position = new Vector3(48.25f, -0.05f, -9f);
-            midRoad.transform.localScale = new Vector3(263.5f, 0.1f, 6f);
+            midRoad.transform.position = new Vector3(118.25f, -0.05f, -9f);
+            midRoad.transform.localScale = new Vector3(403.5f, 0.1f, 6f);
             midRoad.GetComponent<Renderer>().sharedMaterial = mainRoadMat;
 
-            for (float x = -80f; x <= 180f; x += 3f)
+            for (float x = -80f; x <= 318f; x += 3f)
             {
                 if (Mathf.Abs(x - (-5.0f)) <= 2.5f || Mathf.Abs(x - 0.0f) <= 3.2f || Mathf.Abs(x - 13.0f) <= 2.5f || 
                     (x >= -21.0f && x <= -10.0f) || Mathf.Abs(x - (79.5f)) <= 2.0f)
@@ -560,12 +572,19 @@ namespace Farm2Shelf.Environment
             westOuterSidewalkBottom.transform.localScale = new Vector3(3f, 0.2f, 49.0f);
             westOuterSidewalkBottom.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
 
-            // Doğu Dış Kaldırımı (Orta otoyol kavşağında Z: -12m ile -6m arası kesildi, kuzey çevre yoluna kadar uzatıldı)
+            // Doğu dış kaldırım: Z=50 kuzey yolunun doğu uzantısı için 47..53 arası AÇIK (tek mahalle kavşağı)
+            GameObject eastOuterSidewalkMid = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            eastOuterSidewalkMid.name = "East_Outer_Sidewalk_MidSouth";
+            eastOuterSidewalkMid.transform.SetParent(sidewalkGroup);
+            eastOuterSidewalkMid.transform.position = new Vector3(79.5f, 0.05f, 20.0f);
+            eastOuterSidewalkMid.transform.localScale = new Vector3(3f, 0.2f, 54.0f);
+            eastOuterSidewalkMid.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
+
             GameObject eastOuterSidewalkTop = GameObject.CreatePrimitive(PrimitiveType.Cube);
             eastOuterSidewalkTop.name = "East_Outer_Sidewalk_Top";
             eastOuterSidewalkTop.transform.SetParent(sidewalkGroup);
-            eastOuterSidewalkTop.transform.position = new Vector3(79.5f, 0.05f, 85.0f);
-            eastOuterSidewalkTop.transform.localScale = new Vector3(3f, 0.2f, 182.0f);
+            eastOuterSidewalkTop.transform.position = new Vector3(79.5f, 0.05f, 112.5f);
+            eastOuterSidewalkTop.transform.localScale = new Vector3(3f, 0.2f, 119.0f);
             eastOuterSidewalkTop.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
 
             GameObject eastOuterSidewalkBottom = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -617,20 +636,13 @@ namespace Farm2Shelf.Environment
             eastBridgeApproachSouth.transform.localScale = new Vector3(3.0f, 0.2f, 3.0f);
             eastBridgeApproachSouth.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
 
-            // Doğu Otoyolu Kuzey ve Güney Kaldırımları (X: +81m ile +200m arası)
-            GameObject eastHighwayNorthSidewalk = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            eastHighwayNorthSidewalk.name = "East_Highway_North_Sidewalk";
-            eastHighwayNorthSidewalk.transform.SetParent(sidewalkGroup);
-            eastHighwayNorthSidewalk.transform.position = new Vector3(140.5f, 0.05f, -4.5f);
-            eastHighwayNorthSidewalk.transform.localScale = new Vector3(119.0f, 0.2f, 3.0f);
-            eastHighwayNorthSidewalk.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
+            CreateEastHighwayNorthSidewalkSegment(sidewalkGroup, 81.0f, 109.5f);
+            CreateEastHighwayNorthSidewalkSegment(sidewalkGroup, 115.5f, 147.0f);
+            CreateEastHighwayNorthSidewalkSegment(sidewalkGroup, 153.0f, 320.0f);
 
-            GameObject eastHighwaySouthSidewalk = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            eastHighwaySouthSidewalk.name = "East_Highway_South_Sidewalk";
-            eastHighwaySouthSidewalk.transform.SetParent(sidewalkGroup);
-            eastHighwaySouthSidewalk.transform.position = new Vector3(140.5f, 0.05f, -13.5f);
-            eastHighwaySouthSidewalk.transform.localScale = new Vector3(119.0f, 0.2f, 3.0f);
-            eastHighwaySouthSidewalk.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
+            CreateEastHighwaySouthSidewalkSegment(sidewalkGroup, 81.0f, 109.5f);
+            CreateEastHighwaySouthSidewalkSegment(sidewalkGroup, 115.5f, 147.0f);
+            CreateEastHighwaySouthSidewalkSegment(sidewalkGroup, 153.0f, 320.0f);
 
             // İÇ KALDIRIMLAR (KASABA HALKASI & KUZEY HALKASI)
             // KUZEY HALKA İÇ KALDIRIMI (Teslimat yolu bağlantısında X: 11.0f ile 15.0f arası kesilerek asfalt açıldı)
@@ -737,6 +749,32 @@ namespace Farm2Shelf.Environment
 
             // Yaya Geçidinin Sağ Çaprazına 3D Otobüs Durağı Tabelası, Kabin ve Yol Çizgilerini Kur
             BuildBusStopSign(sidewalkGroup);
+        }
+
+        private void CreateEastHighwayNorthSidewalkSegment(Transform parent, float xStart, float xEnd)
+        {
+            float len = xEnd - xStart;
+            if (len < 0.8f) return;
+
+            GameObject sw = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            sw.name = "East_Highway_North_Sidewalk";
+            sw.transform.SetParent(parent);
+            sw.transform.position = new Vector3((xStart + xEnd) * 0.5f, 0.05f, -4.45f);
+            sw.transform.localScale = new Vector3(len, 0.2f, 3.3f);
+            sw.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
+        }
+
+        private void CreateEastHighwaySouthSidewalkSegment(Transform parent, float xStart, float xEnd)
+        {
+            float len = xEnd - xStart;
+            if (len < 0.8f) return;
+
+            GameObject sw = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            sw.name = "East_Highway_South_Sidewalk";
+            sw.transform.SetParent(parent);
+            sw.transform.position = new Vector3((xStart + xEnd) * 0.5f, 0.05f, -13.5f);
+            sw.transform.localScale = new Vector3(len, 0.2f, 3.0f);
+            sw.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
         }
 
         private void BuildBusStopSign(Transform parent)
@@ -2712,16 +2750,16 @@ namespace Farm2Shelf.Environment
             // Çim tabanları CreateGrassTerrain içinde doğu ve batı olarak oluşturuldu.
             float treePitch = 4.2f;
 
-            // 1. DOĞU SINIRI (Sağ taraf: Row 1 at X = +83.5m, Row 2 at X = +87.0m | Z: -138m ile +186m arası)
+            // 1. DOĞU SINIRI — yeni kuzeydoğu mahallenin SAĞINA alındı (X = 147.5 / 151.0)
             for (float z = -138.0f; z <= 186.0f; z += treePitch)
             {
-                if ((z >= -14.5f && z <= -3.5f) || (z >= 46.5f && z <= 53.5f) || (z >= 171.5f && z <= 178.5f))
+                if (z >= -14.5f && z <= -3.5f)
                 {
                     continue;
                 }
 
-                CreateBoundaryTree(borderGroup, new Vector3(83.5f, 0f, z));
-                CreateBoundaryTree(borderGroup, new Vector3(87.0f, 0f, z + (treePitch / 2f)));
+                CreateBoundaryTree(borderGroup, new Vector3(162.0f, 0f, z));
+                CreateBoundaryTree(borderGroup, new Vector3(165.5f, 0f, z + (treePitch / 2f)));
             }
 
             // 2. EN BATI DIŞ SINIR (Row 1 at X = -242m, Row 2 at X = -246m | Z: -138m ile +186m arası)
@@ -2733,8 +2771,8 @@ namespace Farm2Shelf.Environment
                 CreateBoundaryTree(borderGroup, new Vector3(-246.0f, 0f, z + (treePitch / 2f)));
             }
 
-            // 3. EN KUZEY DIŞ SINIR (Z = 186.0m | X: -245m ile +87m arası, Nehir alanı X: -110m..-80m atlanır)
-            for (float x = -245.0f; x <= 87.0f; x += treePitch)
+            // 3. EN KUZEY DIŞ SINIR (Z = 186.0m | X: -245m ile +151m arası, Nehir alanı X: -110m..-80m atlanır)
+            for (float x = -245.0f; x <= 165.0f; x += treePitch)
             {
                 // NEHİR VE KIYI KORDONUNU ATLA (Nehir içine ağaç dikilmez!)
                 if (x >= -110.0f && x <= -80.0f) continue;
@@ -2744,7 +2782,7 @@ namespace Farm2Shelf.Environment
             }
 
             // 4. EN GÜNEY DIŞ SINIR (Z = -138.0m & -141.5m | Yol ve kaldırımların arkasında, Nehir alanı X: -110m..-80m atlanır)
-            for (float x = -245.0f; x <= 87.0f; x += treePitch)
+            for (float x = -245.0f; x <= 165.0f; x += treePitch)
             {
                 // NEHİR VE KIYI KORDONUNU ATLA (Nehir içine ağaç dikilmez!)
                 if (x >= -110.0f && x <= -80.0f) continue;
@@ -2754,8 +2792,8 @@ namespace Farm2Shelf.Environment
                 CreateBoundaryTree(borderGroup, new Vector3(x + (treePitch / 2f), 0f, -141.5f));
             }
 
-            // 5. DOĞU UZATILMIŞ OTOYOL AĞAÇ BULVARI (Sağ taraf X: +83.5m ile +200m arası)
-            for (float x = 83.5f; x <= 200.0f; x += treePitch)
+            // 5. DOĞU OTOYOL AĞAÇLARI — taksi durağı arkası (X 78..165) AÇIK kaldırım; yol ucu perdelenir
+            for (float x = 165.0f; x <= 312.0f; x += treePitch)
             {
                 CreateBoundaryTree(borderGroup, new Vector3(x, 0f, -1.5f));
                 CreateBoundaryTree(borderGroup, new Vector3(x + (treePitch / 2f), 0f, 2.0f));
@@ -2764,8 +2802,15 @@ namespace Farm2Shelf.Environment
                 CreateBoundaryTree(borderGroup, new Vector3(x + (treePitch / 2f), 0f, -20.0f));
             }
 
+            for (float z = -28.0f; z <= 12.0f; z += treePitch)
+            {
+                CreateBoundaryTree(borderGroup, new Vector3(308.0f, 0f, z));
+                CreateBoundaryTree(borderGroup, new Vector3(312.0f, 0f, z + (treePitch / 2f)));
+                CreateBoundaryTree(borderGroup, new Vector3(316.0f, 0f, z));
+            }
+
             // FİZİK ENGELLERİ (GÖRÜNMEZ DUVARLAR)
-            CreateWorldPhysicsBoundaryCollider(borderGroup, "Boundary_Physics_Wall_East", new Vector3(85.0f, 2.5f, 24.0f), new Vector3(1.0f, 6.0f, 330.0f));
+            CreateWorldPhysicsBoundaryCollider(borderGroup, "Boundary_Physics_Wall_East", new Vector3(164.0f, 2.5f, 24.0f), new Vector3(1.0f, 6.0f, 330.0f));
             CreateWorldPhysicsBoundaryCollider(borderGroup, "Boundary_Physics_Wall_West_Outer", new Vector3(-245.0f, 2.5f, 24.0f), new Vector3(1.0f, 6.0f, 330.0f));
             CreateWorldPhysicsBoundaryCollider(borderGroup, "Boundary_Physics_Wall_North_Outer", new Vector3(-80.0f, 2.5f, 188.0f), new Vector3(340.0f, 6.0f, 1.0f));
             CreateWorldPhysicsBoundaryCollider(borderGroup, "Boundary_Physics_Wall_South_Outer", new Vector3(-80.0f, 2.5f, -142.0f), new Vector3(340.0f, 6.0f, 1.0f));

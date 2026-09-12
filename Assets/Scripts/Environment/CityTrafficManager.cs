@@ -140,6 +140,8 @@ namespace Farm2Shelf.Environment
             SpawnRouteVehicle(GetSouthDistrictRoute(0));
             SpawnRouteVehicle(GetSouthDistrictRoute(1));
             SpawnRouteVehicle(GetSouthLoopRoute());
+            SpawnRouteVehicle(GetNortheastDistrictRoute(0));
+            SpawnRouteVehicle(GetSoutheastDistrictRoute(0));
         }
 
         private bool IsWholesaleTruckActive()
@@ -181,7 +183,7 @@ namespace Farm2Shelf.Environment
 
         private void TrySpawnRandomVehicle()
         {
-            int routeChoice = Random.Range(0, 16);
+            int routeChoice = Random.Range(0, 20);
             List<Vector3> chosenRoute;
 
             switch (routeChoice)
@@ -201,6 +203,10 @@ namespace Farm2Shelf.Environment
                 case 12: chosenRoute = GetSouthDistrictRoute(1); break;    // Güney Cami & Kafe: Kafe Caddesi -> Cami Arkası
                 case 13: chosenRoute = GetSouthDistrictRoute(2); break;    // Güney Cami & Kafe: Cami Batısı -> Orta Bulvar
                 case 14: chosenRoute = GetSouthDistrictRoute(3); break;    // Büyük Tüm Şehir Turu (Kuzey + Kasaba + Güney + Batı)
+                case 15: chosenRoute = GetNortheastDistrictRoute(0); break;
+                case 16: chosenRoute = GetNortheastDistrictRoute(1); break;
+                case 17: chosenRoute = GetSoutheastDistrictRoute(0); break;
+                case 18: chosenRoute = GetSoutheastDistrictRoute(1); break;
                 default: chosenRoute = GetSouthLoopRoute(); break;
             }
 
@@ -416,18 +422,17 @@ namespace Farm2Shelf.Environment
                 route.Add(new Vector3(WEST_ROAD_NORTHBOUND_X, 0f, -7.5f));
                 route.Add(new Vector3(WEST_ROAD_NORTHBOUND_X, 0f, 45.0f));
                 route.Add(new Vector3(-70.5f, 0f, NORTH_ROAD_EASTBOUND_Z));
-                route.Add(new Vector3(70.5f, 0f, NORTH_ROAD_EASTBOUND_Z));
-                route.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0f, 45.0f));
-                route.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0f, -7.5f));
-                route.Add(new Vector3(76.5f, 0f, MAIN_ROAD_EASTBOUND_Z));
+                route.Add(new Vector3(148.5f, 0f, NORTH_ROAD_EASTBOUND_Z));
+                route.Add(new Vector3(148.5f, 0f, -6.0f));
+                route.Add(new Vector3(151.5f, 0f, MAIN_ROAD_EASTBOUND_Z));
                 route.Add(new Vector3(180f, 0f, MAIN_ROAD_EASTBOUND_Z));
             }
             else
             {
                 route.Add(new Vector3(180f, 0f, MAIN_ROAD_WESTBOUND_Z));
-                route.Add(new Vector3(76.5f, 0f, MAIN_ROAD_WESTBOUND_Z));
-                route.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0f, -4.5f));
-                route.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0f, 48.5f));
+                route.Add(new Vector3(151.5f, 0f, MAIN_ROAD_WESTBOUND_Z));
+                route.Add(new Vector3(151.5f, 0f, -6.0f));
+                route.Add(new Vector3(151.5f, 0f, 51.5f));
                 route.Add(new Vector3(73.5f, 0f, NORTH_ROAD_WESTBOUND_Z));
                 route.Add(new Vector3(-73.5f, 0f, NORTH_ROAD_WESTBOUND_Z));
                 route.Add(new Vector3(WEST_ROAD_SOUTHBOUND_X, 0f, 48.5f));
@@ -815,6 +820,96 @@ namespace Farm2Shelf.Environment
                 // Doğu Otoyolu Çıkışı
                 route.Add(new Vector3(78.5f, 0.05f, MAIN_ROAD_EASTBOUND_Z));
                 route.Add(new Vector3(180f, 0.05f, MAIN_ROAD_EASTBOUND_Z));
+            }
+
+            return route;
+        }
+
+        private List<Vector3> GetNortheastDistrictRoute(int pattern)
+        {
+            List<Vector3> route = new List<Vector3>();
+            const float aveANorth = 114.0f;
+            const float aveASouth = 111.0f;
+            const float aveBNorth = 151.5f;
+            const float aveBSouth = 148.5f;
+            const float topEast = 173.5f;
+            const float topWest = 176.5f;
+
+            if (pattern == 0)
+            {
+                route.Add(new Vector3(-340f, 0.05f, MAIN_ROAD_EASTBOUND_Z));
+                route.Add(new Vector3(-76.5f, 0.05f, MAIN_ROAD_EASTBOUND_Z));
+                route.Add(new Vector3(WEST_ROAD_NORTHBOUND_X, 0f, -7.5f));
+                route.Add(new Vector3(WEST_ROAD_NORTHBOUND_X, 0f, 45.0f));
+                route.Add(new Vector3(-70.5f, 0f, NORTH_ROAD_EASTBOUND_Z));
+                route.Add(new Vector3(111.0f, 0f, NORTH_ROAD_EASTBOUND_Z));
+                route.Add(new Vector3(aveANorth, 0f, 51.5f));
+                route.Add(new Vector3(aveANorth, 0f, 170.0f));
+                route.Add(new Vector3(115.5f, 0f, topEast));
+                route.Add(new Vector3(147.0f, 0f, topEast));
+                route.Add(new Vector3(aveBSouth, 0f, 170.0f));
+                route.Add(new Vector3(aveBSouth, 0f, 51.5f));
+                route.Add(new Vector3(148.5f, 0f, NORTH_ROAD_EASTBOUND_Z));
+                route.Add(new Vector3(aveBSouth, 0f, -6.0f));
+                route.Add(new Vector3(151.5f, 0f, MAIN_ROAD_EASTBOUND_Z));
+                route.Add(new Vector3(180f, 0f, MAIN_ROAD_EASTBOUND_Z));
+            }
+            else
+            {
+                route.Add(new Vector3(180f, 0f, MAIN_ROAD_WESTBOUND_Z));
+                route.Add(new Vector3(151.5f, 0f, MAIN_ROAD_WESTBOUND_Z));
+                route.Add(new Vector3(aveBNorth, 0f, -6.0f));
+                route.Add(new Vector3(aveBNorth, 0f, 51.5f));
+                route.Add(new Vector3(aveBNorth, 0f, 170.0f));
+                route.Add(new Vector3(147.0f, 0f, topWest));
+                route.Add(new Vector3(115.5f, 0f, topWest));
+                route.Add(new Vector3(aveASouth, 0f, 170.0f));
+                route.Add(new Vector3(aveASouth, 0f, 51.5f));
+                route.Add(new Vector3(111.0f, 0f, NORTH_ROAD_WESTBOUND_Z));
+                route.Add(new Vector3(76.5f, 0f, NORTH_ROAD_WESTBOUND_Z));
+                route.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0f, 45.0f));
+                route.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0f, -7.5f));
+                route.Add(new Vector3(-79.5f, 0f, MAIN_ROAD_WESTBOUND_Z));
+                route.Add(new Vector3(-340f, 0.05f, MAIN_ROAD_WESTBOUND_Z));
+            }
+
+            return route;
+        }
+
+        private List<Vector3> GetSoutheastDistrictRoute(int pattern)
+        {
+            List<Vector3> route = new List<Vector3>();
+            const float aveASouth = 111.0f;
+            const float aveANorth = 114.0f;
+            const float aveBSouth = 148.5f;
+            const float aveBNorth = 151.5f;
+
+            if (pattern == 0)
+            {
+                route.Add(new Vector3(180f, 0f, MAIN_ROAD_WESTBOUND_Z));
+                route.Add(new Vector3(151.5f, 0f, MAIN_ROAD_WESTBOUND_Z));
+                route.Add(new Vector3(aveBSouth, 0f, -16.0f));
+                route.Add(new Vector3(aveBSouth, 0f, -125.0f));
+                route.Add(new Vector3(147.0f, 0f, SOUTH_OUTER_ROAD_WESTBOUND_Z));
+                route.Add(new Vector3(115.5f, 0f, SOUTH_OUTER_ROAD_WESTBOUND_Z));
+                route.Add(new Vector3(aveANorth, 0f, -125.0f));
+                route.Add(new Vector3(aveANorth, 0f, -16.0f));
+                route.Add(new Vector3(114.0f, 0f, MAIN_ROAD_EASTBOUND_Z));
+                route.Add(new Vector3(180f, 0f, MAIN_ROAD_EASTBOUND_Z));
+            }
+            else
+            {
+                route.Add(new Vector3(-340f, 0.05f, MAIN_ROAD_EASTBOUND_Z));
+                route.Add(new Vector3(111.0f, 0.05f, MAIN_ROAD_EASTBOUND_Z));
+                route.Add(new Vector3(aveASouth, 0f, -16.0f));
+                route.Add(new Vector3(aveASouth, 0f, -125.0f));
+                route.Add(new Vector3(115.5f, 0f, SOUTH_OUTER_ROAD_EASTBOUND_Z));
+                route.Add(new Vector3(147.0f, 0f, SOUTH_OUTER_ROAD_EASTBOUND_Z));
+                route.Add(new Vector3(aveBNorth, 0f, -125.0f));
+                route.Add(new Vector3(aveBNorth, 0f, -16.0f));
+                route.Add(new Vector3(151.5f, 0f, MAIN_ROAD_WESTBOUND_Z));
+                route.Add(new Vector3(-79.5f, 0f, MAIN_ROAD_WESTBOUND_Z));
+                route.Add(new Vector3(-340f, 0.05f, MAIN_ROAD_WESTBOUND_Z));
             }
 
             return route;

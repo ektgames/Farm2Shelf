@@ -251,8 +251,8 @@ namespace Farm2Shelf.Environment
             GameObject outerSwEast = GameObject.CreatePrimitive(PrimitiveType.Cube);
             outerSwEast.name = "South_Outer_Sidewalk_East";
             outerSwEast.transform.SetParent(roadGroup, false);
-            outerSwEast.transform.position = new Vector3(79.5f, 0.05f, -91.5f);
-            outerSwEast.transform.localScale = new Vector3(3.0f, 0.20f, 73.0f);
+            outerSwEast.transform.position = new Vector3(79.5f, 0.05f, -90.0f);
+            outerSwEast.transform.localScale = new Vector3(3.0f, 0.20f, 70.0f);
             outerSwEast.GetComponent<Renderer>().sharedMaterial = swMat;
 
             // 3. En Güney Dış Kaldırım (Yolun Dış / Alt Kenarı)

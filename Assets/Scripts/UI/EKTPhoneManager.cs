@@ -38,6 +38,14 @@ namespace Farm2Shelf.UI
         private Transform virtualMarketAppView;
         private Transform virtualMarketContent;
         private Transform virtualMarketViewportObj;
+        private Transform jobsAppView;
+        private Transform jobsStatusContent;
+        private Transform jobsBuyContent;
+        private Transform jobsStatusViewportObj;
+        private Transform jobsBuyViewportObj;
+        private int activeJobsInnerTab = 0;
+        private Image[] jobsInnerTabImgs = new Image[2];
+        private Text[] jobsInnerTabTexts = new Text[2];
 
         // Online Market ScrollRect Content Transform'ları (5 Sekme)
         private Transform onlineMarketFleetContent;
@@ -201,6 +209,11 @@ namespace Farm2Shelf.UI
             {
                 LocalizationManager.Instance.OnLanguageChanged -= RefreshAllPhoneDisplays;
             }
+
+            if (TaxiFleetManager.Instance != null)
+            {
+                TaxiFleetManager.Instance.OnTaxiFleetChanged -= RefreshJobsViews;
+            }
         }
 
         private void Start()
@@ -230,6 +243,12 @@ namespace Farm2Shelf.UI
             if (CourierManager.Instance != null)
             {
                 CourierManager.Instance.OnFleetUpdated += RefreshVirtualMarketViews;
+            }
+
+            if (TaxiFleetManager.Instance != null)
+            {
+                TaxiFleetManager.Instance.OnTaxiFleetChanged -= RefreshJobsViews;
+                TaxiFleetManager.Instance.OnTaxiFleetChanged += RefreshJobsViews;
             }
 
             if (OnlineMarketOrderManager.Instance != null)
@@ -271,6 +290,7 @@ namespace Farm2Shelf.UI
             else if (socialMediaAppView != null && socialMediaAppView.gameObject.activeSelf) activeApp = 5;
             else if (workshopsAppView != null && workshopsAppView.gameObject.activeSelf) activeApp = 6;
             else if (virtualMarketAppView != null && virtualMarketAppView.gameObject.activeSelf) activeApp = 7;
+            else if (jobsAppView != null && jobsAppView.gameObject.activeSelf) activeApp = 8;
 
             int curFarmTab = activeFarmTab;
             int curStoreTab = activeTab;
@@ -296,6 +316,11 @@ namespace Farm2Shelf.UI
                 virtualMarketAppView = null;
                 virtualMarketContent = null;
                 virtualMarketViewportObj = null;
+                jobsAppView = null;
+                jobsStatusContent = null;
+                jobsBuyContent = null;
+                jobsStatusViewportObj = null;
+                jobsBuyViewportObj = null;
                 onlineMarketFleetContent = null;
                 onlineMarketContractsContent = null;
                 onlineMarketStaffContent = null;
@@ -349,6 +374,9 @@ namespace Farm2Shelf.UI
                         ShowVirtualMarketApp();
                         activeOnlineMarketTab = curOnlineMarketTab;
                         RefreshVirtualMarketViews();
+                        break;
+                    case 8:
+                        ShowJobsApp();
                         break;
                     default:
                         ShowHomeScreen();
@@ -699,6 +727,7 @@ namespace Farm2Shelf.UI
             CreateSocialMediaAppView(screenObj.transform);
             CreateWorkshopsAppView(screenObj.transform);
             CreateVirtualMarketAppView(screenObj.transform);
+            CreateJobsAppView(screenObj.transform);
 
             // Kırmızı X Kapat Butonunu KESİNLİKLE En Üst Katmana Çıkar
             EnsureCloseButtonOnTop();
@@ -775,9 +804,10 @@ namespace Farm2Shelf.UI
                 LocalizationManager.L("App_Finance", "FİNANS", "FINANCE"),
                 LocalizationManager.L("App_SocialMedia", "SOSYAL MEDYA", "SOCIAL MEDIA"),
                 LocalizationManager.L("App_Workshops", "ATÖLYELER", "WORKSHOPS"),
-                LocalizationManager.L("App_OnlineMarket", "ONLİNE MARKET", "ONLINE MARKET")
+                LocalizationManager.L("App_OnlineMarket", "ONLİNE MARKET", "ONLINE MARKET"),
+                LocalizationManager.L("App_Jobs", "İŞLER", "JOBS")
             };
-            string[] appIcons = new string[] { "🛒", "🌾", "🛍️", "💳", "𝕏", "🏭", "🌐" };
+            string[] appIcons = new string[] { "🛒", "🌾", "🛍️", "💳", "𝕏", "🏭", "🌐", "🚕" };
             Color[] appColors = new Color[] {
                 new Color(0.20f, 0.70f, 0.95f),
                 new Color(0.25f, 0.85f, 0.40f),
@@ -785,10 +815,11 @@ namespace Farm2Shelf.UI
                 new Color(0.75f, 0.35f, 0.95f),
                 new Color(0.12f, 0.65f, 0.95f),
                 new Color(0.95f, 0.60f, 0.15f),
-                new Color(0.00f, 0.85f, 0.65f)
+                new Color(0.00f, 0.85f, 0.65f),
+                new Color(0.96f, 0.78f, 0.12f)
             };
 
-            for (int i = 0; i < 7; i++)
+            for (int i = 0; i < 8; i++)
             {
                 GameObject appObj = new GameObject("App_" + appNames[i]);
                 appObj.transform.SetParent(appsContainer.transform, false);
@@ -809,6 +840,7 @@ namespace Farm2Shelf.UI
                     else if (appIndex == 4) ShowSocialMediaApp();
                     else if (appIndex == 5) ShowWorkshopsApp();
                     else if (appIndex == 6) ShowVirtualMarketApp();
+                    else if (appIndex == 7) ShowJobsApp();
                 });
 
                 GameObject iconObj = new GameObject("Icon");
@@ -1641,6 +1673,7 @@ namespace Farm2Shelf.UI
             if (socialMediaAppView != null) socialMediaAppView.gameObject.SetActive(false);
             if (workshopsAppView != null) workshopsAppView.gameObject.SetActive(false);
             if (virtualMarketAppView != null) virtualMarketAppView.gameObject.SetActive(false);
+            if (jobsAppView != null) jobsAppView.gameObject.SetActive(false);
             EnsureCloseButtonOnTop();
         }
 
@@ -1653,6 +1686,7 @@ namespace Farm2Shelf.UI
             if (socialMediaAppView != null) socialMediaAppView.gameObject.SetActive(false);
             if (workshopsAppView != null) workshopsAppView.gameObject.SetActive(false);
             if (virtualMarketAppView != null) virtualMarketAppView.gameObject.SetActive(false);
+            if (jobsAppView != null) jobsAppView.gameObject.SetActive(false);
             if (storeMgmtAppView != null) storeMgmtAppView.gameObject.SetActive(true);
 
             activeTab = 0;
@@ -1669,6 +1703,7 @@ namespace Farm2Shelf.UI
             if (socialMediaAppView != null) socialMediaAppView.gameObject.SetActive(false);
             if (workshopsAppView != null) workshopsAppView.gameObject.SetActive(false);
             if (virtualMarketAppView != null) virtualMarketAppView.gameObject.SetActive(false);
+            if (jobsAppView != null) jobsAppView.gameObject.SetActive(false);
             if (financeAppView != null) financeAppView.gameObject.SetActive(true);
 
             activeFinanceTab = 0;
@@ -1685,6 +1720,7 @@ namespace Farm2Shelf.UI
             if (socialMediaAppView != null) socialMediaAppView.gameObject.SetActive(false);
             if (workshopsAppView != null) workshopsAppView.gameObject.SetActive(false);
             if (virtualMarketAppView != null) virtualMarketAppView.gameObject.SetActive(false);
+            if (jobsAppView != null) jobsAppView.gameObject.SetActive(false);
             if (farmAppView != null) farmAppView.gameObject.SetActive(true);
 
             activeFarmTab = 0;
@@ -1701,6 +1737,7 @@ namespace Farm2Shelf.UI
             if (socialMediaAppView != null) socialMediaAppView.gameObject.SetActive(false);
             if (workshopsAppView != null) workshopsAppView.gameObject.SetActive(false);
             if (virtualMarketAppView != null) virtualMarketAppView.gameObject.SetActive(false);
+            if (jobsAppView != null) jobsAppView.gameObject.SetActive(false);
             if (shoppingAppView != null) shoppingAppView.gameObject.SetActive(true);
 
             activeShoppingCategory = 0;
@@ -1717,6 +1754,7 @@ namespace Farm2Shelf.UI
             if (shoppingAppView != null) shoppingAppView.gameObject.SetActive(false);
             if (workshopsAppView != null) workshopsAppView.gameObject.SetActive(false);
             if (virtualMarketAppView != null) virtualMarketAppView.gameObject.SetActive(false);
+            if (jobsAppView != null) jobsAppView.gameObject.SetActive(false);
             if (socialMediaAppView != null) socialMediaAppView.gameObject.SetActive(true);
 
             activeSocialTab = 0;
@@ -1733,6 +1771,7 @@ namespace Farm2Shelf.UI
             if (shoppingAppView != null) shoppingAppView.gameObject.SetActive(false);
             if (socialMediaAppView != null) socialMediaAppView.gameObject.SetActive(false);
             if (virtualMarketAppView != null) virtualMarketAppView.gameObject.SetActive(false);
+            if (jobsAppView != null) jobsAppView.gameObject.SetActive(false);
             if (workshopsAppView != null) workshopsAppView.gameObject.SetActive(true);
 
             activeWorkshopTab = 0;
@@ -1750,9 +1789,398 @@ namespace Farm2Shelf.UI
             if (socialMediaAppView != null) socialMediaAppView.gameObject.SetActive(false);
             if (workshopsAppView != null) workshopsAppView.gameObject.SetActive(false);
             if (virtualMarketAppView != null) virtualMarketAppView.gameObject.SetActive(true);
+            if (jobsAppView != null) jobsAppView.gameObject.SetActive(false);
 
             RefreshVirtualMarketViews();
             EnsureCloseButtonOnTop();
+        }
+
+        public void OpenJobsApp()
+        {
+            OpenPhoneTablet();
+            ShowJobsApp();
+        }
+
+        private void ShowJobsApp()
+        {
+            if (homeScreenView != null) homeScreenView.gameObject.SetActive(false);
+            if (storeMgmtAppView != null) storeMgmtAppView.gameObject.SetActive(false);
+            if (financeAppView != null) financeAppView.gameObject.SetActive(false);
+            if (farmAppView != null) farmAppView.gameObject.SetActive(false);
+            if (shoppingAppView != null) shoppingAppView.gameObject.SetActive(false);
+            if (socialMediaAppView != null) socialMediaAppView.gameObject.SetActive(false);
+            if (workshopsAppView != null) workshopsAppView.gameObject.SetActive(false);
+            if (virtualMarketAppView != null) virtualMarketAppView.gameObject.SetActive(false);
+            if (jobsAppView != null) jobsAppView.gameObject.SetActive(true);
+
+            RefreshJobsViews();
+            EnsureCloseButtonOnTop();
+        }
+
+        private void CreateJobsAppView(Transform parent)
+        {
+            GameObject viewObj = new GameObject("JobsAppView");
+            viewObj.transform.SetParent(parent, false);
+
+            RectTransform vRect = viewObj.AddComponent<RectTransform>();
+            vRect.anchorMin = Vector2.zero;
+            vRect.anchorMax = Vector2.one;
+
+            jobsAppView = viewObj.transform;
+
+            GameObject headerObj = new GameObject("HeaderBar");
+            headerObj.transform.SetParent(viewObj.transform, false);
+            RectTransform hRect = headerObj.AddComponent<RectTransform>();
+            hRect.anchoredPosition = new Vector2(0f, 205f);
+            hRect.sizeDelta = new Vector2(820f, 40f);
+
+            GameObject backBtnObj = new GameObject("BackButton");
+            backBtnObj.transform.SetParent(headerObj.transform, false);
+            RectTransform bRect = backBtnObj.AddComponent<RectTransform>();
+            bRect.anchorMin = new Vector2(0f, 0.5f);
+            bRect.anchorMax = new Vector2(0f, 0.5f);
+            bRect.pivot = new Vector2(0f, 0.5f);
+            bRect.anchoredPosition = new Vector2(4f, 0f);
+            bRect.sizeDelta = new Vector2(148f, 36f);
+            Image bBg = backBtnObj.AddComponent<Image>();
+            bBg.sprite = UIStyleUtility.CreateRoundedPillSprite(148, 36, 18, new Color(0.18f, 0.22f, 0.28f, 0.94f));
+            bBg.raycastTarget = true;
+            Button bBtn = backBtnObj.AddComponent<Button>();
+            bBtn.targetGraphic = bBg;
+            bBtn.onClick.AddListener(ShowHomeScreen);
+            Text bText = CreateTextInPanel(backBtnObj.transform, Vector2.zero, Vector2.one,
+                LocalizationManager.L("Btn_HomeScreen", "← Ana Ekran", "← Home Screen"), 16, new Color(0.45f, 0.88f, 1.0f));
+            bText.alignment = TextAnchor.MiddleCenter;
+            bText.horizontalOverflow = HorizontalWrapMode.Overflow;
+
+            GameObject titleObj = new GameObject("TitleText");
+            titleObj.transform.SetParent(headerObj.transform, false);
+            RectTransform tRect = titleObj.AddComponent<RectTransform>();
+            tRect.anchoredPosition = Vector2.zero;
+            tRect.sizeDelta = new Vector2(280f, 40f);
+            Text tText = titleObj.AddComponent<Text>();
+            tText.font = globalFont;
+            tText.text = LocalizationManager.L("Header_Jobs", "🚕  İŞLER", "🚕  JOBS");
+            tText.fontSize = 22;
+            tText.fontStyle = FontStyle.Bold;
+            tText.alignment = TextAnchor.MiddleCenter;
+            tText.color = new Color(1.0f, 0.86f, 0.28f);
+            tText.horizontalOverflow = HorizontalWrapMode.Overflow;
+            tText.raycastTarget = false;
+
+            GameObject badgeObj = new GameObject("DistrictBadge");
+            badgeObj.transform.SetParent(headerObj.transform, false);
+            RectTransform badgeRect = badgeObj.AddComponent<RectTransform>();
+            badgeRect.anchorMin = new Vector2(1f, 0.5f);
+            badgeRect.anchorMax = new Vector2(1f, 0.5f);
+            badgeRect.pivot = new Vector2(1f, 0.5f);
+            badgeRect.anchoredPosition = new Vector2(-4f, 0f);
+            badgeRect.sizeDelta = new Vector2(176f, 32f);
+            Image badgeBg = badgeObj.AddComponent<Image>();
+            badgeBg.sprite = UIStyleUtility.CreateRoundedPillSprite(176, 32, 14, new Color(0.96f, 0.78f, 0.14f));
+            Text badgeTxt = CreateTextInPanel(badgeObj.transform, Vector2.zero, Vector2.one,
+                LocalizationManager.L("Jobs_DistrictBadge", "Kuzeydoğu Durak", "NE Taxi Stand"), 13, new Color(0.14f, 0.11f, 0.05f));
+            badgeTxt.alignment = TextAnchor.MiddleCenter;
+            badgeTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
+
+            jobsStatusContent = CreateScrollableViewContainer(viewObj.transform, "JobsStatus", new Vector2(0f, -18f), new Vector2(820f, 368f), out jobsStatusViewportObj);
+            jobsBuyContent = null;
+            jobsBuyViewportObj = null;
+
+            VerticalLayoutGroup sLayout = jobsStatusContent.gameObject.AddComponent<VerticalLayoutGroup>();
+            sLayout.spacing = 10f;
+            sLayout.childAlignment = TextAnchor.UpperCenter;
+            sLayout.childControlWidth = true;
+            sLayout.childControlHeight = true;
+            sLayout.childForceExpandWidth = true;
+            sLayout.childForceExpandHeight = false;
+            sLayout.padding = new RectOffset(8, 8, 4, 28);
+
+            viewObj.SetActive(false);
+        }
+
+        private void RefreshJobsViews()
+        {
+            if (jobsAppView == null || jobsStatusContent == null) return;
+
+            TaxiFleetManager fleet = TaxiFleetManager.Instance;
+            bool owned = fleet != null && fleet.StandOwned;
+
+            if (jobsStatusViewportObj != null) jobsStatusViewportObj.gameObject.SetActive(true);
+            if (jobsBuyViewportObj != null) jobsBuyViewportObj.gameObject.SetActive(false);
+
+            for (int i = jobsStatusContent.childCount - 1; i >= 0; i--)
+            {
+                Destroy(jobsStatusContent.GetChild(i).gameObject);
+            }
+
+            if (!owned) BuildTaxiStandPurchasePage(jobsStatusContent);
+            else BuildTaxiOwnedDashboard(jobsStatusContent, fleet);
+
+            Canvas.ForceUpdateCanvases();
+            ScrollRect scroll = jobsStatusViewportObj != null ? jobsStatusViewportObj.GetComponent<ScrollRect>() : null;
+            if (scroll != null) scroll.verticalNormalizedPosition = 1f;
+        }
+
+        private void BuildTaxiStandPurchasePage(Transform parent)
+        {
+            if (parent == null) return;
+
+            int credits = EconomyManager.Instance != null ? EconomyManager.Instance.Credits : 0;
+            bool can = TaxiFleetManager.Instance != null && TaxiFleetManager.Instance.CanBuyStand();
+
+            GameObject hero = CreateJobsCard(parent, "StandHero", new Color(0.14f, 0.16f, 0.20f, 0.98f));
+            CreateJobsLabel(hero.transform,
+                LocalizationManager.L("Jobs_StandTitle", "Kuzeydoğu Taksi Durağı", "Northeast Taxi Stand"),
+                21, new Color(1f, 0.86f, 0.28f), TextAnchor.MiddleLeft, 30f);
+            CreateJobsLabel(hero.transform,
+                LocalizationManager.L(
+                    "Jobs_StandLead",
+                    "5 yuvalı sarı durak. Personel gerekmez. 08:00–22:00 müşteri çağrıları gelir; mesafe ücreti finansa işlenir.",
+                    "5-bay yellow stand. No staff. Calls run 08:00–22:00; distance fares post to Finance."),
+                15, new Color(0.84f, 0.88f, 0.92f), TextAnchor.UpperLeft, 58f);
+
+            GameObject facts = CreateJobsCard(parent, "StandFacts", new Color(0.12f, 0.14f, 0.18f, 0.96f));
+            CreateJobsLabel(facts.transform,
+                LocalizationManager.L("Jobs_FactsTitle", "Durak bilgileri", "Stand details"),
+                16, new Color(0.96f, 0.78f, 0.18f), TextAnchor.MiddleLeft, 24f);
+            CreateJobsKvRow(facts.transform, LocalizationManager.L("Jobs_Loc", "Konum", "Location"),
+                LocalizationManager.L("Jobs_LocVal", "Kuzeydoğu mahalle • otoyol üstü", "Northeast district • above highway"));
+            CreateJobsKvRow(facts.transform, LocalizationManager.L("Jobs_Bays", "Park yuvası", "Parking bays"), "5");
+            CreateJobsKvRow(facts.transform, LocalizationManager.L("Jobs_Staff", "Personel", "Staff"),
+                LocalizationManager.L("Jobs_StaffNone", "Gerekmez", "Not required"));
+            CreateJobsKvRow(facts.transform, LocalizationManager.L("Jobs_MaxFleet", "Maks. filo", "Max fleet"),
+                string.Format(LocalizationManager.L("Jobs_MaxFleetVal", "{0} sarı taksi", "{0} yellow taxis"), TaxiFleetManager.MAX_TAXIS));
+            CreateJobsKvRow(facts.transform, LocalizationManager.L("Jobs_Patrol", "Devriye", "Patrol"),
+                LocalizationManager.L("Jobs_PatrolVal", "Üst siteler + güneydoğu sokaklar", "Upper residences + southeast streets"));
+
+            GameObject how = CreateJobsCard(parent, "StandHow", new Color(0.12f, 0.14f, 0.18f, 0.96f));
+            CreateJobsLabel(how.transform,
+                LocalizationManager.L("Jobs_HowTitle", "Nasıl çalışır?", "How it works"),
+                16, new Color(0.96f, 0.78f, 0.18f), TextAnchor.MiddleLeft, 24f);
+            CreateJobsLabel(how.transform,
+                LocalizationManager.L(
+                    "Jobs_HowBody",
+                    "• Durak senin olur; taksiler sarı park yerinde bekler.\n• 08:00–22:00 çağrı gelir, müşteri alınır, adrese bırakılır, ücret mesafeye göre kesilir.\n• 22:00’de yolcu bırakılıp durak parkına dönülür.\n• Gelir ve alımlar Finans > Gelir/Gider’de görünür.",
+                    "• The stand is yours; taxis wait in the yellow bays.\n• 08:00–22:00 a call comes, the rider is picked up, dropped off, and charged by distance.\n• At 22:00 the rider is dropped and the taxi returns to its bay.\n• Fares and purchases show in Finance > Income/Expenses."),
+                14, new Color(0.80f, 0.84f, 0.88f), TextAnchor.UpperLeft, 96f);
+
+            GameObject cost = CreateJobsCard(parent, "StandCost", new Color(0.13f, 0.15f, 0.12f, 0.96f));
+            CreateJobsLabel(cost.transform,
+                LocalizationManager.L("Jobs_CostTitle", "Yatırım", "Investment"),
+                16, new Color(0.55f, 0.92f, 0.45f), TextAnchor.MiddleLeft, 24f);
+            CreateJobsKvRow(cost.transform, LocalizationManager.L("Jobs_StandFee", "Durak bedeli", "Stand price"),
+                string.Format("{0:N0} C", TaxiFleetManager.STAND_PRICE));
+            CreateJobsKvRow(cost.transform, LocalizationManager.L("Jobs_TaxiFee", "Bir taksi", "One taxi"),
+                string.Format("{0:N0} C", TaxiFleetManager.TAXI_PRICE));
+            CreateJobsKvRow(cost.transform, LocalizationManager.L("Jobs_Wallet", "Mevcut bakiye", "Current balance"),
+                string.Format("{0:N0} C", credits));
+
+            string buyLabel = can
+                ? string.Format(LocalizationManager.L("Jobs_StandBuyFmt", "Durağı Satın Al   •   {0:N0} C", "Buy Stand   •   {0:N0} C"), TaxiFleetManager.STAND_PRICE)
+                : LocalizationManager.L("Jobs_StandNeedMoney", "Yetersiz bakiye", "Not enough credits");
+            CreateJobsCta(parent, "BuyStandBtn", buyLabel, can, new Color(0.16f, 0.70f, 0.30f), () =>
+            {
+                if (TaxiFleetManager.Instance != null && TaxiFleetManager.Instance.TryBuyStand())
+                {
+                    RefreshJobsViews();
+                }
+            });
+        }
+
+        private void BuildTaxiOwnedDashboard(Transform parent, TaxiFleetManager fleet)
+        {
+            if (parent == null || fleet == null) return;
+
+            int empty = Mathf.Max(0, TaxiFleetManager.MAX_TAXIS - fleet.OwnedTaxiCount);
+            int credits = EconomyManager.Instance != null ? EconomyManager.Instance.Credits : 0;
+
+            GameObject hero = CreateJobsCard(parent, "FleetHero", new Color(0.14f, 0.16f, 0.20f, 0.98f));
+            CreateJobsLabel(hero.transform,
+                LocalizationManager.L("Jobs_OwnedTitle", "Durak aktif", "Stand is active"),
+                21, new Color(1f, 0.86f, 0.28f), TextAnchor.MiddleLeft, 28f);
+            CreateJobsLabel(hero.transform,
+                LocalizationManager.L(
+                    "Jobs_OwnedLead",
+                    "Taksiler sarı park yerinde durur. 08:00–22:00 çağrı olunca müşteri alınıp bırakılır, ücret finansa yazılır.",
+                    "Taxis stay in the yellow bays. From 08:00–22:00 they pick up riders, drop them off, and post the fare to Finance."),
+                15, new Color(0.84f, 0.88f, 0.92f), TextAnchor.UpperLeft, 48f);
+
+            GameObject stats = CreateJobsCard(parent, "FleetStats", new Color(0.12f, 0.14f, 0.18f, 0.96f));
+            CreateJobsKvRow(stats.transform, LocalizationManager.L("Jobs_Shift", "Vardiya", "Shift"),
+                fleet.IsCurrentlyOnShift
+                    ? LocalizationManager.L("Jobs_ShiftOpen", "08:00–22:00 açık", "Open 08:00–22:00")
+                    : LocalizationManager.L("Jobs_ShiftClosed", "Kapalı (08:00–22:00)", "Closed (08:00–22:00)"));
+            CreateJobsKvRow(stats.transform, LocalizationManager.L("Jobs_OwnedTaxis", "Toplam taksi", "Total taxis"),
+                $"{fleet.OwnedTaxiCount} / {TaxiFleetManager.MAX_TAXIS}");
+            CreateJobsKvRow(stats.transform, LocalizationManager.L("Jobs_WorkingTaxis", "Yolda / işte", "On a job"),
+                fleet.WorkingCount.ToString());
+            CreateJobsKvRow(stats.transform, LocalizationManager.L("Jobs_IdleTaxis", "Parkta bekleyen", "Waiting in bay"),
+                fleet.IdleCount.ToString());
+            CreateJobsKvRow(stats.transform, LocalizationManager.L("Jobs_EmptyBays", "Boş yuva", "Empty bays"),
+                empty.ToString());
+            CreateJobsKvRow(stats.transform, LocalizationManager.L("Jobs_TodayTrips", "Bugünkü yolculuk", "Trips today"),
+                fleet.TodayTripCount.ToString());
+            CreateJobsKvRow(stats.transform, LocalizationManager.L("Jobs_TodayIncome", "Bugünkü taksi geliri", "Taxi income today"),
+                string.Format("{0:N0} C", fleet.TodayIncome));
+
+            GameObject bays = CreateJobsCard(parent, "BayStrip", new Color(0.12f, 0.14f, 0.18f, 0.96f));
+            CreateJobsLabel(bays.transform,
+                LocalizationManager.L("Jobs_BayTitle", "Park yuvaları", "Parking bays"),
+                16, new Color(0.96f, 0.78f, 0.18f), TextAnchor.MiddleLeft, 24f);
+            GameObject strip = new GameObject("BayRow");
+            strip.transform.SetParent(bays.transform, false);
+            HorizontalLayoutGroup hg = strip.AddComponent<HorizontalLayoutGroup>();
+            hg.spacing = 8f;
+            hg.childAlignment = TextAnchor.MiddleCenter;
+            hg.childControlWidth = true;
+            hg.childControlHeight = true;
+            hg.childForceExpandWidth = true;
+            hg.childForceExpandHeight = true;
+            LayoutElement sle = strip.AddComponent<LayoutElement>();
+            sle.minHeight = 40f;
+            sle.preferredHeight = 40f;
+            for (int i = 0; i < TaxiFleetManager.MAX_TAXIS; i++)
+            {
+                bool filled = i < fleet.OwnedTaxiCount;
+                GameObject bay = new GameObject("Bay_" + (i + 1));
+                bay.transform.SetParent(strip.transform, false);
+                Image img = bay.AddComponent<Image>();
+                img.sprite = UIStyleUtility.CreateRoundedPillSprite(120, 36, 12,
+                    filled ? new Color(0.96f, 0.78f, 0.14f) : new Color(0.22f, 0.24f, 0.28f));
+                Text tx = CreateJobsLabel(bay.transform, filled ? $"🚕 {i + 1}" : $"{i + 1}",
+                    14, filled ? new Color(0.14f, 0.11f, 0.05f) : new Color(0.70f, 0.74f, 0.78f),
+                    TextAnchor.MiddleCenter, 36f);
+                tx.horizontalOverflow = HorizontalWrapMode.Overflow;
+            }
+
+            GameObject live = CreateJobsCard(parent, "FleetLive", new Color(0.12f, 0.14f, 0.18f, 0.96f));
+            CreateJobsLabel(live.transform,
+                LocalizationManager.L("Jobs_LiveTitle", "Filo durumu", "Fleet status"),
+                16, new Color(0.96f, 0.78f, 0.18f), TextAnchor.MiddleLeft, 24f);
+            for (int i = 0; i < fleet.OwnedTaxiCount; i++)
+            {
+                CreateJobsKvRow(live.transform,
+                    string.Format(LocalizationManager.L("Jobs_TaxiN", "Taksi {0}", "Taxi {0}"), i + 1),
+                    fleet.GetTaxiStatusLocalized(i));
+            }
+
+            GameObject info = CreateJobsCard(parent, "FleetInfo", new Color(0.12f, 0.14f, 0.18f, 0.96f));
+            CreateJobsLabel(info.transform,
+                LocalizationManager.L("Jobs_OpsTitle", "İşletme notları", "Operations"),
+                16, new Color(0.96f, 0.78f, 0.18f), TextAnchor.MiddleLeft, 24f);
+            CreateJobsLabel(info.transform,
+                LocalizationManager.L(
+                    "Jobs_OpsBody",
+                    "• Taksiler sarı park yerinde bekler, personel gerekmez.\n• 08:00–22:00 çağrı: müşteri alınır, adrese bırakılır, ücret mesafeye göre finansa yazılır.\n• 22:00’de yolcu bırakılıp park yerine dönülür.\n• Yeni taksi almak için aşağı kaydır.",
+                    "• Taxis wait in the yellow bays; no staff needed.\n• 08:00–22:00: pick up, drop off, fare by distance posts to Finance.\n• At 22:00 the rider is dropped and the taxi returns to its bay.\n• Scroll down to buy another taxi."),
+                14, new Color(0.80f, 0.84f, 0.88f), TextAnchor.UpperLeft, 96f);
+
+            GameObject buyCard = CreateJobsCard(parent, "BuyTaxiDock", new Color(0.13f, 0.18f, 0.13f, 0.98f));
+            CreateJobsLabel(buyCard.transform,
+                LocalizationManager.L("Jobs_BuyTaxiTitle", "Yeni sarı taksi", "New yellow taxi"),
+                18, new Color(0.70f, 0.95f, 0.50f), TextAnchor.MiddleLeft, 26f);
+            CreateJobsLabel(buyCard.transform,
+                string.Format(
+                    LocalizationManager.L(
+                        "Jobs_BuyTaxiDescFmt",
+                        "Her araç 9.000 C. En fazla {0} taksi. Şu an {1} adet, {2} yuva boş. Bakiye: {3:N0} C",
+                        "Each vehicle is 9,000 C. Max {0} taxis. You have {1}, {2} bays free. Balance: {3:N0} C"),
+                    TaxiFleetManager.MAX_TAXIS, fleet.OwnedTaxiCount, empty, credits),
+                14, new Color(0.82f, 0.88f, 0.82f), TextAnchor.UpperLeft, 52f);
+
+            bool can = fleet.CanBuyTaxi();
+            string btnLabel = fleet.OwnedTaxiCount >= TaxiFleetManager.MAX_TAXIS
+                ? LocalizationManager.L("Jobs_TaxiFull", "Filo dolu  •  5/5", "Fleet full  •  5/5")
+                : can
+                    ? string.Format(LocalizationManager.L("Jobs_TaxiBuyFmt", "Taksi Al   •   {0:N0} C", "Buy Taxi   •   {0:N0} C"), TaxiFleetManager.TAXI_PRICE)
+                    : LocalizationManager.L("Jobs_TaxiNeedMoney", "Yetersiz bakiye", "Not enough credits");
+            CreateJobsCta(parent, "BuyTaxiBtn", btnLabel, can, new Color(0.16f, 0.70f, 0.30f), () =>
+            {
+                if (TaxiFleetManager.Instance != null && TaxiFleetManager.Instance.TryBuyTaxi())
+                {
+                    RefreshJobsViews();
+                }
+            });
+        }
+
+        private GameObject CreateJobsCard(Transform parent, string name, Color bg)
+        {
+            GameObject card = new GameObject(name);
+            card.transform.SetParent(parent, false);
+            Image img = card.AddComponent<Image>();
+            img.sprite = UIStyleUtility.CreateRoundedPillSprite(800, 140, 16, bg);
+            img.raycastTarget = false;
+            VerticalLayoutGroup v = card.AddComponent<VerticalLayoutGroup>();
+            v.padding = new RectOffset(18, 18, 14, 14);
+            v.spacing = 6f;
+            v.childAlignment = TextAnchor.UpperLeft;
+            v.childControlWidth = true;
+            v.childControlHeight = true;
+            v.childForceExpandWidth = true;
+            v.childForceExpandHeight = false;
+            ContentSizeFitter fit = card.AddComponent<ContentSizeFitter>();
+            fit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            return card;
+        }
+
+        private Text CreateJobsLabel(Transform parent, string text, int size, Color color, TextAnchor align, float minHeight)
+        {
+            GameObject go = new GameObject("JobsLabel");
+            go.transform.SetParent(parent, false);
+            Text t = go.AddComponent<Text>();
+            t.font = globalFont;
+            t.text = text;
+            t.fontSize = size;
+            t.fontStyle = FontStyle.Bold;
+            t.color = color;
+            t.alignment = align;
+            t.horizontalOverflow = HorizontalWrapMode.Wrap;
+            t.verticalOverflow = VerticalWrapMode.Overflow;
+            t.raycastTarget = false;
+            LayoutElement le = go.AddComponent<LayoutElement>();
+            le.minHeight = minHeight;
+            le.preferredHeight = minHeight;
+            le.flexibleWidth = 1f;
+            return t;
+        }
+
+        private void CreateJobsKvRow(Transform parent, string key, string value)
+        {
+            GameObject row = new GameObject("KvRow");
+            row.transform.SetParent(parent, false);
+            HorizontalLayoutGroup h = row.AddComponent<HorizontalLayoutGroup>();
+            h.childAlignment = TextAnchor.MiddleLeft;
+            h.childControlWidth = true;
+            h.childControlHeight = true;
+            h.childForceExpandWidth = true;
+            h.childForceExpandHeight = true;
+            h.spacing = 8f;
+            LayoutElement re = row.AddComponent<LayoutElement>();
+            re.minHeight = 26f;
+            re.preferredHeight = 26f;
+            CreateJobsLabel(row.transform, key, 14, new Color(0.72f, 0.76f, 0.80f), TextAnchor.MiddleLeft, 26f);
+            Text val = CreateJobsLabel(row.transform, value, 14, new Color(1f, 0.88f, 0.40f), TextAnchor.MiddleRight, 26f);
+            val.horizontalOverflow = HorizontalWrapMode.Wrap;
+        }
+
+        private void CreateJobsCta(Transform parent, string name, string label, bool interactable, Color color, UnityEngine.Events.UnityAction onClick)
+        {
+            GameObject buy = new GameObject(name);
+            buy.transform.SetParent(parent, false);
+            LayoutElement le = buy.AddComponent<LayoutElement>();
+            le.minHeight = 54f;
+            le.preferredHeight = 54f;
+            Image img = buy.AddComponent<Image>();
+            img.sprite = UIStyleUtility.CreateRoundedPillSprite(800, 54, 22, interactable ? color : new Color(0.32f, 0.34f, 0.38f));
+            img.raycastTarget = true;
+            Button btn = buy.AddComponent<Button>();
+            btn.targetGraphic = img;
+            btn.interactable = interactable;
+            if (onClick != null) btn.onClick.AddListener(onClick);
+            Text tx = CreateTextInPanel(buy.transform, Vector2.zero, Vector2.one, label, 18, Color.white);
+            tx.alignment = TextAnchor.MiddleCenter;
+            tx.horizontalOverflow = HorizontalWrapMode.Overflow;
         }
 
         private void CreateVirtualMarketAppView(Transform parent)
@@ -1971,8 +2399,8 @@ namespace Farm2Shelf.UI
             for (int i = 0; i < maxSlots; i++)
             {
                 int slotIdx = i;
-                bool isOwned = (CourierManager.Instance != null && slotIdx < CourierManager.Instance.SpawnedMotorcycles.Count);
-                CourierMotorcycleController moto = isOwned ? CourierManager.Instance.SpawnedMotorcycles[slotIdx] : null;
+                bool isOwned = (CourierManager.Instance != null && slotIdx < CourierManager.Instance.OwnedMotorcycleCount);
+                CourierMotorcycleController moto = isOwned ? CourierManager.Instance.GetMotorcycleBySlot(slotIdx) : null;
 
                 GameObject cardObj = new GameObject("FleetCard_Slot_" + (slotIdx + 1));
                 cardObj.transform.SetParent(onlineMarketFleetContent, false);
@@ -2215,6 +2643,14 @@ namespace Farm2Shelf.UI
                     "Distance from store: {0} m   •   Contract fee: {1:N0}C   •   {2} units"),
                 offer.distanceMeters, offer.payout, offer.TotalUnits);
             CreateOmLayoutText(info, distPay, 16, new Color(0.95f, 0.86f, 0.40f), FontStyle.Normal);
+            CreateOmLayoutText(info,
+                string.Format(
+                    LocalizationManager.L(
+                        "OM_ContractExtrasFmt",
+                        "Eksiksiz teslimatta +{0:N0}C mesafe primi. Yerel hasat kullanılırsa +{1:N0}C daha.",
+                        "Full delivery adds +{0:N0}C distance bonus. Local harvest adds +{1:N0}C more."),
+                    offer.DistanceBonus, TownContractOffer.LocalGoodsBonus),
+                14, new Color(0.70f, 0.88f, 0.72f), FontStyle.Normal);
             CreateOmLayoutText(info, FormatOfferProducts(offer, english), 15, new Color(0.80f, 0.86f, 0.92f), FontStyle.Normal);
 
             if (inQueue)

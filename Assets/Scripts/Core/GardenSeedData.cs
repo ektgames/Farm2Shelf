@@ -54,7 +54,30 @@ namespace Farm2Shelf.Core
         public static GardenSeedDef GetSeedById(string id)
         {
             if (seeds == null) InitDatabase();
+            if (string.IsNullOrEmpty(id)) return null;
             return seeds.Find(s => s.id == id);
+        }
+
+        public static GardenSeedDef FindSeedByLabel(string label)
+        {
+            if (seeds == null) InitDatabase();
+            if (string.IsNullOrEmpty(label)) return null;
+
+            string key = ProductPassportService.StripCropSuffix(label);
+            if (string.IsNullOrEmpty(key)) return null;
+
+            for (int i = 0; i < seeds.Count; i++)
+            {
+                GardenSeedDef seed = seeds[i];
+                if (seed == null) continue;
+                if (string.Equals(seed.id, label, System.StringComparison.OrdinalIgnoreCase)) return seed;
+                if (string.Equals(seed.name, label, System.StringComparison.OrdinalIgnoreCase)) return seed;
+                if (string.Equals(seed.nameEn, label, System.StringComparison.OrdinalIgnoreCase)) return seed;
+                if (string.Equals(ProductPassportService.StripCropSuffix(seed.name), key, System.StringComparison.OrdinalIgnoreCase)) return seed;
+                if (string.Equals(ProductPassportService.StripCropSuffix(seed.nameEn), key, System.StringComparison.OrdinalIgnoreCase)) return seed;
+            }
+
+            return null;
         }
 
         public static List<GardenSeedDef> GetSeedsBySeason(TimeManager.Season season)

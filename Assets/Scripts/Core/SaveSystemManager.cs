@@ -104,7 +104,7 @@ namespace Farm2Shelf.Core
             }
             else
             {
-                saveData.playerMoney = 50000;
+                saveData.playerMoney = EconomyManager.StartingCredits;
             }
 
             // 2. MAĞAZA SEVİYESİ VE TADİLAT RENKLERİ
@@ -367,7 +367,9 @@ namespace Farm2Shelf.Core
             }
 
             // 12.b Kurye Motorsiklet Filosu
-            saveData.ownedMotorcycleCount = (CourierManager.Instance != null) ? CourierManager.Instance.OwnedMotorcycleCount : 0;
+            saveData.ownedMotorcycleCount = (CourierManager.Instance != null) ? CourierManager.Instance.GetOwnedCountForSave() : 0;
+            saveData.taxiStandOwned = TaxiFleetManager.Instance != null && TaxiFleetManager.Instance.StandOwned;
+            saveData.ownedTaxiCount = TaxiFleetManager.Instance != null ? TaxiFleetManager.Instance.OwnedTaxiCount : 0;
 
             if (OnlineMarketOrderManager.Instance != null)
             {
@@ -453,9 +455,10 @@ namespace Farm2Shelf.Core
                         foreach (var r in f.rows)
                         {
                             if (r == null) continue;
+                            ProductPassportService.SyncShelfRowIdentity(r);
                             fData.rows.Add(new ShelfSaveRowData
                             {
-                                rowId = r.rowId,
+                                rowId = r.rowId > 0 ? r.rowId : fData.rows.Count + 1,
                                 productId = r.productId,
                                 productName = r.productName,
                                 iconEmoji = "",
@@ -621,25 +624,39 @@ namespace Farm2Shelf.Core
                         ShelfRowData[] rows = null;
                         if (sData.rows != null && sData.rows.Count > 0)
                         {
-                            rows = new ShelfRowData[sData.rows.Count];
+                            int rowCount = PlacedFurnitureController.GetRowCountForType(fType);
+                            if (sData.rows.Count > rowCount) rowCount = sData.rows.Count;
+                            rows = new ShelfRowData[rowCount];
+                            for (int i = 0; i < rowCount; i++)
+                            {
+                                rows[i] = new ShelfRowData(i + 1, "Boş", 0, 50, 0f);
+                            }
+
                             for (int i = 0; i < sData.rows.Count; i++)
                             {
                                 var rData = sData.rows[i];
-                                rows[i] = new ShelfRowData(
-                                    rData.rowId,
+                                if (rData == null) continue;
+                                int slot = rData.rowId > 0 ? rData.rowId - 1 : i;
+                                if (slot < 0 || slot >= rows.Length) continue;
+
+                                rows[slot] = new ShelfRowData(
+                                    slot + 1,
                                     rData.productName,
                                     rData.currentStock,
-                                    rData.maxCapacity,
+                                    rData.maxCapacity > 0 ? rData.maxCapacity : 50,
                                     rData.unitPrice,
                                     rData.productId
                                 );
-                                rows[i].lots = ProductPassportService.RestoreLotsOrLegacy(rData.productId, rData.currentStock, rData.lots);
+                                rows[slot].lots = ProductPassportService.RestoreLotsOrLegacy(rData.productId, rData.currentStock, rData.lots);
+                                ProductPassportService.SyncShelfRowIdentity(rows[slot]);
                             }
                         }
 
                         FurniturePlacementManager.Instance.SpawnRestoredFurniture(fType, pos, rot, rows);
                     }
                 }
+
+                FurniturePlacementManager.Instance.RemountWallMountedDecorations();
             }
 
             // 4.b Atölye Makineleri Üretim Durumlarını Eşleştir ve Yükle
@@ -867,6 +884,11 @@ namespace Farm2Shelf.Core
                 CourierManager.Instance.RestoreOwnedMotorcycles(saveData.ownedMotorcycleCount);
             }
 
+            if (TaxiFleetManager.Instance != null)
+            {
+                TaxiFleetManager.Instance.Restore(saveData.taxiStandOwned, saveData.ownedTaxiCount);
+            }
+
             WholesaleDatabase.RestoreCustomPrices(saveData.customProductPrices);
 
             if (TownContractManager.Instance != null)
@@ -1040,6 +1062,7 @@ namespace Farm2Shelf.Core
             }
 
             CourierManager.Instance?.ResetFleet();
+            TaxiFleetManager.Instance?.ResetFleet();
             TownContractManager.Instance?.ResetToDefaults();
             SeasonalInspectorManager.Instance?.ResetToDefaults();
             OnlineMarketOrderManager.Instance?.ResetToDefaults();
@@ -1070,7 +1093,7 @@ namespace Farm2Shelf.Core
             }
 
             WholesaleDatabase.ResetAllPricesToDefault();
-            EconomyManager.Instance?.SetCredits(50000);
+            EconomyManager.Instance?.SetCredits(EconomyManager.StartingCredits);
             FinanceManager.Instance?.ResetToDefaults();
             StockMarketManager.Instance?.ResetToDefaults();
             BankLoanManager.Instance?.RestoreActiveLoans(new List<ActiveLoanData>());

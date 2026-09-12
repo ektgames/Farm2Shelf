@@ -38,6 +38,9 @@ namespace Farm2Shelf.Environment
 
         private Transform[] wheels;
         private Light headlight;
+        private VehicleHeadlightController headlightRig;
+        private Transform gripLeft;
+        private Transform gripRight;
         private float wheelSpinSpeed = 650f;
         private float driveSpeed = 10.5f; // Arabalarla aynı hızda (10.5 m/s)
 
@@ -94,22 +97,54 @@ namespace Farm2Shelf.Environment
             StaffClickableTarget motoClick = GetComponent<StaffClickableTarget>() ?? gameObject.AddComponent<StaffClickableTarget>();
             motoClick.courierMoto = this;
 
+            gripLeft = transform.Find("Grip_L");
+            gripRight = transform.Find("Grip_R");
+            headlightRig = GetComponent<VehicleHeadlightController>();
+
             if (headlight != null)
             {
                 Farm2Shelf.Utils.LightingPipelineBinder.ConfigureRealtimeLight(headlight);
                 headlight.enabled = false;
             }
+
+            ApplyHeadlights(false);
         }
 
         private void Update()
         {
-            // Gece far kontrolü
-            if (headlight != null && TimeManager.Instance != null)
+            bool isMoving =
+                CurrentState == MotorcycleState.Departing ||
+                CurrentState == MotorcycleState.EnRouteDelivery ||
+                CurrentState == MotorcycleState.ReturningToStore;
+            ApplyHeadlights(isMoving);
+        }
+
+        private void ApplyHeadlights(bool isMoving)
+        {
+            if (headlightRig != null)
+            {
+                headlightRig.SetHeadlightsActive(isMoving);
+                return;
+            }
+
+            if (headlight == null) return;
+
+            bool isNight;
+            if (DayNightCycleManager.Instance != null)
+            {
+                isNight = DayNightCycleManager.Instance.IsNight;
+            }
+            else if (TimeManager.Instance != null)
             {
                 int h = TimeManager.Instance.CurrentHour;
-                bool isNight = (h >= 20 || h < 7);
-                headlight.enabled = isNight && (CurrentState == MotorcycleState.EnRouteDelivery || CurrentState == MotorcycleState.ReturningToStore || CurrentState == MotorcycleState.DeliveringAtDoorstep);
+                isNight = (h >= 20 || h < 7);
             }
+            else
+            {
+                isNight = false;
+            }
+
+            headlight.enabled = isNight && isMoving;
         }
 
         public void AssignCourier(StaffMember courier)
@@ -136,38 +171,78 @@ namespace Farm2Shelf.Environment
         public void MountRider(GameObject rider)
         {
             CourierRiderObj = rider;
-            if (rider != null && DriverSeatMount != null)
+            if (rider == null || DriverSeatMount == null) return;
+
+            rider.transform.SetParent(DriverSeatMount, false);
+            // Personel kökü ayaktadır; kalçayı seleye indir, gövdeyi gidona doğru yatır.
+            rider.transform.localPosition = new Vector3(0f, -1.02f, 0.06f);
+            rider.transform.localRotation = Quaternion.Euler(14f, 0f, 0f);
+
+            CapsuleCollider riderCol = rider.GetComponent<CapsuleCollider>();
+            if (riderCol != null) riderCol.enabled = false;
+
+            Transform legL = FindDeep(rider.transform, "Leg_L");
+            Transform legR = FindDeep(rider.transform, "Leg_R");
+            Transform armL = FindDeep(rider.transform, "Arm_L");
+            Transform armR = FindDeep(rider.transform, "Arm_R");
+
+            if (legL != null) legL.localRotation = Quaternion.Euler(-72f, 20f, 8f);
+            if (legR != null) legR.localRotation = Quaternion.Euler(-72f, -20f, -8f);
+
+            if (gripLeft != null && armL != null)
             {
-                rider.transform.SetParent(DriverSeatMount, false);
-                rider.transform.localPosition = Vector3.zero;
-                rider.transform.localRotation = Quaternion.identity;
-
-                // Sürüş Oturma Pozu: Bacaklar pedallarda, kollar gidonda
-                Transform legL = rider.transform.Find("Leg_L");
-                Transform legR = rider.transform.Find("Leg_R");
-                Transform armL = rider.transform.Find("Arm_L");
-                Transform armR = rider.transform.Find("Arm_R");
-
-                if (legL != null) legL.localRotation = Quaternion.Euler(-55f, 15f, 0f);
-                if (legR != null) legR.localRotation = Quaternion.Euler(-55f, -15f, 0f);
-                if (armL != null) armL.localRotation = Quaternion.Euler(-45f, 10f, 0f);
-                if (armR != null) armR.localRotation = Quaternion.Euler(-45f, -10f, 0f);
+                AimLimbToward(armL, gripLeft.position);
             }
+            else if (armL != null)
+            {
+                armL.localRotation = Quaternion.Euler(-78f, 12f, 18f);
+            }
+
+            if (gripRight != null && armR != null)
+            {
+                AimLimbToward(armR, gripRight.position);
+            }
+            else if (armR != null)
+            {
+                armR.localRotation = Quaternion.Euler(-78f, -12f, -18f);
+            }
+        }
+
+        private static Transform FindDeep(Transform root, string objectName)
+        {
+            if (root == null) return null;
+            if (root.name == objectName) return root;
+            for (int i = 0; i < root.childCount; i++)
+            {
+                Transform found = FindDeep(root.GetChild(i), objectName);
+                if (found != null) return found;
+            }
+            return null;
+        }
+
+        private static void AimLimbToward(Transform limbPivot, Vector3 worldTarget)
+        {
+            Vector3 toTarget = worldTarget - limbPivot.position;
+            if (toTarget.sqrMagnitude < 0.0001f) return;
+            limbPivot.rotation = Quaternion.FromToRotation(Vector3.down, toTarget.normalized);
         }
 
         public void UnmountRider()
         {
             if (CourierRiderObj != null)
             {
-                Transform legL = CourierRiderObj.transform.Find("Leg_L");
-                Transform legR = CourierRiderObj.transform.Find("Leg_R");
-                Transform armL = CourierRiderObj.transform.Find("Arm_L");
-                Transform armR = CourierRiderObj.transform.Find("Arm_R");
+                Transform legL = FindDeep(CourierRiderObj.transform, "Leg_L");
+                Transform legR = FindDeep(CourierRiderObj.transform, "Leg_R");
+                Transform armL = FindDeep(CourierRiderObj.transform, "Arm_L");
+                Transform armR = FindDeep(CourierRiderObj.transform, "Arm_R");
 
                 if (legL != null) legL.localRotation = Quaternion.identity;
                 if (legR != null) legR.localRotation = Quaternion.identity;
                 if (armL != null) armL.localRotation = Quaternion.identity;
                 if (armR != null) armR.localRotation = Quaternion.identity;
+
+                CapsuleCollider riderCol = CourierRiderObj.GetComponent<CapsuleCollider>();
+                if (riderCol != null) riderCol.enabled = true;
 
                 CourierRiderObj.transform.SetParent(null);
                 CourierRiderObj = null;
@@ -335,7 +410,10 @@ namespace Farm2Shelf.Environment
 
         private static float GetClosestNorthAvenueX(float x)
         {
-            float[] aves = new float[] { -75.0f, -37.5f, 0.0f, 37.5f, 75.0f };
+            if (x >= 86.0f)
+                return x <= 135.0f ? 112.5f : 150.0f;
+
+            float[] aves = new float[] { -75.0f, -37.5f, 0.0f, 37.5f, 75.0f, 112.5f, 150.0f };
             float closest = aves[0];
             float minDist = Mathf.Abs(x - closest);
             for (int i = 1; i < aves.Length; i++)
@@ -468,7 +546,16 @@ namespace Farm2Shelf.Environment
                     }
                     else if (isDestSouthDistrict)
                     {
-                        if (dest.x >= 25.0f)
+                        if (dest.x >= 90.0f)
+                        {
+                            float seAve = GetClosestNorthAvenueX(dest.x);
+                            rawPoints.Add(new Vector3(SHOP_LANE_SOUTHBOUND_X, 0.05f, MAIN_ROAD_EASTBOUND_Z));
+                            rawPoints.Add(new Vector3(14.0f, 0.05f, MAIN_ROAD_EASTBOUND_Z));
+                            rawPoints.Add(new Vector3(seAve - LANE_OFFSET, 0.05f, MAIN_ROAD_EASTBOUND_Z));
+                            rawPoints.Add(new Vector3(seAve - LANE_OFFSET, 0.05f, -16.0f));
+                            rawPoints.Add(new Vector3(seAve - LANE_OFFSET, 0.05f, dest.z));
+                        }
+                        else if (dest.x >= 25.0f)
                         {
                             // Doğu Kafe Caddesi (X = 75.0m)
                             rawPoints.Add(new Vector3(SHOP_LANE_SOUTHBOUND_X, 0.05f, MAIN_ROAD_EASTBOUND_Z));
@@ -515,6 +602,14 @@ namespace Farm2Shelf.Environment
                             rawPoints.Add(new Vector3(dest.x, 0.05f, SOUTH_ROAD_WESTBOUND_Z));
                         }
                     }
+                    else if (dest.x >= 90.0f)
+                    {
+                        float seAve = GetClosestNorthAvenueX(dest.x);
+                        rawPoints.Add(new Vector3(SHOP_LANE_SOUTHBOUND_X, 0.05f, MAIN_ROAD_EASTBOUND_Z));
+                        rawPoints.Add(new Vector3(seAve - LANE_OFFSET, 0.05f, MAIN_ROAD_EASTBOUND_Z));
+                        rawPoints.Add(new Vector3(seAve + LANE_OFFSET, 0.05f, -6.0f));
+                        rawPoints.Add(new Vector3(seAve + LANE_OFFSET, 0.05f, dest.z));
+                    }
                     else
                     {
                         // Otoyol kenarı konutlar & Belediye
@@ -560,9 +655,22 @@ namespace Farm2Shelf.Environment
                     rawPoints.Add(new Vector3(startWestAveX, 0.05f, MAIN_ROAD_EASTBOUND_Z));
                     AddBridgeWaypoints(rawPoints, true);
                 }
+                else if (start.x >= 90.0f)
+                {
+                    float seAve = GetClosestNorthAvenueX(start.x);
+                    rawPoints.Add(new Vector3(seAve - LANE_OFFSET, 0.05f, start.z));
+                    rawPoints.Add(new Vector3(seAve - LANE_OFFSET, 0.05f, MAIN_ROAD_WESTBOUND_Z));
+                }
                 else if (isStartSouthDistrict || isStartSouthKasabaPerimeter)
                 {
-                    if (start.x >= 25.0f)
+                    if (start.x >= 90.0f)
+                    {
+                        float seAve = GetClosestNorthAvenueX(start.x);
+                        rawPoints.Add(new Vector3(seAve + LANE_OFFSET, 0.05f, start.z));
+                        rawPoints.Add(new Vector3(seAve + LANE_OFFSET, 0.05f, -16.0f));
+                        rawPoints.Add(new Vector3(seAve + LANE_OFFSET, 0.05f, MAIN_ROAD_WESTBOUND_Z));
+                    }
+                    else if (start.x >= 25.0f)
                     {
                         rawPoints.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0.05f, start.z));
                         rawPoints.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0.05f, -12.0f));
@@ -610,6 +718,18 @@ namespace Farm2Shelf.Environment
                         rawPoints.Add(new Vector3(destWestAveX - LANE_OFFSET, 0.05f, -12.0f));
                         rawPoints.Add(new Vector3(destWestAveX - LANE_OFFSET, 0.05f, dest.z));
                     }
+                }
+                else if (isDestSouthDistrict && dest.x >= 90.0f)
+                {
+                    float seAve = GetClosestNorthAvenueX(dest.x);
+                    rawPoints.Add(new Vector3(seAve - LANE_OFFSET, 0.05f, MAIN_ROAD_EASTBOUND_Z));
+                    rawPoints.Add(new Vector3(seAve - LANE_OFFSET, 0.05f, dest.z));
+                }
+                else if (dest.x >= 90.0f)
+                {
+                    float seAve = GetClosestNorthAvenueX(dest.x);
+                    rawPoints.Add(new Vector3(seAve + LANE_OFFSET, 0.05f, MAIN_ROAD_EASTBOUND_Z));
+                    rawPoints.Add(new Vector3(seAve + LANE_OFFSET, 0.05f, dest.z));
                 }
                 else
                 {
@@ -694,9 +814,28 @@ namespace Farm2Shelf.Environment
                 rawPoints.Add(new Vector3(SHOP_LANE_NORTHBOUND_X, 0.05f, -6.0f));
                 rawPoints.Add(new Vector3(SHOP_LANE_NORTHBOUND_X, 0.05f, HomeParkPosition.z));
             }
+            else if (start.x >= 90.0f)
+            {
+                float seAve = GetClosestNorthAvenueX(start.x);
+                rawPoints.Add(new Vector3(seAve - LANE_OFFSET, 0.05f, start.z));
+                rawPoints.Add(new Vector3(seAve - LANE_OFFSET, 0.05f, MAIN_ROAD_WESTBOUND_Z));
+                rawPoints.Add(new Vector3(SHOP_LANE_SOUTHBOUND_X, 0.05f, MAIN_ROAD_WESTBOUND_Z));
+                rawPoints.Add(new Vector3(SHOP_LANE_NORTHBOUND_X, 0.05f, -6.0f));
+                rawPoints.Add(new Vector3(SHOP_LANE_NORTHBOUND_X, 0.05f, HomeParkPosition.z));
+            }
             else if (isSouthDistrict)
             {
-                if (start.x >= 25.0f)
+                if (start.x >= 90.0f)
+                {
+                    float seAve = GetClosestNorthAvenueX(start.x);
+                    rawPoints.Add(new Vector3(seAve + LANE_OFFSET, 0.05f, start.z));
+                    rawPoints.Add(new Vector3(seAve + LANE_OFFSET, 0.05f, -16.0f));
+                    rawPoints.Add(new Vector3(seAve, 0.05f, MAIN_ROAD_WESTBOUND_Z));
+                    rawPoints.Add(new Vector3(SHOP_LANE_SOUTHBOUND_X, 0.05f, MAIN_ROAD_WESTBOUND_Z));
+                    rawPoints.Add(new Vector3(SHOP_LANE_NORTHBOUND_X, 0.05f, -6.0f));
+                    rawPoints.Add(new Vector3(SHOP_LANE_NORTHBOUND_X, 0.05f, HomeParkPosition.z));
+                }
+                else if (start.x >= 25.0f)
                 {
                     // Doğu Kafe Caddesinden Kuzeye çıkış sağ şeridi (X: 76.5)
                     rawPoints.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0.05f, start.z));

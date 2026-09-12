@@ -186,8 +186,7 @@ namespace Farm2Shelf.Core
         public void Setup(FurnitureType type, Vector3 pos, Quaternion rot, ShelfRowData[] existingRows = null)
         {
             this.FurnitureType = type;
-            this.OriginalPosition = pos;
-            this.OriginalRotation = rot;
+            ApplyPlacedPose(pos, rot);
 
             if (existingRows != null && existingRows.Length > 0)
             {
@@ -196,14 +195,7 @@ namespace Farm2Shelf.Core
                 {
                     if (existingRows[i] != null)
                     {
-                        this.rows[i] = new ShelfRowData(
-                            existingRows[i].rowId,
-                            existingRows[i].productName,
-                            existingRows[i].currentStock,
-                            existingRows[i].maxCapacity,
-                            existingRows[i].unitPrice,
-                            existingRows[i].productId
-                        );
+                        this.rows[i] = CloneRow(existingRows[i]);
                     }
                 }
             }
@@ -218,6 +210,14 @@ namespace Farm2Shelf.Core
 
             EnsureTouchColliders();
             EnsureChildClickForwarders();
+        }
+
+        public void ApplyPlacedPose(Vector3 pos, Quaternion rot)
+        {
+            this.OriginalPosition = pos;
+            this.OriginalRotation = rot;
+            transform.position = pos;
+            transform.rotation = rot;
         }
 
         public static bool IsWalkableFloorDecoration(FurnitureType type)
@@ -314,6 +314,21 @@ namespace Farm2Shelf.Core
 
         public void EnsureTouchColliders()
         {
+            if (FurnitureDatabase.IsWallMountedDecoration(FurnitureType))
+            {
+                BoxCollider wallCol = GetComponent<BoxCollider>();
+                if (wallCol == null) wallCol = gameObject.AddComponent<BoxCollider>();
+                wallCol.center = new Vector3(0f, 1.85f, 0.04f);
+                wallCol.size = new Vector3(0.70f, 0.70f, 0.12f);
+                wallCol.isTrigger = false;
+
+                UnityEngine.AI.NavMeshObstacle wallNav = GetComponent<UnityEngine.AI.NavMeshObstacle>();
+                if (wallNav != null) Destroy(wallNav);
+
+                EnsureChildClickForwarders();
+                return;
+            }
+
             Renderer[] renderers = GetComponentsInChildren<Renderer>();
             if (renderers != null && renderers.Length > 0)
             {
@@ -383,9 +398,30 @@ namespace Farm2Shelf.Core
             }
         }
 
+        public static int GetRowCountForType(FurnitureType type)
+        {
+            return type == FurnitureType.StorageShelf ? 10 : 4;
+        }
+
+        public static ShelfRowData CloneRow(ShelfRowData source)
+        {
+            if (source == null) return null;
+            ShelfRowData copy = new ShelfRowData(
+                source.rowId,
+                source.productName,
+                source.currentStock,
+                source.maxCapacity,
+                source.unitPrice,
+                source.productId
+            );
+            copy.lots = ProductPassportService.CloneLots(source.lots);
+            ProductPassportService.SyncShelfRowIdentity(copy);
+            return copy;
+        }
+
         private void InitializeRows()
         {
-            int rowCount = (FurnitureType == FurnitureType.StorageShelf) ? 10 : 4;
+            int rowCount = GetRowCountForType(FurnitureType);
             int capacityPerRow = 50; // TÜM RAF, DOLAP VE TEZGAHLAR 50 ADET (1 KOLİ) SIĞACAK ŞEKİLDE AYARLANDI
 
             rows = new ShelfRowData[rowCount];
@@ -576,14 +612,7 @@ namespace Farm2Shelf.Core
                     {
                         if (this.rows[i] != null)
                         {
-                            currentRows[i] = new ShelfRowData(
-                                this.rows[i].rowId,
-                                this.rows[i].productName,
-                                this.rows[i].currentStock,
-                                this.rows[i].maxCapacity,
-                                this.rows[i].unitPrice,
-                                this.rows[i].productId
-                            );
+                            currentRows[i] = CloneRow(this.rows[i]);
                         }
                     }
                 }
@@ -596,8 +625,14 @@ namespace Farm2Shelf.Core
                     machineState = new WorkshopMachineState(wsMachine);
                 }
 
-                // Mevcut kurulu objeyi listeden kaldır ve imha et
+                // Görünür parçaları hemen kapat; Destroy kare sonuna kalırsa siyah montaj izi havada kalmasın.
                 AllPlacedFurniture.Remove(this);
+                Renderer[] leftoverRenderers = GetComponentsInChildren<Renderer>(true);
+                for (int i = 0; i < leftoverRenderers.Length; i++)
+                {
+                    if (leftoverRenderers[i] != null) leftoverRenderers[i].enabled = false;
+                }
+                gameObject.SetActive(false);
                 Destroy(gameObject);
 
                 // Tekrar yerleştirme modunu başlat
@@ -646,11 +681,12 @@ namespace Farm2Shelf.Core
             for (int k = 0; k < positions.Count; k++)
             {
                 Farm2Shelf.Environment.Procedural3DProductBuilder.CreateProduct3DMesh(
-                    rowContainer.transform, 
-                    rData.productName, 
-                    positions[k], 
-                    rotation, 
-                    scale, 
+                    rowContainer.transform,
+                    rData.productId,
+                    rData.productName,
+                    positions[k],
+                    rotation,
+                    scale,
                     FurnitureType == FurnitureType.StorageShelf
                 );
             }

@@ -808,10 +808,13 @@ namespace Farm2Shelf.Environment
         {
             const float hangHeight = 1.85f;
 
-            // Kare montaj plakası duvarın içine gömülür; saat asılı durur, boşluk kalmaz.
-            CreatePrimitive(parent, "WallMount", PrimitiveType.Cube,
-                new Vector3(0f, hangHeight, -0.018f),
-                new Vector3(0.20f, 0.20f, 0.05f), blackMat);
+            // Montaj plakası sadece boşluğu kapatır; renderer kapalıdır ki duvar/taşıma sonrası siyah iz kalmasın.
+            GameObject wallMount = CreatePrimitive(parent, "WallMount", PrimitiveType.Cube,
+                new Vector3(0f, hangHeight, -0.01f),
+                new Vector3(0.12f, 0.12f, 0.02f), blackMat);
+            Renderer mountRenderer = wallMount.GetComponent<Renderer>();
+            if (mountRenderer != null) mountRenderer.enabled = false;
+            StripVolumeCollider(wallMount);
 
             GameObject faceRoot = new GameObject("ClockFaceRoot");
             faceRoot.transform.SetParent(parent.transform, false);

@@ -13,9 +13,10 @@ namespace Farm2Shelf.Core
     {
         public static EconomyManager Instance { get; private set; }
         public const int BankruptcyLimit = -2000;
+        public const int StartingCredits = 500000;
 
         [Header("Ekonomi State")]
-        [SerializeField] private int currentCredits = 50000; // Başlangıç Parası: 50.000C!
+        [SerializeField] private int currentCredits = StartingCredits;
 
         public event Action<int> OnCreditsChanged;
 

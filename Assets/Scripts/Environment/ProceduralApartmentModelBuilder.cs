@@ -482,8 +482,11 @@ namespace Farm2Shelf.Environment
 
         private static void BuildPerimeterFences(Transform parcelParent, Vector2 parcelSize, bool entranceEast)
         {
-            float halfX = parcelSize.x / 2f;
-            float halfZ = parcelSize.y / 2f;
+            const float sidewalkClearance = 0.55f;
+            float halfX = parcelSize.x / 2f - sidewalkClearance;
+            float halfZ = parcelSize.y / 2f - sidewalkClearance;
+            float fenceSpanX = parcelSize.x - sidewalkClearance * 2f;
+            float fenceSpanZ = parcelSize.y - sidewalkClearance * 2f;
             float fenceH = 1.15f;
             float gateOpeningWidth = 3.6f;
 
@@ -493,16 +496,16 @@ namespace Farm2Shelf.Environment
             // 1. Kuzey ve Güney Sınır Çitleri (Tam kapalı)
             for (int dir = -1; dir <= 1; dir += 2)
             {
-                CreateFenceSegment(fenceGroup, new Vector3(0f, fenceH / 2f, dir * halfZ), new Vector3(parcelSize.x, fenceH, 0.22f));
+                CreateFenceSegment(fenceGroup, new Vector3(0f, fenceH / 2f, dir * halfZ), new Vector3(fenceSpanX, fenceH, 0.22f));
             }
 
             // 2. Arka Sınır Çiti (Girişin tersi taraf - Tam kapalı)
             float rearX = entranceEast ? -halfX : halfX;
-            CreateFenceSegment(fenceGroup, new Vector3(rearX, fenceH / 2f, 0f), new Vector3(0.22f, fenceH, parcelSize.y));
+            CreateFenceSegment(fenceGroup, new Vector3(rearX, fenceH / 2f, 0f), new Vector3(0.22f, fenceH, fenceSpanZ));
 
             // 3. Ön Cadde Cephesi Çiti (Giriş kapısı açıklığı bırakır)
             float frontX = entranceEast ? halfX : -halfX;
-            float sideFenceLength = (parcelSize.y - gateOpeningWidth) / 2f;
+            float sideFenceLength = (fenceSpanZ - gateOpeningWidth) / 2f;
 
             // Kapının Solu ve Sağı
             CreateFenceSegment(fenceGroup, new Vector3(frontX, fenceH / 2f, -halfZ + (sideFenceLength / 2f)), new Vector3(0.22f, fenceH, sideFenceLength));

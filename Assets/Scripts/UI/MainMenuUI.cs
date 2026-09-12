@@ -1008,7 +1008,7 @@ namespace Farm2Shelf.UI
             }
             else if (EconomyManager.Instance != null)
             {
-                EconomyManager.Instance.SetCredits(50000);
+                EconomyManager.Instance.SetCredits(EconomyManager.StartingCredits);
             }
 
             if (TutorialManager.Instance != null)

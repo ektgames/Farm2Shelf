@@ -232,6 +232,8 @@ namespace Farm2Shelf.Core
         public List<StaffSaveData> farmStaffList = new List<StaffSaveData>();
         public List<StaffSaveData> courierStaffList = new List<StaffSaveData>();
         public int ownedMotorcycleCount;
+        public bool taxiStandOwned;
+        public int ownedTaxiCount;
         public List<OnlineOrderSaveData> onlineOrders = new List<OnlineOrderSaveData>();
         public TownContractSaveData townContracts;
         public List<string> wholesaleTruckPackageIds = new List<string>();

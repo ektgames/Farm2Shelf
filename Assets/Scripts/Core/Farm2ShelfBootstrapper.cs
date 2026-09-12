@@ -65,10 +65,14 @@ namespace Farm2Shelf.Core
             if (managersObj.GetComponent<StaffManager>() == null)
                 managersObj.AddComponent<StaffManager>();
 
-            if (FindFirstObjectByType<CourierManager>() == null)
+            if (managersObj.GetComponent<CourierManager>() == null && FindFirstObjectByType<CourierManager>() == null)
             {
-                GameObject courierGo = new GameObject("CourierManager");
-                courierGo.AddComponent<CourierManager>();
+                managersObj.AddComponent<CourierManager>();
+            }
+
+            if (managersObj.GetComponent<TaxiFleetManager>() == null && FindFirstObjectByType<TaxiFleetManager>() == null)
+            {
+                managersObj.AddComponent<TaxiFleetManager>();
             }
 
             if (FindFirstObjectByType<TownContractManager>() == null)

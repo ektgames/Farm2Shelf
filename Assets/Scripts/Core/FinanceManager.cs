@@ -55,6 +55,8 @@ namespace Farm2Shelf.Core
         public const string DailySpin = "Günlük Çark";
         public const string Overtime = "Personel Mesai";
         public const string Inspection = "Müfettiş Denetimi";
+        public const string Taxi = "Taksi";
+        public const string TaxiIncome = "Taksi Geliri";
 
         public static string Localize(string category)
         {
@@ -81,6 +83,8 @@ namespace Farm2Shelf.Core
                 case DailySpin: return LocalizationManager.L("TrxCat_DailySpin", "Günlük Çark", "Daily Wheel");
                 case Overtime: return LocalizationManager.L("TrxCat_Overtime", "Personel Mesai", "Staff Overtime");
                 case Inspection: return LocalizationManager.L("TrxCat_Inspection", "Müfettiş Denetimi", "Inspector Visit");
+                case Taxi: return LocalizationManager.L("TrxCat_Taxi", "Taksi", "Taxi");
+                case TaxiIncome: return LocalizationManager.L("TrxCat_TaxiIncome", "Taksi Geliri", "Taxi Income");
                 default: return category;
             }
         }

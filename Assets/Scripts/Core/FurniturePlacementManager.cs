@@ -65,6 +65,9 @@ namespace Farm2Shelf.Core
                 LocalizationManager.Instance.OnLanguageChanged -= HandleLanguageChanged;
                 LocalizationManager.Instance.OnLanguageChanged += HandleLanguageChanged;
             }
+
+            EnvironmentBuilder.OnStoreUpgraded -= HandleStoreUpgraded;
+            EnvironmentBuilder.OnStoreUpgraded += HandleStoreUpgraded;
         }
 
         private void OnDisable()
@@ -73,6 +76,13 @@ namespace Farm2Shelf.Core
             {
                 LocalizationManager.Instance.OnLanguageChanged -= HandleLanguageChanged;
             }
+
+            EnvironmentBuilder.OnStoreUpgraded -= HandleStoreUpgraded;
+        }
+
+        private void HandleStoreUpgraded(int newLevel)
+        {
+            RemountWallMountedDecorations();
         }
 
         private void HandleLanguageChanged(GameLanguage language)
@@ -758,6 +768,83 @@ namespace Farm2Shelf.Core
             return true;
         }
 
+        /// <summary>
+        /// Yükseltmede arka duvar kayınca mevcut bakış açısına göre saati yeni duvara taşır.
+        /// Yakınlık eşiği kullanmaz; aksi halde saat eski Z'de boşlukta kalır.
+        /// </summary>
+        private bool TryRemountWallDecorationByFacing(Vector3 desired, float hintYaw, out Vector3 snapped, out float facingYaw)
+        {
+            if (TrySnapToStoreWall(desired, out snapped, out facingYaw))
+            {
+                return true;
+            }
+
+            GetStoreWallFaces(out float leftX, out float rightX, out float frontZ, out float backZ);
+            float alongMinZ = frontZ + 0.75f;
+            float alongMaxZ = backZ - 0.75f;
+            float alongMinX = leftX + 0.75f;
+            float alongMaxX = rightX - 0.75f;
+            float yNorm = Mathf.Repeat(hintYaw, 360f);
+
+            if (yNorm > 135f && yNorm < 225f)
+            {
+                snapped = new Vector3(Mathf.Clamp(desired.x, alongMinX, alongMaxX), 0.01f, backZ);
+                facingYaw = 180f;
+            }
+            else if (yNorm < 45f || yNorm > 315f)
+            {
+                snapped = new Vector3(Mathf.Clamp(desired.x, alongMinX, alongMaxX), 0.01f, frontZ);
+                facingYaw = 0f;
+            }
+            else if (yNorm >= 45f && yNorm <= 135f)
+            {
+                snapped = new Vector3(leftX, 0.01f, Mathf.Clamp(desired.z, alongMinZ, alongMaxZ));
+                facingYaw = 90f;
+            }
+            else
+            {
+                snapped = new Vector3(rightX, 0.01f, Mathf.Clamp(desired.z, alongMinZ, alongMaxZ));
+                facingYaw = -90f;
+            }
+
+            const float wallEmbed = 0.02f;
+            Vector3 intoRoom = Quaternion.Euler(0f, facingYaw, 0f) * Vector3.forward;
+            snapped -= intoRoom * wallEmbed;
+
+            if (snapped.z <= -1.8f && snapped.x >= -5.8f && snapped.x <= -4.2f)
+            {
+                snapped.x = -6.2f;
+            }
+            if (snapped.x >= 2.35f && snapped.z >= 0.8f && snapped.z <= 3.4f)
+            {
+                snapped.z = 3.6f;
+            }
+
+            return true;
+        }
+
+        public void RemountWallMountedDecorations()
+        {
+            List<PlacedFurnitureController> placed = PlacedFurnitureController.AllPlacedFurniture;
+            if (placed == null || placed.Count == 0) return;
+
+            for (int i = 0; i < placed.Count; i++)
+            {
+                PlacedFurnitureController furniture = placed[i];
+                if (furniture == null || !FurnitureDatabase.IsWallMountedDecoration(furniture.FurnitureType))
+                {
+                    continue;
+                }
+
+                Vector3 currentPos = furniture.transform.position;
+                float hintYaw = furniture.transform.eulerAngles.y;
+                if (TryRemountWallDecorationByFacing(currentPos, hintYaw, out Vector3 wallPos, out float wallYaw))
+                {
+                    furniture.ApplyPlacedPose(wallPos, Quaternion.Euler(0f, wallYaw, 0f));
+                }
+            }
+        }
+
         public void RotatePlacement(float deltaAngle = 90f)
         {
             currentYRotation = (currentYRotation + deltaAngle + 360f) % 360f;
@@ -1054,7 +1141,7 @@ namespace Farm2Shelf.Core
         )
         {
             if (FurnitureDatabase.IsWallMountedDecoration(type) &&
-                TrySnapToStoreWall(pos, out Vector3 wallPos, out float wallYaw))
+                TryRemountWallDecorationByFacing(pos, rot.eulerAngles.y, out Vector3 wallPos, out float wallYaw))
             {
                 pos = wallPos;
                 rot = Quaternion.Euler(0f, wallYaw, 0f);
@@ -1144,6 +1231,12 @@ namespace Farm2Shelf.Core
             {
                 Destroy(ghostObj);
                 ghostObj = null;
+            }
+
+            GameObject leftoverGhost = GameObject.Find("Ghost_WallClock");
+            if (leftoverGhost != null)
+            {
+                Destroy(leftoverGhost);
             }
         }
 

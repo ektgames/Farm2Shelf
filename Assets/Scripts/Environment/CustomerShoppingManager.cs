@@ -418,24 +418,7 @@ namespace Farm2Shelf.Environment
             if (string.IsNullOrEmpty(productName)) return false;
             if (GardenSeedDatabase.GetSeedById(productName) != null) return true;
             if (LivestockProductDatabase.IsLivestockProduct(productName)) return true;
-            var seedList = GardenSeedDatabase.GetAllSeeds();
-            if (seedList != null)
-            {
-                foreach (var s in seedList)
-                {
-                    if (s == null) continue;
-                    string cropName = s.name.Replace(" Tohumu", "").Replace(" Seeds", "").Trim();
-                    if (string.Equals(s.name, productName, System.StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(s.nameEn, productName, System.StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(s.id, productName, System.StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(cropName, productName, System.StringComparison.OrdinalIgnoreCase) ||
-                        productName.IndexOf(cropName, System.StringComparison.OrdinalIgnoreCase) >= 0)
-                    {
-                        return true;
-                    }
-                }
-            }
-            return false;
+            return GardenSeedDatabase.FindSeedByLabel(productName) != null;
         }
 
         public static bool IsProductOverpriced(string productId, string productName, float currentUnitPrice)
@@ -449,8 +432,7 @@ namespace Farm2Shelf.Environment
                 var all = WholesaleDatabase.GetAllProducts();
                 pDef = all.Find(p => p != null && (string.Equals(p.name, productName, System.StringComparison.OrdinalIgnoreCase) ||
                                                     string.Equals(p.nameEn, productName, System.StringComparison.OrdinalIgnoreCase) ||
-                                                    string.Equals(p.id, productName, System.StringComparison.OrdinalIgnoreCase) ||
-                                                    productName.IndexOf(p.name, System.StringComparison.OrdinalIgnoreCase) >= 0));
+                                                    string.Equals(p.id, productName, System.StringComparison.OrdinalIgnoreCase)));
             }
             if (pDef != null)
             {
@@ -472,10 +454,7 @@ namespace Farm2Shelf.Environment
             GardenSeedDef sDef = GardenSeedDatabase.GetSeedById(productId);
             if (sDef == null && !string.IsNullOrEmpty(productName))
             {
-                var allSeeds = GardenSeedDatabase.GetAllSeeds();
-                sDef = allSeeds.Find(s => s != null && (string.Equals(s.name, productName, System.StringComparison.OrdinalIgnoreCase) ||
-                                                        string.Equals(s.nameEn, productName, System.StringComparison.OrdinalIgnoreCase) ||
-                                                        productName.IndexOf(s.name.Replace(" Tohumu", ""), System.StringComparison.OrdinalIgnoreCase) >= 0));
+                sDef = GardenSeedDatabase.FindSeedByLabel(productName);
             }
             if (sDef != null)
             {

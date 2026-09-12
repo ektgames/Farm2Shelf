@@ -62,25 +62,52 @@ namespace Farm2Shelf.Environment
 
         public static void CreateProduct3DMesh(Transform parent, string productName, Vector3 localPos, Quaternion localRot, float scaleFactor = 1.0f, bool isStorageShelf = false)
         {
-            if (string.IsNullOrEmpty(productName) || productName == "Boş" || productName.StartsWith("Ürün")) return;
+            CreateProduct3DMesh(parent, "", productName, localPos, localRot, scaleFactor, isStorageShelf);
+        }
 
-            GameObject itemObj = new GameObject("Product_" + productName);
+        public static void CreateProduct3DMesh(Transform parent, string productId, string productName, Vector3 localPos, Quaternion localRot, float scaleFactor = 1.0f, bool isStorageShelf = false)
+        {
+            if ((string.IsNullOrEmpty(productName) || productName == "Boş" || productName.StartsWith("Ürün")) && string.IsNullOrEmpty(productId)) return;
+
+            string label = !string.IsNullOrEmpty(productName) ? productName : productId;
+            GameObject itemObj = new GameObject("Product_" + label);
             itemObj.transform.SetParent(parent, false);
             itemObj.transform.localPosition = localPos;
             itemObj.transform.localRotation = localRot;
 
+            string meshKey = BuildMeshLookupKey(productId, productName);
             if (isStorageShelf)
             {
-                BuildWholesaleBox(itemObj.transform, productName, scaleFactor);
+                BuildWholesaleBox(itemObj.transform, meshKey, scaleFactor);
                 return;
             }
 
-            BuildSpecificProductModel(itemObj.transform, productName, scaleFactor);
+            BuildSpecificProductModel(itemObj.transform, meshKey, scaleFactor);
         }
 
         public static void CreateProduct3DMesh(Transform parent, string productName, Vector3 localPos, bool isStorageShelf)
         {
-            CreateProduct3DMesh(parent, productName, localPos, Quaternion.identity, 1.0f, isStorageShelf);
+            CreateProduct3DMesh(parent, "", productName, localPos, Quaternion.identity, 1.0f, isStorageShelf);
+        }
+
+        private static string BuildMeshLookupKey(string productId, string productName)
+        {
+            string id = !string.IsNullOrEmpty(productId) ? productId : "";
+            if (string.IsNullOrEmpty(id) && !string.IsNullOrEmpty(productName))
+            {
+                Farm2Shelf.Core.GardenSeedDef named = Farm2Shelf.Core.GardenSeedDatabase.FindSeedByLabel(productName);
+                if (named != null) id = named.id;
+            }
+
+            string display = Farm2Shelf.Core.ProductPassportService.GetCanonicalShelfName(id, productName);
+            if (string.IsNullOrEmpty(display)) display = productName;
+
+            if (!string.IsNullOrEmpty(id))
+            {
+                return id + " " + display;
+            }
+
+            return display;
         }
 
         public static void CreateBasketProduct3DMesh(Transform parent, string productName, Vector3 localPos, int itemIndex)
@@ -144,7 +171,7 @@ namespace Farm2Shelf.Environment
             string p = pName.ToLower();
 
             // ==================== 1. MANAV & TARLA HASATLARI (Fresh Produce & Crops) ====================
-            if (p.Contains("domates"))
+            if (p.Contains("spring_tomato") || p.Contains("domates") || p.Contains("tomato"))
             {
                 // Domates (Parlak kırmızı küre + 5 yapraklı yeşil taç + sap)
                 GameObject tom = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -168,7 +195,7 @@ namespace Farm2Shelf.Environment
                 ApplyMaterial(stem, new Color(0.12f, 0.55f, 0.16f), 0.0f, 0.4f);
                 DestroyCollider(stem);
             }
-            else if (p.Contains("salatalık") || p.Contains("pırasa") || p.Contains("kabak") || p.Contains("zucchini"))
+            else if (p.Contains("salatalık") || p.Contains("pırasa") || p.Contains("kabak") || p.Contains("zucchini") || p.Contains("cucumber") || p.Contains("spring_cucumber") || p.Contains("leek"))
             {
                 // Salatalık / Kabak (Hafif eğimli koyu yeşil silindir)
                 GameObject cuc = GameObject.CreatePrimitive(PrimitiveType.Capsule);
@@ -216,7 +243,7 @@ namespace Farm2Shelf.Environment
                 ApplyMaterial(leafy, new Color(0.20f, 0.78f, 0.25f), 0.0f, 0.4f);
                 DestroyCollider(leafy);
             }
-            else if (p.Contains("marul") || p.Contains("lahana") || p.Contains("ıspanak") || p.Contains("brokoli") || p.Contains("karnabahar") || p.Contains("enginar"))
+            else if (p.Contains("marul") || p.Contains("lahana") || p.Contains("ıspanak") || p.Contains("brokoli") || p.Contains("karnabahar") || p.Contains("enginar") || p.Contains("lettuce") || p.Contains("cabbage") || p.Contains("spinach") || p.Contains("broccoli") || p.Contains("cauliflower") || p.Contains("artichoke") || p.Contains("spring_lettuce"))
             {
                 // Marul / Lahana / Brokoli (Katmanlı zengin yapraklı gövde)
                 GameObject leafy = GameObject.CreatePrimitive(PrimitiveType.Sphere);

@@ -303,9 +303,63 @@ namespace Farm2Shelf.Core
 
                 WholesaleProductDef live = LivestockProductDatabase.GetById(productId);
                 if (live != null) return live.name;
+
+                WholesaleProductDef wholesale = WholesaleDatabase.GetProductById(productId);
+                if (wholesale != null) return wholesale.name;
             }
 
+            GardenSeedDef namedSeed = GardenSeedDatabase.FindSeedByLabel(fallbackName);
+            if (namedSeed != null) return StripCropSuffix(namedSeed.name);
+
             return StripCropSuffix(fallbackName);
+        }
+
+        public static void SyncShelfRowIdentity(ShelfRowData row)
+        {
+            if (row == null) return;
+            if (row.lots == null) row.lots = new List<ProductLot>();
+
+            if (string.IsNullOrEmpty(row.productId))
+            {
+                ProductLot dominant = GetDominantLot(row.lots);
+                if (dominant != null && !string.IsNullOrEmpty(dominant.productId))
+                {
+                    row.productId = dominant.productId;
+                }
+            }
+
+            if (string.IsNullOrEmpty(row.productId))
+            {
+                GardenSeedDef seed = GardenSeedDatabase.FindSeedByLabel(row.productName);
+                if (seed != null) row.productId = seed.id;
+            }
+
+            if (string.IsNullOrEmpty(row.productId))
+            {
+                WholesaleProductDef wholesale = WholesaleDatabase.GetProductById(row.productName);
+                if (wholesale == null && !string.IsNullOrEmpty(row.productName))
+                {
+                    var all = WholesaleDatabase.GetAllProducts();
+                    wholesale = all.Find(p => p != null &&
+                        (string.Equals(p.name, row.productName, StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(p.nameEn, row.productName, StringComparison.OrdinalIgnoreCase)));
+                }
+                if (wholesale != null) row.productId = wholesale.id;
+            }
+
+            if (!string.IsNullOrEmpty(row.productId))
+            {
+                string canonical = GetCanonicalShelfName(row.productId, row.productName);
+                if (!string.IsNullOrEmpty(canonical)) row.productName = canonical;
+
+                for (int i = 0; i < row.lots.Count; i++)
+                {
+                    if (row.lots[i] != null && string.IsNullOrEmpty(row.lots[i].productId))
+                    {
+                        row.lots[i].productId = row.productId;
+                    }
+                }
+            }
         }
 
         public static string StripCropSuffix(string raw)
@@ -436,6 +490,7 @@ namespace Farm2Shelf.Core
         public static void EnsureRowLots(ShelfRowData row)
         {
             if (row == null) return;
+            SyncShelfRowIdentity(row);
             if (row.lots == null) row.lots = new List<ProductLot>();
             Compact(row.lots);
             int lotSum = SumLots(row.lots);

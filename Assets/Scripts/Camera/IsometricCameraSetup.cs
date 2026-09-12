@@ -584,7 +584,7 @@ namespace Farm2Shelf.CameraSystem
 
         private void ClampTargetPosition()
         {
-            targetPosition.x = Mathf.Clamp(targetPosition.x, -240f, 90f);
+            targetPosition.x = Mathf.Clamp(targetPosition.x, -240f, 142f);
             targetPosition.z = Mathf.Clamp(targetPosition.z, -140f, 195f);
         }
 

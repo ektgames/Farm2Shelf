@@ -75,7 +75,11 @@ namespace Farm2Shelf.Core
         [Header("Aktif Motorsikletler")]
         private readonly List<CourierMotorcycleController> spawnedMotorcycles = new List<CourierMotorcycleController>();
         public List<CourierMotorcycleController> SpawnedMotorcycles => spawnedMotorcycles;
-        public int OwnedMotorcycleCount => spawnedMotorcycles.Count;
+
+        private static int persistedOwnedCount;
+        private bool fleetClearedForNewGame;
+
+        public int OwnedMotorcycleCount => Mathf.Clamp(persistedOwnedCount, 0, MAX_MOTORCYCLES);
 
         // Her yuva için durum takipçisi
         private readonly CourierSlotState[] slotStates = new CourierSlotState[MAX_MOTORCYCLES];
@@ -92,6 +96,11 @@ namespace Farm2Shelf.Core
                 {
                     slotStates[i] = new CourierSlotState { slotIndex = i };
                 }
+
+                if (persistedOwnedCount <= 0)
+                {
+                    persistedOwnedCount = Mathf.Clamp(PlayerPrefs.GetInt("F2S_OwnedMotorcycles", 0), 0, MAX_MOTORCYCLES);
+                }
             }
             else if (instance != this)
             {
@@ -107,6 +116,7 @@ namespace Farm2Shelf.Core
         private void Start()
         {
             BindRuntimeListeners();
+            EnsureSpawnedFleet();
             SyncCouriersWithTime(true);
         }
 
@@ -131,6 +141,7 @@ namespace Farm2Shelf.Core
 
         private void HandleMidnightRollover()
         {
+            EnsureSpawnedFleet();
             for (int i = 0; i < spawnedMotorcycles.Count; i++)
             {
                 var moto = spawnedMotorcycles[i];
@@ -144,15 +155,26 @@ namespace Farm2Shelf.Core
             SyncCouriersWithTime(false);
 
             // Vardiya 24:00'da bitse bile bagajdaki / yoldaki sipariş teslim edilmeden kurye evine gönderilmez.
+            EnsureSpawnedFleet();
             for (int i = 0; i < spawnedMotorcycles.Count; i++)
             {
                 CheckAndDispatchOvernightOrders(spawnedMotorcycles[i]);
             }
         }
 
+        public int GetOwnedCountForSave()
+        {
+            if (fleetClearedForNewGame) return 0;
+            EnsureSpawnedFleet();
+            return OwnedMotorcycleCount;
+        }
+
         public void RestoreOwnedMotorcycles(int targetCount)
         {
             targetCount = Mathf.Clamp(targetCount, 0, MAX_MOTORCYCLES);
+            fleetClearedForNewGame = false;
+            persistedOwnedCount = targetCount;
+            PruneDestroyedMotorcycles();
 
             if (targetCount == 0)
             {
@@ -160,7 +182,6 @@ namespace Farm2Shelf.Core
                 return;
             }
 
-            // Fazla motorlar varsa temizle
             while (spawnedMotorcycles.Count > targetCount)
             {
                 int lastIdx = spawnedMotorcycles.Count - 1;
@@ -172,22 +193,17 @@ namespace Farm2Shelf.Core
                 spawnedMotorcycles.RemoveAt(lastIdx);
             }
 
-            // Eksik motorlar varsa spawn et
-            while (spawnedMotorcycles.Count < targetCount)
-            {
-                int nextSlot = spawnedMotorcycles.Count;
-                SpawnMotorcycleInSlot(nextSlot);
-            }
-
-            PlayerPrefs.SetInt("F2S_OwnedMotorcycles", spawnedMotorcycles.Count);
-            PlayerPrefs.Save();
-
+            EnsureSpawnedFleet();
+            WriteOwnedPrefs();
             SyncCouriersWithTime(false);
             OnFleetUpdated?.Invoke();
         }
 
         public void ResetFleet()
         {
+            fleetClearedForNewGame = true;
+            persistedOwnedCount = 0;
+
             for (int i = spawnedMotorcycles.Count - 1; i >= 0; i--)
             {
                 var moto = spawnedMotorcycles[i];
@@ -211,9 +227,44 @@ namespace Farm2Shelf.Core
                 }
             }
 
-            PlayerPrefs.SetInt("F2S_OwnedMotorcycles", 0);
-            PlayerPrefs.Save();
+            WriteOwnedPrefs();
             OnFleetUpdated?.Invoke();
+        }
+
+        private void PruneDestroyedMotorcycles()
+        {
+            for (int i = spawnedMotorcycles.Count - 1; i >= 0; i--)
+            {
+                if (spawnedMotorcycles[i] == null)
+                {
+                    spawnedMotorcycles.RemoveAt(i);
+                }
+            }
+        }
+
+        private void EnsureSpawnedFleet()
+        {
+            PruneDestroyedMotorcycles();
+            int needed = Mathf.Clamp(persistedOwnedCount, 0, MAX_MOTORCYCLES);
+            for (int slot = 0; slot < needed; slot++)
+            {
+                bool exists = false;
+                for (int s = 0; s < spawnedMotorcycles.Count; s++)
+                {
+                    if (spawnedMotorcycles[s] != null && spawnedMotorcycles[s].SlotIndex == slot)
+                    {
+                        exists = true;
+                        break;
+                    }
+                }
+                if (!exists) SpawnMotorcycleInSlot(slot);
+            }
+        }
+
+        private void WriteOwnedPrefs()
+        {
+            PlayerPrefs.SetInt("F2S_OwnedMotorcycles", persistedOwnedCount);
+            PlayerPrefs.Save();
         }
 
         private void HandleCourierListOrShiftChanged()
@@ -247,11 +298,11 @@ namespace Farm2Shelf.Core
                 FinanceManager.Instance.RecordExpense(cat, desc, MOTORCYCLE_PRICE);
             }
 
-            int nextSlot = OwnedMotorcycleCount;
+            int nextSlot = persistedOwnedCount;
             SpawnMotorcycleInSlot(nextSlot);
-
-            PlayerPrefs.SetInt("F2S_OwnedMotorcycles", OwnedMotorcycleCount);
-            PlayerPrefs.Save();
+            persistedOwnedCount = Mathf.Min(MAX_MOTORCYCLES, persistedOwnedCount + 1);
+            fleetClearedForNewGame = false;
+            WriteOwnedPrefs();
 
             SyncCouriersWithTime(false);
             OnFleetUpdated?.Invoke();
@@ -283,6 +334,7 @@ namespace Farm2Shelf.Core
 
             GameObject motoObj = ProceduralMotorcycleBuilder.CreateCourierMotorcycle(slotIndex, out wheels, out headlight, out driverSeatMount);
             motoObj.name = motoName;
+            motoObj.transform.SetParent(transform, true);
             motoObj.transform.position = slotPositions[slotIndex];
             motoObj.transform.rotation = parkRotation;
 

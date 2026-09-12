@@ -389,6 +389,8 @@ namespace Farm2Shelf.UI
             int onlineCount = 0;
             int contractSum = 0;
             int contractCount = 0;
+            int taxiSum = 0;
+            int taxiCount = 0;
             int salarySum = 0;
             Dictionary<string, int> expenseByCat = new Dictionary<string, int>();
 
@@ -418,6 +420,11 @@ namespace Farm2Shelf.UI
                     {
                         contractCount++;
                         contractSum += rec.amount;
+                    }
+                    else if (rec.category == FinanceCategories.TaxiIncome)
+                    {
+                        taxiCount++;
+                        taxiSum += rec.amount;
                     }
                 }
                 else
@@ -500,6 +507,20 @@ namespace Farm2Shelf.UI
                 {
                     sb.AppendLine(note);
                 }
+            }
+            sb.AppendLine();
+
+            if (taxiCount > 0)
+            {
+                sb.AppendLine(en
+                    ? $"Taxi stand closed {taxiCount} fare(s) for {taxiSum:N0}C."
+                    : $"Taksi durağı {taxiCount} yolculuk ücreti yazdı: {taxiSum:N0}C.");
+            }
+            else
+            {
+                sb.AppendLine(en
+                    ? "No taxi fares were booked today."
+                    : "Bugün taksi ücreti yazılmadı.");
             }
             sb.AppendLine();
 

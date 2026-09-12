@@ -144,7 +144,23 @@ namespace Farm2Shelf.Core
             ("☕ Nostalji Kitap & Kahve Evi", "☕ Nostalgia Books & Coffee House", new Vector3(75.0f, 0.05f, -91.5f)),
             ("🍰 Çiftlik Patisserie & Bistro", "🍰 Farm Patisserie & Bistro", new Vector3(75.0f, 0.05f, -114.0f)),
             ("🕌 Büyük Kasaba Camii (Vakıf & İdare)", "🕌 Grand Town Mosque (Foundation & Admin)", new Vector3(0.0f, 0.05f, -91.5f)),
-            ("🕌 Cami Avlusu & Şadırvan Dinlenme Alanı", "🕌 Mosque Courtyard & Fountain Rest Area", new Vector3(0.0f, 0.05f, -62.0f))
+            ("🕌 Cami Avlusu & Şadırvan Dinlenme Alanı", "🕌 Mosque Courtyard & Fountain Rest Area", new Vector3(0.0f, 0.05f, -62.0f)),
+
+            // 6. KUZEYDOĞU SİTELERİ & GÜNEYDOĞU SOKAKLAR
+            ("Kuzeydoğu Siteleri E Blok No:3 (Zambak)", "Northeast Residences E Apt:3 (Lily)", new Vector3(93.75f, 0.05f, 68.0f)),
+            ("Kuzeydoğu Siteleri E Blok No:9 (Lale)", "Northeast Residences E Apt:9 (Tulip)", new Vector3(93.75f, 0.05f, 98.0f)),
+            ("Kuzeydoğu Siteleri F Blok No:5 (Menekşe)", "Northeast Residences F Apt:5 (Violet)", new Vector3(93.75f, 0.05f, 128.0f)),
+            ("Kuzeydoğu Siteleri F Blok No:14 (Nergis)", "Northeast Residences F Apt:14 (Daffodil)", new Vector3(93.75f, 0.05f, 158.0f)),
+            ("Kuzeydoğu Siteleri G Blok No:2 (Ihlamur)", "Northeast Residences G Apt:2 (Linden)", new Vector3(131.25f, 0.05f, 68.0f)),
+            ("Kuzeydoğu Siteleri G Blok No:8 (Çınar)", "Northeast Residences G Apt:8 (Plane)", new Vector3(131.25f, 0.05f, 98.0f)),
+            ("Kuzeydoğu Siteleri H Blok No:7 (Akasya)", "Northeast Residences H Apt:7 (Acacia)", new Vector3(131.25f, 0.05f, 128.0f)),
+            ("Kuzeydoğu Siteleri H Blok No:16 (Söğüt)", "Northeast Residences H Apt:16 (Willow)", new Vector3(131.25f, 0.05f, 158.0f)),
+            ("Kuzeydoğu Taksi Durağı Ofis Teslimatı", "Northeast Taxi Stand Office Delivery", new Vector3(93.5f, 0.05f, 38.0f)),
+            ("Güneydoğu Parsel No:1 (Kafe Karşısı)", "Southeast Lot #1 (Cafe Opposite)", new Vector3(116.5f, 0.05f, -70.0f)),
+            ("Güneydoğu Parsel No:2 (Kafe Karşısı)", "Southeast Lot #2 (Cafe Opposite)", new Vector3(116.5f, 0.05f, -91.5f)),
+            ("Güneydoğu Parsel No:3 (Kafe Karşısı)", "Southeast Lot #3 (Cafe Opposite)", new Vector3(116.5f, 0.05f, -114.0f)),
+            ("Güneydoğu Parsel No:5 (Doğu Cadde)", "Southeast Lot #5 (East Avenue)", new Vector3(146.5f, 0.05f, -70.0f)),
+            ("Güneydoğu Parsel No:7 (Doğu Cadde)", "Southeast Lot #7 (East Avenue)", new Vector3(146.5f, 0.05f, -91.5f))
         };
 
         private void Awake()
@@ -553,41 +569,35 @@ namespace Farm2Shelf.Core
             }
 
             bool isFullDelivery = (totalDeliveredCount >= totalExpectedCount);
+            bool isContract = TownContractManager.IsTownContractOrder(order);
+            if (isContract) order.isTownContract = true;
 
-            if (isFullDelivery)
+            if (isContract)
             {
-                // Kurye teslimat ücretini de ekle (+60C)
-                earnedMoney += order.courierDeliveryFee;
-            }
-
-            if (EconomyManager.Instance != null)
-            {
-                EconomyManager.Instance.AddCredits(earnedMoney);
-            }
-
-            if (FinanceManager.Instance != null)
-            {
-                string cat = order.isTownContract ? FinanceCategories.TownContracts : FinanceCategories.OnlineDelivery;
-                string desc;
-                if (order.isTownContract)
+                if (TownContractManager.Instance != null)
                 {
-                    desc = isFullDelivery
-                        ? string.Format(LocalizationManager.L("FinDesc_ContractFull", "Kasaba Kontratı #{0} Tam Teslimat", "Town Contract #{0} Full Delivery"), order.orderId)
-                        : string.Format(LocalizationManager.L("FinDesc_ContractPartial", "Kasaba Kontratı #{0} Eksik Teslimat", "Town Contract #{0} Short Delivery"), order.orderId);
+                    TownContractManager.Instance.NotifyContractDelivery(order, isFullDelivery);
                 }
-                else
+            }
+            else
+            {
+                if (isFullDelivery)
                 {
-                    desc = isFullDelivery
+                    earnedMoney += order.courierDeliveryFee;
+                }
+
+                if (EconomyManager.Instance != null)
+                {
+                    EconomyManager.Instance.AddCredits(earnedMoney);
+                }
+
+                if (FinanceManager.Instance != null)
+                {
+                    string desc = isFullDelivery
                         ? string.Format(LocalizationManager.L("FinDesc_DeliveryFull", "Online Sipariş #{0} Tam Teslimat (+Kurye Ücreti)", "Online Order #{0} Full Delivery (+Courier Fee)"), order.orderId)
                         : string.Format(LocalizationManager.L("FinDesc_DeliveryPartial", "Online Sipariş #{0} Kısmi Teslimat", "Online Order #{0} Partial Delivery"), order.orderId);
+                    FinanceManager.Instance.RecordIncome(FinanceCategories.OnlineDelivery, desc, earnedMoney);
                 }
-
-                FinanceManager.Instance.RecordIncome(cat, desc, earnedMoney);
-            }
-
-            if (order.isTownContract && TownContractManager.Instance != null)
-            {
-                TownContractManager.Instance.NotifyContractDelivery(order, isFullDelivery);
             }
 
             // Chirper Sosyal Medya Tweet'i Tetikle (kontrat yorumları TownContractManager'da)

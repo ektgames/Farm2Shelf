@@ -18,6 +18,7 @@ namespace Farm2Shelf.UI
             Tablet,
             Passport,
             TownContracts,
+            TaxiStand,
             Brand,
             EndOfDay,
             Inspector,
@@ -219,6 +220,7 @@ namespace Farm2Shelf.UI
                 GuideTopic.Tablet,
                 GuideTopic.Passport,
                 GuideTopic.TownContracts,
+                GuideTopic.TaxiStand,
                 GuideTopic.Brand,
                 GuideTopic.EndOfDay,
                 GuideTopic.Inspector,
@@ -394,6 +396,7 @@ namespace Farm2Shelf.UI
                 case GuideTopic.Tablet: return LocalizationManager.L("GuideT_Tablet", "EKT Tablet", "EKT Tablet");
                 case GuideTopic.Passport: return LocalizationManager.L("GuideT_Passport", "Ürün Pasaportu", "Product Passport");
                 case GuideTopic.TownContracts: return LocalizationManager.L("GuideT_Contracts", "Kasaba Kontratları", "Town Contracts");
+                case GuideTopic.TaxiStand: return LocalizationManager.L("GuideT_Taxi", "Taksi Durağı", "Taxi Stand");
                 case GuideTopic.Brand: return LocalizationManager.L("GuideT_Brand", "Marka ve Tabela", "Brand & Sign");
                 case GuideTopic.EndOfDay: return LocalizationManager.L("GuideT_EOD", "Gün Sonu Defteri", "End of Day Ledger");
                 case GuideTopic.Inspector: return LocalizationManager.L("GuideT_Inspector", "Mevsim Müfettişi", "Season Inspector");
@@ -426,6 +429,7 @@ namespace Farm2Shelf.UI
                 case GuideTopic.Tablet: return GetTabletBody();
                 case GuideTopic.Passport: return GetPassportBody();
                 case GuideTopic.TownContracts: return GetTownContractsBody();
+                case GuideTopic.TaxiStand: return GetTaxiStandBody();
                 case GuideTopic.Brand: return GetBrandBody();
                 case GuideTopic.EndOfDay: return GetEndOfDayBody();
                 case GuideTopic.Inspector: return GetInspectorBody();
@@ -460,7 +464,7 @@ namespace Farm2Shelf.UI
                 "3. Online Market ➔ Kontratlar: bir teklifi sıraya al.\n" +
                 "4. Personel, reyon, toptan sipariş; rafa ürün ata (pasaport etiketi).\n" +
                 "5. Tohum ek, dükkanı aç. Gece defteri bugünü yazar, yalnızca Ertesi güne atla 06:00'ya götürür.\n\n" +
-                "Soldaki konulardan pasaport, kontrat, marka ve gün sonunu da oku.",
+                "Soldaki konulardan pasaport, <b>kontratlar</b>, <b>taksi durağı</b>, marka ve gün sonunu da oku.",
                 "<b>Farm2Shelf</b> is you building the neighborhood food brand. Trace harvest, process it, put it on the shelf, deliver it by courier.\n\n" +
                 "<b>First-day shortcut:</b>\n" +
                 "1. Pick identity, color, and slogan; your sign follows.\n" +
@@ -468,7 +472,7 @@ namespace Farm2Shelf.UI
                 "3. Online Market ➔ Contracts: queue one offer.\n" +
                 "4. Staff, shelves, wholesale; assign products (passport label).\n" +
                 "5. Plant seeds, open the store. The night ledger writes the day; only Skip to next day jumps to 06:00.\n\n" +
-                "Use the left topics for passports, contracts, brand, and end of day."
+                "Use the left topics for passports, <b>contracts</b>, <b>taxi stand</b>, brand, and end of day."
             );
         }
 
@@ -514,7 +518,8 @@ namespace Farm2Shelf.UI
                 "💳 <b>Finans</b> — Gelir-gider ve nakit.\n" +
                 "𝕏 <b>Sosyal</b> — Tweet'ler, marka sloganı, itibar.\n" +
                 "🏭 <b>Atölye</b> — Makineler ve gurme üretim.\n" +
-                "🌐 <b>Online Market</b> — Filo ve <b>Kasaba Kontratları</b>.\n\n" +
+                "🌐 <b>Online Market</b> — Filo, kurye ve <b>Kasaba Kontratları</b>.\n" +
+                "🚕 <b>İşler</b> — Kuzeydoğu <b>Taksi Durağı</b> (bağımsız ek gelir).\n\n" +
                 "Yeni oyunda eğitim bu tableti adım adım açtırır.",
                 "The <b>📱 EKT TABLET</b> at the bottom right is HQ. It has seven apps:\n\n" +
                 "🛒 <b>Store Management</b> — Hire, shifts, call early.\n" +
@@ -523,7 +528,8 @@ namespace Farm2Shelf.UI
                 "💳 <b>Finance</b> — Income, spend, cash.\n" +
                 "𝕏 <b>Social</b> — Tweets, brand slogan, reputation.\n" +
                 "🏭 <b>Workshop</b> — Machines and gourmet output.\n" +
-                "🌐 <b>Online Market</b> — Fleet and <b>Town Contracts</b>.\n\n" +
+                "🌐 <b>Online Market</b> — Fleet, courier, and <b>Town Contracts</b>.\n" +
+                "🚕 <b>Jobs</b> — Northeast <b>Taxi Stand</b> (independent extra income).\n\n" +
                 "The tutorial walks these apps on a new game."
             );
         }
@@ -545,12 +551,101 @@ namespace Farm2Shelf.UI
         {
             return LocalizationManager.L(
                 "GuideB_Contracts",
-                "Tablet ➔ <b>Online Market ➔ Kontratlar</b>. Her gün kasaba 5 teklif asar. Kalıcı imza yok; biten veya geçen aynı gün yenilenmez.\n\n" +
-                "Sıraya al, satın alınmış bir motoru <b>Kontratlara Ekle</b>. Kontrat motoru tek iş taşır; teslim + park olunca sıradaki yüklenir. Mesafe ücreti etkiler. Yerel ürünle tam teslim prim verir.\n\n" +
-                "Dükkan kapalıyken motor işe çıkmaz. Eğitimde bir teklifi sıraya almak yeter.",
-                "Tablet ➔ <b>Online Market ➔ Contracts</b>. Town posts 5 offers a day. No permanent signature; finished or skipped offers do not refresh that day.\n\n" +
-                "Queue one, then <b>Add to Contracts</b> on an owned bike. A contract bike carries one job; after delivery and parking the next loads. Distance sets the fee. Full delivery with local goods pays extra.\n\n" +
-                "Bikes will not leave while the store is closed. In the tutorial, queuing one offer is enough."
+                "<b>Nereye bakılır?</b>\n" +
+                "EKT Tablet ➔ <b>Online Market ➔ Kontratlar</b>.\n\n" +
+                "<b>Ne işe yarar?</b>\n" +
+                "Kasaba binaları (apartman, kafe, cami, belediye, taksi ofisi, güneydoğu parseller…) her gün <b>5 teklif</b> asar. Kalıcı imza yoktur. Bitirdiğin veya <b>Geç</b> dediğin teklif o gün yenilenmez; yeni 5’li ertesi gün gelir.\n\n" +
+                "<b>Nasıl alınır?</b>\n" +
+                "1. Teklif kartında uzaklık (m), <b>kontrat ücreti</b>, ürün listesi ve primleri oku.\n" +
+                "2. Karlı görürsen <b>Sıraya Al</b>. İstemezsen <b>Geç</b>.\n" +
+                "3. Filo sekmesinden satın alınmış bir motoru <b>Kontratlara Ekle</b>. Bu motor yalnızca kontrat kuyruğuna çalışır.\n" +
+                "4. Motor tek iş taşır: yükler, adrese gider, dükkana dönüp park eder; sonra sıradaki kontrat yüklenir.\n\n" +
+                "<b>Para (ekransız tutar = ödenen tutar)</b>\n" +
+                "• Eksiksiz teslimatta karttaki <b>kontrat ücreti</b> aynen ödenir.\n" +
+                "• Aynı anda kartta yazan <b>mesafe primi</b> eklenir.\n" +
+                "• Ürünler yerel hasatsa (çiftlik / gurme) ve gerçekten toplanıp gittiyse <b>+40 C yerel ürün primi</b> eklenir.\n" +
+                "• Eksik teslimatta kontrat ücreti ve primler yazılmaz; kontrat bozulur.\n\n" +
+                "<b>Finans’ta nasıl görünür?</b>\n" +
+                "Hepsi <b>Kasaba Kontratları</b> kategorisindedir. Online siparişle karışmaz. Satırlar ayrıdır: kontrat ücreti, mesafe primi, yerel ürün primi. Böylece kazancı ayırt edersin.\n\n" +
+                "<b>Kurallar</b>\n" +
+                "• Dükkan kapalıyken motor yola çıkmaz; saat akmıyorsa çağrı da ilerlemez.\n" +
+                "• Kontrat motoru online market sırasına karışmaz.\n" +
+                "• Stok yoksa teslimat eksik kalır — rafta / depoda ürün bulundur.\n" +
+                "• Eğitimde bir teklifi sıraya almak yeter.",
+                "<b>Where?</b>\n" +
+                "EKT Tablet ➔ <b>Online Market ➔ Contracts</b>.\n\n" +
+                "<b>What is it?</b>\n" +
+                "Town buildings (apartments, cafes, mosque, town hall, taxi office, southeast lots…) post <b>5 offers</b> each day. There is no permanent signature. Finished or <b>Skipped</b> offers do not refresh that day; a new set of 5 arrives tomorrow.\n\n" +
+                "<b>How to take one</b>\n" +
+                "1. Read distance (m), the <b>contract fee</b>, the product list, and the bonuses on the card.\n" +
+                "2. <b>Queue It</b> if it looks profitable, or <b>Skip</b>.\n" +
+                "3. On the Fleet tab, <b>Add to Contracts</b> an owned motorcycle. That bike only runs the contract queue.\n" +
+                "4. A contract bike carries one job: load, deliver, return and park; then the next contract loads.\n\n" +
+                "<b>Pay (the card amount is what you receive)</b>\n" +
+                "• On a full delivery you are paid the <b>contract fee</b> shown on the card.\n" +
+                "• The card’s <b>distance bonus</b> is added at the same time.\n" +
+                "• If the goods are local harvest (farm / gourmet) and were actually picked and delivered, you also get a <b>+40 C local-goods bonus</b>.\n" +
+                "• A short delivery pays no fee and no bonuses; the contract fails.\n\n" +
+                "<b>How it looks in Finance</b>\n" +
+                "Everything is posted under <b>Town Contracts</b>, never as an online order. Lines are split: contract fee, distance bonus, local-goods bonus — so you can tell the money apart.\n\n" +
+                "<b>Rules</b>\n" +
+                "• Bikes do not leave while the store is closed; if time is paused, work does not advance.\n" +
+                "• A contract bike does not mix with the online-market queue.\n" +
+                "• Missing stock means a short delivery — keep product on shelves / in storage.\n" +
+                "• In the tutorial, queuing one offer is enough."
+            );
+        }
+
+        private static string GetTaxiStandBody()
+        {
+            return LocalizationManager.L(
+                "GuideB_Taxi",
+                "<b>Nereye bakılır?</b>\n" +
+                "EKT Tablet ➔ <b>İşler</b>. Haritada durak, kuzeydoğu mahallede (otoyolun üstü, sarı park yerleri) durur.\n\n" +
+                "<b>Bağımsız iş</b>\n" +
+                "Taksi durağı dükkan, çiftlik ve atölyeden <b>tamamen ayrıdır</b>. Seviye atlamak, reyon kurmak veya atölye büyütmek durak fiyatını, vardiyayı veya geliri değiştirmez; taksiyi bozmaz.\n\n" +
+                "<b>Nasıl açılır?</b>\n" +
+                "1. İşler uygulamasında durağı satın al (<b>45.000 C</b>). Personel gerekmez.\n" +
+                "2. Sayfanın altından sarı taksi al (<b>9.000 C</b>, en fazla 5). Her taksi kendi sarı park yuvasında bekler.\n" +
+                "3. Dükkanı aç; saat <b>08:00–22:00</b> arasında çağrı gelir.\n\n" +
+                "<b>Bir yolculuk nasıl işler?</b>\n" +
+                "• Boştaki taksi sarı yerden çıkar, kasabadaki bir müşteriyi alır.\n" +
+                "• Onu başka bir adrese bırakır.\n" +
+                "• Ücret mesafeye göredir (yaklaşık 50–850 C).\n" +
+                "• Taksi kendi park yuvasına döner ve bir sonraki çağrıyı bekler.\n\n" +
+                "<b>22:00 kuralı</b>\n" +
+                "Yeni çağrı kesilir. Taksi yoldaysa yolcuyu bırakır, sonra durağa döner ve park eder. Gece boyunca sarı yerde bekler.\n\n" +
+                "<b>Finans</b>\n" +
+                "• Durak ve taksi alımları gider: kategori <b>Taksi</b>.\n" +
+                "• Her tamamlanan yolculuk gelir: kategori <b>Taksi Geliri</b>.\n" +
+                "Tablet ➔ Finans ➔ özet ve işlem geçmişinde, gün sonu defterinde de görünür. Dükkan cirosu ve kontratlarla karışmaz.\n\n" +
+                "<b>İpuçları</b>\n" +
+                "• Saat yalnızca dükkan açıkken akar; durak da o zaman çalışır.\n" +
+                "• Ne kadar çok taksin varsa o kadar çok çağrı karşılanır.\n" +
+                "• İşler ekranında vardiya, bugünkü yolculuk/gelir ve her taksinin (park / yolda / dönüş) durumunu izlersin.",
+                "<b>Where?</b>\n" +
+                "EKT Tablet ➔ <b>Jobs</b>. On the map the stand sits in the northeast district (above the highway, yellow bays).\n\n" +
+                "<b>Independent business</b>\n" +
+                "The taxi stand is <b>fully separate</b> from the store, farm, and workshop. Upgrading those does not change stand price, shift hours, or fares, and it will not break the taxis.\n\n" +
+                "<b>How to open it</b>\n" +
+                "1. In Jobs, buy the stand (<b>45,000 C</b>). No staff required.\n" +
+                "2. Buy a yellow taxi at the bottom of the page (<b>9,000 C</b>, max 5). Each taxi waits in its own yellow bay.\n" +
+                "3. Open the store; calls run from <b>08:00 to 22:00</b>.\n\n" +
+                "<b>How a trip works</b>\n" +
+                "• An idle taxi leaves its yellow bay and picks up a rider in town.\n" +
+                "• It drops them at another address.\n" +
+                "• The fare is based on distance (about 50–850 C).\n" +
+                "• The taxi returns to its own bay and waits for the next call.\n\n" +
+                "<b>22:00 rule</b>\n" +
+                "New calls stop. If a taxi is on the road it drops the rider, then returns to the stand and parks. It stays in the yellow bay overnight.\n\n" +
+                "<b>Finance</b>\n" +
+                "• Stand and taxi purchases are expenses under <b>Taxi</b>.\n" +
+                "• Each finished ride is income under <b>Taxi Income</b>.\n" +
+                "You will see them in Tablet ➔ Finance (summary and history) and on the end-of-day ledger. They do not mix with store sales or town contracts.\n\n" +
+                "<b>Tips</b>\n" +
+                "• Time only flows while the store is open, so the stand only works then.\n" +
+                "• More taxis cover more calls.\n" +
+                "• The Jobs screen shows shift status, trips/income today, and each taxi (parked / on a job / returning)."
             );
         }
 

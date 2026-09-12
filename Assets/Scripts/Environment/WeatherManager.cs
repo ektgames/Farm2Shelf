@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.UI;
+using Farm2Shelf.CameraSystem;
 using Farm2Shelf.Core;
 using Farm2Shelf.Utils;
 
@@ -15,8 +17,8 @@ namespace Farm2Shelf.Environment
     }
 
     /// <summary>
-    /// Mevsimsel hava: kasvetli ama okunabilir yağmur, ıslak zemin, şeffaf yağmur perdesi;
-    /// kar örtüsü ve yollarda tekerlek izleri; ara ara görünen kar taneleri.
+    /// Mevsimsel hava: dünyada yağmur/kar parçacıkları + ekranda damla ve kar taneleri;
+    /// ıslak zemin, kar örtüsü ve yollarda tekerlek izleri.
     /// </summary>
     public class WeatherManager : MonoBehaviour
     {
@@ -44,6 +46,24 @@ namespace Farm2Shelf.Environment
         private readonly List<GameObject> snowRoadOverlays = new List<GameObject>();
         private bool originalsCaptured;
 
+        private Canvas weatherOverlayCanvas;
+        private GameObject rainOverlayRoot;
+        private GameObject snowOverlayRoot;
+        private Image weatherVeil;
+        private Sprite rainDropSprite;
+        private Sprite snowFlakeSprite;
+        private OverlaySpeck[] rainSpecks;
+        private OverlaySpeck[] snowSpecks;
+
+        private struct OverlaySpeck
+        {
+            public RectTransform Rect;
+            public float SpeedY;
+            public float DriftX;
+            public float Phase;
+            public float Sway;
+        }
+
         private struct MaterialSnapshot
         {
             public Color Color;
@@ -68,6 +88,7 @@ namespace Farm2Shelf.Environment
         {
             BuildFxAssets();
             CreateParticleSystems();
+            CreateScreenOverlay();
 
             if (TimeManager.Instance != null)
             {
@@ -92,28 +113,41 @@ namespace Farm2Shelf.Environment
 
         private void LateUpdate()
         {
-            Camera cam = Camera.main;
-            if (cam == null) return;
-
-            Vector3 camPos = cam.transform.position;
-            Vector3 fwd = cam.transform.forward;
-            Vector3 right = cam.transform.right;
-
-            if (worldFxAnchor != null)
+            Camera cam = GetGameplayCamera();
+            if (cam != null)
             {
-                Vector3 look = new Vector3(fwd.x, 0f, fwd.z);
-                if (look.sqrMagnitude < 0.01f) look = Vector3.forward;
-                look.Normalize();
-                worldFxAnchor.position = camPos + look * 14f + Vector3.up * 16f;
-            }
+                Vector3 focus = IsometricCameraSetup.Instance != null
+                    ? IsometricCameraSetup.Instance.FocusPoint
+                    : cam.transform.position;
 
-            if (screenFxAnchor != null)
-            {
-                screenFxAnchor.position = camPos + fwd * 6.5f + Vector3.up * 3.2f + right * 0.4f;
-                screenFxAnchor.rotation = Quaternion.identity;
+                if (worldFxAnchor != null)
+                {
+                    worldFxAnchor.position = focus + Vector3.up * 22f;
+                    worldFxAnchor.rotation = Quaternion.identity;
+                }
+
+                if (screenFxAnchor != null)
+                {
+                    float near = Mathf.Max(cam.nearClipPlane + 1.2f, 1.6f);
+                    screenFxAnchor.SetParent(cam.transform, false);
+                    screenFxAnchor.localPosition = new Vector3(0f, 0f, near);
+                    screenFxAnchor.localRotation = Quaternion.identity;
+                    screenFxAnchor.localScale = Vector3.one;
+                }
             }
 
             AnimateSnowFlurries();
+            TickScreenOverlay();
+        }
+
+        private static Camera GetGameplayCamera()
+        {
+            if (IsometricCameraSetup.Instance != null && IsometricCameraSetup.Instance.Cam != null)
+            {
+                return IsometricCameraSetup.Instance.Cam;
+            }
+
+            return Camera.main;
         }
 
         private void HandleDateUpdated(TimeManager.Season season, int day, int year)
@@ -233,21 +267,21 @@ namespace Farm2Shelf.Environment
             screenRoot.transform.SetParent(transform, false);
             screenFxAnchor = screenRoot.transform;
 
-            worldRainSys = BuildRainSystem(worldRoot.transform, "WorldRain", new Vector3(48f, 36f, 1.2f), 720f, 22f, 1.15f, 0.028f, 4.2f, 1100);
-            screenRainSys = BuildRainSystem(screenRoot.transform, "ScreenRain", new Vector3(11f, 9f, 5f), 220f, 16f, 0.55f, 0.022f, 2.6f, 420);
+            worldRainSys = BuildRainSystem(worldRoot.transform, "WorldRain", new Vector3(90f, 12f, 90f), 2200f, 28f, 2.4f, 0.08f, 6.5f, 3200, false);
+            screenRainSys = BuildRainSystem(screenRoot.transform, "ScreenRain", new Vector3(28f, 18f, 4f), 900f, 18f, 0.85f, 0.06f, 5.2f, 900, true);
 
-            worldSnowSys = BuildSnowSystem(worldRoot.transform, "WorldSnow", new Vector3(42f, 42f, 1.5f), 55f, 1.7f, 9.5f, 0.11f, 0.22f, 480);
-            screenSnowSys = BuildSnowSystem(screenRoot.transform, "ScreenSnow", new Vector3(9f, 7f, 4f), 9f, 1.15f, 4.2f, 0.09f, 0.20f, 70);
+            worldSnowSys = BuildSnowSystem(worldRoot.transform, "WorldSnow", new Vector3(80f, 16f, 80f), 220f, 2.4f, 12f, 0.16f, 0.34f, 1400, false);
+            screenSnowSys = BuildSnowSystem(screenRoot.transform, "ScreenSnow", new Vector3(22f, 14f, 3.5f), 70f, 1.4f, 5.5f, 0.12f, 0.28f, 280, true);
 
             StopAllFx();
         }
 
-        private ParticleSystem BuildRainSystem(Transform parent, string name, Vector3 box, float rate, float speed, float life, float width, float stretch, int maxParticles)
+        private ParticleSystem BuildRainSystem(Transform parent, string name, Vector3 box, float rate, float speed, float life, float width, float stretch, int maxParticles, bool screenSpace)
         {
             GameObject go = new GameObject(name);
             go.transform.SetParent(parent, false);
             go.transform.localPosition = Vector3.zero;
-            go.transform.localRotation = Quaternion.Euler(78f, 14f, 0f);
+            go.transform.localRotation = screenSpace ? Quaternion.Euler(0f, 0f, 12f) : Quaternion.Euler(90f, 12f, 0f);
 
             ParticleSystem ps = go.AddComponent<ParticleSystem>();
             var main = ps.main;
@@ -255,13 +289,13 @@ namespace Farm2Shelf.Environment
             main.playOnAwake = false;
             main.startLifetime = new ParticleSystem.MinMaxCurve(life * 0.75f, life);
             main.startSpeed = new ParticleSystem.MinMaxCurve(speed * 0.82f, speed);
-            main.startSize = new ParticleSystem.MinMaxCurve(width * 0.7f, width);
+            main.startSize = new ParticleSystem.MinMaxCurve(width * 0.75f, width * 1.35f);
             main.startColor = new ParticleSystem.MinMaxGradient(
-                new Color(0.78f, 0.86f, 0.95f, 0.18f),
-                new Color(0.88f, 0.93f, 1.0f, 0.38f));
+                new Color(0.82f, 0.90f, 1f, 0.62f),
+                new Color(0.94f, 0.97f, 1f, 0.92f));
             main.maxParticles = maxParticles;
-            main.simulationSpace = ParticleSystemSimulationSpace.World;
-            main.gravityModifier = 1.65f;
+            main.simulationSpace = screenSpace ? ParticleSystemSimulationSpace.Local : ParticleSystemSimulationSpace.World;
+            main.gravityModifier = screenSpace ? 0f : 1.85f;
             main.scalingMode = ParticleSystemScalingMode.Hierarchy;
 
             var emission = ps.emission;
@@ -271,6 +305,16 @@ namespace Farm2Shelf.Environment
             shape.enabled = true;
             shape.shapeType = ParticleSystemShapeType.Box;
             shape.scale = box;
+
+            if (screenSpace)
+            {
+                var vel = ps.velocityOverLifetime;
+                vel.enabled = true;
+                vel.space = ParticleSystemSimulationSpace.Local;
+                vel.x = new ParticleSystem.MinMaxCurve(-1.2f, 0.4f);
+                vel.y = new ParticleSystem.MinMaxCurve(-22f, -16f);
+                vel.z = new ParticleSystem.MinMaxCurve(0f, 0f);
+            }
 
             var noise = ps.noise;
             noise.enabled = true;
@@ -286,31 +330,32 @@ namespace Farm2Shelf.Environment
                 new GradientColorKey[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
                 new GradientAlphaKey[]
                 {
-                    new GradientAlphaKey(0.0f, 0f),
-                    new GradientAlphaKey(1.0f, 0.12f),
-                    new GradientAlphaKey(0.85f, 0.7f),
-                    new GradientAlphaKey(0.0f, 1f)
+                    new GradientAlphaKey(0.35f, 0f),
+                    new GradientAlphaKey(1.0f, 0.08f),
+                    new GradientAlphaKey(0.95f, 0.75f),
+                    new GradientAlphaKey(0.15f, 1f)
                 });
             col.color = g;
 
             ParticleSystemRenderer rend = go.GetComponent<ParticleSystemRenderer>();
             rend.renderMode = ParticleSystemRenderMode.Stretch;
-            rend.velocityScale = 0.08f;
+            rend.velocityScale = screenSpace ? 0.04f : 0.12f;
             rend.lengthScale = stretch;
             rend.cameraVelocityScale = 0f;
             rend.shadowCastingMode = ShadowCastingMode.Off;
             rend.receiveShadows = false;
             rend.sharedMaterial = rainParticleMat;
-            rend.maxParticleSize = 0.35f;
+            rend.maxParticleSize = 2.5f;
+            rend.sortingOrder = screenSpace ? 80 : 20;
             return ps;
         }
 
-        private ParticleSystem BuildSnowSystem(Transform parent, string name, Vector3 box, float rate, float speed, float life, float sizeMin, float sizeMax, int maxParticles)
+        private ParticleSystem BuildSnowSystem(Transform parent, string name, Vector3 box, float rate, float speed, float life, float sizeMin, float sizeMax, int maxParticles, bool screenSpace)
         {
             GameObject go = new GameObject(name);
             go.transform.SetParent(parent, false);
             go.transform.localPosition = Vector3.zero;
-            go.transform.localRotation = Quaternion.Euler(88f, 0f, 0f);
+            go.transform.localRotation = screenSpace ? Quaternion.identity : Quaternion.Euler(90f, 0f, 0f);
 
             ParticleSystem ps = go.AddComponent<ParticleSystem>();
             var main = ps.main;
@@ -320,11 +365,11 @@ namespace Farm2Shelf.Environment
             main.startSpeed = new ParticleSystem.MinMaxCurve(speed * 0.45f, speed);
             main.startSize = new ParticleSystem.MinMaxCurve(sizeMin, sizeMax);
             main.startColor = new ParticleSystem.MinMaxGradient(
-                new Color(0.96f, 0.98f, 1f, 0.55f),
-                new Color(1f, 1f, 1f, 0.92f));
+                new Color(0.96f, 0.98f, 1f, 0.78f),
+                new Color(1f, 1f, 1f, 1f));
             main.maxParticles = maxParticles;
-            main.simulationSpace = ParticleSystemSimulationSpace.World;
-            main.gravityModifier = 0.08f;
+            main.simulationSpace = screenSpace ? ParticleSystemSimulationSpace.Local : ParticleSystemSimulationSpace.World;
+            main.gravityModifier = screenSpace ? 0f : 0.08f;
             main.startRotation = new ParticleSystem.MinMaxCurve(0f, 6.28f);
 
             var emission = ps.emission;
@@ -337,9 +382,18 @@ namespace Farm2Shelf.Environment
 
             var vel = ps.velocityOverLifetime;
             vel.enabled = true;
-            vel.space = ParticleSystemSimulationSpace.World;
-            vel.x = new ParticleSystem.MinMaxCurve(-0.35f, 0.55f);
-            vel.z = new ParticleSystem.MinMaxCurve(-0.25f, 0.25f);
+            vel.space = screenSpace ? ParticleSystemSimulationSpace.Local : ParticleSystemSimulationSpace.World;
+            if (screenSpace)
+            {
+                vel.x = new ParticleSystem.MinMaxCurve(-1.8f, 1.8f);
+                vel.y = new ParticleSystem.MinMaxCurve(-3.4f, -1.6f);
+                vel.z = new ParticleSystem.MinMaxCurve(0f, 0f);
+            }
+            else
+            {
+                vel.x = new ParticleSystem.MinMaxCurve(-0.35f, 0.55f);
+                vel.z = new ParticleSystem.MinMaxCurve(-0.25f, 0.25f);
+            }
 
             var noise = ps.noise;
             noise.enabled = true;
@@ -369,10 +423,10 @@ namespace Farm2Shelf.Environment
                 new GradientColorKey[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
                 new GradientAlphaKey[]
                 {
-                    new GradientAlphaKey(0f, 0f),
-                    new GradientAlphaKey(1f, 0.18f),
-                    new GradientAlphaKey(0.9f, 0.75f),
-                    new GradientAlphaKey(0f, 1f)
+                    new GradientAlphaKey(0.55f, 0f),
+                    new GradientAlphaKey(1f, 0.12f),
+                    new GradientAlphaKey(0.95f, 0.8f),
+                    new GradientAlphaKey(0.2f, 1f)
                 });
             col.color = g;
 
@@ -381,7 +435,9 @@ namespace Farm2Shelf.Environment
             rend.shadowCastingMode = ShadowCastingMode.Off;
             rend.receiveShadows = false;
             rend.sharedMaterial = snowParticleMat;
-            rend.maxParticleSize = 0.22f;
+            rend.maxParticleSize = 2.2f;
+            rend.minParticleSize = 0.01f;
+            rend.sortingOrder = screenSpace ? 80 : 20;
             return ps;
         }
 
@@ -392,11 +448,11 @@ namespace Farm2Shelf.Environment
             float pulse = Mathf.PerlinNoise(Time.time * 0.07f, 1.7f);
             float screenPulse = Mathf.PerlinNoise(Time.time * 0.11f, 4.2f);
             var worldEm = worldSnowSys.emission;
-            worldEm.rateOverTime = Mathf.Lerp(18f, 95f, pulse);
+            worldEm.rateOverTime = Mathf.Lerp(90f, 280f, pulse);
             if (screenSnowSys != null)
             {
                 var screenEm = screenSnowSys.emission;
-                screenEm.rateOverTime = Mathf.Lerp(3f, 16f, screenPulse);
+                screenEm.rateOverTime = Mathf.Lerp(40f, 90f, screenPulse);
             }
         }
 
@@ -408,6 +464,7 @@ namespace Farm2Shelf.Environment
             SetPlaying(screenRainSys, rain);
             SetPlaying(worldSnowSys, snow);
             SetPlaying(screenSnowSys, snow);
+            SetOverlayVisible(rain, snow);
         }
 
         private static void SetPlaying(ParticleSystem ps, bool play)
@@ -429,6 +486,183 @@ namespace Farm2Shelf.Environment
             SetPlaying(screenRainSys, false);
             SetPlaying(worldSnowSys, false);
             SetPlaying(screenSnowSys, false);
+            SetOverlayVisible(false, false);
+        }
+
+        private void CreateScreenOverlay()
+        {
+            if (weatherOverlayCanvas != null) return;
+
+            rainDropSprite = Sprite.Create(
+                rainStreakTex,
+                new Rect(0f, 0f, rainStreakTex.width, rainStreakTex.height),
+                new Vector2(0.5f, 0.5f),
+                100f);
+            rainDropSprite.name = "Weather_RainDropSprite";
+
+            snowFlakeSprite = Sprite.Create(
+                snowFlakeTex,
+                new Rect(0f, 0f, snowFlakeTex.width, snowFlakeTex.height),
+                new Vector2(0.5f, 0.5f),
+                100f);
+            snowFlakeSprite.name = "Weather_SnowFlakeSprite";
+
+            GameObject canvasGo = new GameObject("Weather_ScreenOverlay");
+            canvasGo.transform.SetParent(transform, false);
+            weatherOverlayCanvas = canvasGo.AddComponent<Canvas>();
+            weatherOverlayCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            weatherOverlayCanvas.sortingOrder = 45;
+            weatherOverlayCanvas.pixelPerfect = false;
+
+            CanvasScaler scaler = canvasGo.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.matchWidthOrHeight = 0.5f;
+
+            GameObject veilGo = new GameObject("WeatherVeil");
+            veilGo.transform.SetParent(canvasGo.transform, false);
+            weatherVeil = veilGo.AddComponent<Image>();
+            weatherVeil.raycastTarget = false;
+            weatherVeil.color = new Color(0.12f, 0.18f, 0.28f, 0f);
+            RectTransform veilRt = weatherVeil.rectTransform;
+            veilRt.anchorMin = Vector2.zero;
+            veilRt.anchorMax = Vector2.one;
+            veilRt.offsetMin = Vector2.zero;
+            veilRt.offsetMax = Vector2.zero;
+
+            rainOverlayRoot = new GameObject("RainDrops");
+            rainOverlayRoot.transform.SetParent(canvasGo.transform, false);
+            StretchFull(rainOverlayRoot.AddComponent<RectTransform>());
+
+            snowOverlayRoot = new GameObject("SnowFlakes");
+            snowOverlayRoot.transform.SetParent(canvasGo.transform, false);
+            StretchFull(snowOverlayRoot.AddComponent<RectTransform>());
+
+            rainSpecks = BuildOverlaySpecks(rainOverlayRoot.transform, rainDropSprite, 72, true);
+            snowSpecks = BuildOverlaySpecks(snowOverlayRoot.transform, snowFlakeSprite, 48, false);
+            SetOverlayVisible(false, false);
+        }
+
+        private static void StretchFull(RectTransform rt)
+        {
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+        }
+
+        private OverlaySpeck[] BuildOverlaySpecks(Transform parent, Sprite sprite, int count, bool rain)
+        {
+            OverlaySpeck[] list = new OverlaySpeck[count];
+            for (int i = 0; i < count; i++)
+            {
+                GameObject go = new GameObject(rain ? "RainDrop" : "SnowFlake");
+                go.transform.SetParent(parent, false);
+                Image img = go.AddComponent<Image>();
+                img.sprite = sprite;
+                img.raycastTarget = false;
+                img.color = rain
+                    ? new Color(0.78f, 0.88f, 1f, UnityEngine.Random.Range(0.45f, 0.85f))
+                    : new Color(1f, 1f, 1f, UnityEngine.Random.Range(0.70f, 1f));
+
+                RectTransform rt = img.rectTransform;
+                rt.anchorMin = new Vector2(0.5f, 0.5f);
+                rt.anchorMax = new Vector2(0.5f, 0.5f);
+                if (rain)
+                {
+                    float w = UnityEngine.Random.Range(4f, 10f);
+                    float h = UnityEngine.Random.Range(46f, 130f);
+                    rt.sizeDelta = new Vector2(w, h);
+                    rt.localRotation = Quaternion.Euler(0f, 0f, UnityEngine.Random.Range(-14f, 8f));
+                }
+                else
+                {
+                    float s = UnityEngine.Random.Range(14f, 34f);
+                    rt.sizeDelta = new Vector2(s, s);
+                    rt.localRotation = Quaternion.Euler(0f, 0f, UnityEngine.Random.Range(0f, 360f));
+                }
+
+                OverlaySpeck speck = new OverlaySpeck
+                {
+                    Rect = rt,
+                    SpeedY = rain ? UnityEngine.Random.Range(780f, 1680f) : UnityEngine.Random.Range(55f, 150f),
+                    DriftX = rain ? UnityEngine.Random.Range(-80f, 40f) : UnityEngine.Random.Range(-120f, 120f),
+                    Phase = UnityEngine.Random.Range(0f, 20f),
+                    Sway = rain ? UnityEngine.Random.Range(8f, 22f) : UnityEngine.Random.Range(18f, 55f)
+                };
+                ScatterOverlaySpeck(ref speck, true);
+                list[i] = speck;
+            }
+
+            return list;
+        }
+
+        private static void ScatterOverlaySpeck(ref OverlaySpeck speck, bool anywhere)
+        {
+            if (speck.Rect == null) return;
+            float x = UnityEngine.Random.Range(-980f, 980f);
+            float y = anywhere ? UnityEngine.Random.Range(-620f, 620f) : UnityEngine.Random.Range(560f, 760f);
+            speck.Rect.anchoredPosition = new Vector2(x, y);
+        }
+
+        private void SetOverlayVisible(bool rain, bool snow)
+        {
+            if (rainOverlayRoot != null) rainOverlayRoot.SetActive(rain);
+            if (snowOverlayRoot != null) snowOverlayRoot.SetActive(snow);
+            if (weatherVeil != null)
+            {
+                if (rain) weatherVeil.color = new Color(0.10f, 0.16f, 0.26f, 0.20f);
+                else if (snow) weatherVeil.color = new Color(0.78f, 0.86f, 0.94f, 0.14f);
+                else weatherVeil.color = new Color(0.12f, 0.18f, 0.28f, 0f);
+            }
+        }
+
+        private void TickScreenOverlay()
+        {
+            bool rain = CurrentWeather == WeatherType.Rainy;
+            bool snow = CurrentWeather == WeatherType.Snowy;
+            if (!rain && !snow) return;
+
+            float dt = Time.deltaTime;
+            if (dt <= 0f) dt = Time.unscaledDeltaTime;
+
+            if (rain && rainSpecks != null)
+            {
+                TickSpecks(rainSpecks, dt, 8f, true);
+            }
+
+            if (snow && snowSpecks != null)
+            {
+                TickSpecks(snowSpecks, dt, 22f, false);
+            }
+        }
+
+        private static void TickSpecks(OverlaySpeck[] specks, float dt, float rotateSpeed, bool rain)
+        {
+            for (int i = 0; i < specks.Length; i++)
+            {
+                OverlaySpeck speck = specks[i];
+                if (speck.Rect == null) continue;
+
+                Vector2 pos = speck.Rect.anchoredPosition;
+                float sway = Mathf.Sin((Time.time + speck.Phase) * (rain ? 2.4f : 1.1f)) * speck.Sway;
+                pos.x += (speck.DriftX + sway) * dt;
+                pos.y -= speck.SpeedY * dt;
+                if (pos.y < -720f || pos.x < -1100f || pos.x > 1100f)
+                {
+                    ScatterOverlaySpeck(ref speck, false);
+                }
+                else
+                {
+                    speck.Rect.anchoredPosition = pos;
+                    if (!rain)
+                    {
+                        speck.Rect.Rotate(0f, 0f, rotateSpeed * dt);
+                    }
+                }
+
+                specks[i] = speck;
+            }
         }
 
         private void CaptureOriginalMaterialsIfNeeded()
@@ -711,8 +945,8 @@ namespace Farm2Shelf.Environment
                     float u = (x + 0.5f) / w;
                     float radial = 1f - Mathf.Abs(u - 0.5f) * 2.4f;
                     radial = Mathf.Clamp01(radial);
-                    float a = shaft * fade * radial * 0.85f;
-                    px[y * w + x] = new Color(0.86f, 0.92f, 1f, a);
+                    float a = Mathf.Clamp01(shaft * fade * radial * 1.15f);
+                    px[y * w + x] = new Color(0.88f, 0.94f, 1f, a);
                 }
             }
             tex.SetPixels(px);

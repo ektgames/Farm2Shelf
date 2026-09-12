@@ -67,6 +67,8 @@ namespace Farm2Shelf.Core
         public List<int> quantities = new List<int>();
         public TownContractOfferStatus status = TownContractOfferStatus.Open;
 
+        public const int LocalGoodsBonus = 40;
+
         public int TotalUnits
         {
             get
@@ -77,6 +79,8 @@ namespace Farm2Shelf.Core
                 return n;
             }
         }
+
+        public int DistanceBonus => Mathf.Clamp(Mathf.RoundToInt(distanceMeters * 0.35f), 40, 140);
     }
 
     [Serializable]
@@ -148,6 +152,20 @@ namespace Farm2Shelf.Core
             Make("apt_b", "Kuzey Apartmanları B Blok", "North Apartments Block B", "🏢", new Vector3(0.0f, 0.05f, 68.0f), TownContractKind.Residential, 90, 3, FurnitureType.ProduceShelf, FurnitureType.Fridge, FurnitureType.Shelf),
             Make("apt_c", "Kuzey Apartmanları C Blok", "North Apartments Block C", "🏢", new Vector3(0.0f, 0.05f, 98.0f), TownContractKind.Residential, 90, 3, FurnitureType.ProduceShelf, FurnitureType.Fridge, FurnitureType.Shelf),
             Make("apt_d", "Kuzey Apartmanları D Blok", "North Apartments Block D", "🏢", new Vector3(37.5f, 0.05f, 68.0f), TownContractKind.Residential, 90, 3, FurnitureType.ProduceShelf, FurnitureType.Fridge, FurnitureType.Shelf),
+            Make("ne_apt_e1", "Kuzeydoğu Siteleri E Blok (Zambak)", "Northeast Residences Block E (Lily)", "🏢", new Vector3(93.75f, 0.05f, 68.0f), TownContractKind.Residential, 95, 3, FurnitureType.ProduceShelf, FurnitureType.Fridge, FurnitureType.Shelf),
+            Make("ne_apt_e2", "Kuzeydoğu Siteleri E Blok (Lale)", "Northeast Residences Block E (Tulip)", "🏢", new Vector3(93.75f, 0.05f, 98.0f), TownContractKind.Residential, 95, 3, FurnitureType.ProduceShelf, FurnitureType.Fridge, FurnitureType.Shelf),
+            Make("ne_apt_f1", "Kuzeydoğu Siteleri F Blok (Menekşe)", "Northeast Residences Block F (Violet)", "🏢", new Vector3(93.75f, 0.05f, 128.0f), TownContractKind.Residential, 95, 3, FurnitureType.ProduceShelf, FurnitureType.Fridge, FurnitureType.Shelf),
+            Make("ne_apt_f2", "Kuzeydoğu Siteleri F Blok (Nergis)", "Northeast Residences Block F (Daffodil)", "🏢", new Vector3(93.75f, 0.05f, 158.0f), TownContractKind.Residential, 95, 3, FurnitureType.ProduceShelf, FurnitureType.Fridge, FurnitureType.Shelf),
+            Make("ne_apt_g1", "Kuzeydoğu Siteleri G Blok (Ihlamur)", "Northeast Residences Block G (Linden)", "🏢", new Vector3(131.25f, 0.05f, 68.0f), TownContractKind.Residential, 95, 3, FurnitureType.ProduceShelf, FurnitureType.Fridge, FurnitureType.Shelf),
+            Make("ne_apt_g2", "Kuzeydoğu Siteleri G Blok (Çınar)", "Northeast Residences Block G (Plane)", "🏢", new Vector3(131.25f, 0.05f, 98.0f), TownContractKind.Residential, 95, 3, FurnitureType.ProduceShelf, FurnitureType.Fridge, FurnitureType.Shelf),
+            Make("ne_apt_h1", "Kuzeydoğu Siteleri H Blok (Akasya)", "Northeast Residences Block H (Acacia)", "🏢", new Vector3(131.25f, 0.05f, 128.0f), TownContractKind.Residential, 95, 3, FurnitureType.ProduceShelf, FurnitureType.Fridge, FurnitureType.Shelf),
+            Make("ne_apt_h2", "Kuzeydoğu Siteleri H Blok (Söğüt)", "Northeast Residences Block H (Willow)", "🏢", new Vector3(131.25f, 0.05f, 158.0f), TownContractKind.Residential, 95, 3, FurnitureType.ProduceShelf, FurnitureType.Fridge, FurnitureType.Shelf),
+            Make("ne_taxi", "Kuzeydoğu Taksi Durağı Ofisi", "Northeast Taxi Stand Office", "🚕", new Vector3(93.5f, 0.05f, 38.0f), TownContractKind.Leisure, 110, 3, FurnitureType.Fridge, FurnitureType.Shelf, FurnitureType.BakeryCounter),
+            Make("se_lot_a", "Güneydoğu Parsel No:1 (Kafe Karşısı)", "Southeast Lot #1 (Cafe Opposite)", "🏠", new Vector3(116.5f, 0.05f, -70.0f), TownContractKind.Residential, 85, 2, FurnitureType.Shelf, FurnitureType.Fridge, FurnitureType.ProduceShelf),
+            Make("se_lot_b", "Güneydoğu Parsel No:2 (Kafe Karşısı)", "Southeast Lot #2 (Cafe Opposite)", "🏠", new Vector3(116.5f, 0.05f, -91.5f), TownContractKind.Residential, 85, 2, FurnitureType.Shelf, FurnitureType.Fridge, FurnitureType.ProduceShelf),
+            Make("se_lot_c", "Güneydoğu Parsel No:3 (Kafe Karşısı)", "Southeast Lot #3 (Cafe Opposite)", "🏠", new Vector3(116.5f, 0.05f, -114.0f), TownContractKind.Residential, 85, 2, FurnitureType.Shelf, FurnitureType.Fridge, FurnitureType.ProduceShelf),
+            Make("se_lot_d", "Güneydoğu Parsel No:5 (Doğu Cadde)", "Southeast Lot #5 (East Avenue)", "🏠", new Vector3(146.5f, 0.05f, -70.0f), TownContractKind.Residential, 85, 2, FurnitureType.Shelf, FurnitureType.Fridge, FurnitureType.ProduceShelf),
+            Make("se_lot_e", "Güneydoğu Parsel No:7 (Doğu Cadde)", "Southeast Lot #7 (East Avenue)", "🏠", new Vector3(146.5f, 0.05f, -91.5f), TownContractKind.Residential, 85, 2, FurnitureType.Shelf, FurnitureType.Fridge, FurnitureType.ProduceShelf),
             Make("villa_1", "Batı Sahil Villası #1 (Palmiye)", "West Coast Villa #1 (Palm)", "🏡", new Vector3(-112.0f, 0.05f, 22.0f), TownContractKind.Residential, 140, 2, FurnitureType.GourmetShelf, FurnitureType.Fridge, FurnitureType.ProduceShelf),
             Make("villa_3", "Batı Sahil Villası #3 (Lüks)", "West Coast Villa #3 (Luxury)", "🏡", new Vector3(-150.0f, 0.05f, 22.0f), TownContractKind.Residential, 140, 2, FurnitureType.GourmetShelf, FurnitureType.Fridge, FurnitureType.ProduceShelf),
             Make("villa_6", "Batı Sahil Villası #6 (Panoramik)", "West Coast Villa #6 (Panoramic)", "🏡", new Vector3(-150.0f, 0.05f, 65.0f), TownContractKind.Residential, 140, 2, FurnitureType.GourmetShelf, FurnitureType.Fridge, FurnitureType.ProduceShelf),
@@ -483,9 +501,18 @@ namespace Farm2Shelf.Core
             OnContractsChanged?.Invoke();
         }
 
+        public static bool IsTownContractOrder(OnlineCustomerOrder order)
+        {
+            if (order == null) return false;
+            if (order.isTownContract) return true;
+            if (!string.IsNullOrEmpty(order.contractOfferId)) return true;
+            return !string.IsNullOrEmpty(order.orderId) && order.orderId.StartsWith("KNT-");
+        }
+
         public void NotifyContractDelivery(OnlineCustomerOrder order, bool isFullDelivery)
         {
-            if (order == null || !order.isTownContract) return;
+            if (!IsTownContractOrder(order)) return;
+            order.isTownContract = true;
 
             TownContractOffer offer = GetOffer(order.contractOfferId);
             if (offer == null)
@@ -501,6 +528,7 @@ namespace Farm2Shelf.Core
             }
 
             TownContractPartner partner = GetPartner(order.contractPartnerId);
+            if (partner == null && offer != null) partner = GetPartner(offer.partnerId);
             bool usedLocal = OrderUsedLocalGoods(order);
 
             if (offer != null)
@@ -512,16 +540,10 @@ namespace Farm2Shelf.Core
             {
                 successCount++;
                 lastWasCorrect = true;
-                int bonus = offer != null ? offer.payout : 80;
-                if (usedLocal) bonus += 40;
-                if (EconomyManager.Instance != null) EconomyManager.Instance.AddCredits(bonus);
-                if (FinanceManager.Instance != null)
-                {
-                    string desc = string.Format(
-                        LocalizationManager.L("FinDesc_TownContractBonus", "Kasaba Kontratı Prim: {0}", "Town Contract Bonus: {0}"),
-                        partner != null ? partner.LocalizedName : order.LocalizedDestination);
-                    FinanceManager.Instance.RecordIncome(FinanceCategories.TownContracts, desc, bonus);
-                }
+                int contractPay = offer != null ? offer.payout : 80;
+                int distancePay = offer != null ? offer.DistanceBonus : Mathf.Clamp(order.courierDeliveryFee, 40, 140);
+                int localPay = usedLocal ? TownContractOffer.LocalGoodsBonus : 0;
+                PayContractIncome(partner, order, contractPay, distancePay, localPay);
 
                 if (offer != null) offer.status = TownContractOfferStatus.Completed;
                 lastNoteTr = usedLocal
@@ -837,7 +859,7 @@ namespace Farm2Shelf.Core
             order.destinationNameTr = partner.nameTr;
             order.destinationNameEn = partner.nameEn;
             order.targetDoorstepPosition = partner.doorstepPos;
-            order.courierDeliveryFee = Mathf.Clamp(Mathf.RoundToInt(offer.distanceMeters * 0.35f), 40, 140);
+            order.courierDeliveryFee = offer.DistanceBonus;
             order.assignedMotorcycle = moto;
 
             for (int i = 0; i < offer.productIds.Count; i++)
@@ -896,13 +918,50 @@ namespace Farm2Shelf.Core
             return preferred.Count > 0 ? preferred : fallback;
         }
 
+        private static void PayContractIncome(TownContractPartner partner, OnlineCustomerOrder order, int contractPay, int distancePay, int localPay)
+        {
+            string who = partner != null ? partner.LocalizedName : (order != null ? order.LocalizedDestination : "");
+            if (EconomyManager.Instance != null)
+            {
+                EconomyManager.Instance.AddCredits(Mathf.Max(0, contractPay) + Mathf.Max(0, distancePay) + Mathf.Max(0, localPay));
+            }
+
+            if (FinanceManager.Instance == null) return;
+
+            if (contractPay > 0)
+            {
+                FinanceManager.Instance.RecordIncome(
+                    FinanceCategories.TownContracts,
+                    string.Format(LocalizationManager.L("FinDesc_ContractFee", "Kontrat ücreti: {0}", "Contract fee: {0}"), who),
+                    contractPay);
+            }
+
+            if (distancePay > 0)
+            {
+                FinanceManager.Instance.RecordIncome(
+                    FinanceCategories.TownContracts,
+                    string.Format(LocalizationManager.L("FinDesc_ContractDistance", "Kontrat mesafe primi: {0}", "Contract distance bonus: {0}"), who),
+                    distancePay);
+            }
+
+            if (localPay > 0)
+            {
+                FinanceManager.Instance.RecordIncome(
+                    FinanceCategories.TownContracts,
+                    string.Format(LocalizationManager.L("FinDesc_ContractLocal", "Kontrat yerel ürün primi: {0}", "Contract local-goods bonus: {0}"), who),
+                    localPay);
+            }
+        }
+
         private static bool OrderUsedLocalGoods(OnlineCustomerOrder order)
         {
             if (order == null) return false;
             for (int i = 0; i < order.requestedProducts.Count; i++)
             {
                 WholesaleProductDef prod = order.requestedProducts[i];
-                if (prod != null && WholesaleDatabase.IsGourmetOrCrop(prod.id)) return true;
+                if (prod == null || !WholesaleDatabase.IsGourmetOrCrop(prod.id)) continue;
+                int gathered = i < order.gatheredQuantities.Count ? order.gatheredQuantities[i] : 0;
+                if (gathered > 0) return true;
             }
             return false;
         }
