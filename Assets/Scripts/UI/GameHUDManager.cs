@@ -291,6 +291,7 @@ namespace Farm2Shelf.UI
             storeButtonText.alignment = TextAnchor.MiddleCenter;
             storeButtonText.color = new Color(1.0f, 0.35f, 0.35f);
             storeButtonText.raycastTarget = false;
+            TutorialFocusTarget.Tag(btnObj, "hud_store_toggle");
         }
 
         private void CreateClockWidget(Transform parent)

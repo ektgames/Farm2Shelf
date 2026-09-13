@@ -195,22 +195,22 @@ namespace Farm2Shelf.UI
             pRect.anchorMax = new Vector2(0f, 0.5f);
             pRect.pivot = new Vector2(0f, 0.5f);
             pRect.anchoredPosition = new Vector2(120f, 0f);
-            pRect.sizeDelta = new Vector2(500f, 800f);
+            pRect.sizeDelta = new Vector2(560f, 860f);
 
             Image pBg = menuPanel.AddComponent<Image>();
-            pBg.sprite = UIStyleUtility.CreateOutlinePillSprite(500, 800, 24, 3, new Color(0.25f, 0.80f, 0.45f), new Color(0.10f, 0.14f, 0.20f, 0.96f));
+            pBg.sprite = UIStyleUtility.CreateOutlinePillSprite(560, 860, 24, 3, new Color(0.25f, 0.80f, 0.45f), new Color(0.10f, 0.14f, 0.20f, 0.96f));
 
             // OYUN LOGO BAŞLIĞI: "FARM2SHELF"
             GameObject logoObj = new GameObject("GameLogoText");
             logoObj.transform.SetParent(menuPanel.transform, false);
             RectTransform lRect = logoObj.AddComponent<RectTransform>();
-            lRect.anchoredPosition = new Vector2(0f, 310f);
-            lRect.sizeDelta = new Vector2(440f, 90f);
+            lRect.anchoredPosition = new Vector2(0f, 330f);
+            lRect.sizeDelta = new Vector2(500f, 100f);
 
             Text logoTxt = logoObj.AddComponent<Text>();
             logoTxt.font = font;
             logoTxt.text = "FARM<color=#00E676>2</color>SHELF";
-            logoTxt.fontSize = 44;
+            logoTxt.fontSize = 54;
             logoTxt.fontStyle = FontStyle.Bold;
             logoTxt.alignment = TextAnchor.MiddleCenter;
             logoTxt.color = Color.white;
@@ -219,13 +219,16 @@ namespace Farm2Shelf.UI
             GameObject subObj = new GameObject("SubTitleText");
             subObj.transform.SetParent(menuPanel.transform, false);
             RectTransform sRect = subObj.AddComponent<RectTransform>();
-            sRect.anchoredPosition = new Vector2(0f, 255f);
-            sRect.sizeDelta = new Vector2(440f, 36f);
+            sRect.anchoredPosition = new Vector2(0f, 268f);
+            sRect.sizeDelta = new Vector2(500f, 44f);
 
             Text subTxt = subObj.AddComponent<Text>();
             subTxt.font = font;
             subTxt.text = LocalizationManager.L("MainMenu_Slogan", "Çiftlikten Markete Simülasyonu", "Farm to Market Simulation");
-            subTxt.fontSize = 18;
+            subTxt.fontSize = 24;
+            subTxt.resizeTextForBestFit = true;
+            subTxt.resizeTextMinSize = 16;
+            subTxt.resizeTextMaxSize = 24;
             subTxt.alignment = TextAnchor.MiddleCenter;
             subTxt.color = new Color(0.35f, 0.85f, 0.95f);
 
@@ -233,8 +236,8 @@ namespace Farm2Shelf.UI
             GameObject sepObj = new GameObject("SeparatorLine");
             sepObj.transform.SetParent(menuPanel.transform, false);
             RectTransform sepRect = sepObj.AddComponent<RectTransform>();
-            sepRect.anchoredPosition = new Vector2(0f, 225f);
-            sepRect.sizeDelta = new Vector2(400f, 3f);
+            sepRect.anchoredPosition = new Vector2(0f, 236f);
+            sepRect.sizeDelta = new Vector2(440f, 3f);
             Image sepImg = sepObj.AddComponent<Image>();
             sepImg.color = new Color(0.25f, 0.80f, 0.45f, 0.60f);
 
@@ -257,8 +260,8 @@ namespace Farm2Shelf.UI
                 new Color(0.85f, 0.20f, 0.25f)  // Kırmızı
             };
 
-            float startY = 140f;
-            float btnSpacing = 82f;
+            float startY = 150f;
+            float btnSpacing = 92f;
 
             for (int i = 0; i < buttonTitles.Length; i++)
             {
@@ -268,10 +271,10 @@ namespace Farm2Shelf.UI
 
                 RectTransform bRect = btnObj.AddComponent<RectTransform>();
                 bRect.anchoredPosition = new Vector2(0f, startY - i * btnSpacing);
-                bRect.sizeDelta = new Vector2(400f, 62f);
+                bRect.sizeDelta = new Vector2(460f, 74f);
 
                 Image bBg = btnObj.AddComponent<Image>();
-                bBg.sprite = UIStyleUtility.CreateRoundedPillSprite(400, 62, 14, buttonColors[i]);
+                bBg.sprite = UIStyleUtility.CreateRoundedPillSprite(460, 74, 16, buttonColors[i]);
 
                 Button btn = btnObj.AddComponent<Button>();
                 btn.targetGraphic = bBg;
@@ -282,16 +285,21 @@ namespace Farm2Shelf.UI
                 RectTransform tRect2 = txtObj.AddComponent<RectTransform>();
                 tRect2.anchorMin = Vector2.zero;
                 tRect2.anchorMax = Vector2.one;
+                tRect2.offsetMin = new Vector2(16f, 6f);
+                tRect2.offsetMax = new Vector2(-16f, -6f);
 
                 Text txt = txtObj.AddComponent<Text>();
                 txt.font = font;
                 txt.text = buttonTitles[i];
-                txt.fontSize = 22;
+                txt.fontSize = 28;
                 txt.fontStyle = FontStyle.Bold;
                 txt.alignment = TextAnchor.MiddleCenter;
                 txt.color = Color.white;
-                txt.horizontalOverflow = HorizontalWrapMode.Overflow;
-                txt.verticalOverflow = VerticalWrapMode.Overflow;
+                txt.horizontalOverflow = HorizontalWrapMode.Wrap;
+                txt.verticalOverflow = VerticalWrapMode.Truncate;
+                txt.resizeTextForBestFit = true;
+                txt.resizeTextMinSize = 18;
+                txt.resizeTextMaxSize = 28;
                 txt.raycastTarget = false;
             }
         }
@@ -376,9 +384,9 @@ namespace Farm2Shelf.UI
             hRect.anchorMax = new Vector2(1f, 1f);
             hRect.pivot = new Vector2(0.5f, 1f);
             hRect.anchoredPosition = new Vector2(0f, -14f);
-            hRect.sizeDelta = new Vector2(-40f, 48f);
+            hRect.sizeDelta = new Vector2(-40f, 56f);
 
-            CreateTextChild(headerObj, LocalizationManager.L("Modal_NewGameTitle", "YENİ OYUN: PROFİL KURULUMU", "NEW GAME: PROFILE SETUP"), 28, FontStyle.Bold, new Color(0.25f, 0.88f, 0.48f));
+            CreateTextChild(headerObj, LocalizationManager.L("Modal_NewGameTitle", "YENİ OYUN: PROFİL KURULUMU", "NEW GAME: PROFILE SETUP"), 34, FontStyle.Bold, new Color(0.25f, 0.88f, 0.48f));
 
             // Alt Başlık Açıklama & Canlı Uyarı Metni
             GameObject subHeaderObj = new GameObject("SubHeader");
@@ -388,9 +396,9 @@ namespace Farm2Shelf.UI
             shRect.anchorMax = new Vector2(1f, 1f);
             shRect.pivot = new Vector2(0.5f, 1f);
             shRect.anchoredPosition = new Vector2(0f, -64f);
-            shRect.sizeDelta = new Vector2(-40f, 36f);
+            shRect.sizeDelta = new Vector2(-40f, 44f);
 
-            Text warningText = CreateTextChild(subHeaderObj, LocalizationManager.L("Modal_SubHeader", "Hayalinizdeki çiftlik ve süpermarketi kurmak için bilgilerinizi yazın!", "Enter details to create your dream farm & supermarket!"), 16, FontStyle.Normal, new Color(0.80f, 0.88f, 0.96f));
+            Text warningText = CreateTextChild(subHeaderObj, LocalizationManager.L("Modal_SubHeader", "Hayalinizdeki çiftlik ve süpermarketi kurmak için bilgilerinizi yazın!", "Enter details to create your dream farm & supermarket!"), 20, FontStyle.Normal, new Color(0.80f, 0.88f, 0.96f));
 
             // Seperatör Çizgisi
             GameObject sep = new GameObject("SepLine");
@@ -415,9 +423,9 @@ namespace Farm2Shelf.UI
             nlRect.anchorMax = new Vector2(0.92f, 1f);
             nlRect.pivot = new Vector2(0f, 1f);
             nlRect.anchoredPosition = new Vector2(0f, -116f);
-            nlRect.sizeDelta = new Vector2(0f, 28f);
+            nlRect.sizeDelta = new Vector2(0f, 34f);
 
-            Text nlText = CreateTextChild(nameLabelObj, LocalizationManager.L("Modal_NameLabel", "Oyuncu İsim & Soyisim:", "Player Full Name:"), 20, FontStyle.Bold, new Color(1.0f, 0.88f, 0.35f));
+            Text nlText = CreateTextChild(nameLabelObj, LocalizationManager.L("Modal_NameLabel", "Oyuncu İsim & Soyisim:", "Player Full Name:"), 24, FontStyle.Bold, new Color(1.0f, 0.88f, 0.35f));
             if (nlText != null) nlText.alignment = TextAnchor.MiddleLeft;
 
             GameObject nameInputBox = new GameObject("NameInputBox");
@@ -448,7 +456,7 @@ namespace Farm2Shelf.UI
             ncRect.anchoredPosition = new Vector2(-14f, 0f);
             ncRect.sizeDelta = new Vector2(80f, 0f);
 
-            nameCounterText = CreateTextChild(nameCounterObj, "(0/18)", 16, FontStyle.Bold, new Color(0.65f, 0.75f, 0.85f));
+            nameCounterText = CreateTextChild(nameCounterObj, "(0/18)", 20, FontStyle.Bold, new Color(0.65f, 0.75f, 0.85f));
             if (nameCounterText != null) nameCounterText.alignment = TextAnchor.MiddleRight;
 
             // ================= 2. GİRDİ ALANI: ŞİRKET İSMİ =================
@@ -459,9 +467,9 @@ namespace Farm2Shelf.UI
             clRect.anchorMax = new Vector2(0.92f, 1f);
             clRect.pivot = new Vector2(0f, 1f);
             clRect.anchoredPosition = new Vector2(0f, -222f);
-            clRect.sizeDelta = new Vector2(0f, 28f);
+            clRect.sizeDelta = new Vector2(0f, 34f);
 
-            Text clText = CreateTextChild(companyLabelObj, LocalizationManager.L("Modal_CompanyLabel", "Şirket / Mağaza İsmi:", "Company / Store Name:"), 20, FontStyle.Bold, new Color(0.35f, 0.88f, 1.0f));
+            Text clText = CreateTextChild(companyLabelObj, LocalizationManager.L("Modal_CompanyLabel", "Şirket / Mağaza İsmi:", "Company / Store Name:"), 24, FontStyle.Bold, new Color(0.35f, 0.88f, 1.0f));
             if (clText != null) clText.alignment = TextAnchor.MiddleLeft;
 
             GameObject companyInputBox = new GameObject("CompanyInputBox");
@@ -492,7 +500,7 @@ namespace Farm2Shelf.UI
             ccRect.anchoredPosition = new Vector2(-14f, 0f);
             ccRect.sizeDelta = new Vector2(80f, 0f);
 
-            companyCounterText = CreateTextChild(companyCounterObj, "(0/18)", 16, FontStyle.Bold, new Color(0.65f, 0.75f, 0.85f));
+            companyCounterText = CreateTextChild(companyCounterObj, "(0/18)", 20, FontStyle.Bold, new Color(0.65f, 0.75f, 0.85f));
             if (companyCounterText != null) companyCounterText.alignment = TextAnchor.MiddleRight;
 
             BrandIdentity selectedIdentity = BrandIdentity.LocalProducer;
@@ -517,7 +525,7 @@ namespace Farm2Shelf.UI
             ilRect.pivot = new Vector2(0f, 1f);
             ilRect.anchoredPosition = new Vector2(0f, -322f);
             ilRect.sizeDelta = new Vector2(0f, 26f);
-            Text ilText = CreateTextChild(identityLabelObj, LocalizationManager.L("Modal_IdentityLabel", "Dükkan kimliği:", "Store identity:"), 18, FontStyle.Bold, new Color(0.55f, 0.92f, 0.62f));
+            Text ilText = CreateTextChild(identityLabelObj, LocalizationManager.L("Modal_IdentityLabel", "Dükkan kimliği:", "Store identity:"), 22, FontStyle.Bold, new Color(0.55f, 0.92f, 0.62f));
             if (ilText != null) ilText.alignment = TextAnchor.MiddleLeft;
 
             GameObject identityRow = new GameObject("IdentityRow");
@@ -571,7 +579,7 @@ namespace Farm2Shelf.UI
                 btn.targetGraphic = bg;
 
                 string caption = StoreStatusManager.GetIdentityDisplayName(identity) + "\n<size=11>" + StoreStatusManager.GetIdentityHint(identity) + "</size>";
-                Text cap = CreateTextChild(btnObj, caption, 13, FontStyle.Bold, Color.white);
+                Text cap = CreateTextChild(btnObj, caption, 16, FontStyle.Bold, Color.white);
                 if (cap != null)
                 {
                     cap.supportRichText = true;
@@ -612,7 +620,7 @@ namespace Farm2Shelf.UI
             colLRect.pivot = new Vector2(0f, 1f);
             colLRect.anchoredPosition = new Vector2(0f, -446f);
             colLRect.sizeDelta = new Vector2(0f, 24f);
-            Text colLText = CreateTextChild(colorLabelObj, LocalizationManager.L("Modal_ColorLabel", "Tabela rengi:", "Sign color:"), 18, FontStyle.Bold, new Color(1.0f, 0.78f, 0.42f));
+            Text colLText = CreateTextChild(colorLabelObj, LocalizationManager.L("Modal_ColorLabel", "Tabela rengi:", "Sign color:"), 22, FontStyle.Bold, new Color(1.0f, 0.78f, 0.42f));
             if (colLText != null) colLText.alignment = TextAnchor.MiddleLeft;
 
             GameObject swatchRow = new GameObject("ColorSwatchRow");
@@ -673,7 +681,7 @@ namespace Farm2Shelf.UI
             slRect.pivot = new Vector2(0f, 1f);
             slRect.anchoredPosition = new Vector2(0f, -530f);
             slRect.sizeDelta = new Vector2(0f, 24f);
-            Text slText = CreateTextChild(sloganLabelObj, LocalizationManager.L("Modal_SloganLabel", "Kısa slogan (tabela):", "Short slogan (sign):"), 18, FontStyle.Bold, new Color(0.75f, 0.88f, 1.0f));
+            Text slText = CreateTextChild(sloganLabelObj, LocalizationManager.L("Modal_SloganLabel", "Kısa slogan (tabela):", "Short slogan (sign):"), 22, FontStyle.Bold, new Color(0.75f, 0.88f, 1.0f));
             if (slText != null) slText.alignment = TextAnchor.MiddleLeft;
 
             GameObject sloganInputBox = new GameObject("SloganInputBox");
@@ -716,7 +724,7 @@ namespace Farm2Shelf.UI
             scnRect.pivot = new Vector2(1f, 0.5f);
             scnRect.anchoredPosition = new Vector2(-14f, 0f);
             scnRect.sizeDelta = new Vector2(80f, 0f);
-            sloganCounterText = CreateTextChild(sloganCounterObj, $"(0/{StoreStatusManager.SloganMaxChars})", 16, FontStyle.Bold, new Color(0.65f, 0.75f, 0.85f));
+            sloganCounterText = CreateTextChild(sloganCounterObj, $"(0/{StoreStatusManager.SloganMaxChars})", 20, FontStyle.Bold, new Color(0.65f, 0.75f, 0.85f));
             if (sloganCounterText != null) sloganCounterText.alignment = TextAnchor.MiddleRight;
 
             if (sloganInputField != null)
@@ -749,7 +757,7 @@ namespace Farm2Shelf.UI
             Button sbBtn = startBtnObj.AddComponent<Button>();
             sbBtn.targetGraphic = sbBg;
 
-            CreateTextChild(startBtnObj, LocalizationManager.L("Modal_StartBtn", "Oyunu Başlat!", "Start Game!"), 24, FontStyle.Bold, Color.white);
+            CreateTextChild(startBtnObj, LocalizationManager.L("Modal_StartBtn", "Oyunu Başlat!", "Start Game!"), 30, FontStyle.Bold, Color.white);
 
             sbBtn.onClick.AddListener(() => {
                 if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
@@ -817,7 +825,7 @@ namespace Farm2Shelf.UI
                 Destroy(backdrop);
             });
 
-            CreateTextChild(cancelBtnObj, LocalizationManager.L("Modal_CancelBtn", "İptal", "Cancel"), 22, FontStyle.Bold, Color.white);
+            CreateTextChild(cancelBtnObj, LocalizationManager.L("Modal_CancelBtn", "İptal", "Cancel"), 26, FontStyle.Bold, Color.white);
         }
 
         private InputField CreateInputFieldWithDice(GameObject parentBox, string placeholder, int characterLimit, string[] randomList, System.Action<string, int> onValueChanged)
@@ -855,7 +863,7 @@ namespace Farm2Shelf.UI
 
             Text phText = placeholderObj.AddComponent<Text>();
             if (safeFont != null) try { phText.font = safeFont; } catch {}
-            try { phText.fontSize = 18; } catch {}
+            try { phText.fontSize = 22; } catch {}
             try { phText.fontStyle = FontStyle.Italic; } catch {}
             try { phText.color = new Color(0.55f, 0.65f, 0.75f, 0.80f); } catch {}
             try { phText.alignment = TextAnchor.MiddleLeft; } catch {}
@@ -874,7 +882,7 @@ namespace Farm2Shelf.UI
 
             Text txt = textObj.AddComponent<Text>();
             if (safeFont != null) try { txt.font = safeFont; } catch {}
-            try { txt.fontSize = 20; } catch {}
+            try { txt.fontSize = 24; } catch {}
             try { txt.fontStyle = FontStyle.Bold; } catch {}
             try { txt.color = Color.white; } catch {}
             try { txt.alignment = TextAnchor.MiddleLeft; } catch {}
@@ -955,8 +963,11 @@ namespace Farm2Shelf.UI
             try { txt.fontStyle = style; } catch {}
             try { txt.color = color; } catch {}
             try { txt.alignment = TextAnchor.MiddleCenter; } catch {}
-            try { txt.horizontalOverflow = HorizontalWrapMode.Overflow; } catch {}
-            try { txt.verticalOverflow = VerticalWrapMode.Overflow; } catch {}
+            try { txt.horizontalOverflow = HorizontalWrapMode.Wrap; } catch {}
+            try { txt.verticalOverflow = VerticalWrapMode.Truncate; } catch {}
+            try { txt.resizeTextForBestFit = true; } catch {}
+            try { txt.resizeTextMinSize = Mathf.Max(12, fontSize - 10); } catch {}
+            try { txt.resizeTextMaxSize = fontSize; } catch {}
             try { txt.raycastTarget = false; } catch {}
             try { txt.text = content ?? ""; } catch {}
 

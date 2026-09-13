@@ -64,6 +64,17 @@ namespace Farm2Shelf.UI
             }
         }
 
+        private static void FitLabel(Text txt, int size, bool wrap = false)
+        {
+            if (txt == null) return;
+            txt.fontSize = size;
+            txt.resizeTextForBestFit = true;
+            txt.resizeTextMinSize = Mathf.Max(13, size - 6);
+            txt.resizeTextMaxSize = size;
+            txt.horizontalOverflow = wrap ? HorizontalWrapMode.Wrap : HorizontalWrapMode.Overflow;
+            txt.verticalOverflow = VerticalWrapMode.Truncate;
+        }
+
         private static float GetSafeLeftMargin()
         {
             float safeLeft = 120f; // iPhone kamera çentiği / Dynamic Island sol boşluğu
@@ -109,10 +120,10 @@ namespace Farm2Shelf.UI
             TutorialStep step = TutorialManager.Instance.CurrentStep;
             int stepNum = (int)step;
 
-            Font font = UIStyleUtility.GetGlobalFont(18);
+            Font font = UIStyleUtility.GetGlobalFont(22);
 
-            float cardW = 580f;
-            float cardH = isMinimized ? 58f : 430f;
+            float cardW = 640f;
+            float cardH = isMinimized ? 70f : 520f;
             float safeLeft = GetSafeLeftMargin();
 
             GameObject cardObj = new GameObject("TrackerCard");
@@ -136,10 +147,10 @@ namespace Farm2Shelf.UI
             hRect.anchorMax = new Vector2(1f, 1f);
             hRect.pivot = new Vector2(0.5f, 1f);
             hRect.anchoredPosition = new Vector2(0f, -8f);
-            hRect.sizeDelta = new Vector2(-16f, 42f);
+            hRect.sizeDelta = new Vector2(-16f, 50f);
 
             Image hBg = headerObj.AddComponent<Image>();
-            hBg.sprite = UIStyleUtility.CreateRoundedPillSprite(Mathf.RoundToInt(cardW - 16f), 42, 12, new Color(0.14f, 0.20f, 0.28f, 0.95f));
+            hBg.sprite = UIStyleUtility.CreateRoundedPillSprite(Mathf.RoundToInt(cardW - 16f), 50, 12, new Color(0.14f, 0.20f, 0.28f, 0.95f));
 
             // Başlık Yazısı
             GameObject hTxtObj = new GameObject("Txt");
@@ -147,14 +158,14 @@ namespace Farm2Shelf.UI
             RectTransform htRect = hTxtObj.AddComponent<RectTransform>();
             htRect.anchorMin = Vector2.zero;
             htRect.anchorMax = Vector2.one;
-            htRect.offsetMin = new Vector2(14f, 0f);
-            htRect.offsetMax = new Vector2(-48f, 0f);
+            htRect.offsetMin = new Vector2(12f, 2f);
+            htRect.offsetMax = new Vector2(-52f, -2f);
 
             Text hTxt = hTxtObj.AddComponent<Text>();
             hTxt.font = font;
             string stepTitle = GetStepShortTitle(step);
             hTxt.text = $"🎓 <b>{LocalizationManager.L("Tut_QuestPrefix", "GÖREV", "QUEST")} {stepNum}/10:</b> <color=#00FFA3>{stepTitle}</color>";
-            hTxt.fontSize = 17;
+            FitLabel(hTxt, 21, true);
             hTxt.fontStyle = FontStyle.Bold;
             hTxt.alignment = TextAnchor.MiddleLeft;
             hTxt.color = Color.white;
@@ -167,10 +178,10 @@ namespace Farm2Shelf.UI
             mbRect.anchorMax = new Vector2(1f, 0.5f);
             mbRect.pivot = new Vector2(1f, 0.5f);
             mbRect.anchoredPosition = new Vector2(-6f, 0f);
-            mbRect.sizeDelta = new Vector2(36f, 32f);
+            mbRect.sizeDelta = new Vector2(42f, 36f);
 
             Image mbBg = minBtnObj.AddComponent<Image>();
-            mbBg.sprite = UIStyleUtility.CreateRoundedPillSprite(36, 32, 8, new Color(0.25f, 0.32f, 0.42f, 0.90f));
+            mbBg.sprite = UIStyleUtility.CreateRoundedPillSprite(42, 36, 8, new Color(0.25f, 0.32f, 0.42f, 0.90f));
 
             Button minBtn = minBtnObj.AddComponent<Button>();
             minBtn.targetGraphic = mbBg;
@@ -188,7 +199,7 @@ namespace Farm2Shelf.UI
             Text mbTxt = mbTxtObj.AddComponent<Text>();
             mbTxt.font = font;
             mbTxt.text = isMinimized ? "▲" : "▼";
-            mbTxt.fontSize = 14;
+            FitLabel(mbTxt, 20);
             mbTxt.fontStyle = FontStyle.Bold;
             mbTxt.alignment = TextAnchor.MiddleCenter;
             mbTxt.color = Color.white;
@@ -202,13 +213,13 @@ namespace Farm2Shelf.UI
             sRect.anchorMin = new Vector2(0f, 1f);
             sRect.anchorMax = new Vector2(1f, 1f);
             sRect.pivot = new Vector2(0.5f, 1f);
-            sRect.anchoredPosition = new Vector2(0f, -54f);
-            sRect.sizeDelta = new Vector2(-20f, 24f);
+            sRect.anchoredPosition = new Vector2(0f, -64f);
+            sRect.sizeDelta = new Vector2(-20f, 34f);
 
             Text sTxt = stripObj.AddComponent<Text>();
             sTxt.font = font;
             sTxt.text = Get10StepRoadmapString(stepNum);
-            sTxt.fontSize = 13;
+            FitLabel(sTxt, 16);
             sTxt.fontStyle = FontStyle.Bold;
             sTxt.alignment = TextAnchor.MiddleCenter;
             sTxt.color = Color.white;
@@ -220,13 +231,13 @@ namespace Farm2Shelf.UI
             dRect.anchorMin = new Vector2(0f, 1f);
             dRect.anchorMax = new Vector2(1f, 1f);
             dRect.pivot = new Vector2(0.5f, 1f);
-            dRect.anchoredPosition = new Vector2(0f, -82f);
-            dRect.sizeDelta = new Vector2(-24f, 128f);
+            dRect.anchoredPosition = new Vector2(0f, -104f);
+            dRect.sizeDelta = new Vector2(-24f, 158f);
 
             Text dTxt = descObj.AddComponent<Text>();
             dTxt.font = font;
             dTxt.text = GetStepInstruction(step);
-            dTxt.fontSize = 13;
+            FitLabel(dTxt, 17, true);
             dTxt.lineSpacing = 1.12f;
             dTxt.alignment = TextAnchor.UpperLeft;
             dTxt.color = new Color(0.92f, 0.94f, 0.98f);
@@ -241,11 +252,11 @@ namespace Farm2Shelf.UI
             pRect.anchorMin = new Vector2(0f, 1f);
             pRect.anchorMax = new Vector2(1f, 1f);
             pRect.pivot = new Vector2(0.5f, 1f);
-            pRect.anchoredPosition = new Vector2(0f, -216f);
-            pRect.sizeDelta = new Vector2(-24f, 128f);
+            pRect.anchoredPosition = new Vector2(0f, -272f);
+            pRect.sizeDelta = new Vector2(-24f, 158f);
 
             Image pBg = progObj.AddComponent<Image>();
-            pBg.sprite = UIStyleUtility.CreateOutlinePillSprite(Mathf.RoundToInt(cardW - 24f), 128, 12, 1, new Color(0.30f, 0.40f, 0.52f, 0.6f), new Color(0.12f, 0.16f, 0.22f, 0.90f));
+            pBg.sprite = UIStyleUtility.CreateOutlinePillSprite(Mathf.RoundToInt(cardW - 24f), 158, 12, 1, new Color(0.30f, 0.40f, 0.52f, 0.6f), new Color(0.12f, 0.16f, 0.22f, 0.90f));
 
             GameObject pTxtObj = new GameObject("Txt");
             pTxtObj.transform.SetParent(progObj.transform, false);
@@ -258,8 +269,8 @@ namespace Farm2Shelf.UI
             Text pTxt = pTxtObj.AddComponent<Text>();
             pTxt.font = font;
             pTxt.text = GetStepLiveChecklist(step);
-            pTxt.fontSize = 13;
-            pTxt.lineSpacing = 1.12f;
+            FitLabel(pTxt, 16, true);
+            pTxt.lineSpacing = 1.14f;
             pTxt.alignment = TextAnchor.UpperLeft;
             pTxt.color = new Color(0.96f, 0.96f, 0.96f);
             pTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -271,18 +282,18 @@ namespace Farm2Shelf.UI
 
             if (isStepDone)
             {
-                CreateActionButton(cardObj.transform, new Vector2(-95f, 25f), new Vector2(175f, 40f),
+                CreateActionButton(cardObj.transform, new Vector2(-118f, 30f), new Vector2(220f, 50f),
                     LocalizationManager.L("Tut_BtnComplete", "Görevi Tamamla ▶", "Complete Quest ▶"),
                     LocalizationManager.L("Tut_BtnComplete", "Görevi Tamamla ▶", "Complete Quest ▶"),
-                    new Color(0.12f, 0.85f, 0.45f), font, 15, () => {
+                    new Color(0.12f, 0.85f, 0.45f), font, 18, () => {
                     TutorialManager.Instance.AdvanceToNextStep();
                 });
             }
 
-            CreateActionButton(cardObj.transform, new Vector2(isStepDone ? 100f : 0f, 25f), new Vector2(175f, 40f),
+            CreateActionButton(cardObj.transform, new Vector2(isStepDone ? 118f : 0f, 30f), new Vector2(220f, 50f),
                 LocalizationManager.L("Tut_BtnSkip", "Eğitimi Atla ⏭️", "Skip Tutorial ⏭️"),
                 LocalizationManager.L("Tut_BtnSkip", "Eğitimi Atla ⏭️", "Skip Tutorial ⏭️"),
-                new Color(0.35f, 0.40f, 0.48f), font, 14, () => {
+                new Color(0.35f, 0.40f, 0.48f), font, 18, () => {
                 TutorialManager.Instance.RequestSkipTutorial();
             });
 
@@ -326,11 +337,11 @@ namespace Farm2Shelf.UI
             mRect.anchorMin = new Vector2(0f, 0f);
             mRect.anchorMax = new Vector2(0f, 0f);
             mRect.pivot = new Vector2(0f, 0f);
-            mRect.anchoredPosition = new Vector2(safeLeft, 380f);
-            mRect.sizeDelta = new Vector2(560f, 380f);
+            mRect.anchoredPosition = new Vector2(safeLeft, 460f);
+            mRect.sizeDelta = new Vector2(620f, 430f);
 
             Image mBg = modalObj.AddComponent<Image>();
-            mBg.sprite = UIStyleUtility.CreateOutlinePillSprite(560, 380, 16, 2, new Color(0.25f, 0.85f, 0.55f), new Color(0.08f, 0.11f, 0.15f, 0.98f));
+            mBg.sprite = UIStyleUtility.CreateOutlinePillSprite(620, 430, 16, 2, new Color(0.25f, 0.85f, 0.55f), new Color(0.08f, 0.11f, 0.15f, 0.98f));
 
             // Başlık
             GameObject titleObj = new GameObject("Title");
@@ -340,12 +351,12 @@ namespace Farm2Shelf.UI
             tRect.anchorMax = new Vector2(1f, 1f);
             tRect.pivot = new Vector2(0.5f, 1f);
             tRect.anchoredPosition = new Vector2(0f, -8f);
-            tRect.sizeDelta = new Vector2(-20f, 36f);
+            tRect.sizeDelta = new Vector2(-20f, 44f);
 
             Text tTxt = titleObj.AddComponent<Text>();
             tTxt.font = font;
             tTxt.text = "📋 " + LocalizationManager.L("Tut_AllQuestsTitle", "TÜM EĞİTİM GÖREVLERİ & İLERLEME", "ALL TUTORIAL QUESTS & PROGRESS");
-            tTxt.fontSize = 16;
+            FitLabel(tTxt, 20, true);
             tTxt.fontStyle = FontStyle.Bold;
             tTxt.alignment = TextAnchor.MiddleCenter;
             tTxt.color = new Color(0.30f, 0.95f, 0.65f);
@@ -357,12 +368,12 @@ namespace Farm2Shelf.UI
             lRect.anchorMin = Vector2.zero;
             lRect.anchorMax = Vector2.one;
             lRect.offsetMin = new Vector2(16f, 12f);
-            lRect.offsetMax = new Vector2(-16f, -44f);
+            lRect.offsetMax = new Vector2(-16f, -52f);
 
             Text lTxt = listObj.AddComponent<Text>();
             lTxt.font = font;
-            lTxt.fontSize = 14;
-            lTxt.lineSpacing = 1.18f;
+            FitLabel(lTxt, 17, true);
+            lTxt.lineSpacing = 1.22f;
 
             StringBuilder sb = new StringBuilder();
             for (int i = 1; i <= 10; i++)
@@ -409,11 +420,13 @@ namespace Farm2Shelf.UI
             RectTransform tRect = txtObj.AddComponent<RectTransform>();
             tRect.anchorMin = Vector2.zero;
             tRect.anchorMax = Vector2.one;
+            tRect.offsetMin = new Vector2(8f, 4f);
+            tRect.offsetMax = new Vector2(-8f, -4f);
 
             Text txt = txtObj.AddComponent<Text>();
             txt.font = font;
             txt.text = LocalizationManager.L("TutBtn_" + textTr, textTr, textEn);
-            txt.fontSize = fontSize;
+            FitLabel(txt, fontSize, true);
             txt.fontStyle = FontStyle.Bold;
             txt.alignment = TextAnchor.MiddleCenter;
             txt.color = Color.white;

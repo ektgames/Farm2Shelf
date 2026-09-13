@@ -157,6 +157,7 @@ namespace Farm2Shelf.Core
             ResetProgress();
             SetStep(TutorialStep.Step1_CameraControls);
             TutorialQuestTrackerUI.ShowTracker();
+            TutorialMentorGuideUI.ShowGuide();
             Debug.Log("[TutorialManager] Eğitim Bölümü Başlatıldı! Adım: Step 1 (Kamera Kontrolleri)");
         }
 
@@ -175,6 +176,7 @@ namespace Farm2Shelf.Core
             didShowCompletionModal = true;
             CurrentStep = TutorialStep.Completed;
             TutorialQuestTrackerUI.HideTracker();
+            TutorialMentorGuideUI.HideGuide();
             OnTutorialStepChanged?.Invoke(CurrentStep);
             Debug.Log("[TutorialManager] Eğitim atlandı / serbest oyun modu aktif.");
         }
@@ -190,6 +192,7 @@ namespace Farm2Shelf.Core
             if (step == TutorialStep.Completed)
             {
                 TutorialQuestTrackerUI.HideTracker();
+                TutorialMentorGuideUI.HideGuide();
                 // Sadece Step 10'u fiilen tamamlayarak bitişe ulaşıldıysa tebrikler modalını göster
                 if (prevStep == TutorialStep.Step10_PlantSeedsAndOpenStore && !didShowCompletionModal)
                 {
@@ -616,6 +619,7 @@ namespace Farm2Shelf.Core
             else
             {
                 TutorialQuestTrackerUI.ShowTracker();
+                TutorialMentorGuideUI.ShowGuide(false);
                 OnTutorialStepChanged?.Invoke(CurrentStep);
                 OnTutorialProgressUpdated?.Invoke();
             }

@@ -122,14 +122,17 @@ namespace Farm2Shelf.UI
             titleObj.transform.SetParent(panelObj.transform, false);
             RectTransform tRect = titleObj.AddComponent<RectTransform>();
             tRect.anchoredPosition = new Vector2(0f, 290f);
-            tRect.sizeDelta = new Vector2(600f, 50f);
+            tRect.sizeDelta = new Vector2(720f, 56f);
 
             Text tText = titleObj.AddComponent<Text>();
             tText.font = font;
             tText.text = isSaveMode ?
                 LocalizationManager.L("Save_Title", "OYUNU KAYDET (3 YUVA)", "SAVE GAME (3 SLOTS)") :
                 LocalizationManager.L("Load_Title", "KAYITLI OYUN YÜKLE (3 YUVA)", "LOAD GAME (3 SLOTS)");
-            tText.fontSize = 26;
+            tText.fontSize = 32;
+            tText.resizeTextForBestFit = true;
+            tText.resizeTextMinSize = 20;
+            tText.resizeTextMaxSize = 32;
             tText.fontStyle = FontStyle.Bold;
             tText.alignment = TextAnchor.MiddleCenter;
             tText.color = accentBorder;
@@ -166,7 +169,7 @@ namespace Farm2Shelf.UI
                 stTxt.font = font;
                 string slotWord = LocalizationManager.L("Slot_Word", "YUVA", "SLOT");
                 stTxt.text = $"📁 <b>{slotWord} {currentSlot}</b>";
-                stTxt.fontSize = 20;
+                stTxt.fontSize = 26;
                 stTxt.fontStyle = FontStyle.Bold;
                 stTxt.alignment = TextAnchor.MiddleLeft;
                 stTxt.color = slotData.isEmptySlot ? Color.gray : new Color(0.35f, 0.85f, 0.95f);
@@ -180,7 +183,7 @@ namespace Farm2Shelf.UI
 
                 Text dTxt = detailsObj.AddComponent<Text>();
                 dTxt.font = font;
-                dTxt.fontSize = 15;
+                dTxt.fontSize = 20;
                 dTxt.alignment = TextAnchor.MiddleLeft;
 
                 if (slotData.isEmptySlot)
@@ -217,7 +220,7 @@ namespace Farm2Shelf.UI
                 actionBtnObj.transform.SetParent(slotCard.transform, false);
                 RectTransform abRect = actionBtnObj.AddComponent<RectTransform>();
                 abRect.anchoredPosition = new Vector2(310f, 0f);
-                abRect.sizeDelta = new Vector2(180f, 52f);
+                abRect.sizeDelta = new Vector2(200f, 58f);
 
                 Image abBg = actionBtnObj.AddComponent<Image>();
                 Color btnColor = isSaveMode ? new Color(0.20f, 0.65f, 0.90f) : (slotData.isEmptySlot ? new Color(0.35f, 0.40f, 0.45f) : new Color(0.20f, 0.75f, 0.35f));
@@ -241,7 +244,10 @@ namespace Farm2Shelf.UI
                 string emptyBtnTxt = LocalizationManager.L("Btn_Empty", "BOŞ", "EMPTY");
 
                 abTxt.text = isSaveMode ? saveBtnTxt : (slotData.isEmptySlot ? emptyBtnTxt : loadBtnTxt);
-                abTxt.fontSize = 16;
+                abTxt.fontSize = 22;
+                abTxt.resizeTextForBestFit = true;
+                abTxt.resizeTextMinSize = 14;
+                abTxt.resizeTextMaxSize = 22;
                 abTxt.fontStyle = FontStyle.Bold;
                 abTxt.alignment = TextAnchor.MiddleCenter;
                 abTxt.color = Color.white;
@@ -272,7 +278,7 @@ namespace Farm2Shelf.UI
                     Text dbTxt = dbTxtObj.AddComponent<Text>();
                     dbTxt.font = font;
                     dbTxt.text = "🗑️";
-                    dbTxt.fontSize = 16;
+                    dbTxt.fontSize = 20;
                     dbTxt.alignment = TextAnchor.MiddleCenter;
                     dbTxt.color = Color.white;
                     dbTxt.raycastTarget = false;

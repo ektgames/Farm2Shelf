@@ -186,23 +186,26 @@ namespace Farm2Shelf.UI
 
             RectTransform pRect = panelObj.AddComponent<RectTransform>();
             pRect.anchoredPosition = Vector2.zero;
-            pRect.sizeDelta = new Vector2(720f, 620f);
+            pRect.sizeDelta = new Vector2(800f, 680f);
 
             Image pBg = panelObj.AddComponent<Image>();
-            pBg.sprite = UIStyleUtility.CreateOutlinePillSprite(720, 620, 20, 3, new Color(0.55f, 0.35f, 0.75f), new Color(0.10f, 0.14f, 0.18f, 0.98f));
+            pBg.sprite = UIStyleUtility.CreateOutlinePillSprite(800, 680, 20, 3, new Color(0.55f, 0.35f, 0.75f), new Color(0.10f, 0.14f, 0.18f, 0.98f));
             pBg.raycastTarget = false;
 
             // Başlık
             GameObject titleObj = new GameObject("Title");
             titleObj.transform.SetParent(panelObj.transform, false);
             RectTransform tRect = titleObj.AddComponent<RectTransform>();
-            tRect.anchoredPosition = new Vector2(0f, 260f);
-            tRect.sizeDelta = new Vector2(500f, 50f);
+            tRect.anchoredPosition = new Vector2(0f, 288f);
+            tRect.sizeDelta = new Vector2(640f, 58f);
 
             titleText = titleObj.AddComponent<Text>();
             titleText.font = font;
             titleText.text = LocalizationManager.L("Settings_Title", "OYUN VE SES AYARLARI", "GAME & AUDIO SETTINGS");
-            titleText.fontSize = 24;
+            titleText.fontSize = 34;
+            titleText.resizeTextForBestFit = true;
+            titleText.resizeTextMinSize = 20;
+            titleText.resizeTextMaxSize = 34;
             titleText.fontStyle = FontStyle.Bold;
             titleText.alignment = TextAnchor.MiddleCenter;
             titleText.color = new Color(0.75f, 0.45f, 0.95f);
@@ -217,11 +220,11 @@ namespace Farm2Shelf.UI
             GameObject musicBox = new GameObject("MusicControlBox");
             musicBox.transform.SetParent(panelObj.transform, false);
             RectTransform mbRect = musicBox.AddComponent<RectTransform>();
-            mbRect.anchoredPosition = new Vector2(0f, 175f);
-            mbRect.sizeDelta = new Vector2(640f, 105f);
+            mbRect.anchoredPosition = new Vector2(0f, 192f);
+            mbRect.sizeDelta = new Vector2(720f, 118f);
 
             Image mbBg = musicBox.AddComponent<Image>();
-            mbBg.sprite = UIStyleUtility.CreateOutlinePillSprite(640, 105, 18, 2, new Color(0.35f, 0.70f, 0.95f), new Color(0.12f, 0.16f, 0.22f, 0.95f));
+            mbBg.sprite = UIStyleUtility.CreateOutlinePillSprite(720, 118, 18, 2, new Color(0.35f, 0.70f, 0.95f), new Color(0.12f, 0.16f, 0.22f, 0.95f));
             mbBg.raycastTarget = false;
 
             // Şu an çalan parça metni
@@ -229,7 +232,7 @@ namespace Farm2Shelf.UI
             trackObj.transform.SetParent(musicBox.transform, false);
             RectTransform trRect = trackObj.AddComponent<RectTransform>();
             trRect.anchoredPosition = new Vector2(-80f, 18f);
-            trRect.sizeDelta = new Vector2(440f, 40f);
+            trRect.sizeDelta = new Vector2(480f, 44f);
 
             currentTrackText = trackObj.AddComponent<Text>();
             currentTrackText.font = font;
@@ -238,7 +241,11 @@ namespace Farm2Shelf.UI
             string trackTextLabel = LocalizationManager.L("Track_Label", "Parça", "Track");
             int totalTracksCount = AudioManager.Instance != null ? AudioManager.Instance.TotalTracks : 12;
             currentTrackText.text = $"<b>{trackTextLabel} {trNum}/{totalTracksCount}:</b> {trTitle}";
-            currentTrackText.fontSize = 16;
+            currentTrackText.fontSize = 22;
+            currentTrackText.resizeTextForBestFit = true;
+            currentTrackText.resizeTextMinSize = 14;
+            currentTrackText.resizeTextMaxSize = 22;
+            currentTrackText.horizontalOverflow = HorizontalWrapMode.Wrap;
             currentTrackText.alignment = TextAnchor.MiddleLeft;
             currentTrackText.color = new Color(0.35f, 0.85f, 0.95f);
             currentTrackText.raycastTarget = false;
@@ -247,11 +254,11 @@ namespace Farm2Shelf.UI
             GameObject nextTrackBtnObj = new GameObject("NextTrackBtn");
             nextTrackBtnObj.transform.SetParent(musicBox.transform, false);
             RectTransform ntRect = nextTrackBtnObj.AddComponent<RectTransform>();
-            ntRect.anchoredPosition = new Vector2(230f, 18f);
-            ntRect.sizeDelta = new Vector2(140f, 40f);
+            ntRect.anchoredPosition = new Vector2(250f, 20f);
+            ntRect.sizeDelta = new Vector2(180f, 48f);
 
             Image ntBg = nextTrackBtnObj.AddComponent<Image>();
-            ntBg.sprite = UIStyleUtility.CreateRoundedPillSprite(140, 40, 20, new Color(0.20f, 0.65f, 0.90f));
+            ntBg.sprite = UIStyleUtility.CreateRoundedPillSprite(180, 48, 20, new Color(0.20f, 0.65f, 0.90f));
             ntBg.color = Color.white;
 
             Button ntBtn = nextTrackBtnObj.AddComponent<Button>();
@@ -273,7 +280,10 @@ namespace Farm2Shelf.UI
             nextTrackButtonText = ntTxtObj.AddComponent<Text>();
             nextTrackButtonText.font = font;
             nextTrackButtonText.text = LocalizationManager.L("Btn_NextTrack", "SONRAKİ", "NEXT");
-            nextTrackButtonText.fontSize = 14;
+            nextTrackButtonText.fontSize = 22;
+            nextTrackButtonText.resizeTextForBestFit = true;
+            nextTrackButtonText.resizeTextMinSize = 13;
+            nextTrackButtonText.resizeTextMaxSize = 22;
             nextTrackButtonText.fontStyle = FontStyle.Bold;
             nextTrackButtonText.alignment = TextAnchor.MiddleCenter;
             nextTrackButtonText.color = Color.white;
@@ -283,12 +293,12 @@ namespace Farm2Shelf.UI
             GameObject bgmMuteBtnObj = new GameObject("BGMMuteBtn");
             bgmMuteBtnObj.transform.SetParent(musicBox.transform, false);
             RectTransform bmmRect = bgmMuteBtnObj.AddComponent<RectTransform>();
-            bmmRect.anchoredPosition = new Vector2(-200f, -24f);
-            bmmRect.sizeDelta = new Vector2(180f, 38f);
+            bmmRect.anchoredPosition = new Vector2(-220f, -26f);
+            bmmRect.sizeDelta = new Vector2(230f, 48f);
 
             bgmMuteImg = bgmMuteBtnObj.AddComponent<Image>();
             bool isBgmMuted = AudioManager.Instance != null && AudioManager.Instance.IsBGMMuted;
-            bgmMuteImg.sprite = UIStyleUtility.CreateRoundedPillSprite(180, 38, 19, isBgmMuted ? new Color(0.85f, 0.25f, 0.25f) : new Color(0.20f, 0.75f, 0.35f));
+            bgmMuteImg.sprite = UIStyleUtility.CreateRoundedPillSprite(230, 48, 19, isBgmMuted ? new Color(0.85f, 0.25f, 0.25f) : new Color(0.20f, 0.75f, 0.35f));
             bgmMuteImg.color = Color.white;
 
             Button bmmBtn = bgmMuteBtnObj.AddComponent<Button>();
@@ -304,19 +314,22 @@ namespace Farm2Shelf.UI
             bgmMuteText = bmmTxtObj.AddComponent<Text>();
             bgmMuteText.font = font;
             bgmMuteText.text = isBgmMuted ? LocalizationManager.L("BGM_Off", "MÜZİK: KAPALI", "MUSIC: OFF") : LocalizationManager.L("BGM_On", "MÜZİK: AÇIK", "MUSIC: ON");
-            bgmMuteText.fontSize = 14;
+            bgmMuteText.fontSize = 20;
+            bgmMuteText.resizeTextForBestFit = true;
+            bgmMuteText.resizeTextMinSize = 13;
+            bgmMuteText.resizeTextMaxSize = 20;
             bgmMuteText.fontStyle = FontStyle.Bold;
             bgmMuteText.alignment = TextAnchor.MiddleCenter;
             bgmMuteText.color = Color.white;
             bgmMuteText.raycastTarget = false;
 
             // BGM VOLUME HIZLI DEĞİŞTİRME BUTONLARI (+ / -)
-            GameObject bgmLessBtn = CreateVolButton(musicBox.transform, new Vector2(20f, -24f), "-", () => ChangeBGMVolume(-0.1f));
+            GameObject bgmLessBtn = CreateVolButton(musicBox.transform, new Vector2(28f, -26f), "-", () => ChangeBGMVolume(-0.1f));
             GameObject bgmVolLabelObj = new GameObject("BGMVolLabel");
             bgmVolLabelObj.transform.SetParent(musicBox.transform, false);
             RectTransform bvlRect = bgmVolLabelObj.AddComponent<RectTransform>();
-            bvlRect.anchoredPosition = new Vector2(100f, -24f);
-            bvlRect.sizeDelta = new Vector2(120f, 38f);
+            bvlRect.anchoredPosition = new Vector2(118f, -26f);
+            bvlRect.sizeDelta = new Vector2(140f, 42f);
 
             bgmVolText = bgmVolLabelObj.AddComponent<Text>();
             bgmVolText.font = font;
@@ -324,34 +337,40 @@ namespace Farm2Shelf.UI
             string volWord = LocalizationManager.L("Vol_Word", "Ses", "Vol");
             string volPercentFmt = LocalizationManager.L("Vol_PercentFmt", "%{0}", "{0}%");
             bgmVolText.text = $"{volWord}: {string.Format(volPercentFmt, Mathf.RoundToInt(curBgmVol * 100))}";
-            bgmVolText.fontSize = 15;
+            bgmVolText.fontSize = 22;
+            bgmVolText.resizeTextForBestFit = true;
+            bgmVolText.resizeTextMinSize = 14;
+            bgmVolText.resizeTextMaxSize = 22;
             bgmVolText.alignment = TextAnchor.MiddleCenter;
             bgmVolText.color = Color.white;
             bgmVolText.raycastTarget = false;
 
-            GameObject bgmMoreBtn = CreateVolButton(musicBox.transform, new Vector2(180f, -24f), "+", () => ChangeBGMVolume(0.1f));
+            GameObject bgmMoreBtn = CreateVolButton(musicBox.transform, new Vector2(210f, -26f), "+", () => ChangeBGMVolume(0.1f));
 
             // ==================== BÖLÜM 2: SES EFEKTLERİ (SFX) KONTROLÜ ====================
             GameObject sfxBox = new GameObject("SFXControlBox");
             sfxBox.transform.SetParent(panelObj.transform, false);
             RectTransform sbRect = sfxBox.AddComponent<RectTransform>();
-            sbRect.anchoredPosition = new Vector2(0f, 55f);
-            sbRect.sizeDelta = new Vector2(640f, 105f);
+            sbRect.anchoredPosition = new Vector2(0f, 58f);
+            sbRect.sizeDelta = new Vector2(720f, 118f);
 
             Image sbBg = sfxBox.AddComponent<Image>();
-            sbBg.sprite = UIStyleUtility.CreateOutlinePillSprite(640, 105, 18, 2, new Color(0.95f, 0.65f, 0.15f), new Color(0.12f, 0.16f, 0.22f, 0.95f));
+            sbBg.sprite = UIStyleUtility.CreateOutlinePillSprite(720, 118, 18, 2, new Color(0.95f, 0.65f, 0.15f), new Color(0.12f, 0.16f, 0.22f, 0.95f));
             sbBg.raycastTarget = false;
 
             GameObject sfxTitleObj = new GameObject("SFXTitle");
             sfxTitleObj.transform.SetParent(sfxBox.transform, false);
             RectTransform stRect = sfxTitleObj.AddComponent<RectTransform>();
             stRect.anchoredPosition = new Vector2(-150f, 18f);
-            stRect.sizeDelta = new Vector2(300f, 40f);
+            stRect.sizeDelta = new Vector2(360f, 44f);
 
             sfxTitleText = sfxTitleObj.AddComponent<Text>();
             sfxTitleText.font = font;
             sfxTitleText.text = LocalizationManager.L("SFX_Title", "<b>SES EFEKTLERİ (SFX):</b>", "<b>SOUND EFFECTS (SFX):</b>");
-            sfxTitleText.fontSize = 16;
+            sfxTitleText.fontSize = 22;
+            sfxTitleText.resizeTextForBestFit = true;
+            sfxTitleText.resizeTextMinSize = 14;
+            sfxTitleText.resizeTextMaxSize = 22;
             sfxTitleText.alignment = TextAnchor.MiddleLeft;
             sfxTitleText.color = new Color(0.95f, 0.65f, 0.15f);
             sfxTitleText.raycastTarget = false;
@@ -360,12 +379,12 @@ namespace Farm2Shelf.UI
             GameObject sfxMuteBtnObj = new GameObject("SFXMuteBtn");
             sfxMuteBtnObj.transform.SetParent(sfxBox.transform, false);
             RectTransform smmRect = sfxMuteBtnObj.AddComponent<RectTransform>();
-            smmRect.anchoredPosition = new Vector2(-200f, -24f);
-            smmRect.sizeDelta = new Vector2(180f, 38f);
+            smmRect.anchoredPosition = new Vector2(-220f, -26f);
+            smmRect.sizeDelta = new Vector2(230f, 48f);
 
             sfxMuteImg = sfxMuteBtnObj.AddComponent<Image>();
             bool isSfxMuted = AudioManager.Instance != null && AudioManager.Instance.IsSFXMuted;
-            sfxMuteImg.sprite = UIStyleUtility.CreateRoundedPillSprite(180, 38, 19, isSfxMuted ? new Color(0.85f, 0.25f, 0.25f) : new Color(0.20f, 0.75f, 0.35f));
+            sfxMuteImg.sprite = UIStyleUtility.CreateRoundedPillSprite(230, 48, 19, isSfxMuted ? new Color(0.85f, 0.25f, 0.25f) : new Color(0.20f, 0.75f, 0.35f));
             sfxMuteImg.color = Color.white;
 
             Button smmBtn = sfxMuteBtnObj.AddComponent<Button>();
@@ -381,71 +400,84 @@ namespace Farm2Shelf.UI
             sfxMuteText = smmTxtObj.AddComponent<Text>();
             sfxMuteText.font = font;
             sfxMuteText.text = isSfxMuted ? LocalizationManager.L("SFX_Off", "EFEKT: KAPALI", "SFX: OFF") : LocalizationManager.L("SFX_On", "EFEKT: AÇIK", "SFX: ON");
-            sfxMuteText.fontSize = 14;
+            sfxMuteText.fontSize = 20;
+            sfxMuteText.resizeTextForBestFit = true;
+            sfxMuteText.resizeTextMinSize = 13;
+            sfxMuteText.resizeTextMaxSize = 20;
             sfxMuteText.fontStyle = FontStyle.Bold;
             sfxMuteText.alignment = TextAnchor.MiddleCenter;
             sfxMuteText.color = Color.white;
             sfxMuteText.raycastTarget = false;
 
             // SFX VOLUME HIZLI DEĞİŞTİRME BUTONLARI (+ / -)
-            GameObject sfxLessBtn = CreateVolButton(sfxBox.transform, new Vector2(20f, -24f), "-", () => ChangeSFXVolume(-0.1f));
+            GameObject sfxLessBtn = CreateVolButton(sfxBox.transform, new Vector2(28f, -26f), "-", () => ChangeSFXVolume(-0.1f));
             GameObject sfxVolLabelObj = new GameObject("SFXVolLabel");
             sfxVolLabelObj.transform.SetParent(sfxBox.transform, false);
             RectTransform svlRect = sfxVolLabelObj.AddComponent<RectTransform>();
-            svlRect.anchoredPosition = new Vector2(100f, -24f);
-            svlRect.sizeDelta = new Vector2(120f, 38f);
+            svlRect.anchoredPosition = new Vector2(118f, -26f);
+            svlRect.sizeDelta = new Vector2(140f, 42f);
 
             sfxVolText = sfxVolLabelObj.AddComponent<Text>();
             sfxVolText.font = font;
             float curSfxVol = AudioManager.Instance != null ? AudioManager.Instance.SFXVolume : 0.8f;
             sfxVolText.text = $"{volWord}: {string.Format(volPercentFmt, Mathf.RoundToInt(curSfxVol * 100))}";
-            sfxVolText.fontSize = 15;
+            sfxVolText.fontSize = 22;
+            sfxVolText.resizeTextForBestFit = true;
+            sfxVolText.resizeTextMinSize = 14;
+            sfxVolText.resizeTextMaxSize = 22;
             sfxVolText.alignment = TextAnchor.MiddleCenter;
             sfxVolText.color = Color.white;
             sfxVolText.raycastTarget = false;
 
-            GameObject sfxMoreBtn = CreateVolButton(sfxBox.transform, new Vector2(180f, -24f), "+", () => ChangeSFXVolume(0.1f));
+            GameObject sfxMoreBtn = CreateVolButton(sfxBox.transform, new Vector2(210f, -26f), "+", () => ChangeSFXVolume(0.1f));
 
             // ==================== BÖLÜM 3: OYUN DİLİ (GAME LANGUAGE) KONTROLÜ ====================
             GameObject langBox = new GameObject("LanguageControlBox");
             langBox.transform.SetParent(panelObj.transform, false);
             RectTransform lbRect = langBox.AddComponent<RectTransform>();
-            lbRect.anchoredPosition = new Vector2(0f, -65f);
-            lbRect.sizeDelta = new Vector2(640f, 105f);
+            lbRect.anchoredPosition = new Vector2(0f, -74f);
+            lbRect.sizeDelta = new Vector2(720f, 118f);
 
             Image lbBg = langBox.AddComponent<Image>();
-            lbBg.sprite = UIStyleUtility.CreateOutlinePillSprite(640, 105, 18, 2, new Color(0.25f, 0.80f, 0.45f), new Color(0.12f, 0.16f, 0.22f, 0.95f));
+            lbBg.sprite = UIStyleUtility.CreateOutlinePillSprite(720, 118, 18, 2, new Color(0.25f, 0.80f, 0.45f), new Color(0.12f, 0.16f, 0.22f, 0.95f));
             lbBg.raycastTarget = false;
 
             GameObject langTitleObj = new GameObject("LangTitle");
             langTitleObj.transform.SetParent(langBox.transform, false);
             RectTransform ltRect = langTitleObj.AddComponent<RectTransform>();
             ltRect.anchoredPosition = new Vector2(0f, 28f);
-            ltRect.sizeDelta = new Vector2(500f, 28f);
+            ltRect.sizeDelta = new Vector2(620f, 36f);
 
             languageTitleText = langTitleObj.AddComponent<Text>();
             languageTitleText.font = font;
             languageTitleText.text = LocalizationManager.L("Lang_Title", "<b>OYUN DİLİ / GAME LANGUAGE:</b>", "<b>GAME LANGUAGE / OYUN DİLİ:</b>");
-            languageTitleText.fontSize = 16;
+            languageTitleText.fontSize = 22;
+            languageTitleText.resizeTextForBestFit = true;
+            languageTitleText.resizeTextMinSize = 14;
+            languageTitleText.resizeTextMaxSize = 22;
             languageTitleText.alignment = TextAnchor.MiddleCenter;
             languageTitleText.color = new Color(0.35f, 0.90f, 0.55f);
             languageTitleText.raycastTarget = false;
 
             Transform languageLayer = CreateLanguageLayer(panelObj.transform);
-            turkishButtonImage = CreateLanguageButton(languageLayer, new Vector2(-155f, -87f), "Türkçe", GameLanguage.Turkish);
-            englishButtonImage = CreateLanguageButton(languageLayer, new Vector2(155f, -87f), "English", GameLanguage.English);
+            turkishButtonImage = CreateLanguageButton(languageLayer, new Vector2(-170f, -96f), "Türkçe", GameLanguage.Turkish);
+            englishButtonImage = CreateLanguageButton(languageLayer, new Vector2(170f, -96f), "English", GameLanguage.English);
             RefreshLanguageButtons();
 
             // ==================== BÖLÜM 4: BİLGİ SEKMESİ ====================
             GameObject infoObj = new GameObject("InfoBox");
             infoObj.transform.SetParent(panelObj.transform, false);
             RectTransform iRect = infoObj.AddComponent<RectTransform>();
-            iRect.anchoredPosition = new Vector2(0f, -210f);
-            iRect.sizeDelta = new Vector2(640f, 110f);
+            iRect.anchoredPosition = new Vector2(0f, -232f);
+            iRect.sizeDelta = new Vector2(720f, 130f);
 
             infoText = infoObj.AddComponent<Text>();
             infoText.font = font;
-            infoText.fontSize = 14;
+            infoText.fontSize = 20;
+            infoText.resizeTextForBestFit = true;
+            infoText.resizeTextMinSize = 14;
+            infoText.resizeTextMaxSize = 20;
+            infoText.horizontalOverflow = HorizontalWrapMode.Wrap;
             infoText.alignment = TextAnchor.MiddleCenter;
             infoText.color = Color.white;
             infoText.raycastTarget = false;
@@ -497,10 +529,10 @@ namespace Farm2Shelf.UI
             buttonRect.anchorMax = new Vector2(0.5f, 0.5f);
             buttonRect.pivot = new Vector2(0.5f, 0.5f);
             buttonRect.anchoredPosition = pos;
-            buttonRect.sizeDelta = new Vector2(280f, 52f);
+            buttonRect.sizeDelta = new Vector2(310f, 58f);
 
             Image bg = btnObj.AddComponent<Image>();
-            bg.sprite = UIStyleUtility.CreateRoundedPillSprite(280, 52, 26, LanguageIdleColor);
+            bg.sprite = UIStyleUtility.CreateRoundedPillSprite(310, 58, 26, LanguageIdleColor);
             bg.color = Color.white;
             bg.raycastTarget = true;
 
@@ -529,7 +561,10 @@ namespace Farm2Shelf.UI
             Text txt = txtObj.AddComponent<Text>();
             txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             txt.text = label;
-            txt.fontSize = 22;
+            txt.fontSize = 28;
+            txt.resizeTextForBestFit = true;
+            txt.resizeTextMinSize = 16;
+            txt.resizeTextMaxSize = 28;
             txt.fontStyle = FontStyle.Bold;
             txt.alignment = TextAnchor.MiddleCenter;
             txt.color = Color.white;
@@ -549,7 +584,7 @@ namespace Farm2Shelf.UI
         private static void ApplyLanguageButtonVisual(Image image, bool selected)
         {
             if (image == null) return;
-            image.sprite = UIStyleUtility.CreateRoundedPillSprite(280, 52, 26, selected ? LanguageSelectedColor : LanguageIdleColor);
+            image.sprite = UIStyleUtility.CreateRoundedPillSprite(310, 58, 26, selected ? LanguageSelectedColor : LanguageIdleColor);
             image.color = Color.white;
         }
 
@@ -636,10 +671,10 @@ namespace Farm2Shelf.UI
 
             RectTransform r = btnObj.AddComponent<RectTransform>();
             r.anchoredPosition = pos;
-            r.sizeDelta = new Vector2(40f, 38f);
+            r.sizeDelta = new Vector2(48f, 44f);
 
             Image bg = btnObj.AddComponent<Image>();
-            bg.sprite = UIStyleUtility.CreateRoundedPillSprite(40, 38, 19, new Color(0.25f, 0.35f, 0.45f));
+            bg.sprite = UIStyleUtility.CreateRoundedPillSprite(48, 44, 19, new Color(0.25f, 0.35f, 0.45f));
             bg.color = Color.white;
 
             Button btn = btnObj.AddComponent<Button>();
@@ -658,7 +693,7 @@ namespace Farm2Shelf.UI
             Text txt = txtObj.AddComponent<Text>();
             txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             txt.text = label;
-            txt.fontSize = 20;
+            txt.fontSize = 28;
             txt.fontStyle = FontStyle.Bold;
             txt.alignment = TextAnchor.MiddleCenter;
             txt.color = Color.white;
@@ -676,7 +711,7 @@ namespace Farm2Shelf.UI
                 bool isMuted = AudioManager.Instance.IsBGMMuted;
                 if (bgmMuteImg != null)
                 {
-                    bgmMuteImg.sprite = UIStyleUtility.CreateRoundedPillSprite(180, 38, 19, isMuted ? new Color(0.85f, 0.25f, 0.25f) : new Color(0.20f, 0.75f, 0.35f));
+                    bgmMuteImg.sprite = UIStyleUtility.CreateRoundedPillSprite(230, 48, 19, isMuted ? new Color(0.85f, 0.25f, 0.25f) : new Color(0.20f, 0.75f, 0.35f));
                     bgmMuteImg.color = Color.white;
                 }
                 bgmMuteText.text = isMuted ? LocalizationManager.L("BGM_Off", "MÜZİK: KAPALI", "MUSIC: OFF") : LocalizationManager.L("BGM_On", "MÜZİK: AÇIK", "MUSIC: ON");
@@ -692,7 +727,7 @@ namespace Farm2Shelf.UI
                 bool isMuted = AudioManager.Instance.IsSFXMuted;
                 if (sfxMuteImg != null)
                 {
-                    sfxMuteImg.sprite = UIStyleUtility.CreateRoundedPillSprite(180, 38, 19, isMuted ? new Color(0.85f, 0.25f, 0.25f) : new Color(0.20f, 0.75f, 0.35f));
+                    sfxMuteImg.sprite = UIStyleUtility.CreateRoundedPillSprite(230, 48, 19, isMuted ? new Color(0.85f, 0.25f, 0.25f) : new Color(0.20f, 0.75f, 0.35f));
                     sfxMuteImg.color = Color.white;
                 }
                 sfxMuteText.text = isMuted ? LocalizationManager.L("SFX_Off", "EFEKT: KAPALI", "SFX: OFF") : LocalizationManager.L("SFX_On", "EFEKT: AÇIK", "SFX: ON");

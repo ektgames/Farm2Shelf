@@ -107,22 +107,25 @@ namespace Farm2Shelf.UI
 
             RectTransform pRect = panelObj.AddComponent<RectTransform>();
             pRect.anchoredPosition = Vector2.zero;
-            pRect.sizeDelta = new Vector2(500f, 620f);
+            pRect.sizeDelta = new Vector2(580f, 720f);
 
             Image pBg = panelObj.AddComponent<Image>();
-            pBg.sprite = UIStyleUtility.CreateOutlinePillSprite(500, 620, 20, 3, new Color(0.95f, 0.65f, 0.15f), new Color(0.10f, 0.14f, 0.18f, 0.98f));
+            pBg.sprite = UIStyleUtility.CreateOutlinePillSprite(580, 720, 20, 3, new Color(0.95f, 0.65f, 0.15f), new Color(0.10f, 0.14f, 0.18f, 0.98f));
 
             // Başlık
             GameObject titleObj = new GameObject("Title");
             titleObj.transform.SetParent(panelObj.transform, false);
             RectTransform tRect = titleObj.AddComponent<RectTransform>();
-            tRect.anchoredPosition = new Vector2(0f, 250f);
-            tRect.sizeDelta = new Vector2(440f, 50f);
+            tRect.anchoredPosition = new Vector2(0f, 290f);
+            tRect.sizeDelta = new Vector2(520f, 58f);
 
             Text tText = titleObj.AddComponent<Text>();
             tText.font = font;
             tText.text = LocalizationManager.L("Pause_Title", "DURAKLATMA MENÜSÜ", "PAUSE MENU");
-            tText.fontSize = 26;
+            tText.fontSize = 34;
+            tText.resizeTextForBestFit = true;
+            tText.resizeTextMinSize = 22;
+            tText.resizeTextMaxSize = 34;
             tText.fontStyle = FontStyle.Bold;
             tText.alignment = TextAnchor.MiddleCenter;
             tText.color = new Color(0.95f, 0.65f, 0.15f);
@@ -146,8 +149,8 @@ namespace Farm2Shelf.UI
                 new Color(0.85f, 0.20f, 0.25f)  // Kırmızı
             };
 
-            float startY = 160f;
-            float btnSpacing = 80f;
+            float startY = 190f;
+            float btnSpacing = 92f;
 
             for (int i = 0; i < buttonTitles.Length; i++)
             {
@@ -157,10 +160,10 @@ namespace Farm2Shelf.UI
 
                 RectTransform bRect = btnObj.AddComponent<RectTransform>();
                 bRect.anchoredPosition = new Vector2(0f, startY - i * btnSpacing);
-                bRect.sizeDelta = new Vector2(400f, 60f);
+                bRect.sizeDelta = new Vector2(480f, 76f);
 
                 Image bBg = btnObj.AddComponent<Image>();
-                bBg.sprite = UIStyleUtility.CreateRoundedPillSprite(400, 60, 14, buttonColors[i]);
+                bBg.sprite = UIStyleUtility.CreateRoundedPillSprite(480, 76, 16, buttonColors[i]);
 
                 Button btn = btnObj.AddComponent<Button>();
                 btn.targetGraphic = bBg;
@@ -171,14 +174,21 @@ namespace Farm2Shelf.UI
                 RectTransform tRect2 = txtObj.AddComponent<RectTransform>();
                 tRect2.anchorMin = Vector2.zero;
                 tRect2.anchorMax = Vector2.one;
+                tRect2.offsetMin = new Vector2(14f, 6f);
+                tRect2.offsetMax = new Vector2(-14f, -6f);
 
                 Text txt = txtObj.AddComponent<Text>();
                 txt.font = font;
                 txt.text = buttonTitles[i];
-                txt.fontSize = 19;
+                txt.fontSize = 26;
                 txt.fontStyle = FontStyle.Bold;
                 txt.alignment = TextAnchor.MiddleCenter;
                 txt.color = Color.white;
+                txt.horizontalOverflow = HorizontalWrapMode.Wrap;
+                txt.verticalOverflow = VerticalWrapMode.Truncate;
+                txt.resizeTextForBestFit = true;
+                txt.resizeTextMinSize = 16;
+                txt.resizeTextMaxSize = 26;
                 txt.raycastTarget = false;
             }
         }

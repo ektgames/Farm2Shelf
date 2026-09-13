@@ -61,31 +61,33 @@ namespace Farm2Shelf.UI
             boxObj.transform.SetParent(backdrop.transform, false);
             RectTransform bRect = boxObj.AddComponent<RectTransform>();
             bRect.anchoredPosition = Vector2.zero;
-            bRect.sizeDelta = new Vector2(580f, 440f);
+            bRect.sizeDelta = new Vector2(700f, 520f);
 
             Image bImg = boxObj.AddComponent<Image>();
-            bImg.sprite = UIStyleUtility.CreateOutlinePillSprite(580, 440, 24, 3, new Color(0.20f, 0.85f, 0.55f), new Color(0.10f, 0.13f, 0.18f, 0.98f));
+            bImg.sprite = UIStyleUtility.CreateOutlinePillSprite(700, 520, 24, 3, new Color(0.20f, 0.85f, 0.55f), new Color(0.10f, 0.13f, 0.18f, 0.98f));
 
             // Başlık Rozeti (Header Pill)
             GameObject headerObj = new GameObject("HeaderBadge");
             headerObj.transform.SetParent(boxObj.transform, false);
             RectTransform hRect = headerObj.AddComponent<RectTransform>();
-            hRect.anchoredPosition = new Vector2(0f, 175f);
-            hRect.sizeDelta = new Vector2(500f, 54f);
+            hRect.anchoredPosition = new Vector2(0f, 208f);
+            hRect.sizeDelta = new Vector2(620f, 68f);
 
             Image hBg = headerObj.AddComponent<Image>();
-            hBg.sprite = UIStyleUtility.CreateRoundedPillSprite(500, 54, 16, new Color(0.14f, 0.20f, 0.28f, 0.95f));
+            hBg.sprite = UIStyleUtility.CreateRoundedPillSprite(620, 68, 16, new Color(0.14f, 0.20f, 0.28f, 0.95f));
 
             GameObject hTextObj = new GameObject("Text");
             hTextObj.transform.SetParent(headerObj.transform, false);
             RectTransform htRect = hTextObj.AddComponent<RectTransform>();
             htRect.anchorMin = Vector2.zero;
             htRect.anchorMax = Vector2.one;
+            htRect.offsetMin = new Vector2(16f, 6f);
+            htRect.offsetMax = new Vector2(-16f, -6f);
 
             Text hTxt = hTextObj.AddComponent<Text>();
             hTxt.font = font;
             hTxt.text = "🎓 " + LocalizationManager.L("TutPrompt_Title", "EĞİTİME GİRMEK İSTİYOR MUSUN?", "WOULD YOU LIKE TO PLAY TUTORIAL?");
-            hTxt.fontSize = 20;
+            FitPromptText(hTxt, 26, true);
             hTxt.fontStyle = FontStyle.Bold;
             hTxt.alignment = TextAnchor.MiddleCenter;
             hTxt.color = new Color(0.30f, 0.95f, 0.65f);
@@ -94,11 +96,11 @@ namespace Farm2Shelf.UI
             GameObject descObj = new GameObject("DescBox");
             descObj.transform.SetParent(boxObj.transform, false);
             RectTransform dRect = descObj.AddComponent<RectTransform>();
-            dRect.anchoredPosition = new Vector2(0f, 35f);
-            dRect.sizeDelta = new Vector2(500f, 180f);
+            dRect.anchoredPosition = new Vector2(0f, 28f);
+            dRect.sizeDelta = new Vector2(620f, 220f);
 
             Image dBg = descObj.AddComponent<Image>();
-            dBg.sprite = UIStyleUtility.CreateOutlinePillSprite(500, 180, 14, 1, new Color(0.25f, 0.35f, 0.48f, 0.6f), new Color(0.12f, 0.16f, 0.22f, 0.90f));
+            dBg.sprite = UIStyleUtility.CreateOutlinePillSprite(620, 220, 14, 1, new Color(0.25f, 0.35f, 0.48f, 0.6f), new Color(0.12f, 0.16f, 0.22f, 0.90f));
 
             GameObject dTextObj = new GameObject("Text");
             dTextObj.transform.SetParent(descObj.transform, false);
@@ -119,7 +121,7 @@ namespace Farm2Shelf.UI
                 "Ten short quests cover the camera, EKT tablet, a <b>town contract</b>, staff, shelves, <b>product passports</b>, and opening the store. Your brand sits on the sign; at night the <b>ledger</b> writes the day.\n\n" +
                 "If you join, each goal turns into a green tick, then the next quest starts."
             );
-            dTxt.fontSize = 15;
+            FitPromptText(dTxt, 19, true);
             dTxt.lineSpacing = 1.18f;
             dTxt.alignment = TextAnchor.MiddleCenter;
             dTxt.color = new Color(0.92f, 0.94f, 0.97f);
@@ -127,7 +129,7 @@ namespace Farm2Shelf.UI
             // ==================== BUTONLAR (EVET & HAYIR) ====================
 
             // 1. EVET BUTONU (Yeşil)
-            CreateButton(boxObj.transform, new Vector2(-130f, -145f), new Vector2(230f, 52f),
+            CreateButton(boxObj.transform, new Vector2(-155f, -188f), new Vector2(280f, 60f),
                 "✅ " + LocalizationManager.L("Btn_YesTutorial", "EVET, BAŞLA!", "YES, START!"),
                 new Color(0.20f, 0.82f, 0.42f), font, () => {
                     CloseModal();
@@ -135,7 +137,7 @@ namespace Farm2Shelf.UI
                 });
 
             // 2. HAYIR BUTONU (Gri / Kırmızımsı)
-            CreateButton(boxObj.transform, new Vector2(130f, -145f), new Vector2(230f, 52f),
+            CreateButton(boxObj.transform, new Vector2(155f, -188f), new Vector2(280f, 60f),
                 "❌ " + LocalizationManager.L("Btn_NoTutorial", "HAYIR, ATLA", "NO, SKIP"),
                 new Color(0.35f, 0.40f, 0.48f), font, () => {
                     CloseModal();
@@ -182,19 +184,19 @@ namespace Farm2Shelf.UI
             boxObj.transform.SetParent(backdrop.transform, false);
             RectTransform bRect = boxObj.AddComponent<RectTransform>();
             bRect.anchoredPosition = Vector2.zero;
-            bRect.sizeDelta = new Vector2(580f, 400f);
+            bRect.sizeDelta = new Vector2(700f, 480f);
 
             Image bImg = boxObj.AddComponent<Image>();
-            bImg.sprite = UIStyleUtility.CreateOutlinePillSprite(580, 400, 24, 3, new Color(0.95f, 0.55f, 0.35f), new Color(0.10f, 0.13f, 0.18f, 0.98f));
+            bImg.sprite = UIStyleUtility.CreateOutlinePillSprite(700, 480, 24, 3, new Color(0.95f, 0.55f, 0.35f), new Color(0.10f, 0.13f, 0.18f, 0.98f));
 
             GameObject headerObj = new GameObject("HeaderBadge");
             headerObj.transform.SetParent(boxObj.transform, false);
             RectTransform hRect = headerObj.AddComponent<RectTransform>();
-            hRect.anchoredPosition = new Vector2(0f, 148f);
-            hRect.sizeDelta = new Vector2(500f, 54f);
+            hRect.anchoredPosition = new Vector2(0f, 182f);
+            hRect.sizeDelta = new Vector2(620f, 68f);
 
             Image hBg = headerObj.AddComponent<Image>();
-            hBg.sprite = UIStyleUtility.CreateRoundedPillSprite(500, 54, 16, new Color(0.14f, 0.20f, 0.28f, 0.95f));
+            hBg.sprite = UIStyleUtility.CreateRoundedPillSprite(620, 68, 16, new Color(0.14f, 0.20f, 0.28f, 0.95f));
 
             GameObject hTextObj = new GameObject("Text");
             hTextObj.transform.SetParent(headerObj.transform, false);
@@ -205,7 +207,7 @@ namespace Farm2Shelf.UI
             Text hTxt = hTextObj.AddComponent<Text>();
             hTxt.font = font;
             hTxt.text = "⚠️ " + LocalizationManager.L("TutSkip_Title", "EMİN MİSİN?", "ARE YOU SURE?");
-            hTxt.fontSize = 22;
+            FitPromptText(hTxt, 28, true);
             hTxt.fontStyle = FontStyle.Bold;
             hTxt.alignment = TextAnchor.MiddleCenter;
             hTxt.color = new Color(1.0f, 0.82f, 0.42f);
@@ -213,11 +215,11 @@ namespace Farm2Shelf.UI
             GameObject descObj = new GameObject("DescBox");
             descObj.transform.SetParent(boxObj.transform, false);
             RectTransform dRect = descObj.AddComponent<RectTransform>();
-            dRect.anchoredPosition = new Vector2(0f, 18f);
-            dRect.sizeDelta = new Vector2(500f, 170f);
+            dRect.anchoredPosition = new Vector2(0f, 22f);
+            dRect.sizeDelta = new Vector2(620f, 200f);
 
             Image dBg = descObj.AddComponent<Image>();
-            dBg.sprite = UIStyleUtility.CreateOutlinePillSprite(500, 170, 14, 1, new Color(0.45f, 0.32f, 0.22f, 0.6f), new Color(0.12f, 0.16f, 0.22f, 0.90f));
+            dBg.sprite = UIStyleUtility.CreateOutlinePillSprite(620, 200, 14, 1, new Color(0.45f, 0.32f, 0.22f, 0.6f), new Color(0.12f, 0.16f, 0.22f, 0.90f));
 
             GameObject dTextObj = new GameObject("Text");
             dTextObj.transform.SetParent(descObj.transform, false);
@@ -234,25 +236,36 @@ namespace Farm2Shelf.UI
                 "<b>Eğitimi atlamak üzeresin.</b>\n\nGörev paneli kapanır ve serbest oyuna geçersin. Bu işlem geri alınamaz. Yanlışlıkla bastıysan eğitime devam et.",
                 "<b>You are about to skip the tutorial.</b>\n\nThe quest panel will close and free play will start. This cannot be undone. If you tapped by mistake, keep learning."
             );
-            dTxt.fontSize = 16;
+            FitPromptText(dTxt, 20, true);
             dTxt.lineSpacing = 1.18f;
             dTxt.alignment = TextAnchor.MiddleCenter;
             dTxt.color = new Color(0.92f, 0.94f, 0.97f);
             dTxt.supportRichText = true;
 
-            CreateButton(boxObj.transform, new Vector2(-130f, -135f), new Vector2(230f, 52f),
+            CreateButton(boxObj.transform, new Vector2(-155f, -172f), new Vector2(280f, 60f),
                 LocalizationManager.L("TutSkip_Stay", "HAYIR, DEVAM ET", "NO, KEEP LEARNING"),
                 new Color(0.20f, 0.72f, 0.48f), font, () => {
                     CloseModal();
                     onSkipStayCallback?.Invoke();
                 });
 
-            CreateButton(boxObj.transform, new Vector2(130f, -135f), new Vector2(230f, 52f),
+            CreateButton(boxObj.transform, new Vector2(155f, -172f), new Vector2(280f, 60f),
                 LocalizationManager.L("TutSkip_Confirm", "EVET, ATLA", "YES, SKIP"),
                 new Color(0.78f, 0.32f, 0.32f), font, () => {
                     CloseModal();
                     onSkipConfirmCallback?.Invoke();
                 });
+        }
+
+        private static void FitPromptText(Text txt, int size, bool wrap)
+        {
+            if (txt == null) return;
+            txt.fontSize = size;
+            txt.resizeTextForBestFit = true;
+            txt.resizeTextMinSize = Mathf.Max(14, size - 8);
+            txt.resizeTextMaxSize = size;
+            txt.horizontalOverflow = wrap ? HorizontalWrapMode.Wrap : HorizontalWrapMode.Overflow;
+            txt.verticalOverflow = VerticalWrapMode.Truncate;
         }
 
         private static void CreateButton(Transform parent, Vector2 pos, Vector2 size, string text, Color color, Font font, Action onClick)
@@ -275,11 +288,13 @@ namespace Farm2Shelf.UI
             RectTransform tRect = txtObj.AddComponent<RectTransform>();
             tRect.anchorMin = Vector2.zero;
             tRect.anchorMax = Vector2.one;
+            tRect.offsetMin = new Vector2(10f, 4f);
+            tRect.offsetMax = new Vector2(-10f, -4f);
 
             Text txt = txtObj.AddComponent<Text>();
             txt.font = font;
             txt.text = text;
-            txt.fontSize = 16;
+            FitPromptText(txt, 20, true);
             txt.fontStyle = FontStyle.Bold;
             txt.alignment = TextAnchor.MiddleCenter;
             txt.color = Color.white;

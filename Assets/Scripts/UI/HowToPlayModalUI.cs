@@ -148,13 +148,13 @@ namespace Farm2Shelf.UI
             Image pBg = panelObj.AddComponent<Image>();
             pBg.sprite = UIStyleUtility.CreateOutlinePillSprite(1180, 720, 18, 3, new Color(0.95f, 0.65f, 0.15f), new Color(0.09f, 0.12f, 0.16f, 0.98f));
 
-            CreateLabel(panelObj.transform, new Vector2(0f, 318f), new Vector2(900f, 44f),
+            CreateLabel(panelObj.transform, new Vector2(0f, 318f), new Vector2(900f, 50f),
                 LocalizationManager.L("GuideLib_Title", "REHBER KÜTÜPHANESİ", "GUIDE LIBRARY"),
-                26, FontStyle.Bold, new Color(0.95f, 0.65f, 0.15f), TextAnchor.MiddleCenter);
+                32, FontStyle.Bold, new Color(0.95f, 0.65f, 0.15f), TextAnchor.MiddleCenter);
 
-            CreateLabel(panelObj.transform, new Vector2(0f, 280f), new Vector2(980f, 28f),
+            CreateLabel(panelObj.transform, new Vector2(0f, 278f), new Vector2(980f, 36f),
                 LocalizationManager.L("GuideLib_Subtitle", "Merak ettiğin konuya bas, adım adım öğren.", "Tap a topic to learn it step by step."),
-                15, FontStyle.Normal, new Color(0.78f, 0.82f, 0.88f), TextAnchor.MiddleCenter);
+                20, FontStyle.Normal, new Color(0.78f, 0.82f, 0.88f), TextAnchor.MiddleCenter);
 
             UIStyleUtility.CreateCornerCloseButton(panelObj.transform, HideModal, 52f);
 
@@ -250,11 +250,11 @@ namespace Farm2Shelf.UI
                 GameObject btnObj = new GameObject("Topic_" + topic);
                 btnObj.transform.SetParent(content.transform, false);
                 LayoutElement le = btnObj.AddComponent<LayoutElement>();
-                le.minHeight = 52f;
-                le.preferredHeight = 52f;
+                le.minHeight = 72f;
+                le.preferredHeight = 72f;
 
                 Image bg = btnObj.AddComponent<Image>();
-                bg.sprite = UIStyleUtility.CreateRoundedPillSprite(300, 52, 12, TopicIdle);
+                bg.sprite = UIStyleUtility.CreateRoundedPillSprite(300, 68, 12, TopicIdle);
                 bg.raycastTarget = true;
                 topicButtonImages.Add(bg);
 
@@ -276,7 +276,10 @@ namespace Farm2Shelf.UI
                 Text txt = txtObj.AddComponent<Text>();
                 txt.font = uiFont;
                 txt.text = GetTopicTitle(topic);
-                txt.fontSize = 15;
+                txt.fontSize = 23;
+                txt.resizeTextForBestFit = true;
+                txt.resizeTextMinSize = 14;
+                txt.resizeTextMaxSize = 23;
                 txt.fontStyle = FontStyle.Bold;
                 txt.alignment = TextAnchor.MiddleLeft;
                 txt.color = Color.white;
@@ -303,7 +306,10 @@ namespace Farm2Shelf.UI
             titleRect.sizeDelta = new Vector2(720f, 40f);
             articleTitleText = titleObj.AddComponent<Text>();
             articleTitleText.font = uiFont;
-            articleTitleText.fontSize = 20;
+            articleTitleText.fontSize = 28;
+            articleTitleText.resizeTextForBestFit = true;
+            articleTitleText.resizeTextMinSize = 18;
+            articleTitleText.resizeTextMaxSize = 28;
             articleTitleText.fontStyle = FontStyle.Bold;
             articleTitleText.alignment = TextAnchor.MiddleLeft;
             articleTitleText.color = new Color(1f, 0.86f, 0.45f);
@@ -354,7 +360,7 @@ namespace Farm2Shelf.UI
             bodyObj.transform.SetParent(content.transform, false);
             articleBodyText = bodyObj.AddComponent<Text>();
             articleBodyText.font = uiFont;
-            articleBodyText.fontSize = 16;
+            articleBodyText.fontSize = 22;
             articleBodyText.alignment = TextAnchor.UpperLeft;
             articleBodyText.color = new Color(0.93f, 0.95f, 0.97f);
             articleBodyText.horizontalOverflow = HorizontalWrapMode.Wrap;
