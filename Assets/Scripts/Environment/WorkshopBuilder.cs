@@ -806,7 +806,7 @@ namespace Farm2Shelf.Environment
 
         private void HandleClick()
         {
-            if (Farm2Shelf.UI.ModalManager.IsModalOpen || Farm2Shelf.UI.EKTPhoneManager.IsTabletOpen || (Farm2Shelf.UI.PauseMenuUI.Instance != null && Farm2Shelf.UI.PauseMenuUI.Instance.IsPauseMenuOpen)) return;
+            if (Farm2Shelf.Utils.TouchInputHelper.IsWorldInteractionBlocked()) return;
 
             Farm2Shelf.UI.PalletStorageInventoryModalUI.ShowModal(isWorkshopMode: true);
         }

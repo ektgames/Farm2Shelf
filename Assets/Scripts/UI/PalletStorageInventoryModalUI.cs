@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using Farm2Shelf.Core;
+using Farm2Shelf.Utils;
 
 namespace Farm2Shelf.UI
 {
@@ -58,6 +59,7 @@ namespace Farm2Shelf.UI
 
         public static void ShowModal(bool isWorkshopMode = false)
         {
+            if (TouchInputHelper.IsWorldInteractionBlocked()) return;
             if (globalFont == null)
             {
                 globalFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");

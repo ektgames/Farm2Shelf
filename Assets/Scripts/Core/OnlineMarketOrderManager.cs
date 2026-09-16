@@ -155,7 +155,7 @@ namespace Farm2Shelf.Core
             ("Kuzeydoğu Siteleri G Blok No:8 (Çınar)", "Northeast Residences G Apt:8 (Plane)", new Vector3(131.25f, 0.05f, 98.0f)),
             ("Kuzeydoğu Siteleri H Blok No:7 (Akasya)", "Northeast Residences H Apt:7 (Acacia)", new Vector3(131.25f, 0.05f, 128.0f)),
             ("Kuzeydoğu Siteleri H Blok No:16 (Söğüt)", "Northeast Residences H Apt:16 (Willow)", new Vector3(131.25f, 0.05f, 158.0f)),
-            ("Kuzeydoğu Taksi Durağı Ofis Teslimatı", "Northeast Taxi Stand Office Delivery", new Vector3(93.5f, 0.05f, 38.0f)),
+            ("Sarı Vadi Taksi Ofis Teslimatı", "Sunny Valley Cab Office Delivery", new Vector3(93.5f, 0.05f, 38.0f)),
             ("Güneydoğu Parsel No:1 (Kafe Karşısı)", "Southeast Lot #1 (Cafe Opposite)", new Vector3(116.5f, 0.05f, -70.0f)),
             ("Güneydoğu Parsel No:2 (Kafe Karşısı)", "Southeast Lot #2 (Cafe Opposite)", new Vector3(116.5f, 0.05f, -91.5f)),
             ("Güneydoğu Parsel No:3 (Kafe Karşısı)", "Southeast Lot #3 (Cafe Opposite)", new Vector3(116.5f, 0.05f, -114.0f)),

@@ -18,8 +18,7 @@ namespace Farm2Shelf.UI
 
         private static TutorialMentorGuideUI instance;
         private GameObject root;
-        private RectTransform holeGlow;
-        private readonly Image[] dimPanels = new Image[4];
+        private TutorialSpotlightOverlay spotlight;
         private Image portraitImg;
         private RectTransform portraitRect;
         private Text nameText;
@@ -53,6 +52,7 @@ namespace Farm2Shelf.UI
             }
             instance.BuildIfNeeded();
             instance.root.SetActive(true);
+            instance.RefreshSpotlight();
             if (playIntro) instance.BeginIntro();
             else
             {
@@ -102,12 +102,14 @@ namespace Farm2Shelf.UI
 
         private void HandleStep(TutorialStep step)
         {
+            RefreshSpotlight();
             if (!introDone) return;
             SpeakForStep(true);
         }
 
         private void HandleProgress()
         {
+            RefreshSpotlight();
             if (!introDone) return;
             SpeakForStep(false);
         }
@@ -123,7 +125,7 @@ namespace Farm2Shelf.UI
             dimRoot.transform.SetParent(root.transform, false);
             Canvas dimCanvas = dimRoot.AddComponent<Canvas>();
             dimCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            dimCanvas.sortingOrder = 280;
+            dimCanvas.sortingOrder = 920;
             CanvasScaler dimScaler = dimRoot.AddComponent<CanvasScaler>();
             dimScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             dimScaler.referenceResolution = new Vector2(1920, 1080);
@@ -134,7 +136,7 @@ namespace Farm2Shelf.UI
             talkRoot.transform.SetParent(root.transform, false);
             Canvas canvas = talkRoot.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 322;
+            canvas.sortingOrder = 980;
             CanvasScaler scaler = talkRoot.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);
@@ -143,30 +145,20 @@ namespace Farm2Shelf.UI
 
             Font font = UIStyleUtility.GetGlobalFont(20);
 
-            for (int i = 0; i < 4; i++)
+            GameObject ovObj = new GameObject("Spotlight");
+            ovObj.transform.SetParent(dimRoot.transform, false);
+            RectTransform ovRt = ovObj.AddComponent<RectTransform>();
+            ovRt.anchorMin = Vector2.zero;
+            ovRt.anchorMax = Vector2.one;
+            ovRt.offsetMin = Vector2.zero;
+            ovRt.offsetMax = Vector2.zero;
+            ovObj.AddComponent<Image>();
+            spotlight = ovObj.AddComponent<TutorialSpotlightOverlay>();
+            Shader holeShader = Shader.Find("Farm2Shelf/UI/TutorialSpotlight");
+            if (holeShader != null)
             {
-                GameObject p = new GameObject("Dim_" + i);
-                p.transform.SetParent(dimRoot.transform, false);
-                RectTransform rt = p.AddComponent<RectTransform>();
-                rt.anchorMin = Vector2.zero;
-                rt.anchorMax = Vector2.one;
-                rt.offsetMin = Vector2.zero;
-                rt.offsetMax = Vector2.zero;
-                Image img = p.AddComponent<Image>();
-                img.color = new Color(0.02f, 0.03f, 0.05f, 0.72f);
-                img.raycastTarget = true;
-                dimPanels[i] = img;
+                spotlight.Initialize(new Material(holeShader));
             }
-
-            GameObject glowObj = new GameObject("HoleGlow");
-            glowObj.transform.SetParent(dimRoot.transform, false);
-            holeGlow = glowObj.AddComponent<RectTransform>();
-            holeGlow.anchorMin = new Vector2(0.5f, 0.5f);
-            holeGlow.anchorMax = new Vector2(0.5f, 0.5f);
-            holeGlow.pivot = new Vector2(0.5f, 0.5f);
-            Image glowImg = glowObj.AddComponent<Image>();
-            glowImg.sprite = UIStyleUtility.CreateOutlinePillSprite(200, 80, 18, 4, new Color(1f, 0.86f, 0.35f, 0.95f), new Color(1f, 0.92f, 0.45f, 0.06f));
-            glowImg.raycastTarget = false;
 
             GameObject card = new GameObject("MentorCard");
             card.transform.SetParent(talkRoot.transform, false);
@@ -174,12 +166,12 @@ namespace Farm2Shelf.UI
             cardRt.anchorMin = new Vector2(1f, 0f);
             cardRt.anchorMax = new Vector2(1f, 0f);
             cardRt.pivot = new Vector2(1f, 0f);
-            cardRt.anchoredPosition = new Vector2(-36f, 118f);
+            cardRt.anchoredPosition = new Vector2(-36f, 228f);
             cardRt.sizeDelta = new Vector2(620f, 268f);
 
             Image cardBg = card.AddComponent<Image>();
             cardBg.sprite = UIStyleUtility.CreateOutlinePillSprite(620, 268, 22, 3, new Color(0.95f, 0.78f, 0.32f), new Color(0.09f, 0.11f, 0.15f, 0.96f));
-            cardBg.raycastTarget = true;
+            cardBg.raycastTarget = false;
 
             GameObject portObj = new GameObject("Portrait");
             portObj.transform.SetParent(card.transform, false);
@@ -406,7 +398,7 @@ namespace Farm2Shelf.UI
             }
 
             focusTimer += Time.unscaledDeltaTime;
-            if (focusTimer >= 0.2f)
+            if (focusTimer >= 0.08f)
             {
                 focusTimer = 0f;
                 RefreshSpotlight();
@@ -415,33 +407,29 @@ namespace Farm2Shelf.UI
 
         private void RefreshSpotlight()
         {
+            if (spotlight == null) return;
+
             focusBuf.Clear();
             bool world = false;
             CollectFocus(focusBuf, ref world);
 
-            if (world && focusBuf.Count == 0)
+            if (world || focusBuf.Count == 0)
             {
-                ApplyWorldHole();
-                return;
-            }
-            if (focusBuf.Count == 0)
-            {
-                ApplyWorldHole();
+                spotlight.SetDimStrength(world ? 0.42f : 0.62f);
+                spotlight.SetTarget(new Rect(0f, 0f, Screen.width, Screen.height), false);
                 return;
             }
 
-            Rect hole = ScreenRectOf(focusBuf[0]);
-            for (int i = 1; i < focusBuf.Count; i++)
+            Rect hole = Inflate(ScreenRectOf(focusBuf[0]), 10f);
+            if (hole.width < 8f || hole.height < 8f)
             {
-                hole = Union(hole, ScreenRectOf(focusBuf[i]));
+                spotlight.SetDimStrength(0.62f);
+                spotlight.SetTarget(hole, false);
+                return;
             }
-            hole = Inflate(hole, 18f);
-            if (world)
-            {
-                Rect play = new Rect(80f, 90f, Screen.width - 160f, Screen.height - 200f);
-                hole = Union(hole, play);
-            }
-            ApplyHole(hole);
+
+            spotlight.SetDimStrength(0.86f);
+            spotlight.SetTarget(hole, true);
         }
 
         private static Rect ScreenRectOf(RectTransform rt)
@@ -455,67 +443,9 @@ namespace Farm2Shelf.UI
             return Rect.MinMaxRect(xMin, yMin, xMax, yMax);
         }
 
-        private static Rect Union(Rect a, Rect b)
-        {
-            return Rect.MinMaxRect(Mathf.Min(a.xMin, b.xMin), Mathf.Min(a.yMin, b.yMin), Mathf.Max(a.xMax, b.xMax), Mathf.Max(a.yMax, b.yMax));
-        }
-
         private static Rect Inflate(Rect r, float pad)
         {
             return Rect.MinMaxRect(r.xMin - pad, r.yMin - pad, r.xMax + pad, r.yMax + pad);
-        }
-
-        private void ApplyWorldHole()
-        {
-            ApplyHole(new Rect(70f, 100f, Screen.width - 140f, Screen.height - 210f));
-        }
-
-        private void ApplyHole(Rect hole)
-        {
-            float w = Mathf.Max(1f, Screen.width);
-            float h = Mathf.Max(1f, Screen.height);
-            hole.xMin = Mathf.Clamp(hole.xMin, 0f, w);
-            hole.xMax = Mathf.Clamp(hole.xMax, 0f, w);
-            hole.yMin = Mathf.Clamp(hole.yMin, 0f, h);
-            hole.yMax = Mathf.Clamp(hole.yMax, 0f, h);
-            if (hole.width < 8f || hole.height < 8f)
-            {
-                ApplyWorldHole();
-                return;
-            }
-
-            float x0 = hole.xMin / w;
-            float x1 = hole.xMax / w;
-            float y0 = hole.yMin / h;
-            float y1 = hole.yMax / h;
-
-            SetPanelAnchors(dimPanels[0], new Vector2(0f, y1), new Vector2(1f, 1f));
-            SetPanelAnchors(dimPanels[1], new Vector2(0f, 0f), new Vector2(1f, y0));
-            SetPanelAnchors(dimPanels[2], new Vector2(0f, y0), new Vector2(x0, y1));
-            SetPanelAnchors(dimPanels[3], new Vector2(x1, y0), new Vector2(1f, y1));
-
-            if (holeGlow != null)
-            {
-                holeGlow.anchorMin = new Vector2((x0 + x1) * 0.5f, (y0 + y1) * 0.5f);
-                holeGlow.anchorMax = holeGlow.anchorMin;
-                holeGlow.anchoredPosition = Vector2.zero;
-                Canvas canvas = holeGlow.GetComponentInParent<Canvas>();
-                float sf = canvas != null ? Mathf.Max(0.01f, canvas.scaleFactor) : 1f;
-                holeGlow.sizeDelta = new Vector2((hole.width + 14f) / sf, (hole.height + 14f) / sf);
-            }
-        }
-
-        private static void SetPanelAnchors(Image img, Vector2 min, Vector2 max)
-        {
-            if (img == null) return;
-            RectTransform rt = img.rectTransform;
-            rt.anchorMin = min;
-            rt.anchorMax = max;
-            rt.offsetMin = Vector2.zero;
-            rt.offsetMax = Vector2.zero;
-            bool on = (max.x - min.x) > 0.004f && (max.y - min.y) > 0.004f;
-            img.enabled = on;
-            img.raycastTarget = on;
         }
 
         private void CollectFocus(List<RectTransform> into, ref bool world)
@@ -552,7 +482,6 @@ namespace Farm2Shelf.UI
 
                 case TutorialStep.Step6_UnpackAndPlaceFurniture:
                     world = true;
-                    Add(into, "phone");
                     break;
 
                 case TutorialStep.Step7_PlaceWholesaleBulkOrder:
@@ -582,7 +511,9 @@ namespace Farm2Shelf.UI
 
         private static void Add(List<RectTransform> into, string id)
         {
-            TutorialFocusTarget.CollectActive(id, into);
+            if (into.Count > 0) return;
+            RectTransform rt = TutorialFocusTarget.FindRect(id);
+            if (rt != null) into.Add(rt);
         }
 
         private static bool TabletOpen => EKTPhoneManager.IsTabletOpen;
@@ -595,12 +526,15 @@ namespace Farm2Shelf.UI
                 return;
             }
 
-            Add(into, "tablet_back");
             if (phone != null && phone.IsHomeScreenVisible)
             {
                 for (int i = 0; i < 7; i++)
                 {
-                    if (!tm.IsAppExplored(i)) Add(into, "app_" + i);
+                    if (!tm.IsAppExplored(i))
+                    {
+                        Add(into, "app_" + i);
+                        return;
+                    }
                 }
                 if (tm.ExploredAppsCount >= 7 && !tm.HasAcceptedTownContract())
                 {
@@ -611,11 +545,12 @@ namespace Farm2Shelf.UI
 
             if (phone != null && phone.IsOnlineMarketVisible)
             {
-                Add(into, "om_tab_1");
-                if (phone.ActiveOnlineMarketTab == 1)
+                if (phone.ActiveOnlineMarketTab != 1)
                 {
-                    Add(into, "om_queue");
+                    Add(into, "om_tab_1");
+                    return;
                 }
+                Add(into, "om_contracts_list");
                 return;
             }
 
@@ -629,46 +564,6 @@ namespace Farm2Shelf.UI
                 Add(into, "phone");
                 return;
             }
-            Add(into, "tablet_back");
-            if (phone != null && phone.IsHomeScreenVisible)
-            {
-                Add(into, "app_0");
-                return;
-            }
-            if (phone == null || !phone.IsStoreAppVisible)
-            {
-                Add(into, "app_0");
-                return;
-            }
-
-            int cash = tm.GetStoreRoleCount(StaffRole.Kasiyer);
-            int rest = tm.GetStoreRoleCount(StaffRole.Reyoncu);
-            if (cash < 2 || rest < 2)
-            {
-                Add(into, "store_tab_2");
-                if (phone.ActiveStoreTab == 2)
-                {
-                    if (cash < 2) Add(into, "hire_cashier");
-                    if (rest < 2) Add(into, "hire_restocker");
-                }
-                return;
-            }
-
-            Add(into, "store_tab_1");
-            if (phone.ActiveStoreTab == 1)
-            {
-                Add(into, "call_early");
-            }
-        }
-
-        private void FocusStoreShifts(EKTPhoneManager phone, List<RectTransform> into)
-        {
-            if (!TabletOpen)
-            {
-                Add(into, "phone");
-                return;
-            }
-            Add(into, "tablet_back");
             if (phone != null && phone.IsHomeScreenVisible)
             {
                 Add(into, "app_0");
@@ -679,11 +574,52 @@ namespace Farm2Shelf.UI
                 Add(into, "tablet_back");
                 return;
             }
-            Add(into, "store_tab_3");
-            if (phone.ActiveStoreTab == 3)
+
+            int cash = tm.GetStoreRoleCount(StaffRole.Kasiyer);
+            int rest = tm.GetStoreRoleCount(StaffRole.Reyoncu);
+            if (cash < 2 || rest < 2)
             {
-                Add(into, "store_shift");
+                if (phone.ActiveStoreTab != 2)
+                {
+                    Add(into, "store_tab_2");
+                    return;
+                }
+                Add(into, cash < 2 ? "hire_cashier" : "hire_restocker");
+                return;
             }
+
+            if (phone.ActiveStoreTab != 3)
+            {
+                Add(into, "store_tab_3");
+                return;
+            }
+            Add(into, "call_early");
+            if (into.Count == 0) Add(into, "store_shift");
+        }
+
+        private void FocusStoreShifts(EKTPhoneManager phone, List<RectTransform> into)
+        {
+            if (!TabletOpen)
+            {
+                Add(into, "phone");
+                return;
+            }
+            if (phone != null && phone.IsHomeScreenVisible)
+            {
+                Add(into, "app_0");
+                return;
+            }
+            if (phone == null || !phone.IsStoreAppVisible)
+            {
+                Add(into, "tablet_back");
+                return;
+            }
+            if (phone.ActiveStoreTab != 3)
+            {
+                Add(into, "store_tab_3");
+                return;
+            }
+            Add(into, "store_shift");
         }
 
         private void FocusShopping(EKTPhoneManager phone, List<RectTransform> into, int category)
@@ -693,7 +629,6 @@ namespace Farm2Shelf.UI
                 Add(into, "phone");
                 return;
             }
-            Add(into, "tablet_back");
             if (phone != null && phone.IsHomeScreenVisible)
             {
                 Add(into, "app_2");
@@ -704,11 +639,12 @@ namespace Farm2Shelf.UI
                 Add(into, "tablet_back");
                 return;
             }
-            Add(into, "shop_cat_" + category);
-            if (phone.ActiveShoppingCategory == category)
+            if (phone.ActiveShoppingCategory != category)
             {
-                Add(into, "shop_content");
+                Add(into, "shop_cat_" + category);
+                return;
             }
+            Add(into, "shop_content");
         }
 
         private void FocusWholesale(TutorialManager tm, EKTPhoneManager phone, List<RectTransform> into, ref bool world)
@@ -720,10 +656,14 @@ namespace Farm2Shelf.UI
                     Add(into, "phone");
                     return;
                 }
-                Add(into, "tablet_back");
                 if (phone != null && phone.IsHomeScreenVisible)
                 {
                     Add(into, "app_2");
+                    return;
+                }
+                if (phone == null || !phone.IsShoppingVisible)
+                {
+                    Add(into, "tablet_back");
                     return;
                 }
                 Add(into, "shop_bulk");
@@ -739,7 +679,6 @@ namespace Farm2Shelf.UI
                 Add(into, "phone");
                 return;
             }
-            Add(into, "tablet_back");
             if (phone != null && phone.IsHomeScreenVisible)
             {
                 Add(into, "app_1");
@@ -754,12 +693,20 @@ namespace Farm2Shelf.UI
             int farmers = tm.GetFarmRoleCount(StaffRole.Çiftçi);
             if (farmers < 2)
             {
-                Add(into, "farm_tab_2");
-                if (phone.ActiveFarmTab == 2) Add(into, "hire_farmer");
+                if (phone.ActiveFarmTab != 2)
+                {
+                    Add(into, "farm_tab_2");
+                    return;
+                }
+                Add(into, "hire_farmer");
                 return;
             }
-            Add(into, "farm_tab_3");
-            if (phone.ActiveFarmTab == 3) Add(into, "farm_shift");
+            if (phone.ActiveFarmTab != 3)
+            {
+                Add(into, "farm_tab_3");
+                return;
+            }
+            Add(into, "farm_shift");
         }
 
         private void ResolveCoachLine(out string key, out string tr, out string en)
@@ -774,7 +721,7 @@ namespace Farm2Shelf.UI
             {
                 case TutorialStep.Step1_CameraControls:
                     key = "s1";
-                    tr = "Önce haritayı tanı. Kaydır, yakınlaştır, döndür. Tabelandaki sloganı okuyana kadar gez — başka bir şeye bakmana gerek yok.";
+                    tr = "Önce haritayı tanı. Kaydır, yakınlaştır, döndür. Tabeladaki sloganı okuyana kadar gez — başka bir şeye bakmana gerek yok.";
                     en = "Learn the map first. Pan, zoom, rotate. Move until you can read the slogan on your sign — nothing else matters yet.";
                     break;
                 case TutorialStep.Step2_ExploreTabletApps:
@@ -813,8 +760,8 @@ namespace Farm2Shelf.UI
                     else
                     {
                         key = "s3_early";
-                        tr = "Kadro sekmesine geç. Sabah vardiyalı bir reyoncuya Erken Çağır de.";
-                        en = "Open Roster. Tap Call Early on a morning restocker.";
+                        tr = "Vardiyalar sekmesine geç. Sabah vardiyalı bir reyoncuya Erken Çağır de. Vardiya da burada ayarlanır.";
+                        en = "Open Shifts. Tap Call Early on a morning restocker. Shifts are set on this tab too.";
                     }
                     break;
                 case TutorialStep.Step4_AssignStoreShifts:

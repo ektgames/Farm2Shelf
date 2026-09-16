@@ -82,7 +82,7 @@ namespace Farm2Shelf.UI
             canvasObj = new GameObject("SaveLoad_Slot_Canvas");
             Canvas canvas = canvasObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 1250;
+            canvas.sortingOrder = 3650;
 
             CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;

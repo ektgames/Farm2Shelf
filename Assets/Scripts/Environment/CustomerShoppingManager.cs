@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Farm2Shelf.Core;
 using Farm2Shelf.UI;
+using Farm2Shelf.Utils;
 
 namespace Farm2Shelf.Environment
 {
@@ -58,6 +59,7 @@ namespace Farm2Shelf.Environment
             public Vector3 parkedSlotPos;
             public float vehicleSpeed;
             public VehicleDrivePhase drivePhase;
+            public float vehiclePhaseTimer;
 
             // Müşteri Hizmetleri Danışma Etkileşimi
             public bool visitedCustomerServiceDesk;
@@ -91,6 +93,7 @@ namespace Farm2Shelf.Environment
             // Anti-Stuck Takılma Koruyucusu
             public Vector3 lastTrackedPos;
             public float stuckTimer;
+            public Vector3 lastAvoidDir;
 
             // Kasiyer Yok Uyarısı Takibi
             public float noCashierWarningTimer;
@@ -98,6 +101,7 @@ namespace Farm2Shelf.Environment
 
             // Ödeme Tamamlandı & Çıkış Yapıyor Bayrağı (Tekrar kasaya girmeyi veya takılmayı %100 önler)
             public bool hasPaidAndExiting;
+            public bool hasShoppedOnFoot;
         }
 
         private readonly bool[] occupiedParkingSlots = new bool[30]; // Seviye 1 (10), Seviye 2 (16), Seviye 3 (22) araç kapasitesi
@@ -199,8 +203,41 @@ namespace Farm2Shelf.Environment
             }
         }
 
+        private void FreeParkingSlot(int slotIndex)
+        {
+            if (slotIndex >= 0 && slotIndex < occupiedParkingSlots.Length)
+                occupiedParkingSlots[slotIndex] = false;
+        }
+
+        private void SyncParkingOccupancy()
+        {
+            for (int i = 0; i < occupiedParkingSlots.Length; i++)
+                occupiedParkingSlots[i] = false;
+
+            for (int i = 0; i < activeCustomers.Count; i++)
+            {
+                ActiveCustomerData c = activeCustomers[i];
+                if (c == null || !c.hasVehicle || c.vehicleObj == null) continue;
+                if (c.parkingSlotIndex >= 0 && c.parkingSlotIndex < occupiedParkingSlots.Length)
+                    occupiedParkingSlots[c.parkingSlotIndex] = true;
+            }
+        }
+
+        private int CountActiveVehicleCustomers()
+        {
+            int n = 0;
+            for (int i = 0; i < activeCustomers.Count; i++)
+            {
+                if (activeCustomers[i] != null && activeCustomers[i].hasVehicle && activeCustomers[i].vehicleObj != null)
+                    n++;
+            }
+
+            return n;
+        }
+
         private int GetAvailableParkingSlot(out Vector3 slotPos)
         {
+            SyncParkingOccupancy();
             slotPos = Vector3.zero;
             int level = (EnvironmentBuilder.Instance != null) ? EnvironmentBuilder.Instance.CurrentUpgradeLevel : 1;
             int totalSlotsCount = (level == 1) ? 10 : ((level == 2) ? 16 : 22);
@@ -648,7 +685,8 @@ namespace Farm2Shelf.Environment
             CustomerType selectedType = GetNextUniqueCustomerType(currentLevel);
 
             int slotIdx = GetAvailableParkingSlot(out Vector3 slotPos);
-            bool spawnCarCustomer = (slotIdx >= 0 && Random.value < 0.40f);
+            bool needCar = CountActiveVehicleCustomers() == 0 && slotIdx >= 0;
+            bool spawnCarCustomer = slotIdx >= 0 && (needCar || Random.value < 0.45f);
 
             if (spawnCarCustomer)
             {
@@ -1201,7 +1239,7 @@ namespace Farm2Shelf.Environment
             rt.sizeDelta = new Vector2(340f, 60f);
             popupObj.transform.localScale = Vector3.one * 0.012f;
 
-            if (Camera.main != null) popupObj.transform.rotation = Camera.main.transform.rotation;
+            if (GameplayPerf.MainCamera != null) popupObj.transform.rotation = GameplayPerf.MainCamera.transform.rotation;
 
             GameObject textObj = new GameObject("Text");
             textObj.transform.SetParent(popupObj.transform, false);
@@ -1237,7 +1275,7 @@ namespace Farm2Shelf.Environment
             rt.sizeDelta = new Vector2(320f, 60f);
             popupObj.transform.localScale = Vector3.one * 0.012f;
 
-            if (Camera.main != null) popupObj.transform.rotation = Camera.main.transform.rotation;
+            if (GameplayPerf.MainCamera != null) popupObj.transform.rotation = GameplayPerf.MainCamera.transform.rotation;
 
             UnityEngine.UI.Image bg = popupObj.AddComponent<UnityEngine.UI.Image>();
             bg.sprite = UIStyleUtility.CreateRoundedPillSprite(320, 60, 28, new Color(0.18f, 0.08f, 0.08f, 0.85f));
@@ -1279,7 +1317,7 @@ namespace Farm2Shelf.Environment
             rt.sizeDelta = new Vector2(360f, 60f);
             popupObj.transform.localScale = Vector3.one * 0.012f;
 
-            if (Camera.main != null) popupObj.transform.rotation = Camera.main.transform.rotation;
+            if (GameplayPerf.MainCamera != null) popupObj.transform.rotation = GameplayPerf.MainCamera.transform.rotation;
 
             UnityEngine.UI.Image bg = popupObj.AddComponent<UnityEngine.UI.Image>();
             bg.sprite = UIStyleUtility.CreateRoundedPillSprite(360, 60, 28, new Color(0.22f, 0.08f, 0.08f, 0.88f));
@@ -1402,7 +1440,7 @@ namespace Farm2Shelf.Environment
             rt.sizeDelta = new Vector2(380f, 65f);
             popupObj.transform.localScale = Vector3.one * 0.011f;
 
-            if (Camera.main != null) popupObj.transform.rotation = Camera.main.transform.rotation;
+            if (GameplayPerf.MainCamera != null) popupObj.transform.rotation = GameplayPerf.MainCamera.transform.rotation;
 
             GameObject textObj = new GameObject("Text");
             textObj.transform.SetParent(popupObj.transform, false);
@@ -1487,7 +1525,7 @@ namespace Farm2Shelf.Environment
             rt.sizeDelta = new Vector2(160f, 40f);
             flashObj.transform.localScale = Vector3.one * 0.009f;
 
-            if (Camera.main != null) flashObj.transform.rotation = Camera.main.transform.rotation;
+            if (GameplayPerf.MainCamera != null) flashObj.transform.rotation = GameplayPerf.MainCamera.transform.rotation;
 
             GameObject textObj = new GameObject("Text");
             textObj.transform.SetParent(flashObj.transform, false);
@@ -1641,16 +1679,15 @@ namespace Farm2Shelf.Environment
                 route.Add(checkoutPos);
             }
 
-            // Arabaya Dönüş Rotası:
-            route.Add(new Vector3(-5.0f, 0.05f, -0.5f));          // Ana Fuaye Çıkış
-            route.Add(new Vector3(-5.0f, 0.05f, -2.5f));          // Cam Kapı Geçişi
-            route.Add(new Vector3(-5.0f, 0.05f, -5.0f));          // Dış Kaldırım
-            route.Add(new Vector3(-17.0f, 0.05f, -5.0f));         // Turnike Yaya Geçidi
-            route.Add(new Vector3(-17.0f, 0.05f, -0.5f));         // Turnike Geçiş Ara Noktası
-            route.Add(new Vector3(-17.0f, 0.05f, 1.5f));          // Turnike Giriş Boğazı
-            route.Add(new Vector3(-27.0f, 0.05f, 1.5f));          // Otopark Boğazı
-            route.Add(new Vector3(-27.0f, 0.05f, slotPos.z));     // Otopark Orta Yolu
-            route.Add(driverDoorPos);                             // Sürücü Kapısı (Arabaya Biniş)
+            route.Add(new Vector3(-5.0f, 0.05f, -0.5f));
+            route.Add(new Vector3(-5.0f, 0.05f, -2.5f));
+            route.Add(new Vector3(-5.0f, 0.05f, -5.0f));
+            route.Add(new Vector3(-17.0f, 0.05f, -5.0f));
+            route.Add(new Vector3(-17.0f, 0.05f, -0.5f));
+            route.Add(new Vector3(-17.0f, 0.05f, 1.5f));
+            route.Add(new Vector3(-27.0f, 0.05f, 1.5f));
+            route.Add(new Vector3(-27.0f, 0.05f, slotPos.z));
+            route.Add(driverDoorPos);
 
             return route;
         }
@@ -1659,6 +1696,7 @@ namespace Farm2Shelf.Environment
         {
             if (cData == null || cData.vehicleObj == null)
             {
+                if (cData != null) FreeParkingSlot(cData.parkingSlotIndex);
                 if (cData != null && cData.customerObj != null) Destroy(cData.customerObj);
                 if (cData != null && cData.vehicleObj != null) Destroy(cData.vehicleObj);
                 activeCustomers.RemoveAt(index);
@@ -1671,6 +1709,7 @@ namespace Farm2Shelf.Environment
             }
 
             Vector3 currentCarPos = cData.vehicleObj.transform.position;
+            cData.vehiclePhaseTimer += deltaTime;
 
             switch (cData.drivePhase)
             {
@@ -1757,28 +1796,24 @@ namespace Farm2Shelf.Environment
                         }
 
                         cData.waypoints = BuildVehicleCustomerWalkingRoute(cData.parkedSlotPos, cData.parkingSlotIndex, out cData.isVisitingCustomerService, out cData.hasCartStand, out cData.targetShelfCount, cData.type, cData.targetBasketGoal);
-                        cData.currentWaypointIndex = 1;
+                        cData.currentWaypointIndex = (cData.waypoints != null && cData.waypoints.Count > 1) ? 1 : 0;
                         cData.drivePhase = VehicleDrivePhase.EngineOffShoppingOnFoot;
                     }
                     break;
 
                 case VehicleDrivePhase.EngineOffShoppingOnFoot:
-                    // 5. Müşteri Yürüyerek Dükkana Girer, Alışveriş Yapar ve Arabasına Dönüş Yapar
+                    if (cData.customerObj != null && cData.customerObj.activeInHierarchy)
+                    {
+                        Vector3 foot = cData.customerObj.transform.position;
+                        if (foot.x > -13.0f || foot.z < -3.5f)
+                            cData.hasShoppedOnFoot = true;
+                    }
+
                     UpdatePedestrianCustomer(cData, deltaTime, index);
 
-                    if (cData.hasPaidAndExiting && cData.currentWaypointIndex >= cData.waypoints.Count - 1)
+                    if (ShouldBoardParkedVehicle(cData))
                     {
-                        // Sürücü Arabaya Biner (Yalnızca ödemesini yapıp arabasına ulaştığında):
-                        if (cData.customerObj != null) cData.customerObj.SetActive(false);
-
-                        // Müşteri arabasına bindi ve kontağı çalıştırdı: Farları otomatik YAK!
-                        if (cData.vehicleObj != null)
-                        {
-                            VehicleHeadlightController hCtrl = cData.vehicleObj.GetComponent<VehicleHeadlightController>();
-                            if (hCtrl != null) hCtrl.SetHeadlightsActive(true);
-                        }
-
-                        cData.drivePhase = VehicleDrivePhase.ReversingOutSlot;
+                        BeginVehicleDeparture(cData);
                     }
                     break;
 
@@ -1787,20 +1822,27 @@ namespace Farm2Shelf.Environment
                     Vector3 exitDrivewayPos = new Vector3(-27.0f, 0.05f, cData.parkedSlotPos.z);
                     MoveVehicle(cData, currentCarPos, exitDrivewayPos, Quaternion.Euler(0f, 180f, 0f), deltaTime);
 
-                    if (Vector3.Distance(currentCarPos, exitDrivewayPos) < 0.5f)
+                    if (Vector3.Distance(currentCarPos, exitDrivewayPos) < 0.85f || cData.vehiclePhaseTimer > 5.0f)
                     {
-                        cData.drivePhase = VehicleDrivePhase.DrivingToExitTurnstileApproach;
+                        SetDrivePhase(cData, VehicleDrivePhase.DrivingToExitTurnstileApproach);
                     }
                     break;
 
                 case VehicleDrivePhase.DrivingToExitTurnstileApproach:
-                    // 7. Çıkış Turnike Boğazına Yaklaşma: Otopark Orta Yolundan (X = -18.5f, Z = 1.5f) Çıkış Şeridine Hizalanır (180° Güneye Bakar)
+                    Vector3 aisleSouth = new Vector3(-27.0f, 0.05f, 1.5f);
                     Vector3 exitTurnstileNode = new Vector3(-18.5f, 0.05f, 1.5f);
-                    MoveVehicle(cData, currentCarPos, exitTurnstileNode, Quaternion.Euler(0f, 180f, 0f), deltaTime);
-
-                    if (Vector3.Distance(currentCarPos, exitTurnstileNode) < 0.5f)
+                    if (Vector3.Distance(currentCarPos, aisleSouth) > 0.9f && currentCarPos.z > 2.2f)
                     {
-                        cData.drivePhase = VehicleDrivePhase.PassingThroughExitTurnstile;
+                        MoveVehicle(cData, currentCarPos, aisleSouth, Quaternion.Euler(0f, 180f, 0f), deltaTime);
+                    }
+                    else
+                    {
+                        MoveVehicle(cData, currentCarPos, exitTurnstileNode, Quaternion.Euler(0f, 90f, 0f), deltaTime);
+                    }
+
+                    if (Vector3.Distance(currentCarPos, exitTurnstileNode) < 0.85f || cData.vehiclePhaseTimer > 6.0f)
+                    {
+                        SetDrivePhase(cData, VehicleDrivePhase.PassingThroughExitTurnstile);
                     }
                     break;
 
@@ -1820,9 +1862,9 @@ namespace Farm2Shelf.Environment
 
                     MoveVehicle(cData, currentCarPos, mainRoadExitJunction, Quaternion.Euler(0f, 180f, 0f), deltaTime);
 
-                    if (Vector3.Distance(currentCarPos, mainRoadExitJunction) < 0.4f || currentCarPos.z <= -7.2f)
+                    if (Vector3.Distance(currentCarPos, mainRoadExitJunction) < 0.4f || currentCarPos.z <= -7.2f || cData.vehiclePhaseTimer > 6.0f)
                     {
-                        cData.drivePhase = VehicleDrivePhase.DrivingAwayWest;
+                        SetDrivePhase(cData, VehicleDrivePhase.DrivingAwayWest);
                     }
                     break;
 
@@ -1833,16 +1875,63 @@ namespace Farm2Shelf.Environment
 
                     if (Vector3.Distance(currentCarPos, despawnRoadPos) < 3.0f || currentCarPos.x <= -170.0f)
                     {
-                        if (cData.parkingSlotIndex >= 0 && cData.parkingSlotIndex < occupiedParkingSlots.Length)
-                        {
-                            occupiedParkingSlots[cData.parkingSlotIndex] = false;
-                        }
+                        FreeParkingSlot(cData.parkingSlotIndex);
                         if (cData.vehicleObj != null) Destroy(cData.vehicleObj);
                         if (cData.customerObj != null) Destroy(cData.customerObj);
                         activeCustomers.RemoveAt(index);
                     }
                     break;
             }
+        }
+
+        private static void SetDrivePhase(ActiveCustomerData cData, VehicleDrivePhase phase)
+        {
+            if (cData.drivePhase == phase) return;
+            cData.drivePhase = phase;
+            cData.vehiclePhaseTimer = 0f;
+        }
+
+        private static Vector3 GetDriverDoorPosition(ActiveCustomerData cData)
+        {
+            int level = (EnvironmentBuilder.Instance != null) ? EnvironmentBuilder.Instance.CurrentUpgradeLevel : 1;
+            int slotsPerRow = ((level == 1) ? 10 : ((level == 2) ? 16 : 22)) / 2;
+            bool isLeftSlot = (cData.parkingSlotIndex < slotsPerRow);
+            return cData.parkedSlotPos + (isLeftSlot ? Vector3.right * 1.5f : Vector3.left * 1.5f);
+        }
+
+        private static bool ShouldBoardParkedVehicle(ActiveCustomerData cData)
+        {
+            if (cData == null || !cData.hasVehicle || cData.vehicleObj == null) return false;
+            if (cData.drivePhase != VehicleDrivePhase.EngineOffShoppingOnFoot) return false;
+            if (!cData.hasPaidAndExiting && !cData.hasShoppedOnFoot) return false;
+
+            Vector3 door = GetDriverDoorPosition(cData);
+            Vector3 pos = cData.customerObj != null ? cData.customerObj.transform.position : door;
+            float toDoor = Vector3.Distance(pos, door);
+            float toCar = Vector3.Distance(pos, cData.parkedSlotPos);
+            bool nearCar = toDoor < 2.6f || toCar < 3.4f;
+            bool inLot = pos.x < -14.0f;
+            bool endOfPath = cData.waypoints != null && cData.waypoints.Count > 0
+                && cData.currentWaypointIndex >= cData.waypoints.Count - 1;
+
+            if (cData.hasPaidAndExiting && (nearCar || (inLot && endOfPath) || (inLot && cData.stuckTimer > 2.4f)))
+                return true;
+            if (cData.hasShoppedOnFoot && nearCar && (cData.hasPaidAndExiting || endOfPath))
+                return true;
+            return false;
+        }
+
+        private static void BeginVehicleDeparture(ActiveCustomerData cData)
+        {
+            if (cData.customerObj != null) cData.customerObj.SetActive(false);
+            if (cData.vehicleObj != null)
+            {
+                VehicleHeadlightController hCtrl = cData.vehicleObj.GetComponent<VehicleHeadlightController>();
+                if (hCtrl != null) hCtrl.SetHeadlightsActive(true);
+            }
+
+            cData.hasPaidAndExiting = true;
+            SetDrivePhase(cData, VehicleDrivePhase.ReversingOutSlot);
         }
 
         private void MoveVehicle(ActiveCustomerData cData, Vector3 currentPos, Vector3 targetPos, Quaternion targetRot, float deltaTime)
@@ -2006,9 +2095,20 @@ namespace Farm2Shelf.Environment
             }
         }
 
+        private static bool TryGetCurrentWaypoint(ActiveCustomerData cData, out Vector3 waypoint)
+        {
+            waypoint = default;
+            if (cData == null || cData.waypoints == null || cData.waypoints.Count == 0) return false;
+            if (cData.currentWaypointIndex < 0) cData.currentWaypointIndex = 0;
+            if (cData.currentWaypointIndex >= cData.waypoints.Count)
+                cData.currentWaypointIndex = cData.waypoints.Count - 1;
+            waypoint = cData.waypoints[cData.currentWaypointIndex];
+            return true;
+        }
+
         private void UpdatePedestrianCustomer(ActiveCustomerData cData, float deltaTime, int index)
         {
-            if (cData.customerObj == null || cData.waypoints == null || cData.waypoints.Count == 0) return;
+            if (cData.customerObj == null || !TryGetCurrentWaypoint(cData, out _)) return;
             if (cData.stateWaitTimer > 0f)
             {
                 cData.stateWaitTimer -= deltaTime;
@@ -2197,7 +2297,7 @@ namespace Farm2Shelf.Environment
                 }
             }
 
-            Vector3 targetWaypoint = cData.waypoints[cData.currentWaypointIndex];
+            if (!TryGetCurrentWaypoint(cData, out Vector3 targetWaypoint)) return;
             Vector3 toTarget = targetWaypoint - currentPos;
             float distToTarget = toTarget.magnitude;
 
@@ -2219,12 +2319,15 @@ namespace Farm2Shelf.Environment
                     cData.currentWaypointIndex++;
                     if (cData.currentWaypointIndex >= cData.waypoints.Count)
                     {
-                        if (!cData.hasVehicle)
+                        if (cData.hasVehicle)
                         {
-                            Destroy(cData.customerObj);
-                            activeCustomers.RemoveAt(index);
+                            BeginVehicleDeparture(cData);
                             return;
                         }
+
+                        Destroy(cData.customerObj);
+                        activeCustomers.RemoveAt(index);
+                        return;
                     }
                     return;
                 }
@@ -2246,14 +2349,17 @@ namespace Farm2Shelf.Environment
                         DequeueCustomerFromCashier(cData);
                         ClearCarriedCartOnCustomer(cData);
 
-                        if (!cData.hasVehicle)
+                        if (cData.hasVehicle)
                         {
-                            Destroy(cData.customerObj);
-                            activeCustomers.RemoveAt(index);
+                            BeginVehicleDeparture(cData);
+                            return;
                         }
+
+                        Destroy(cData.customerObj);
+                        activeCustomers.RemoveAt(index);
                         return;
                     }
-                    targetWaypoint = cData.waypoints[cData.currentWaypointIndex];
+                    if (!TryGetCurrentWaypoint(cData, out targetWaypoint)) return;
                     toTarget = targetWaypoint - currentPos;
                 }
                 else
@@ -2350,8 +2456,9 @@ namespace Farm2Shelf.Environment
                                 }
                             }
 
-                            // Alışveriş Bittiğinde veya Kasa Alanına Yanaşıldığında:
-                            bool isApproachingCheckout = (targetWaypoint.z <= 2.0f || cData.currentWaypointIndex >= cData.waypoints.Count - 6);
+                            bool inStoreFloor = currentPos.x > -13.5f && currentPos.z > -3.2f;
+                            bool isApproachingCheckout = inStoreFloor
+                                && (targetWaypoint.z <= 2.0f || cData.currentWaypointIndex >= cData.waypoints.Count - 2);
                             if (isApproachingCheckout && !cData.isInCashierQueue)
                             {
                                 if (cData.totalItemsBought <= 0)
@@ -2479,117 +2586,43 @@ namespace Farm2Shelf.Environment
                         }
                     }
 
-                    if (!cData.hasVehicle)
+                    if (cData.hasVehicle)
                     {
-                        // SADECE VE SADECE EN SOL DESPAWN NOKTASINA (X = -85.0f) ULAŞTIĞINDA YOK OLUR!
-                        Destroy(cData.customerObj);
-                        activeCustomers.RemoveAt(index);
+                        BeginVehicleDeparture(cData);
+                        return;
                     }
+
+                    Destroy(cData.customerObj);
+                    activeCustomers.RemoveAt(index);
                     return;
                 }
-                targetWaypoint = cData.waypoints[cData.currentWaypointIndex];
+                if (!TryGetCurrentWaypoint(cData, out targetWaypoint)) return;
                 toTarget = targetWaypoint - currentPos;
             }
 
             float moveSpeed = cData.visitedCustomerServiceDesk ? (WALK_SPEED * 1.25f) : WALK_SPEED;
             Vector3 moveDir = toTarget.normalized;
             float stepDist = moveSpeed * deltaTime;
-            Vector3 avoidanceDir = CalculateCustomerAvoidanceDirection(cData.customerObj, currentPos, moveDir, stepDist);
+            Vector3 avoidanceDir;
+            if (((Time.frameCount + index) & 1) == 0 && cData.lastAvoidDir.sqrMagnitude > 0.01f)
+            {
+                avoidanceDir = cData.lastAvoidDir;
+            }
+            else
+            {
+                avoidanceDir = GameplayPerf.SteerPedestrian(cData.customerObj, currentPos, moveDir, stepDist);
+                cData.lastAvoidDir = avoidanceDir;
+            }
 
             if (avoidanceDir != Vector3.zero) cData.customerObj.transform.rotation = Quaternion.RotateTowards(cData.customerObj.transform.rotation, Quaternion.LookRotation(avoidanceDir), 360f * deltaTime);
             cData.customerObj.transform.position = Vector3.MoveTowards(currentPos, currentPos + avoidanceDir, stepDist);
             cData.walkCycleTimer += deltaTime * (cData.visitedCustomerServiceDesk ? 10.6f : 8.5f);
-            AnimateHumanLimbs(cData, Mathf.Sin(cData.walkCycleTimer) * 26.0f);
-        }
-
-        private static bool IsSolidObstacle(Collider col, GameObject selfObj)
-        {
-            if (col == null || col.isTrigger) return false;
-            if (selfObj != null && (col.gameObject == selfObj || col.transform.IsChildOf(selfObj.transform))) return false;
-
-            string n = col.name.ToLower();
-
-            // Turnike, bariyer kolları, yer çizgileri ve zemin sınırları yayaların hareketini engellemez:
-            if (n.Contains("barrier") || n.Contains("turnstile") || n.Contains("line") || n.Contains("divider") || n.Contains("housing") || n.Contains("border"))
+            Camera cam = GameplayPerf.MainCamera;
+            bool animateLimbs = cam == null || (currentPos - cam.transform.position).sqrMagnitude < 6400f || (Time.frameCount & 1) == 0;
+            if (animateLimbs)
             {
-                return false;
+                AnimateHumanLimbs(cData, Mathf.Sin(cData.walkCycleTimer) * 26.0f);
             }
-
-            // SADECE VE SADECE GERÇEK DUVARLAR (Store Walls, Outer Walls, Buildings, Facades, Partitions) KATI ENGELDİR!
-            if (n.Contains("wall") || n.Contains("duvar") || n.Contains("building") ||
-                n.Contains("facade") || n.Contains("partition") ||
-                n.Contains("outerwall") || n.Contains("storewall") || n.Contains("storagewall") ||
-                n.Contains("roomwall"))
-            {
-                return true;
-            }
-
-            // Dükkan içindeki raflar, mobilyalar, stantlar, kasalar, koliler, paletler, müşteriler ve personeller içinden rahatça geçilebilir.
-            return false;
-        }
-
-        private Vector3 CalculateCustomerAvoidanceDirection(GameObject customerObj, Vector3 currentPos, Vector3 desiredDir, float stepDist)
-        {
-            if (desiredDir == Vector3.zero || customerObj == null) return desiredDir;
-
-            float checkRadius = 0.22f;
-            float checkDistance = Mathf.Max(0.55f, stepDist + 0.20f);
-            Vector3 rayStart = currentPos + Vector3.up * 0.5f;
-
-            RaycastHit[] hits = Physics.SphereCastAll(rayStart, checkRadius, desiredDir, checkDistance);
-            bool hitObstacle = false;
-            Vector3 hitNormal = Vector3.zero;
-
-            if (hits != null && hits.Length > 0)
-            {
-                foreach (var hit in hits)
-                {
-                    if (IsSolidObstacle(hit.collider, customerObj))
-                    {
-                        hitObstacle = true;
-                        hitNormal = hit.normal;
-                        break;
-                    }
-                }
-            }
-
-            if (!hitObstacle) return desiredDir;
-
-            float[] checkAngles = new float[] { 25f, -25f, 50f, -50f, 75f, -75f, 100f, -100f };
-            foreach (float angle in checkAngles)
-            {
-                Vector3 testDir = Quaternion.Euler(0f, angle, 0f) * desiredDir;
-                RaycastHit[] testHits = Physics.SphereCastAll(rayStart, checkRadius, testDir, checkDistance * 0.85f);
-                bool testHitObstacle = false;
-
-                if (testHits != null && testHits.Length > 0)
-                {
-                    foreach (var th in testHits)
-                    {
-                        if (IsSolidObstacle(th.collider, customerObj))
-                        {
-                            testHitObstacle = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (!testHitObstacle)
-                {
-                    return testDir.normalized;
-                }
-            }
-
-            if (hitNormal != Vector3.zero)
-            {
-                Vector3 slideDir = Vector3.ProjectOnPlane(desiredDir, hitNormal).normalized;
-                if (slideDir.sqrMagnitude > 0.01f)
-                {
-                    return slideDir;
-                }
-            }
-
-            return desiredDir;
         }
 
         private PlacedFurnitureController FindNearestShelfToPosition(Vector3 pos)
@@ -2821,7 +2854,7 @@ namespace Farm2Shelf.Environment
             rt.sizeDelta = new Vector2(400f, 65f);
             popupObj.transform.localScale = Vector3.one * 0.011f;
 
-            if (Camera.main != null) popupObj.transform.rotation = Camera.main.transform.rotation;
+            if (GameplayPerf.MainCamera != null) popupObj.transform.rotation = GameplayPerf.MainCamera.transform.rotation;
 
             GameObject textObj = new GameObject("Text");
             textObj.transform.SetParent(popupObj.transform, false);

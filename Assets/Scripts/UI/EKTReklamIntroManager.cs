@@ -57,7 +57,7 @@ namespace Farm2Shelf.UI
 
             Image img = blackCurtainObj.AddComponent<Image>();
             img.color = Color.black;
-            img.raycastTarget = true;
+            img.raycastTarget = false;
         }
 
         private void Start()
@@ -104,7 +104,7 @@ namespace Farm2Shelf.UI
             if (blackCurtainObj != null)
             {
                 Debug.Log("[INTRO] Destroying temporary black curtain before canvas creation.");
-                Destroy(blackCurtainObj);
+                DestroyIntroOverlayImmediate(ref blackCurtainObj);
             }
 
             // Siyah Arka Plan Paneli
@@ -265,6 +265,11 @@ namespace Farm2Shelf.UI
 
                 while (elapsed < 4.5f)
                 {
+                    if (canvasObj == null || introPanel == null || barcodeCg == null)
+                    {
+                        break;
+                    }
+
                     elapsed += Mathf.Min(Time.unscaledDeltaTime, 0.05f);
 
                     // Dokunma / Tıklama ile atlama kontrolü (1.2 saniyeden sonra)
@@ -303,7 +308,10 @@ namespace Farm2Shelf.UI
                         barcodeCg.alpha = scanAlpha;
 
                         float laserProgress = Mathf.Clamp01(elapsed / 1.5f);
-                        rtLaserGlow.anchoredPosition = new Vector2(0f, -laserProgress * 60f);
+                        if (rtLaserGlow != null)
+                        {
+                            rtLaserGlow.anchoredPosition = new Vector2(0f, -laserProgress * 60f);
+                        }
 
                         if (elapsed >= 1.2f && !hasBeeped)
                         {
@@ -326,11 +334,14 @@ namespace Farm2Shelf.UI
                             logged20 = true;
                             Debug.Log("[INTRO] 2.0s reached");
                         }
-                        barcodeContainer.SetActive(false);
+                        if (barcodeContainer != null)
+                        {
+                            barcodeContainer.SetActive(false);
+                        }
                     }
 
                     // Aşama 2: Neon Titreşimli Logo Belirme (1.3s+)
-                    if (elapsed >= 1.3f)
+                    if (elapsed >= 1.3f && neonGlowTxt != null && neonCoreTxt != null && presentsTxt != null)
                     {
                         float logoAlpha = Mathf.Clamp01((elapsed - 1.3f) / 0.4f);
 
@@ -370,6 +381,17 @@ namespace Farm2Shelf.UI
 
                 try
                 {
+                    Debug.Log("[INTRO] Destroying intro overlays before Main Menu");
+                    DestroyIntroOverlayImmediate(ref blackCurtainObj);
+                    DestroyIntroOverlayImmediate(ref canvasObj);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogException(ex);
+                }
+
+                try
+                {
                     Debug.Log($"[INTRO] Calling MainMenuUI.ShowMenu | MainMenuUI.Instance null?: {MainMenuUI.Instance == null}");
                     if (MainMenuUI.Instance != null)
                     {
@@ -385,33 +407,35 @@ namespace Farm2Shelf.UI
                 {
                     Debug.LogException(ex);
                 }
-
-                try
-                {
-                    if (blackCurtainObj != null)
-                    {
-                        Debug.Log("[INTRO] Destroying black curtain");
-                        Destroy(blackCurtainObj);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogException(ex);
-                }
-
-                try
-                {
-                    if (canvasObj != null)
-                    {
-                        Debug.Log("[INTRO] Destroying intro canvas");
-                        Destroy(canvasObj);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogException(ex);
-                }
             }
+        }
+
+        private static void DestroyIntroOverlayImmediate(ref GameObject overlay)
+        {
+            if (overlay == null) return;
+
+            GraphicRaycaster[] raycasters = overlay.GetComponentsInChildren<GraphicRaycaster>(true);
+            for (int i = 0; i < raycasters.Length; i++)
+            {
+                raycasters[i].enabled = false;
+            }
+
+            Graphic[] graphics = overlay.GetComponentsInChildren<Graphic>(true);
+            for (int i = 0; i < graphics.Length; i++)
+            {
+                graphics[i].raycastTarget = false;
+            }
+
+            CanvasGroup[] groups = overlay.GetComponentsInChildren<CanvasGroup>(true);
+            for (int i = 0; i < groups.Length; i++)
+            {
+                groups[i].blocksRaycasts = false;
+                groups[i].interactable = false;
+            }
+
+            overlay.SetActive(false);
+            DestroyImmediate(overlay);
+            overlay = null;
         }
 
         private Font GetSafeFont()

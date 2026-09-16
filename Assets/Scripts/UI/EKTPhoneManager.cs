@@ -709,7 +709,7 @@ namespace Farm2Shelf.UI
 
             tabletPopupRoot.AddComponent<GraphicRaycaster>();
 
-            // Karartma Arka Plan Katmanı (Dışına dokunulduğunda tableti kapatır ve arka plan tıklamalarını %100 bloke eder)
+            // Karartma: dünya tıklamasını keser. Tablet yalnızca sağ üst çarpı ile kapanır.
             GameObject overlayObj = new GameObject("Tablet_Backdrop_Overlay");
             overlayObj.transform.SetParent(tabletPopupRoot.transform, false);
 
@@ -722,10 +722,6 @@ namespace Farm2Shelf.UI
             overlayImage = overlayObj.AddComponent<Image>();
             overlayImage.color = new Color(0f, 0f, 0f, 0.75f);
             overlayImage.raycastTarget = true; // TABLET AÇIKKEN ARKA PLANDAKİ HİÇBİR NESNEYE TIKLANAMASIN!
-
-            Button overlayBtn = overlayObj.AddComponent<Button>();
-            overlayBtn.targetGraphic = overlayImage;
-            overlayBtn.onClick.AddListener(ClosePhoneTablet);
 
             GameObject tabletBox = new GameObject("Tablet_Device_Body");
             tabletBox.transform.SetParent(tabletPopupRoot.transform, false);
@@ -1417,7 +1413,7 @@ namespace Farm2Shelf.UI
             ScrollRect scrollRect = viewportObj.AddComponent<ScrollRect>();
             scrollRect.horizontal = false;
             scrollRect.vertical = true;
-            scrollRect.movementType = ScrollRect.MovementType.Clamped;
+            scrollRect.movementType = ScrollRect.MovementType.Elastic;
             scrollRect.inertia = true;
             scrollRect.decelerationRate = 0.135f;
             scrollRect.scrollSensitivity = 50f;
@@ -1950,7 +1946,7 @@ namespace Farm2Shelf.UI
             Image badgeBg = badgeObj.AddComponent<Image>();
             badgeBg.sprite = UIStyleUtility.CreateRoundedPillSprite(176, 32, 14, new Color(0.96f, 0.78f, 0.14f));
             Text badgeTxt = CreateTextInPanel(badgeObj.transform, Vector2.zero, Vector2.one,
-                LocalizationManager.L("Jobs_DistrictBadge", "Kuzeydoğu Durak", "NE Taxi Stand"), 13, new Color(0.14f, 0.11f, 0.05f));
+                LocalizationManager.L("Jobs_DistrictBadge", TaxiFleetManager.BrandTr, TaxiFleetManager.BrandEn), 13, new Color(0.14f, 0.11f, 0.05f));
             badgeTxt.alignment = TextAnchor.MiddleCenter;
             badgeTxt.horizontalOverflow = HorizontalWrapMode.Overflow;
 
@@ -2002,7 +1998,7 @@ namespace Farm2Shelf.UI
 
             GameObject hero = CreateJobsCard(parent, "StandHero", new Color(0.14f, 0.16f, 0.20f, 0.98f));
             CreateJobsLabel(hero.transform,
-                LocalizationManager.L("Jobs_StandTitle", "Kuzeydoğu Taksi Durağı", "Northeast Taxi Stand"),
+                LocalizationManager.L("Jobs_StandTitle", TaxiFleetManager.BrandTr, TaxiFleetManager.BrandEn),
                 21, new Color(1f, 0.86f, 0.28f), TextAnchor.MiddleLeft, 30f);
             CreateJobsLabel(hero.transform,
                 LocalizationManager.L(
@@ -2016,7 +2012,7 @@ namespace Farm2Shelf.UI
                 LocalizationManager.L("Jobs_FactsTitle", "Durak bilgileri", "Stand details"),
                 16, new Color(0.96f, 0.78f, 0.18f), TextAnchor.MiddleLeft, 24f);
             CreateJobsKvRow(facts.transform, LocalizationManager.L("Jobs_Loc", "Konum", "Location"),
-                LocalizationManager.L("Jobs_LocVal", "Kuzeydoğu mahalle • otoyol üstü", "Northeast district • above highway"));
+                LocalizationManager.L("Jobs_LocVal", "Sarı Vadi durak • otoyol üstü", "Sunny Valley stand • above highway"));
             CreateJobsKvRow(facts.transform, LocalizationManager.L("Jobs_Bays", "Park yuvası", "Parking bays"), "5");
             CreateJobsKvRow(facts.transform, LocalizationManager.L("Jobs_Staff", "Personel", "Staff"),
                 LocalizationManager.L("Jobs_StaffNone", "Gerekmez", "Not required"));
@@ -2325,6 +2321,8 @@ namespace Farm2Shelf.UI
             // 3. 5 AYRI SCROLLABLE VIEWPORT
             onlineMarketFleetContent = CreateScrollableViewContainer(viewObj.transform, "FleetList", new Vector2(0f, -62f), new Vector2(920f, 370f), out onlineMarketFleetViewportObj);
             onlineMarketContractsContent = CreateScrollableViewContainer(viewObj.transform, "ContractsList", new Vector2(0f, -62f), new Vector2(920f, 370f), out onlineMarketContractsViewportObj);
+            if (onlineMarketContractsViewportObj != null)
+                TutorialFocusTarget.Tag(onlineMarketContractsViewportObj.gameObject, "om_contracts_list");
             onlineMarketStaffContent = CreateScrollableViewContainer(viewObj.transform, "StaffList", new Vector2(0f, -62f), new Vector2(920f, 370f), out onlineMarketStaffViewportObj);
             onlineMarketCandidateContent = CreateScrollableViewContainer(viewObj.transform, "CandidateList", new Vector2(0f, -62f), new Vector2(920f, 370f), out onlineMarketCandidateViewportObj);
             onlineMarketShiftContent = CreateScrollableViewContainer(viewObj.transform, "ShiftList", new Vector2(0f, -62f), new Vector2(920f, 370f), out onlineMarketShiftViewportObj);

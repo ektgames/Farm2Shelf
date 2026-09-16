@@ -1,8 +1,13 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using Farm2Shelf.Core;
 using Farm2Shelf.Environment;
+using Farm2Shelf.Utils;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem.UI;
+#endif
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -13,12 +18,16 @@ namespace Farm2Shelf.UI
     /// Oyun açıldığında karşılayan yüksek kaliteli Low-Poly stilinde Ana Menü Arayüzü.
     /// Türkçe ve İngilizce dil desteği entegreli, canlı dil değiştirme uyumlu.
     /// </summary>
+    [DefaultExecutionOrder(-200)]
     public class MainMenuUI : MonoBehaviour
     {
         public static MainMenuUI Instance { get; private set; }
         public static bool IsMenuVisible => Instance != null && Instance.canvasObj != null && Instance.canvasObj.activeInHierarchy;
 
         private GameObject canvasObj;
+        private int previousDragThreshold = 80;
+        private bool menuEventSystemConfigured;
+        private readonly List<PhysicsRaycaster> suspendedPhysicsRaycasters = new List<PhysicsRaycaster>();
 
         private readonly string[] randomTurkishPlayerNames = new string[]
         {
@@ -98,11 +107,9 @@ namespace Farm2Shelf.UI
                 LocalizationManager.Instance.OnLanguageChanged += HandleLanguageChanged;
             }
 
-            // Eğer EKT Reklam İntrosu henüz bitmediyse, introyu bekle. İntro tamamlandığında ShowMenu() otomatik çağrılacaktır.
             if (EKTReklamIntroManager.Instance != null && !EKTReklamIntroManager.HasIntroFinished)
             {
-                Debug.Log("[MAIN_MENU] Intro active. Waiting for intro to complete before showing Main Menu.");
-                Time.timeScale = 0f;
+                Debug.Log("[MAIN_MENU] Intro playing, menu will open after intro");
                 return;
             }
 
@@ -112,18 +119,30 @@ namespace Farm2Shelf.UI
         public void ShowMenu()
         {
             Debug.Log("[MAIN_MENU] ShowMenu called");
-            Time.timeScale = 0f; // Ana menüdeyken oyun zamanını duraklat
+            Time.timeScale = 0f;
+            Farm2Shelf.Utils.UiReliableClick.IgnoreCurrentPointerUntilRelease();
+            ConfigureMenuEventSystem();
+            if (EKTReklamIntroManager.HasIntroFinished)
+            {
+                ClearBlockingIntroLeftovers();
+            }
             if (GameHUDManager.Instance != null)
             {
                 GameHUDManager.Instance.SetHUDVisible(false); // HUD'ı gizle
             }
             BuildUI();
+            Canvas.ForceUpdateCanvases();
+            SuspendWorldPhysicsRaycasters();
+            ConfigureMenuEventSystem();
         }
 
         public void HideMenu()
         {
             Debug.Log("[MAIN_MENU] HideMenu called");
-            Time.timeScale = 1.0f; // Oyun zamanını başlat
+            Time.timeScale = 1.0f;
+            RestoreMenuEventSystem();
+            RestoreWorldPhysicsRaycasters();
+            TouchInputHelper.SuppressNextTap();
             if (canvasObj != null)
             {
                 canvasObj.SetActive(false);
@@ -148,19 +167,27 @@ namespace Farm2Shelf.UI
         private void BuildUI()
         {
             Debug.Log("[MAIN_MENU] BuildUI building Main Menu Canvas");
-            if (canvasObj != null) Destroy(canvasObj);
+            if (canvasObj != null)
+            {
+                canvasObj.SetActive(false);
+                DestroyImmediate(canvasObj);
+                canvasObj = null;
+            }
 
             canvasObj = new GameObject("Farm2Shelf_MainMenu_Canvas");
             Canvas canvas = canvasObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 1000;
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = 3050;
 
             CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);
             scaler.matchWidthOrHeight = 0.5f;
 
-            canvasObj.AddComponent<GraphicRaycaster>();
+            GraphicRaycaster gr = canvasObj.AddComponent<GraphicRaycaster>();
+            gr.ignoreReversedGraphics = true;
+            gr.blockingObjects = GraphicRaycaster.BlockingObjects.None;
 
             // Seçilen 16:9 Sinematik Arka Plan Görseli (Güneşli Sabah İzometrik Çiftlik Kasabası)
             GameObject backdrop = new GameObject("Backdrop");
@@ -199,6 +226,7 @@ namespace Farm2Shelf.UI
 
             Image pBg = menuPanel.AddComponent<Image>();
             pBg.sprite = UIStyleUtility.CreateOutlinePillSprite(560, 860, 24, 3, new Color(0.25f, 0.80f, 0.45f), new Color(0.10f, 0.14f, 0.20f, 0.96f));
+            pBg.raycastTarget = true;
 
             // OYUN LOGO BAŞLIĞI: "FARM2SHELF"
             GameObject logoObj = new GameObject("GameLogoText");
@@ -270,15 +298,25 @@ namespace Farm2Shelf.UI
                 btnObj.transform.SetParent(menuPanel.transform, false);
 
                 RectTransform bRect = btnObj.AddComponent<RectTransform>();
+                bRect.anchorMin = new Vector2(0.5f, 0.5f);
+                bRect.anchorMax = new Vector2(0.5f, 0.5f);
+                bRect.pivot = new Vector2(0.5f, 0.5f);
                 bRect.anchoredPosition = new Vector2(0f, startY - i * btnSpacing);
                 bRect.sizeDelta = new Vector2(460f, 74f);
 
                 Image bBg = btnObj.AddComponent<Image>();
                 bBg.sprite = UIStyleUtility.CreateRoundedPillSprite(460, 74, 16, buttonColors[i]);
+                bBg.raycastTarget = true;
 
                 Button btn = btnObj.AddComponent<Button>();
                 btn.targetGraphic = bBg;
+                btn.interactable = true;
+                btn.transition = Selectable.Transition.None;
+                Navigation nav = btn.navigation;
+                nav.mode = Navigation.Mode.None;
+                btn.navigation = nav;
                 btn.onClick.AddListener(() => OnMenuButtonClicked(btnIndex));
+                BindImmediateTap(btnObj);
 
                 GameObject txtObj = new GameObject("Label");
                 txtObj.transform.SetParent(btnObj.transform, false);
@@ -577,6 +615,10 @@ namespace Farm2Shelf.UI
                 identityButtonImages[idx] = bg;
                 Button btn = btnObj.AddComponent<Button>();
                 btn.targetGraphic = bg;
+                btn.transition = Selectable.Transition.None;
+                Navigation idNav = btn.navigation;
+                idNav.mode = Navigation.Mode.None;
+                btn.navigation = idNav;
 
                 string caption = StoreStatusManager.GetIdentityDisplayName(identity) + "\n<size=11>" + StoreStatusManager.GetIdentityHint(identity) + "</size>";
                 Text cap = CreateTextChild(btnObj, caption, 16, FontStyle.Bold, Color.white);
@@ -608,6 +650,7 @@ namespace Farm2Shelf.UI
                     refreshIdentityButtons();
                     if (refreshColorSwatches != null) refreshColorSwatches();
                 });
+                BindImmediateTap(btnObj);
             }
 
             refreshIdentityButtons();
@@ -669,6 +712,7 @@ namespace Farm2Shelf.UI
                     selectedColor = colorSwatches[sIdx];
                     refreshColorSwatches();
                 });
+                BindImmediateTap(swObj);
             }
 
             refreshColorSwatches();
@@ -756,6 +800,7 @@ namespace Farm2Shelf.UI
 
             Button sbBtn = startBtnObj.AddComponent<Button>();
             sbBtn.targetGraphic = sbBg;
+            sbBtn.transition = Selectable.Transition.None;
 
             CreateTextChild(startBtnObj, LocalizationManager.L("Modal_StartBtn", "Oyunu Başlat!", "Start Game!"), 30, FontStyle.Bold, Color.white);
 
@@ -805,6 +850,7 @@ namespace Farm2Shelf.UI
                 Destroy(backdrop);
                 StartNewGame();
             });
+            BindImmediateTap(startBtnObj);
 
             // 2. İPTAL BUTONU
             GameObject cancelBtnObj = new GameObject("CancelBtn");
@@ -824,6 +870,7 @@ namespace Farm2Shelf.UI
                 if (AudioManager.Instance != null) AudioManager.Instance.PlayButtonClick();
                 Destroy(backdrop);
             });
+            BindImmediateTap(cancelBtnObj);
 
             CreateTextChild(cancelBtnObj, LocalizationManager.L("Modal_CancelBtn", "İptal", "Cancel"), 26, FontStyle.Bold, Color.white);
         }
@@ -938,6 +985,7 @@ namespace Farm2Shelf.UI
                     inputField.text = picked;
                 }
             });
+            BindImmediateTap(diceBtnObj);
 
             return inputField;
         }
@@ -998,6 +1046,136 @@ namespace Farm2Shelf.UI
             }
 
             dialogTransform.localScale = targetScale;
+        }
+
+        private void BindImmediateTap(GameObject go)
+        {
+            if (go == null) return;
+            Button btn = go.GetComponent<Button>();
+            Image img = go.GetComponent<Image>();
+            if (img != null) img.raycastTarget = true;
+            if (btn != null)
+            {
+                Navigation n = btn.navigation;
+                n.mode = Navigation.Mode.None;
+                btn.navigation = n;
+                btn.transition = Selectable.Transition.None;
+                btn.enabled = true;
+                btn.interactable = true;
+            }
+
+            Graphic[] graphics = go.GetComponentsInChildren<Graphic>(true);
+            for (int i = 0; i < graphics.Length; i++)
+            {
+                if (graphics[i] is Text)
+                {
+                    graphics[i].raycastTarget = false;
+                }
+            }
+        }
+
+        private void ConfigureMenuEventSystem()
+        {
+            EnsureEventSystem();
+            Farm2Shelf.Utils.UiReliableClick.ConfigureSharedEventSystem();
+            if (EventSystem.current == null) return;
+
+            if (!menuEventSystemConfigured)
+            {
+                previousDragThreshold = EventSystem.current.pixelDragThreshold;
+                menuEventSystemConfigured = true;
+            }
+
+            EventSystem.current.pixelDragThreshold = Mathf.Max(
+                EventSystem.current.pixelDragThreshold,
+                Farm2Shelf.Utils.UiReliableClick.DefaultDragThreshold);
+            EventSystem.current.sendNavigationEvents = false;
+            EventSystem.current.SetSelectedGameObject(null);
+        }
+
+        private void RestoreMenuEventSystem()
+        {
+            menuEventSystemConfigured = false;
+            if (EventSystem.current != null)
+            {
+                EventSystem.current.pixelDragThreshold = Mathf.Max(
+                    Farm2Shelf.Utils.UiReliableClick.DefaultDragThreshold,
+                    previousDragThreshold);
+                EventSystem.current.sendNavigationEvents = true;
+            }
+
+            Farm2Shelf.Utils.UiReliableClick.ConfigureSharedEventSystem();
+        }
+
+        private void SuspendWorldPhysicsRaycasters()
+        {
+            RestoreWorldPhysicsRaycasters();
+            PhysicsRaycaster[] physics = FindObjectsByType<PhysicsRaycaster>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (int i = 0; i < physics.Length; i++)
+            {
+                PhysicsRaycaster pr = physics[i];
+                if (pr == null || !pr.enabled) continue;
+                pr.enabled = false;
+                suspendedPhysicsRaycasters.Add(pr);
+            }
+        }
+
+        private void RestoreWorldPhysicsRaycasters()
+        {
+            for (int i = 0; i < suspendedPhysicsRaycasters.Count; i++)
+            {
+                if (suspendedPhysicsRaycasters[i] != null)
+                {
+                    suspendedPhysicsRaycasters[i].enabled = true;
+                }
+            }
+
+            suspendedPhysicsRaycasters.Clear();
+        }
+
+        private static void EnsureEventSystem()
+        {
+            if (EventSystem.current != null)
+            {
+                Farm2Shelf.Utils.UiReliableClick.ConfigureSharedEventSystem();
+                return;
+            }
+
+            GameObject esObj = new GameObject("EventSystem");
+            esObj.AddComponent<EventSystem>();
+#if ENABLE_INPUT_SYSTEM
+            esObj.AddComponent<InputSystemUIInputModule>();
+#else
+            esObj.AddComponent<StandaloneInputModule>();
+#endif
+            Farm2Shelf.Utils.UiReliableClick.ConfigureSharedEventSystem();
+        }
+
+        private static void ClearBlockingIntroLeftovers()
+        {
+            DisableLeftoverOverlay("[EKT_Intro_BlackCurtain]");
+            DisableLeftoverOverlay("EKT_Reklam_Intro_Canvas");
+        }
+
+        private static void DisableLeftoverOverlay(string objectName)
+        {
+            GameObject leftover = GameObject.Find(objectName);
+            if (leftover == null) return;
+
+            GraphicRaycaster[] raycasters = leftover.GetComponentsInChildren<GraphicRaycaster>(true);
+            for (int i = 0; i < raycasters.Length; i++)
+            {
+                raycasters[i].enabled = false;
+            }
+
+            Graphic[] graphics = leftover.GetComponentsInChildren<Graphic>(true);
+            for (int i = 0; i < graphics.Length; i++)
+            {
+                graphics[i].raycastTarget = false;
+            }
+
+            leftover.SetActive(false);
+            Destroy(leftover);
         }
 
         private Font GetSafeFont(int fontSize = 24)

@@ -23,11 +23,6 @@ namespace Farm2Shelf.Environment
             col.height = Mathf.Max(col.height, 2.0f);
         }
 
-        private void Update()
-        {
-            // Tıklama ve etkileşimler TouchInputHelper merkezi sistemi üzerinden yönetilir
-        }
-
         public void OnPointerClick(PointerEventData eventData)
         {
             if (eventData != null && eventData.dragging) return;
@@ -38,8 +33,12 @@ namespace Farm2Shelf.Environment
 
         public CourierMotorcycleController courierMoto;
 
+        private static float lastOpenTime;
+
         public void OnStaffClicked()
         {
+            if (Time.unscaledTime - lastOpenTime < 0.04f) return;
+            lastOpenTime = Time.unscaledTime;
             bool isPauseOpen = (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen);
             if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || isPauseOpen) return;
             if (staffMember == null && taskData != null && taskData.staffMember != null)

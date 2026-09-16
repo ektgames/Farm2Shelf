@@ -1,8 +1,12 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 using Farm2Shelf.Environment;
 using Farm2Shelf.CameraSystem;
 using Farm2Shelf.UI;
 using Farm2Shelf.Utils;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem.UI;
+#endif
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -43,6 +47,8 @@ namespace Farm2Shelf.Core
 
         public static void InitializeGameWorld()
         {
+            EnsureEventSystem();
+
             // 1. Core Manager'ları Başlatma (Time, Economy, StoreStatus)
             GameObject managersObj = GameObject.Find("Core_Managers");
             if (managersObj == null)
@@ -237,6 +243,31 @@ namespace Farm2Shelf.Core
 
             if (uiManagerObj.GetComponent<DailySpinWheelUI>() == null)
                 uiManagerObj.AddComponent<DailySpinWheelUI>();
+        }
+
+        private static void EnsureEventSystem()
+        {
+            if (EventSystem.current != null)
+            {
+#if ENABLE_INPUT_SYSTEM
+                if (EventSystem.current.GetComponent<InputSystemUIInputModule>() == null)
+                {
+                    EventSystem.current.gameObject.AddComponent<InputSystemUIInputModule>();
+                }
+#endif
+                Farm2Shelf.Utils.UiReliableClick.ConfigureSharedEventSystem();
+                return;
+            }
+
+            GameObject esObj = new GameObject("EventSystem");
+            Object.DontDestroyOnLoad(esObj);
+            esObj.AddComponent<EventSystem>();
+#if ENABLE_INPUT_SYSTEM
+            esObj.AddComponent<InputSystemUIInputModule>();
+#else
+            esObj.AddComponent<StandaloneInputModule>();
+#endif
+            Farm2Shelf.Utils.UiReliableClick.ConfigureSharedEventSystem();
         }
 
         #if UNITY_EDITOR

@@ -340,21 +340,21 @@ namespace Farm2Shelf.Core
 
         public void NotifyCameraPan()
         {
-            if (CurrentStep != TutorialStep.Step1_CameraControls) return;
+            if (CurrentStep != TutorialStep.Step1_CameraControls || DidPanCamera) return;
             DidPanCamera = true;
             CheckCurrentStepCompletion(false);
         }
 
         public void NotifyCameraZoom()
         {
-            if (CurrentStep != TutorialStep.Step1_CameraControls) return;
+            if (CurrentStep != TutorialStep.Step1_CameraControls || DidZoomCamera) return;
             DidZoomCamera = true;
             CheckCurrentStepCompletion(false);
         }
 
         public void NotifyCameraRotate()
         {
-            if (CurrentStep != TutorialStep.Step1_CameraControls) return;
+            if (CurrentStep != TutorialStep.Step1_CameraControls || DidRotateCamera) return;
             DidRotateCamera = true;
             CheckCurrentStepCompletion(false);
         }

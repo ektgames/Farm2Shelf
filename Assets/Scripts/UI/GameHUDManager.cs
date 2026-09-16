@@ -121,6 +121,11 @@ namespace Farm2Shelf.UI
 #else
                 esObj.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
 #endif
+                Farm2Shelf.Utils.UiReliableClick.ConfigureSharedEventSystem();
+            }
+            else if (UnityEngine.EventSystems.EventSystem.current != null)
+            {
+                Farm2Shelf.Utils.UiReliableClick.ConfigureSharedEventSystem();
             }
 
             // Ana Kameraya PhysicsRaycaster

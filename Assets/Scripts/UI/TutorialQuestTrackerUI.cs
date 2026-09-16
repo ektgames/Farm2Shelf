@@ -22,6 +22,7 @@ namespace Farm2Shelf.UI
         public static void ShowTracker()
         {
             if (trackerInstance != null) Destroy(trackerInstance);
+            lastRefreshKey = null;
 
             trackerInstance = new GameObject("Farm2Shelf_Tutorial_Tracker_Canvas");
             trackerInstance.AddComponent<TutorialQuestTrackerUI>();
@@ -46,22 +47,30 @@ namespace Farm2Shelf.UI
             {
                 Destroy(trackerInstance);
                 trackerInstance = null;
+                lastRefreshKey = null;
             }
         }
 
+        private static string lastRefreshKey;
+
         public static void RefreshDisplay()
         {
-            if (trackerInstance != null)
-            {
-                // Mevcut içeriği yeniden oluştur
-                Transform oldCard = trackerInstance.transform.Find("TrackerCard");
-                if (oldCard != null) Destroy(oldCard.gameObject);
+            if (trackerInstance == null) return;
 
-                Transform oldModal = trackerInstance.transform.Find("AllQuestsRoadmapModal");
-                if (oldModal != null) Destroy(oldModal.gameObject);
+            TutorialManager tm = TutorialManager.Instance;
+            string key = tm != null
+                ? ((int)tm.CurrentStep) + "|" + GetStepLiveChecklist(tm.CurrentStep)
+                : "";
+            if (key == lastRefreshKey) return;
+            lastRefreshKey = key;
 
-                BuildTrackerBox(trackerInstance.transform);
-            }
+            Transform oldCard = trackerInstance.transform.Find("TrackerCard");
+            if (oldCard != null) Destroy(oldCard.gameObject);
+
+            Transform oldModal = trackerInstance.transform.Find("AllQuestsRoadmapModal");
+            if (oldModal != null) Destroy(oldModal.gameObject);
+
+            BuildTrackerBox(trackerInstance.transform);
         }
 
         private static void FitLabel(Text txt, int size, bool wrap = false)
@@ -477,14 +486,14 @@ namespace Farm2Shelf.UI
                     return LocalizationManager.L(
                         "Tut_S1_Inst",
                         "Haritayı tanı: dükkan, otopark ve cadde tabelan yerinde duruyor. Yeni oyunda seçtiğin <b>marka rengi ve slogan</b> tabelada yazılı.\n" +
-                        "• Kaydır (parmak / sol sürükle / WASD)\n" +
-                        "• Yakınlaştır (kıstır veya tekerlek)\n" +
-                        "• Döndür (iki parmak veya sağ sürükle)\n" +
+                        "• Kaydır (tek parmakla sürükle)\n" +
+                        "• Yakınlaştır (iki parmakla kıstır)\n" +
+                        "• Döndür (iki parmağı çevir)\n" +
                         "Tabelandaki sloganı bir kez net görene kadar gez.",
                         "Learn the map: store, parking, and your street sign stay put. The <b>brand color and slogan</b> you picked sit on the fascia.\n" +
-                        "• Pan (finger / left-drag / WASD)\n" +
-                        "• Zoom (pinch or wheel)\n" +
-                        "• Rotate (two fingers or right-drag)\n" +
+                        "• Pan (drag with one finger)\n" +
+                        "• Zoom (pinch)\n" +
+                        "• Rotate (twist two fingers)\n" +
                         "Move until you can read the slogan on your sign."
                     );
 
@@ -503,9 +512,9 @@ namespace Farm2Shelf.UI
                     return LocalizationManager.L(
                         "Tut_S3_Inst",
                         "Tablet ➔ <b>Mağaza Yönetimi ➔ İşe Alım</b>. <b>2 kasiyer</b> ve <b>2 reyoncu</b> al. Kasiyer kuyruğu eritir; reyoncu toptan kolisini ve <b>pasaportlu</b> hasadı rafa taşır.\n" +
-                        "Sonra <b>Kadro</b>da sabah vardiyalı bir reyoncuya <b>Erken Çağır</b>. Kontrat kuryesi sonra Online Market'ten eklenir; şimdi dükkan ekibi yeterli.",
+                        "Sonra <b>Vardiyalar</b>da sabah vardiyalı bir reyoncuya <b>Erken Çağır</b>. Personel vardiyası da bu sekmede ayarlanır. Kontrat kuryesi sonra Online Market'ten eklenir; şimdi dükkan ekibi yeterli.",
                         "Tablet ➔ <b>Store Mgmt ➔ Hire</b>. Hire <b>2 cashiers</b> and <b>2 restockers</b>. Cashiers clear the line; restockers move wholesale boxes and <b>passport</b> harvest onto shelves.\n" +
-                        "Then in <b>Roster</b> tap <b>Call Early</b> on a morning restocker. Contract couriers come later in Online Market; store staff is enough now."
+                        "Then in <b>Shifts</b> tap <b>Call Early</b> on a morning restocker. Staff shifts are set on that tab. Contract couriers come later in Online Market; store staff is enough now."
                     );
 
                 case TutorialStep.Step4_AssignStoreShifts:

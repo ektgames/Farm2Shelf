@@ -180,7 +180,7 @@ namespace Farm2Shelf.Environment
 
             GameObject seatMount = new GameObject("Driver_Seat_MountPoint");
             seatMount.transform.SetParent(root, false);
-            seatMount.transform.localPosition = new Vector3(0f, 0.68f, -0.06f);
+            seatMount.transform.localPosition = new Vector3(0f, 0.70f, -0.16f);
             driverSeatMount = seatMount.transform;
         }
 

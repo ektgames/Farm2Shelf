@@ -229,9 +229,11 @@ namespace Farm2Shelf.Core
 
         private void Update()
         {
-            if (seasonWarningCanvasObj != null && Camera.main != null)
+            if (seasonWarningCanvasObj == null || !seasonWarningCanvasObj.activeInHierarchy) return;
+            Camera cam = GameplayPerf.MainCamera;
+            if (cam != null)
             {
-                seasonWarningCanvasObj.transform.rotation = Camera.main.transform.rotation;
+                seasonWarningCanvasObj.transform.rotation = cam.transform.rotation;
             }
         }
 
@@ -536,8 +538,10 @@ namespace Farm2Shelf.Core
 
         public void OnClickDetected()
         {
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || Time.unscaledTime - ModalManager.LastModalCloseTime < 0.05f) return;
-            if (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing) return;
+            if (Time.unscaledTime - lastGlobalClickTime < 0.04f) return;
+            lastGlobalClickTime = Time.unscaledTime;
+            if (TouchInputHelper.IsWorldInteractionBlocked()) return;
+            if (Time.unscaledTime - ModalManager.LastModalCloseTime < 0.04f) return;
 
             // Eğer bir atölye makinesiyse doğrudan makine üretim arayüzünü / toplama eylemini aç!
             Farm2Shelf.Environment.WorkshopMachineController wsMachine = GetComponent<Farm2Shelf.Environment.WorkshopMachineController>();

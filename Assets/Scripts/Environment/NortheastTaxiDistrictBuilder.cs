@@ -266,6 +266,16 @@ namespace Farm2Shelf.Environment
             CreateBox(building.transform, "Window_L", new Vector3(-5.0f, 2.20f, 3.64f), new Vector3(3.0f, 1.45f, 0.08f), glassMat);
             CreateBox(building.transform, "Window_R", new Vector3(5.0f, 2.20f, 3.64f), new Vector3(3.0f, 1.45f, 0.08f), glassMat);
             CreateBox(building.transform, "Sign_Board", new Vector3(0f, 3.62f, 3.70f), new Vector3(7.2f, 0.80f, 0.12f), yellowMat);
+            GameObject signLabel = new GameObject("Sign_Brand");
+            signLabel.transform.SetParent(building.transform, false);
+            signLabel.transform.localPosition = new Vector3(0f, 3.62f, 3.78f);
+            TextMesh signMesh = signLabel.AddComponent<TextMesh>();
+            signMesh.text = "SARI VADI";
+            signMesh.anchor = TextAnchor.MiddleCenter;
+            signMesh.alignment = TextAlignment.Center;
+            signMesh.characterSize = 0.11f;
+            signMesh.fontSize = 42;
+            signMesh.color = new Color(0.12f, 0.10f, 0.05f);
 
             Collider[] childCols = building.GetComponentsInChildren<Collider>(true);
             for (int i = 0; i < childCols.Length; i++)

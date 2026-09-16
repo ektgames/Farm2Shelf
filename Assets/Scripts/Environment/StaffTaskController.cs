@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using Farm2Shelf.Core;
 using Farm2Shelf.UI;
+using Farm2Shelf.Utils;
 using Random = UnityEngine.Random;
 using Object = UnityEngine.Object;
 
@@ -1114,22 +1115,29 @@ namespace Farm2Shelf.Environment
             return route;
         }
 
+        private static readonly List<PlacedFurnitureController> cashierCache = new List<PlacedFurnitureController>(8);
+        private static float cashierCacheTime = -1f;
+
         public static List<PlacedFurnitureController> GetAllCashierCounters()
         {
+            if (Time.unscaledTime - cashierCacheTime < 0.35f && cashierCache.Count > 0)
+                return cashierCache;
+
+            cashierCache.Clear();
             var allFurniture = PlacedFurnitureController.AllPlacedFurniture;
-            List<PlacedFurnitureController> cashiers = new List<PlacedFurnitureController>();
             int fCount = allFurniture.Count;
             for (int i = 0; i < fCount; i++)
             {
                 var f = allFurniture[i];
                 if (f != null && f.FurnitureType == FurnitureType.Cashier)
                 {
-                    cashiers.Add(f);
+                    cashierCache.Add(f);
                 }
             }
-            // Kasaları X koordinatına göre (soldan sağa) deterministik sırala
-            cashiers.Sort((a, b) => a.transform.position.x.CompareTo(b.transform.position.x));
-            return cashiers;
+
+            cashierCache.Sort((a, b) => a.transform.position.x.CompareTo(b.transform.position.x));
+            cashierCacheTime = Time.unscaledTime;
+            return cashierCache;
         }
 
         public List<StaffTaskData> GetActiveWorkingCashiers()
@@ -1604,6 +1612,11 @@ namespace Farm2Shelf.Environment
 
         private float lastStorageWarningTime = 0f;
 
+        private static Material carriedTapeMat;
+        private static Material carriedFlapMat;
+        private static readonly Quaternion CarryArmRotL = Quaternion.Euler(-38f, 12f, 6f);
+        private static readonly Quaternion CarryArmRotR = Quaternion.Euler(-38f, -12f, -6f);
+
         private void CreateCarriedBoxesOnStaff(StaffTaskData data, int count)
         {
             ClearCarriedBoxesOnStaff(data);
@@ -1611,45 +1624,123 @@ namespace Farm2Shelf.Environment
 
             data.carriedBoxesRoot = new GameObject("CarriedBoxes");
             data.carriedBoxesRoot.transform.SetParent(data.staffObj.transform, false);
-            data.carriedBoxesRoot.transform.localPosition = new Vector3(0f, 0.75f, 0.40f);
+            data.carriedBoxesRoot.transform.localPosition = Vector3.zero;
             data.carriedBoxesRoot.transform.localRotation = Quaternion.identity;
-
-            Material boxMat = FurnitureModelBuilder.CardboardBoxMaterial;
 
             if (count == 1)
             {
-                GameObject box = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                box.name = "Box_1";
-                box.transform.SetParent(data.carriedBoxesRoot.transform, false);
-                box.transform.localPosition = new Vector3(0f, 0f, 0f);
-                box.transform.localScale = new Vector3(0.38f, 0.24f, 0.36f);
-                if (boxMat != null) box.GetComponent<Renderer>().sharedMaterial = boxMat;
-                Collider c = box.GetComponent<Collider>();
-                if (c != null) Destroy(c);
+                CreateHandheldCrate(data.carriedBoxesRoot.transform, "Box_1",
+                    new Vector3(0f, 1.22f, 0.38f), new Vector3(0.40f, 0.24f, 0.32f), 4f);
             }
-            else if (count >= 2)
+            else
             {
-                // 2 Koli: Sol Elde ve Sağ Elde Yanyana 2 Adet Koli Taşıma!
-                GameObject boxL = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                boxL.name = "Box_Left";
-                boxL.transform.SetParent(data.carriedBoxesRoot.transform, false);
-                boxL.transform.localPosition = new Vector3(-0.24f, 0f, 0f);
-                boxL.transform.localScale = new Vector3(0.34f, 0.24f, 0.34f);
-                if (boxMat != null) boxL.GetComponent<Renderer>().sharedMaterial = boxMat;
-                Collider cL = boxL.GetComponent<Collider>();
-                if (cL != null) Destroy(cL);
-
-                GameObject boxR = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                boxR.name = "Box_Right";
-                boxR.transform.SetParent(data.carriedBoxesRoot.transform, false);
-                boxR.transform.localPosition = new Vector3(0.24f, 0f, 0f);
-                boxR.transform.localScale = new Vector3(0.34f, 0.24f, 0.34f);
-                if (boxMat != null) boxR.GetComponent<Renderer>().sharedMaterial = boxMat;
-                Collider cR = boxR.GetComponent<Collider>();
-                if (cR != null) Destroy(cR);
+                CreateHandheldCrate(data.carriedBoxesRoot.transform, "Box_Left",
+                    new Vector3(0f, 1.12f, 0.38f), new Vector3(0.38f, 0.22f, 0.30f), 3f);
+                CreateHandheldCrate(data.carriedBoxesRoot.transform, "Box_Right",
+                    new Vector3(0.01f, 1.35f, 0.36f), new Vector3(0.36f, 0.22f, 0.28f), 2f);
             }
 
+            ApplyCarryArmPose(data);
             data.isCarryingBoxes = true;
+        }
+
+        private static void CreateHandheldCrate(Transform parent, string name, Vector3 localPos, Vector3 size, float tiltX)
+        {
+            EnsureCarriedBoxMaterials();
+
+            GameObject crate = new GameObject(name);
+            crate.transform.SetParent(parent, false);
+            crate.transform.localPosition = localPos;
+            crate.transform.localRotation = Quaternion.Euler(tiltX, 7f, 2f);
+
+            GameObject body = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            body.name = "Body";
+            body.transform.SetParent(crate.transform, false);
+            body.transform.localPosition = Vector3.zero;
+            body.transform.localScale = size;
+            if (FurnitureModelBuilder.CardboardBoxMaterial != null)
+                body.GetComponent<Renderer>().sharedMaterial = FurnitureModelBuilder.CardboardBoxMaterial;
+            DestroyCollider(body);
+
+            GameObject tapeX = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            tapeX.name = "TapeX";
+            tapeX.transform.SetParent(crate.transform, false);
+            tapeX.transform.localPosition = new Vector3(0f, size.y * 0.51f, 0f);
+            tapeX.transform.localScale = new Vector3(size.x * 1.02f, 0.012f, size.z * 0.18f);
+            tapeX.GetComponent<Renderer>().sharedMaterial = carriedTapeMat;
+            DestroyCollider(tapeX);
+
+            GameObject tapeZ = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            tapeZ.name = "TapeZ";
+            tapeZ.transform.SetParent(crate.transform, false);
+            tapeZ.transform.localPosition = new Vector3(0f, size.y * 0.51f, 0f);
+            tapeZ.transform.localScale = new Vector3(size.x * 0.16f, 0.012f, size.z * 1.02f);
+            tapeZ.GetComponent<Renderer>().sharedMaterial = carriedTapeMat;
+            DestroyCollider(tapeZ);
+
+            GameObject flapL = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            flapL.name = "FlapL";
+            flapL.transform.SetParent(crate.transform, false);
+            flapL.transform.localPosition = new Vector3(-size.x * 0.22f, size.y * 0.52f, 0f);
+            flapL.transform.localRotation = Quaternion.Euler(0f, 0f, 8f);
+            flapL.transform.localScale = new Vector3(size.x * 0.46f, 0.016f, size.z * 0.92f);
+            flapL.GetComponent<Renderer>().sharedMaterial = carriedFlapMat;
+            DestroyCollider(flapL);
+
+            GameObject flapR = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            flapR.name = "FlapR";
+            flapR.transform.SetParent(crate.transform, false);
+            flapR.transform.localPosition = new Vector3(size.x * 0.22f, size.y * 0.52f, 0f);
+            flapR.transform.localRotation = Quaternion.Euler(0f, 0f, -8f);
+            flapR.transform.localScale = new Vector3(size.x * 0.46f, 0.016f, size.z * 0.92f);
+            flapR.GetComponent<Renderer>().sharedMaterial = carriedFlapMat;
+            DestroyCollider(flapR);
+
+            GameObject strap = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            strap.name = "SideLabel";
+            strap.transform.SetParent(crate.transform, false);
+            strap.transform.localPosition = new Vector3(0f, 0.01f, size.z * 0.51f);
+            strap.transform.localScale = new Vector3(size.x * 0.55f, size.y * 0.28f, 0.01f);
+            strap.GetComponent<Renderer>().sharedMaterial = carriedTapeMat;
+            DestroyCollider(strap);
+        }
+
+        private static void EnsureCarriedBoxMaterials()
+        {
+            if (carriedTapeMat != null && carriedFlapMat != null) return;
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null) shader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (shader == null) shader = Shader.Find("Standard");
+            if (shader == null) shader = Shader.Find("Unlit/Color");
+
+            carriedTapeMat = new Material(shader);
+            carriedTapeMat.color = new Color(0.90f, 0.78f, 0.28f);
+            carriedFlapMat = new Material(shader);
+            carriedFlapMat.color = new Color(0.68f, 0.50f, 0.30f);
+        }
+
+        private static void DestroyCollider(GameObject go)
+        {
+            Collider c = go.GetComponent<Collider>();
+            if (c != null) Destroy(c);
+        }
+
+        private static void ApplyCarryArmPose(StaffTaskData data)
+        {
+            if (data == null) return;
+            SetArmPose(data.leftLimbs, CarryArmRotL);
+            SetArmPose(data.rightLimbs, CarryArmRotR);
+        }
+
+        private static void SetArmPose(List<Transform> limbs, Quaternion rot)
+        {
+            if (limbs == null) return;
+            for (int i = 0; i < limbs.Count; i++)
+            {
+                Transform t = limbs[i];
+                if (t != null && t.name.StartsWith("Arm", StringComparison.Ordinal))
+                    t.localRotation = rot;
+            }
         }
 
         private void RemoveOneCarriedBox(StaffTaskData data)
@@ -1754,7 +1845,7 @@ namespace Farm2Shelf.Environment
             rt.sizeDelta = new Vector2(340f, 60f);
             popupObj.transform.localScale = Vector3.one * 0.012f;
 
-            if (Camera.main != null) popupObj.transform.rotation = Camera.main.transform.rotation;
+            if (GameplayPerf.MainCamera != null) popupObj.transform.rotation = GameplayPerf.MainCamera.transform.rotation;
 
             GameObject textObj = new GameObject("Text");
             textObj.transform.SetParent(popupObj.transform, false);
@@ -2751,80 +2842,9 @@ namespace Farm2Shelf.Environment
 
         #region Helper Movement & Animations
 
-        private static bool IsSolidObstacle(Collider col, GameObject selfObj)
-        {
-            if (col == null || col.isTrigger) return false;
-            if (selfObj != null && (col.gameObject == selfObj || col.transform.IsChildOf(selfObj.transform))) return false;
-
-            // SADECE VE SADECE DUVARLAR (WALLS / BUILDINGS / DIVIDERS) KATI ENGELDİR!
-            // Dükkan ve bina duvarları haricindeki mobilyalar, raflar, buzdolapları, stantlar, kasalar, tezgahlar, koliler, paletler, müşteriler ve personeller engellere takılmaz.
-            string n = col.name.ToLower();
-            if (n.Contains("wall") || n.Contains("duvar") || n.Contains("building") ||
-                n.Contains("fence") || n.Contains("facade") || n.Contains("partition") ||
-                n.Contains("divider") || n.Contains("boundary") || n.Contains("border") ||
-                n.Contains("outerwall") || n.Contains("storewall") || n.Contains("storagewall") ||
-                n.Contains("roomwall") || n.Contains("barrier") || n.Contains("turnstile") ||
-                n.Contains("housing"))
-            {
-                return true;
-            }
-
-            // DÜKKAN İÇİNDEKİ HER ŞEYİN (Raf, Dolap, Tezgah, Kasa, Koli, Palet, Müşteri, Personel vb.) İÇİNDEN GEÇİLİR!
-            return false;
-        }
-
         private Vector3 CalculateAvoidanceDirection(GameObject staffObj, Vector3 currentPos, Vector3 desiredDir, float stepDist)
         {
-            if (desiredDir == Vector3.zero || staffObj == null) return desiredDir;
-
-            float checkRadius = 0.25f; // Gövde yarıçapı
-            float checkDistance = Mathf.Max(0.60f, stepDist + 0.25f);
-            Vector3 rayStart = currentPos + Vector3.up * 0.5f;
-
-            RaycastHit[] hits = Physics.SphereCastAll(rayStart, checkRadius, desiredDir, checkDistance);
-            bool hitObstacle = false;
-
-            if (hits != null && hits.Length > 0)
-            {
-                foreach (var hit in hits)
-                {
-                    if (IsSolidObstacle(hit.collider, staffObj))
-                    {
-                        hitObstacle = true;
-                        break;
-                    }
-                }
-            }
-
-            if (!hitObstacle) return desiredDir;
-
-            // DUVARA YAKINSA DUVAR YÜZEYİ BOYUNCA AÇISAL ARAMA
-            float[] checkAngles = new float[] { 20f, -20f, 40f, -40f, 60f, -60f, 80f, -80f, 100f, -100f, 120f, -120f, 140f, -140f };
-            foreach (float angle in checkAngles)
-            {
-                Vector3 testDir = Quaternion.Euler(0f, angle, 0f) * desiredDir;
-                RaycastHit[] testHits = Physics.SphereCastAll(rayStart, checkRadius, testDir, checkDistance * 0.80f);
-                bool testHitObstacle = false;
-
-                if (testHits != null && testHits.Length > 0)
-                {
-                    foreach (var th in testHits)
-                    {
-                        if (IsSolidObstacle(th.collider, staffObj))
-                        {
-                            testHitObstacle = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (!testHitObstacle)
-                {
-                    return testDir.normalized;
-                }
-            }
-
-            return desiredDir;
+            return GameplayPerf.SteerStaff(staffObj, currentPos, desiredDir, stepDist);
         }
 
         private void FollowWaypoints(StaffTaskData data, float deltaTime, System.Action onComplete)
@@ -2959,38 +2979,40 @@ namespace Farm2Shelf.Environment
 
         private void AnimateLimbs(StaffTaskData data, float angle)
         {
-            if (data.leftLimbs != null)
+            AnimateLimbSide(data.leftLimbs, angle, true, data != null && data.isCarryingBoxes);
+            AnimateLimbSide(data.rightLimbs, -angle, false, data != null && data.isCarryingBoxes);
+        }
+
+        private static void AnimateLimbSide(List<Transform> limbs, float angle, bool left, bool carrying)
+        {
+            if (limbs == null) return;
+            for (int i = 0; i < limbs.Count; i++)
             {
-                foreach (var l in data.leftLimbs)
+                Transform t = limbs[i];
+                if (t == null) continue;
+                if (carrying && t.name.StartsWith("Arm", StringComparison.Ordinal))
                 {
-                    if (l != null) l.localRotation = Quaternion.Euler(angle, 0f, 0f);
+                    t.localRotation = left ? CarryArmRotL : CarryArmRotR;
                 }
-            }
-            if (data.rightLimbs != null)
-            {
-                foreach (var r in data.rightLimbs)
+                else
                 {
-                    if (r != null) r.localRotation = Quaternion.Euler(-angle, 0f, 0f);
+                    t.localRotation = Quaternion.Euler(angle, 0f, 0f);
                 }
             }
         }
 
         private void ResetLimbsToRest(StaffTaskData data)
         {
-            if (data.leftLimbs != null)
+            if (data != null && data.isCarryingBoxes)
             {
-                foreach (var l in data.leftLimbs)
-                {
-                    if (l != null) l.localRotation = Quaternion.identity;
-                }
+                AnimateLimbSide(data.leftLimbs, 0f, true, false);
+                AnimateLimbSide(data.rightLimbs, 0f, false, false);
+                ApplyCarryArmPose(data);
+                return;
             }
-            if (data.rightLimbs != null)
-            {
-                foreach (var r in data.rightLimbs)
-                {
-                    if (r != null) r.localRotation = Quaternion.identity;
-                }
-            }
+
+            AnimateLimbSide(data != null ? data.leftLimbs : null, 0f, true, false);
+            AnimateLimbSide(data != null ? data.rightLimbs : null, 0f, false, false);
         }
 
         #endregion

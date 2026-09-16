@@ -5,6 +5,7 @@ using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using Farm2Shelf.UI;
 using Farm2Shelf.Environment;
+using Farm2Shelf.Utils;
 
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
@@ -16,10 +17,7 @@ namespace Farm2Shelf.Core
     {
         private static bool CanOpenPallet()
         {
-            ModalManager.CloseWorldBlockingOverlays();
-            bool isPauseOpen = PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen;
-            bool isPlacing = FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing;
-            return !ModalManager.IsModalOpen && !EKTPhoneManager.IsTabletOpen && !isPauseOpen && !isPlacing;
+            return !TouchInputHelper.IsWorldInteractionBlocked();
         }
 
         public void OnPointerDown(PointerEventData eventData)
@@ -96,11 +94,14 @@ namespace Farm2Shelf.Core
                     }
                 }
             }
+
+            ReorganizeBoxesOnPallet();
         }
 
         private Material palletWoodMat;
         private Material cardboardMat;
         private Material tapeMat;
+        private GameObject arrivalGlowRoot;
 
         private void Awake()
         {
@@ -280,6 +281,8 @@ namespace Farm2Shelf.Core
                 activeBoxes[i].transform.localPosition = targetLocalPos;
                 activeBoxes[i].transform.localRotation = Quaternion.identity;
             }
+
+            RefreshArrivalGlow();
         }
 
         /// <summary>
@@ -292,6 +295,165 @@ namespace Farm2Shelf.Core
                 activeBoxes.Remove(controller);
                 Destroy(controller.gameObject);
                 ReorganizeBoxesOnPallet();
+            }
+        }
+
+        private void RefreshArrivalGlow()
+        {
+            bool hasCargo = false;
+            for (int i = 0; i < activeBoxes.Count; i++)
+            {
+                if (activeBoxes[i] != null && activeBoxes[i].gameObject != null)
+                {
+                    hasCargo = true;
+                    break;
+                }
+            }
+
+            if (hasCargo)
+            {
+                EnsureArrivalGlow();
+            }
+
+            if (arrivalGlowRoot != null)
+            {
+                arrivalGlowRoot.SetActive(hasCargo);
+            }
+        }
+
+        private void EnsureArrivalGlow()
+        {
+            if (arrivalGlowRoot != null || palletObj == null) return;
+
+            arrivalGlowRoot = new GameObject("Pallet_Arrival_Glow");
+            arrivalGlowRoot.transform.SetParent(palletObj.transform, false);
+            arrivalGlowRoot.transform.localPosition = new Vector3(0f, 2.15f, 0f);
+            arrivalGlowRoot.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+
+            Light arrivalSpotLight = arrivalGlowRoot.AddComponent<Light>();
+            arrivalSpotLight.type = LightType.Spot;
+            arrivalSpotLight.color = new Color(1.00f, 0.84f, 0.32f);
+            arrivalSpotLight.shadows = LightShadows.None;
+            arrivalSpotLight.bounceIntensity = 0f;
+            LightingPipelineBinder.ConfigureRealtimeLight(arrivalSpotLight);
+
+            bool mobile = LightingPipelineBinder.IsMobileLightingProfile();
+            arrivalSpotLight.intensity = mobile ? 0.78f : 1.15f;
+            arrivalSpotLight.range = mobile ? 3.8f : 4.6f;
+            arrivalSpotLight.spotAngle = 52f;
+            arrivalSpotLight.innerSpotAngle = 24f;
+            arrivalSpotLight.renderMode = mobile ? LightRenderMode.ForceVertex : LightRenderMode.ForcePixel;
+
+            GameObject haloObj = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            haloObj.name = "Pallet_Arrival_Halo";
+            haloObj.transform.SetParent(palletObj.transform, false);
+            haloObj.transform.localPosition = new Vector3(0f, 0.18f, 0f);
+            haloObj.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            haloObj.transform.localScale = new Vector3(2.15f, 2.15f, 1f);
+            Collider haloCol = haloObj.GetComponent<Collider>();
+            if (haloCol != null) Destroy(haloCol);
+
+            Renderer haloRend = haloObj.GetComponent<Renderer>();
+            haloRend.sharedMaterial = CreateArrivalHaloMaterial();
+            haloRend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            haloRend.receiveShadows = false;
+            haloObj.transform.SetParent(arrivalGlowRoot.transform, true);
+
+            PalletArrivalGlowPulse pulse = arrivalGlowRoot.AddComponent<PalletArrivalGlowPulse>();
+            pulse.Bind(arrivalSpotLight, haloObj.transform, mobile);
+        }
+
+        private static Material CreateArrivalHaloMaterial()
+        {
+            Shader shader = ShaderHelper.GetUnlitShader();
+            Material mat = shader != null ? new Material(shader) : ShaderHelper.CreateUnlitOpaqueMaterial(new Color(1f, 0.82f, 0.28f, 0.35f), "PalletArrivalHaloMat");
+            mat.name = "PalletArrivalHaloMat";
+
+            Texture2D tex = CreateRadialGlowTexture(64);
+            if (mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", tex);
+            if (mat.HasProperty("_MainTex")) mat.SetTexture("_MainTex", tex);
+
+            Color tint = new Color(1.00f, 0.86f, 0.38f, 0.42f);
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", tint);
+            if (mat.HasProperty("_Color")) mat.SetColor("_Color", tint);
+            mat.color = tint;
+
+            if (mat.HasProperty("_Surface")) mat.SetFloat("_Surface", 1f);
+            if (mat.HasProperty("_Blend")) mat.SetFloat("_Blend", 2f);
+            if (mat.HasProperty("_SrcBlend")) mat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            if (mat.HasProperty("_DstBlend")) mat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.One);
+            if (mat.HasProperty("_ZWrite")) mat.SetFloat("_ZWrite", 0f);
+            mat.DisableKeyword("_EMISSION");
+            if (mat.HasProperty("_EmissionColor")) mat.SetColor("_EmissionColor", Color.black);
+            mat.renderQueue = 3000;
+            mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.One);
+            mat.SetInt("_ZWrite", 0);
+            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            mat.EnableKeyword("_ALPHAPREMULTIPLY_ON");
+            return mat;
+        }
+
+        private static Texture2D CreateRadialGlowTexture(int size)
+        {
+            Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            tex.name = "PalletArrivalHaloTex";
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.filterMode = FilterMode.Bilinear;
+            float half = (size - 1) * 0.5f;
+            Color[] pixels = new Color[size * size];
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float nx = (x - half) / half;
+                    float ny = (y - half) / half;
+                    float d = Mathf.Sqrt(nx * nx + ny * ny);
+                    float a = Mathf.Clamp01(1f - d);
+                    a = a * a * (0.15f + 0.85f * a);
+                    pixels[y * size + x] = new Color(1f, 1f, 1f, a);
+                }
+            }
+
+            tex.SetPixels(pixels);
+            tex.Apply(false, true);
+            return tex;
+        }
+    }
+
+    internal sealed class PalletArrivalGlowPulse : MonoBehaviour
+    {
+        private Light spot;
+        private Transform halo;
+        private float baseIntensity = 1f;
+        private Vector3 haloBaseScale = Vector3.one;
+
+        public void Bind(Light light, Transform haloTransform, bool mobile)
+        {
+            spot = light;
+            halo = haloTransform;
+            baseIntensity = light != null ? light.intensity : 1f;
+            haloBaseScale = haloTransform != null ? haloTransform.localScale : Vector3.one;
+            if (mobile && spot != null)
+            {
+                baseIntensity = Mathf.Min(baseIntensity, 0.85f);
+            }
+        }
+
+        private void LateUpdate()
+        {
+            if (spot == null && halo == null) return;
+            float wave = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 2.1f);
+            float pulse = 0.88f + 0.12f * wave;
+            if (spot != null)
+            {
+                spot.intensity = baseIntensity * pulse;
+            }
+
+            if (halo != null)
+            {
+                float s = 0.96f + 0.06f * wave;
+                halo.localScale = new Vector3(haloBaseScale.x * s, haloBaseScale.y * s, haloBaseScale.z);
             }
         }
     }

@@ -31,40 +31,44 @@ namespace Farm2Shelf.UI
         {
             if (cachedGridTex != null) return cachedGridTex;
 
-            int size = 128;
-            cachedGridTex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            const int size = 256;
+            cachedGridTex = new Texture2D(size, size, TextureFormat.RGBA32, true);
             Color[] cols = new Color[size * size];
-            Color gridLineColor = new Color(0.20f, 0.90f, 0.85f, 0.45f); // Neon Cyan Izgara
-            Color subLineColor = new Color(0.20f, 0.90f, 0.85f, 0.18f);  // İnce Ara Çizgi
-            Color bgColor = new Color(0.05f, 0.12f, 0.18f, 0.08f);       // Çok hafif zemin rengi
+            Color lineColor = new Color(0.42f, 0.98f, 0.94f, 0.78f);
+            Color subColor = new Color(0.32f, 0.88f, 0.86f, 0.28f);
 
             for (int y = 0; y < size; y++)
             {
                 for (int x = 0; x < size; x++)
                 {
-                    bool isMainBorder = (x < 2 || x >= size - 2 || y < 2 || y >= size - 2);
-                    bool isSubLine = (x == size / 2 || y == size / 2);
+                    float fx = x + 0.5f;
+                    float fy = y + 0.5f;
+                    float distEdge = Mathf.Min(Mathf.Min(fx, fy), Mathf.Min(size - fx, size - fy));
+                    float distMid = Mathf.Min(Mathf.Abs(fx - size * 0.5f), Mathf.Abs(fy - size * 0.5f));
 
-                    if (isMainBorder)
-                    {
-                        cols[y * size + x] = gridLineColor;
-                    }
-                    else if (isSubLine)
-                    {
-                        cols[y * size + x] = subLineColor;
-                    }
-                    else
-                    {
-                        cols[y * size + x] = bgColor;
-                    }
+                    float main = SmoothGridLine(distEdge, 1.35f, 5.5f);
+                    float sub = SmoothGridLine(distMid, 0.9f, 3.6f) * 0.55f;
+                    float w = Mathf.Max(main, sub);
+                    Color c = (main >= sub) ? lineColor : subColor;
+                    c.a *= w;
+                    cols[y * size + x] = c;
                 }
             }
 
             cachedGridTex.SetPixels(cols);
             cachedGridTex.wrapMode = TextureWrapMode.Repeat;
-            cachedGridTex.filterMode = FilterMode.Bilinear;
-            cachedGridTex.Apply();
+            cachedGridTex.filterMode = FilterMode.Trilinear;
+            cachedGridTex.anisoLevel = 16;
+            cachedGridTex.Apply(true, false);
             return cachedGridTex;
+        }
+
+        private static float SmoothGridLine(float dist, float core, float falloff)
+        {
+            if (dist <= core) return 1f;
+            if (dist >= falloff) return 0f;
+            float t = (dist - core) / Mathf.Max(0.001f, falloff - core);
+            return 1f - (t * t * (3f - 2f * t));
         }
 
         /// <summary>

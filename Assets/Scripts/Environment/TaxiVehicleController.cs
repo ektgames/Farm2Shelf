@@ -57,14 +57,33 @@ namespace Farm2Shelf.Environment
         public void Drive(List<Vector3> waypoints, TaxiDuty nextDuty, string labelTr, string labelEn, Action arrived)
         {
             path.Clear();
-            if (waypoints != null) path.AddRange(waypoints);
-            pathIndex = 0;
+            if (waypoints != null)
+            {
+                for (int i = 0; i < waypoints.Count; i++)
+                {
+                    if (!TaxiRoadRouter.IsCampusInterior(waypoints[i])
+                        && !TaxiRoadRouter.IsIllegalRiverPoint(waypoints[i]))
+                    {
+                        path.Add(waypoints[i]);
+                    }
+                }
+            }
+
+            pathIndex = SkipReachedPoints(0);
+            if (TaxiRoadRouter.IsCampusInterior(transform.position)
+                || TaxiRoadRouter.IsIllegalRiverPoint(transform.position))
+            {
+                Vector3 safe = TaxiRoadRouter.SnapToNearestLane(transform.position);
+                safe.y = CityTrafficManager.GetBridgeElevation(safe.x, safe.z, out _);
+                transform.position = safe;
+            }
+
             duty = nextDuty;
             JobLabelTr = labelTr ?? "";
             JobLabelEn = labelEn ?? "";
             onPathDone = arrived;
             SetHeadlights(true);
-            if (path.Count < 2)
+            if (path.Count < 2 || pathIndex >= path.Count)
             {
                 onPathDone?.Invoke();
             }
@@ -121,7 +140,7 @@ namespace Farm2Shelf.Environment
             Vector3 to = flat - transform.position;
             to.y = 0f;
             float dist = to.magnitude;
-            if (dist < 0.55f)
+            if (dist < 1.15f)
             {
                 pathIndex++;
                 if (pathIndex >= path.Count) FinishPath();
@@ -131,14 +150,41 @@ namespace Farm2Shelf.Environment
             Vector3 dir = to / dist;
             Vector3 next = transform.position + dir * speed * Time.deltaTime;
             next.y = CityTrafficManager.GetBridgeElevation(next.x, next.z, out _);
+            if (TaxiRoadRouter.IsCampusInterior(next) || TaxiRoadRouter.IsIllegalRiverPoint(next))
+            {
+                pathIndex++;
+                return;
+            }
+
             transform.position = next;
-            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir, Vector3.up), Time.deltaTime * 7f);
+            if (dir.sqrMagnitude > 0.0001f)
+            {
+                transform.rotation = Quaternion.Slerp(
+                    transform.rotation,
+                    Quaternion.LookRotation(dir, Vector3.up),
+                    Time.deltaTime * 7f);
+            }
 
             float spin = speed * 80f * Time.deltaTime;
             for (int i = 0; i < wheels.Count; i++)
             {
                 if (wheels[i] != null) wheels[i].Rotate(Vector3.right, spin, Space.Self);
             }
+        }
+
+        private int SkipReachedPoints(int start)
+        {
+            Vector3 pos = transform.position;
+            int i = start;
+            while (i < path.Count)
+            {
+                Vector3 d = path[i] - pos;
+                d.y = 0f;
+                if (d.magnitude > 1.15f) break;
+                i++;
+            }
+
+            return i;
         }
 
         private void FinishPath()

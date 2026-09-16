@@ -120,7 +120,7 @@ namespace Farm2Shelf.UI
             canvasObj = new GameObject("HowToPlay_Modal_Canvas");
             Canvas canvas = canvasObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 1200;
+            canvas.sortingOrder = 3600;
 
             CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -177,8 +177,10 @@ namespace Farm2Shelf.UI
             ScrollRect scroll = scrollObj.AddComponent<ScrollRect>();
             scroll.horizontal = false;
             scroll.vertical = true;
-            scroll.movementType = ScrollRect.MovementType.Clamped;
-            scroll.scrollSensitivity = 28f;
+            scroll.movementType = ScrollRect.MovementType.Elastic;
+            scroll.inertia = true;
+            scroll.decelerationRate = 0.135f;
+            scroll.scrollSensitivity = 42f;
 
             GameObject viewport = new GameObject("Viewport");
             viewport.transform.SetParent(scrollObj.transform, false);
@@ -321,12 +323,17 @@ namespace Farm2Shelf.UI
             RectTransform sRect = scrollObj.AddComponent<RectTransform>();
             sRect.anchoredPosition = new Vector2(0f, -24f);
             sRect.sizeDelta = new Vector2(736f, 496f);
+            Image scrollHit = scrollObj.AddComponent<Image>();
+            scrollHit.color = new Color(1f, 1f, 1f, 0.001f);
+            scrollHit.raycastTarget = true;
 
             ScrollRect scroll = scrollObj.AddComponent<ScrollRect>();
             scroll.horizontal = false;
             scroll.vertical = true;
-            scroll.movementType = ScrollRect.MovementType.Clamped;
-            scroll.scrollSensitivity = 32f;
+            scroll.movementType = ScrollRect.MovementType.Elastic;
+            scroll.inertia = true;
+            scroll.decelerationRate = 0.135f;
+            scroll.scrollSensitivity = 42f;
 
             GameObject viewport = new GameObject("Viewport");
             viewport.transform.SetParent(scrollObj.transform, false);
@@ -381,7 +388,11 @@ namespace Farm2Shelf.UI
             currentTopic = topic;
             if (articleTitleText != null) articleTitleText.text = GetTopicTitle(topic);
             if (articleBodyText != null) articleBodyText.text = GetTopicBody(topic);
-            if (articleContentRect != null) articleContentRect.anchoredPosition = new Vector2(0f, 0f);
+            if (articleContentRect != null)
+            {
+                articleContentRect.anchoredPosition = new Vector2(0f, 0f);
+                LayoutRebuilder.ForceRebuildLayoutImmediate(articleContentRect);
+            }
 
             for (int i = 0; i < topicButtonImages.Count; i++)
             {
@@ -492,9 +503,9 @@ namespace Farm2Shelf.UI
                 "• Kamerayı döndür: iki parmağı dairesel çevir.\n" +
                 "• Nesne seç: tarla, raf, koli, personel veya butona dokun.\n\n" +
                 "<b>PC</b>\n" +
-                "• Kaydır: farenin sol tuşuyla sürükle veya WASD / ok tuşları.\n" +
+                "• Kaydır: farenin sol tuşuyla sürükle.\n" +
                 "• Yakınlaştır: fare tekerleği.\n" +
-                "• Döndür: farenin sağ tuşu veya iki parmak jesti (dokunmatik ekranda).\n" +
+                "• Döndür: farenin sağ tuşuyla sürükle.\n" +
                 "• Seç / onayla: sol tık.\n" +
                 "• Mobilya döndür: <b>R</b> veya ekrandaki Döndür butonu.\n\n" +
                 "HUD üstte para, gün, saat ve dükkan açık/kapalı durumunu gösterir. Altta EKT Tablet her zaman elinin altındadır.",
@@ -504,9 +515,9 @@ namespace Farm2Shelf.UI
                 "• Rotate camera: twist two fingers.\n" +
                 "• Select: tap a field, shelf, box, staff member, or UI button.\n\n" +
                 "<b>PC</b>\n" +
-                "• Pan: left-drag or WASD / arrow keys.\n" +
+                "• Pan: left-drag.\n" +
                 "• Zoom: mouse wheel.\n" +
-                "• Rotate: right-drag, or two-finger twist on a touch screen.\n" +
+                "• Rotate: right-drag.\n" +
                 "• Select / confirm: left click.\n" +
                 "• Rotate furniture: <b>R</b> or the on-screen Rotate button.\n\n" +
                 "The HUD shows money, day, time, and open/closed status. The EKT Tablet stays at the bottom of the screen."
@@ -525,7 +536,7 @@ namespace Farm2Shelf.UI
                 "𝕏 <b>Sosyal</b> — Tweet'ler, marka sloganı, itibar.\n" +
                 "🏭 <b>Atölye</b> — Makineler ve gurme üretim.\n" +
                 "🌐 <b>Online Market</b> — Filo, kurye ve <b>Kasaba Kontratları</b>.\n" +
-                "🚕 <b>İşler</b> — Kuzeydoğu <b>Taksi Durağı</b> (bağımsız ek gelir).\n\n" +
+                "🚕 <b>İşler</b> — <b>Sarı Vadi Taksi</b> (bağımsız ek gelir).\n\n" +
                 "Yeni oyunda eğitim bu tableti adım adım açtırır.",
                 "The <b>📱 EKT TABLET</b> at the bottom right is HQ. It has seven apps:\n\n" +
                 "🛒 <b>Store Management</b> — Hire, shifts, call early.\n" +
@@ -535,7 +546,7 @@ namespace Farm2Shelf.UI
                 "𝕏 <b>Social</b> — Tweets, brand slogan, reputation.\n" +
                 "🏭 <b>Workshop</b> — Machines and gourmet output.\n" +
                 "🌐 <b>Online Market</b> — Fleet, courier, and <b>Town Contracts</b>.\n" +
-                "🚕 <b>Jobs</b> — Northeast <b>Taxi Stand</b> (independent extra income).\n\n" +
+                "🚕 <b>Jobs</b> — <b>Sunny Valley Cab</b> (independent extra income).\n\n" +
                 "The tutorial walks these apps on a new game."
             );
         }
@@ -607,7 +618,7 @@ namespace Farm2Shelf.UI
             return LocalizationManager.L(
                 "GuideB_Taxi",
                 "<b>Nereye bakılır?</b>\n" +
-                "EKT Tablet ➔ <b>İşler</b>. Haritada durak, kuzeydoğu mahallede (otoyolun üstü, sarı park yerleri) durur.\n\n" +
+                "EKT Tablet ➔ <b>İşler</b>. Haritada <b>Sarı Vadi Taksi</b> durağı kuzeydoğu mahallede (otoyolun üstü, sarı park yerleri) durur.\n\n" +
                 "<b>Bağımsız iş</b>\n" +
                 "Taksi durağı dükkan, çiftlik ve atölyeden <b>tamamen ayrıdır</b>. Seviye atlamak, reyon kurmak veya atölye büyütmek durak fiyatını, vardiyayı veya geliri değiştirmez; taksiyi bozmaz.\n\n" +
                 "<b>Nasıl açılır?</b>\n" +
@@ -617,7 +628,7 @@ namespace Farm2Shelf.UI
                 "<b>Bir yolculuk nasıl işler?</b>\n" +
                 "• Boştaki taksi sarı yerden çıkar, kasabadaki bir müşteriyi alır.\n" +
                 "• Onu başka bir adrese bırakır.\n" +
-                "• Ücret mesafeye göredir (yaklaşık 50–850 C).\n" +
+                "• Ücret mesafeye göredir (yaklaşık 40–380 C). Çağrılar seyrektir.\n" +
                 "• Taksi kendi park yuvasına döner ve bir sonraki çağrıyı bekler.\n\n" +
                 "<b>22:00 kuralı</b>\n" +
                 "Yeni çağrı kesilir. Taksi yoldaysa yolcuyu bırakır, sonra durağa döner ve park eder. Gece boyunca sarı yerde bekler.\n\n" +
@@ -627,10 +638,10 @@ namespace Farm2Shelf.UI
                 "Tablet ➔ Finans ➔ özet ve işlem geçmişinde, gün sonu defterinde de görünür. Dükkan cirosu ve kontratlarla karışmaz.\n\n" +
                 "<b>İpuçları</b>\n" +
                 "• Saat yalnızca dükkan açıkken akar; durak da o zaman çalışır.\n" +
-                "• Ne kadar çok taksin varsa o kadar çok çağrı karşılanır.\n" +
+                "• Aynı anda bir yolculuk olur; fazla taksi yedek bekler.\n" +
                 "• İşler ekranında vardiya, bugünkü yolculuk/gelir ve her taksinin (park / yolda / dönüş) durumunu izlersin.",
                 "<b>Where?</b>\n" +
-                "EKT Tablet ➔ <b>Jobs</b>. On the map the stand sits in the northeast district (above the highway, yellow bays).\n\n" +
+                "EKT Tablet ➔ <b>Jobs</b>. On the map <b>Sunny Valley Cab</b> sits in the northeast district (above the highway, yellow bays).\n\n" +
                 "<b>Independent business</b>\n" +
                 "The taxi stand is <b>fully separate</b> from the store, farm, and workshop. Upgrading those does not change stand price, shift hours, or fares, and it will not break the taxis.\n\n" +
                 "<b>How to open it</b>\n" +
@@ -640,7 +651,7 @@ namespace Farm2Shelf.UI
                 "<b>How a trip works</b>\n" +
                 "• An idle taxi leaves its yellow bay and picks up a rider in town.\n" +
                 "• It drops them at another address.\n" +
-                "• The fare is based on distance (about 50–850 C).\n" +
+                "• The fare is based on distance (about 40–380 C). Calls are infrequent.\n" +
                 "• The taxi returns to its own bay and waits for the next call.\n\n" +
                 "<b>22:00 rule</b>\n" +
                 "New calls stop. If a taxi is on the road it drops the rider, then returns to the stand and parks. It stays in the yellow bay overnight.\n\n" +
@@ -650,7 +661,7 @@ namespace Farm2Shelf.UI
                 "You will see them in Tablet ➔ Finance (summary and history) and on the end-of-day ledger. They do not mix with store sales or town contracts.\n\n" +
                 "<b>Tips</b>\n" +
                 "• Time only flows while the store is open, so the stand only works then.\n" +
-                "• More taxis cover more calls.\n" +
+                "• Only one trip runs at a time; extra taxis wait as backups.\n" +
                 "• The Jobs screen shows shift status, trips/income today, and each taxi (parked / on a job / returning)."
             );
         }

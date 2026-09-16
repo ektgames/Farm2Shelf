@@ -95,11 +95,6 @@ namespace Farm2Shelf.Environment
             }
         }
 
-        private void Update()
-        {
-            // Tıklama ve etkileşimler TouchInputHelper merkezi sistemi üzerinden yönetilir
-        }
-
         public void OnPlotClicked()
         {
             if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || Time.unscaledTime - ModalManager.LastModalCloseTime < 0.35f) return;

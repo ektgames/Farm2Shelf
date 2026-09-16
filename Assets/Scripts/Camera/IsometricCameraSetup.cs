@@ -81,6 +81,8 @@ namespace Farm2Shelf.CameraSystem
         {
 #if ENABLE_INPUT_SYSTEM
             EnhancedTouchSupport.Enable();
+            if (Mouse.current != null && !Mouse.current.enabled)
+                InputSystem.EnableDevice(Mouse.current);
 #endif
         }
 
@@ -90,6 +92,13 @@ namespace Farm2Shelf.CameraSystem
             EnhancedTouchSupport.Disable();
 #endif
             if (Instance == this) Instance = null;
+        }
+
+        private void OnGUI()
+        {
+            Event e = Event.current;
+            if (e != null && e.type == EventType.ScrollWheel)
+                queuedScrollY += e.delta.y;
         }
 
         public void SetupCamera()
@@ -114,16 +123,27 @@ namespace Farm2Shelf.CameraSystem
         private Vector2 lastMousePanPos;
         private bool isMousePanning = false;
         private bool isMousePanningAllowed = false;
+        private Vector2 lastMouseRotatePos;
+        private bool isMouseRotating;
+        private bool isMouseRotatingAllowed;
+        private Vector2 lastMiddleZoomPos;
+        private bool isMiddleZooming;
+        private bool isMiddleZoomAllowed;
         private bool isTouchOverUI = false;
+        private float queuedScrollY;
 
         private void Update()
         {
             // Ekranda Modal/Pencere/Tablet/Duraklatma açıkken harita hareketini engelle
             bool isPauseOpen = (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen);
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || isPauseOpen)
+            if (MainMenuUI.IsMenuVisible || ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || isPauseOpen)
             {
                 isMousePanning = false;
                 isMousePanningAllowed = false;
+                isMouseRotating = false;
+                isMouseRotatingAllowed = false;
+                isMiddleZooming = false;
+                isMiddleZoomAllowed = false;
                 isTouchOverUI = false;
                 return;
             }
@@ -132,7 +152,9 @@ namespace Farm2Shelf.CameraSystem
 
             HandleTouchInputs(isPlacing);
             HandleMouseScrollZoom();
+            HandleMiddleMouseZoom(isPlacing);
             HandleMousePan(isPlacing);
+            HandleMouseRotate(isPlacing);
             HandleKeyboardInput(isPlacing);
         }
 
@@ -405,14 +427,14 @@ namespace Farm2Shelf.CameraSystem
 #if ENABLE_INPUT_SYSTEM
             if (Mouse.current != null)
             {
-                isPanDown = Mouse.current.leftButton.isPressed || Mouse.current.rightButton.isPressed || Mouse.current.middleButton.isPressed;
-                wasPressedThisFrame = Mouse.current.leftButton.wasPressedThisFrame || Mouse.current.rightButton.wasPressedThisFrame || Mouse.current.middleButton.wasPressedThisFrame;
+                isPanDown = Mouse.current.leftButton.isPressed;
+                wasPressedThisFrame = Mouse.current.leftButton.wasPressedThisFrame;
             }
 #else
             try
             {
-                isPanDown = Input.GetMouseButton(0) || Input.GetMouseButton(1) || Input.GetMouseButton(2);
-                wasPressedThisFrame = Input.GetMouseButtonDown(0) || Input.GetMouseButtonDown(1) || Input.GetMouseButtonDown(2);
+                isPanDown = Input.GetMouseButton(0);
+                wasPressedThisFrame = Input.GetMouseButtonDown(0);
             }
             catch {}
 #endif
@@ -467,49 +489,192 @@ namespace Farm2Shelf.CameraSystem
             }
         }
 
-        private void HandleMouseScrollZoom()
+        private void HandleMouseRotate(bool isPlacing)
         {
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen)) return;
+            if (isPlacing)
+            {
+                isMouseRotating = false;
+                isMouseRotatingAllowed = false;
+                return;
+            }
 
-            Vector2 curMouse = Vector2.zero;
-#if ENABLE_INPUT_SYSTEM
-            if (Mouse.current != null) curMouse = Mouse.current.position.ReadValue();
-#else
-            try { curMouse = (Vector2)Input.mousePosition; } catch {}
-#endif
-            if (TouchInputHelper.IsPointerOverUI(curMouse)) return;
-
-            float scrollY = 0f;
-
+            bool isDown = false;
+            bool wasPressedThisFrame = false;
 #if ENABLE_INPUT_SYSTEM
             if (Mouse.current != null)
             {
-                scrollY = Mouse.current.scroll.ReadValue().y;
+                isDown = Mouse.current.rightButton.isPressed;
+                wasPressedThisFrame = Mouse.current.rightButton.wasPressedThisFrame;
             }
+#else
+            try
+            {
+                isDown = Input.GetMouseButton(1);
+                wasPressedThisFrame = Input.GetMouseButtonDown(1);
+            }
+            catch {}
 #endif
 
-            if (Mathf.Abs(scrollY) < 0.001f)
+            Vector2 curMouse = ReadMousePosition();
+            if (isDown)
+            {
+                if (wasPressedThisFrame || !isMouseRotating)
+                {
+                    if (!TouchInputHelper.IsPointerOverUI(curMouse))
+                    {
+                        isMouseRotatingAllowed = true;
+                        isMouseRotating = true;
+                        lastMouseRotatePos = curMouse;
+                    }
+                    else
+                    {
+                        isMouseRotatingAllowed = false;
+                        isMouseRotating = false;
+                    }
+                }
+                else if (isMouseRotatingAllowed)
+                {
+                    Vector2 delta = curMouse - lastMouseRotatePos;
+                    lastMouseRotatePos = curMouse;
+                    if (Mathf.Abs(delta.x) > 0.01f)
+                    {
+                        yawAngle += delta.x * rotateSensitivity * 0.85f;
+                        NotifyRotate();
+                    }
+                }
+            }
+            else
+            {
+                isMouseRotating = false;
+                isMouseRotatingAllowed = false;
+            }
+        }
+
+        private void HandleMiddleMouseZoom(bool isPlacing)
+        {
+            if (isPlacing)
+            {
+                isMiddleZooming = false;
+                isMiddleZoomAllowed = false;
+                return;
+            }
+
+            bool isDown = false;
+            bool wasPressedThisFrame = false;
+#if ENABLE_INPUT_SYSTEM
+            if (Mouse.current != null)
+            {
+                isDown = Mouse.current.middleButton.isPressed;
+                wasPressedThisFrame = Mouse.current.middleButton.wasPressedThisFrame;
+            }
+#else
+            try
+            {
+                isDown = Input.GetMouseButton(2);
+                wasPressedThisFrame = Input.GetMouseButtonDown(2);
+            }
+            catch {}
+#endif
+
+            Vector2 curMouse = ReadMousePosition();
+            if (isDown)
+            {
+                if (wasPressedThisFrame || !isMiddleZooming)
+                {
+                    if (!TouchInputHelper.IsPointerOverScrollRect(curMouse))
+                    {
+                        isMiddleZoomAllowed = true;
+                        isMiddleZooming = true;
+                        lastMiddleZoomPos = curMouse;
+                    }
+                    else
+                    {
+                        isMiddleZoomAllowed = false;
+                        isMiddleZooming = false;
+                    }
+                }
+                else if (isMiddleZoomAllowed)
+                {
+                    float dy = curMouse.y - lastMiddleZoomPos.y;
+                    lastMiddleZoomPos = curMouse;
+                    if (Mathf.Abs(dy) > 0.05f)
+                    {
+                        float zoomDelta = Mathf.Clamp(-dy * 0.035f * (orthographicSize / 14f), -2.5f, 2.5f);
+                        ApplyZoomDelta(zoomDelta);
+                    }
+                }
+            }
+            else
+            {
+                isMiddleZooming = false;
+                isMiddleZoomAllowed = false;
+            }
+        }
+
+        private static Vector2 ReadMousePosition()
+        {
+#if ENABLE_INPUT_SYSTEM
+            if (Mouse.current != null) return Mouse.current.position.ReadValue();
+#endif
+            try { return (Vector2)Input.mousePosition; } catch { return Vector2.zero; }
+        }
+
+        private void ApplyZoomDelta(float zoomDelta)
+        {
+            if (Mathf.Abs(zoomDelta) < 0.0001f) return;
+            orthographicSize = Mathf.Clamp(orthographicSize + zoomDelta, minZoom, maxZoom);
+            distance = Mathf.Clamp(distance + (zoomDelta * 1.4f), 5f, 60f);
+            NotifyZoom();
+        }
+
+        private static void NotifyZoom()
+        {
+            if (TutorialManager.Instance != null)
+                TutorialManager.Instance.NotifyCameraZoom();
+        }
+
+        private static void NotifyRotate()
+        {
+            if (TutorialManager.Instance != null)
+                TutorialManager.Instance.NotifyCameraRotate();
+        }
+
+        private void HandleMouseScrollZoom()
+        {
+            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen))
+            {
+                queuedScrollY = 0f;
+                return;
+            }
+
+            float deviceScroll = 0f;
+#if ENABLE_INPUT_SYSTEM
+            if (Mouse.current != null)
+            {
+                if (!Mouse.current.enabled)
+                    InputSystem.EnableDevice(Mouse.current);
+
+                Vector2 s = Mouse.current.scroll.ReadValue();
+                if (Mathf.Abs(s.y) > 0.0001f) deviceScroll = s.y;
+                else if (Mathf.Abs(s.x) > 0.0001f) deviceScroll = s.x;
+            }
+#endif
+            if (Mathf.Abs(deviceScroll) < 0.0001f)
             {
                 try
                 {
-                    scrollY = Input.mouseScrollDelta.y * 120f;
+                    deviceScroll = Input.mouseScrollDelta.y;
                 }
                 catch {}
             }
 
-            if (Mathf.Abs(scrollY) > 0.01f)
-            {
-                float scrollDir = Mathf.Sign(scrollY);
-                float zoomDelta = Mathf.Clamp(-scrollDir * 1.5f, -2.5f, 2.5f);
+            float guiScroll = queuedScrollY;
+            queuedScrollY = 0f;
+            float scrollY = Mathf.Abs(deviceScroll) > 0.0001f ? deviceScroll : guiScroll;
+            if (Mathf.Abs(scrollY) < 0.0001f) return;
 
-                orthographicSize = Mathf.Clamp(orthographicSize + zoomDelta, minZoom, maxZoom);
-                distance = Mathf.Clamp(distance + (zoomDelta * 1.4f), 5f, 60f);
-
-                if (TutorialManager.Instance != null)
-                {
-                    TutorialManager.Instance.NotifyCameraZoom();
-                }
-            }
+            float step = Mathf.Clamp(scrollZoomSpeed * 0.28f, 0.9f, 3.2f);
+            ApplyZoomDelta(Mathf.Clamp(-Mathf.Sign(scrollY) * step, -3.5f, 3.5f));
         }
 
         private void HandleKeyboardInput(bool isPlacing = false)
@@ -536,13 +701,11 @@ namespace Farm2Shelf.CameraSystem
 
                 if (keyboard.numpadPlusKey.isPressed || keyboard.equalsKey.isPressed)
                 {
-                    orthographicSize = Mathf.Clamp(orthographicSize - 12f * dt, minZoom, maxZoom);
-                    distance = Mathf.Clamp(distance - 18f * dt, 5f, 60f);
+                    ApplyZoomDelta(-12f * dt);
                 }
                 if (keyboard.numpadMinusKey.isPressed || keyboard.minusKey.isPressed)
                 {
-                    orthographicSize = Mathf.Clamp(orthographicSize + 12f * dt, minZoom, maxZoom);
-                    distance = Mathf.Clamp(distance + 18f * dt, 5f, 60f);
+                    ApplyZoomDelta(12f * dt);
                 }
             }
 #else
@@ -562,8 +725,16 @@ namespace Farm2Shelf.CameraSystem
             catch (System.InvalidOperationException) {}
 #endif
 
-            if (qPressed) yawAngle -= rotateSpeed * dt;
-            if (ePressed) yawAngle += rotateSpeed * dt;
+            if (qPressed)
+            {
+                yawAngle -= rotateSpeed * dt;
+                NotifyRotate();
+            }
+            if (ePressed)
+            {
+                yawAngle += rotateSpeed * dt;
+                NotifyRotate();
+            }
 
             if (inputDir.sqrMagnitude > 0.01f)
             {

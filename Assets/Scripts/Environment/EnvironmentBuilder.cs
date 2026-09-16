@@ -280,6 +280,7 @@ namespace Farm2Shelf.Environment
                     }
 
                     BuildEnvironment();
+                    GameplayPerf.InvalidateWalls();
                     OnStoreUpgraded?.Invoke(currentUpgradeLevel);
 
                     Debug.Log($"[Farm2Shelf] MARKET GELİŞTİRİLDİ! Yeni Seviye: {currentUpgradeLevel} (Harcama: {cost:N0} Credit)");
@@ -307,6 +308,7 @@ namespace Farm2Shelf.Environment
 
             currentUpgradeLevel = targetLevel;
             BuildEnvironment();
+            GameplayPerf.InvalidateWalls();
             OnStoreUpgraded?.Invoke(currentUpgradeLevel);
             Debug.Log($"[Farm2Shelf] Market Seviyesi Yüklendi: {currentUpgradeLevel}");
         }

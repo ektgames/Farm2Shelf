@@ -34,6 +34,7 @@ namespace Farm2Shelf.Utils
         private static Vector2 lastTapPosition;
         private static int lastEvaluatedFrame = -1;
         private static float lastGlobalDispatchTime = 0f;
+        private static float worldClickSuppressedUntil = 0f;
 
         public const float MaxTapDuration = 0.95f;
         public const float MaxTapDragDistance = 55f; // Ekran pikselleri (Hafif parmak titremelerinde ve hızlı tıklamalarda da tıklamayı %100 yakalar)
@@ -54,15 +55,30 @@ namespace Farm2Shelf.Utils
                 Object.DontDestroyOnLoad(runnerObj);
                 runnerObj.AddComponent<TouchInputRunner>();
             }
+
+            UiReliableClick.ConfigureSharedEventSystem();
         }
 
         public static void SuppressNextTap()
         {
             lastGlobalDispatchTime = Time.unscaledTime;
+            worldClickSuppressedUntil = Time.unscaledTime + 0.45f;
             cleanTapTriggeredThisFrame = false;
             isPressed = false;
             isDragging = false;
             wasMultiTouch = false;
+        }
+
+        public static bool IsWorldInteractionBlocked()
+        {
+            if (Time.unscaledTime < worldClickSuppressedUntil) return true;
+            if (MainMenuUI.IsMenuVisible) return true;
+            if (EKTReklamIntroManager.Instance != null && !EKTReklamIntroManager.HasIntroFinished) return true;
+            if (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen) return true;
+            if (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing) return true;
+            if (ModalManager.IsModalOpen) return true;
+            if (EKTPhoneManager.IsTabletOpen) return true;
+            return false;
         }
 
         public static bool IsCleanTapThisFrame(out Vector2 tapPosition)
@@ -125,13 +141,17 @@ namespace Farm2Shelf.Utils
                         cleanTapTriggeredThisFrame = true;
                         lastTapPosition = (pressPosition.sqrMagnitude > 0.001f) ? pressPosition : effectiveReleasePos;
 
-                        // UI üzerinde değilse, Modal açık değilse ve Mobilya Yerleştirme modunda değilse 3D nesneleri tetikle
-                        ModalManager.CloseWorldBlockingOverlays();
-                        bool isPauseOpen = (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen);
-                        bool isPlacing = (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing);
-                        if (!ModalManager.IsModalOpen && !EKTPhoneManager.IsTabletOpen && !isPauseOpen && !isPlacing && !IsPointerOverUI(lastTapPosition))
+                        if (IsWorldInteractionBlocked())
                         {
-                            Dispatch3DClick(lastTapPosition);
+                            cleanTapTriggeredThisFrame = false;
+                        }
+                        else
+                        {
+                            ModalManager.CloseWorldBlockingOverlays();
+                            if (!IsWorldInteractionBlocked() && !IsPointerOverUI(lastTapPosition))
+                            {
+                                Dispatch3DClick(lastTapPosition);
+                            }
                         }
                     }
                 }
@@ -147,16 +167,17 @@ namespace Farm2Shelf.Utils
         /// </summary>
         public static bool Dispatch3DClick(Vector2 screenPos)
         {
+            if (IsWorldInteractionBlocked()) return false;
             ModalManager.CloseWorldBlockingOverlays();
-            bool isPauseOpen = (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen);
-            bool isPlacing = (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing);
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || isPauseOpen || isPlacing || IsPointerOverUI(screenPos)) return false;
-            if (Time.unscaledTime - lastGlobalDispatchTime < 0.10f) return false;
-            if (Time.unscaledTime - ModalManager.LastModalCloseTime < 0.08f) return false;
+            if (IsWorldInteractionBlocked() || IsPointerOverUI(screenPos)) return false;
+            if (Time.unscaledTime - lastGlobalDispatchTime < 0.03f) return false;
+            if (Time.unscaledTime - ModalManager.LastModalCloseTime < 0.04f) return false;
             if (screenPos == Vector2.zero) return false;
 
             Camera cam = Camera.main;
             if (cam == null) return false;
+
+            if (!IsValidScreenPoint(screenPos)) return false;
 
             Ray ray = cam.ScreenPointToRay(screenPos);
             RaycastHit[] hits = Physics.RaycastAll(ray, 250f);
@@ -415,11 +436,6 @@ namespace Farm2Shelf.Utils
 
         public static int GetTouchCount()
         {
-            if (!Application.isMobilePlatform && Input.touchCount == 0)
-            {
-                return 0;
-            }
-
             try
             {
                 if (Input.touchCount > 0) return Input.touchCount;
@@ -449,6 +465,14 @@ namespace Farm2Shelf.Utils
             return !Application.isMobilePlatform && GetTouchCount() == 0;
         }
 
+        public static bool IsValidScreenPoint(Vector2 p)
+        {
+            if (float.IsNaN(p.x) || float.IsNaN(p.y) || float.IsInfinity(p.x) || float.IsInfinity(p.y))
+                return false;
+            float max = Mathf.Max(64f, Mathf.Max(Screen.width, Screen.height) * 4f);
+            return p.x >= -64f && p.y >= -64f && p.x <= max && p.y <= max;
+        }
+
         public static bool TryGetMouseScreenPosition(out Vector2 screenPos)
         {
             screenPos = Vector2.zero;
@@ -458,7 +482,7 @@ namespace Farm2Shelf.Utils
                 if (Mouse.current != null)
                 {
                     Vector2 mPos = Mouse.current.position.ReadValue();
-                    if (mPos.sqrMagnitude > 1f)
+                    if (IsValidScreenPoint(mPos))
                     {
                         screenPos = mPos;
                         return true;
@@ -470,9 +494,10 @@ namespace Farm2Shelf.Utils
             try
             {
                 Vector3 legacy = Input.mousePosition;
-                if (legacy.sqrMagnitude > 1f)
+                Vector2 p = new Vector2(legacy.x, legacy.y);
+                if (IsValidScreenPoint(p))
                 {
-                    screenPos = new Vector2(legacy.x, legacy.y);
+                    screenPos = p;
                     return true;
                 }
             }
@@ -590,7 +615,7 @@ namespace Farm2Shelf.Utils
                 if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.isPressed)
                 {
                     Vector2 touchPos = Touchscreen.current.primaryTouch.position.ReadValue();
-                    if (touchPos.sqrMagnitude > 1f)
+                    if (IsValidScreenPoint(touchPos))
                     {
                         screenPos = touchPos;
                         return true;
@@ -599,7 +624,7 @@ namespace Farm2Shelf.Utils
                 if (Mouse.current != null && (Mouse.current.leftButton.isPressed || Mouse.current.leftButton.wasPressedThisFrame))
                 {
                     Vector2 mPos = Mouse.current.position.ReadValue();
-                    if (mPos.sqrMagnitude > 1f)
+                    if (IsValidScreenPoint(mPos))
                     {
                         screenPos = mPos;
                         return true;
@@ -635,15 +660,15 @@ namespace Farm2Shelf.Utils
             try
             {
                 if (Input.GetMouseButtonDown(0)) return true;
-                if (!PreferDesktopMouse() && Input.touchCount > 0 && Input.GetTouch(0).phase == UnityEngine.TouchPhase.Began) return true;
+                if (Input.touchCount > 0 && Input.GetTouch(0).phase == UnityEngine.TouchPhase.Began) return true;
             }
             catch { }
 
 #if ENABLE_INPUT_SYSTEM
             try
             {
+                if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.wasPressedThisFrame) return true;
                 if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame) return true;
-                if (!PreferDesktopMouse() && Touchscreen.current != null && Touchscreen.current.primaryTouch.press.wasPressedThisFrame) return true;
             }
             catch { }
 #endif
@@ -655,15 +680,15 @@ namespace Farm2Shelf.Utils
             try
             {
                 if (Input.GetMouseButtonUp(0)) return true;
-                if (!PreferDesktopMouse() && Input.touchCount > 0 && (Input.GetTouch(0).phase == UnityEngine.TouchPhase.Ended || Input.GetTouch(0).phase == UnityEngine.TouchPhase.Canceled)) return true;
+                if (Input.touchCount > 0 && (Input.GetTouch(0).phase == UnityEngine.TouchPhase.Ended || Input.GetTouch(0).phase == UnityEngine.TouchPhase.Canceled)) return true;
             }
             catch { }
 
 #if ENABLE_INPUT_SYSTEM
             try
             {
+                if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.wasReleasedThisFrame) return true;
                 if (Mouse.current != null && Mouse.current.leftButton.wasReleasedThisFrame) return true;
-                if (!PreferDesktopMouse() && Touchscreen.current != null && Touchscreen.current.primaryTouch.press.wasReleasedThisFrame) return true;
             }
             catch { }
 #endif
@@ -672,8 +697,31 @@ namespace Farm2Shelf.Utils
 
         private static readonly List<RaycastResult> cachedRaycastResults = new List<RaycastResult>(32);
 
+        public static bool IsPointerOverScrollRect(Vector2 screenPosition)
+        {
+            if (EventSystem.current == null) return false;
+
+            PointerEventData eventData = new PointerEventData(EventSystem.current)
+            {
+                position = screenPosition
+            };
+
+            cachedRaycastResults.Clear();
+            EventSystem.current.RaycastAll(eventData, cachedRaycastResults);
+            int count = cachedRaycastResults.Count;
+            for (int i = 0; i < count; i++)
+            {
+                var result = cachedRaycastResults[i];
+                if (result.gameObject == null || IsPhysicsWorldHit(result)) continue;
+                if (result.gameObject.GetComponentInParent<ScrollRect>() != null)
+                    return true;
+            }
+            return false;
+        }
+
         public static bool IsPointerOverUI(Vector2 screenPosition)
         {
+            if (MainMenuUI.IsMenuVisible) return true;
             if (EventSystem.current == null) return false;
 
             PointerEventData eventData = new PointerEventData(EventSystem.current)
@@ -694,6 +742,13 @@ namespace Farm2Shelf.Utils
                 }
 
                 GameObject go = result.gameObject;
+                if (go.GetComponent<TutorialSpotlightOverlay>() != null) continue;
+                if (go.GetComponentInParent<TutorialMentorGuideUI>() != null &&
+                    go.GetComponentInParent<Button>() == null &&
+                    go.GetComponentInParent<Toggle>() == null)
+                {
+                    continue;
+                }
 
                 // 1. Gerçek UI grafiği + açık modal/tablet/pause: dünya tıklamasını kilitle
                 if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen))
@@ -725,6 +780,7 @@ namespace Farm2Shelf.Utils
     /// <summary>
     /// TouchInputHelper için her karede girdi değerlendirmesini garanti altına alan koşucu.
     /// </summary>
+    [DefaultExecutionOrder(1000)]
     public class TouchInputRunner : MonoBehaviour
     {
         private void Awake()
@@ -735,6 +791,11 @@ namespace Farm2Shelf.Utils
         private void Update()
         {
             TouchInputHelper.EvaluateFrame();
+        }
+
+        private void LateUpdate()
+        {
+            UiReliableClick.Tick();
         }
     }
 }

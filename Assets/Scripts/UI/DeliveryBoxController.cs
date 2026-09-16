@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 using Farm2Shelf.Core;
+using Farm2Shelf.Utils;
 
 namespace Farm2Shelf.UI
 {
@@ -18,33 +19,34 @@ namespace Farm2Shelf.UI
             this.furnitureType = type;
         }
 
+        private static bool CanOpenFromWorld()
+        {
+            return !TouchInputHelper.IsWorldInteractionBlocked();
+        }
+
         private void OnMouseDown()
         {
-            ModalManager.CloseWorldBlockingOverlays();
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen)) return;
+            if (!CanOpenFromWorld()) return;
             TriggerPlacement();
         }
 
         public void OnPointerDown(PointerEventData eventData)
         {
             if (eventData != null && eventData.dragging) return;
-            ModalManager.CloseWorldBlockingOverlays();
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen)) return;
+            if (!CanOpenFromWorld()) return;
             TriggerPlacement();
         }
 
         public void OnPointerClick(PointerEventData eventData)
         {
             if (eventData != null && eventData.dragging) return;
-            ModalManager.CloseWorldBlockingOverlays();
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen)) return;
+            if (!CanOpenFromWorld()) return;
             TriggerPlacement();
         }
 
         public void TriggerPlacement()
         {
-            ModalManager.CloseWorldBlockingOverlays();
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen)) return;
+            if (!CanOpenFromWorld()) return;
             PalletStorageInventoryModalUI.ShowModal();
         }
 

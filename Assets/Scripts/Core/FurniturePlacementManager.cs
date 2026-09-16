@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using Farm2Shelf.Environment;
 using Farm2Shelf.UI;
@@ -262,23 +263,6 @@ namespace Farm2Shelf.Core
 
             if (ghostObj == null) return;
 
-            Camera mainCam = ResolvePlacementCamera();
-
-            if (mainCam != null && Time.unscaledTime - placementStartTime >= 0.16f)
-            {
-                if (TryReadPlacementPointer(out Vector2 pointerPos) &&
-                    !IsPointerOverPlacementControls(pointerPos) &&
-                    TryScreenPointOnGround(mainCam, pointerPos, out Vector3 hitPoint))
-                {
-                    hitPoint.x = Mathf.Round(hitPoint.x * 4f) / 4f;
-                    hitPoint.z = Mathf.Round(hitPoint.z * 4f) / 4f;
-                    hitPoint.y = 0.01f;
-                    hitPoint.x = Mathf.Clamp(hitPoint.x, -85.0f, 35.0f);
-                    hitPoint.z = Mathf.Clamp(hitPoint.z, -35.0f, 65.0f);
-                    ghostObj.transform.position = hitPoint;
-                }
-            }
-
             Vector3 keyMove = Vector3.zero;
             if (IsKeyHeld(KeyCode.W) || IsKeyHeld(KeyCode.UpArrow)) keyMove.z += 0.25f;
             if (IsKeyHeld(KeyCode.S) || IsKeyHeld(KeyCode.DownArrow)) keyMove.z -= 0.25f;
@@ -293,6 +277,14 @@ namespace Farm2Shelf.Core
 
             FurnitureItemDef def = FurnitureDatabase.GetDef(currentType);
             Vector3 currentGhostPos = ghostObj.transform.position;
+            if (float.IsNaN(currentGhostPos.x) || float.IsNaN(currentGhostPos.z) ||
+                float.IsInfinity(currentGhostPos.x) || float.IsInfinity(currentGhostPos.z))
+            {
+                currentGhostPos = (def != null && def.zone == FurnitureZone.StorageOnly)
+                    ? new Vector3(7.0f, 0.01f, 4.5f)
+                    : new Vector3(-5.0f, 0.01f, 4.0f);
+                ghostObj.transform.position = currentGhostPos;
+            }
             bool isWallMounted = FurnitureDatabase.IsWallMountedDecoration(currentType);
             bool isOnWall = true;
             if (isWallMounted)
@@ -591,62 +583,31 @@ namespace Farm2Shelf.Core
             return tagged;
         }
 
-        private static bool TryReadPlacementPointer(out Vector2 screenPos)
+        public void MoveGhostToScreenPoint(Vector2 screenPos)
         {
-            screenPos = Vector2.zero;
+            if (!isPlacing || ghostObj == null) return;
 
-#if ENABLE_INPUT_SYSTEM
-            try
+            Camera mainCam = ResolvePlacementCamera();
+            if (mainCam == null) return;
+            if (!TryScreenPointOnGround(mainCam, screenPos, out Vector3 hitPoint)) return;
+            if (float.IsNaN(hitPoint.x) || float.IsNaN(hitPoint.z) ||
+                float.IsInfinity(hitPoint.x) || float.IsInfinity(hitPoint.z))
             {
-                if (UnityEngine.InputSystem.Mouse.current != null &&
-                    (UnityEngine.InputSystem.Mouse.current.leftButton.isPressed ||
-                     UnityEngine.InputSystem.Mouse.current.leftButton.wasPressedThisFrame))
-                {
-                    screenPos = UnityEngine.InputSystem.Mouse.current.position.ReadValue();
-                    if (screenPos.sqrMagnitude > 1f) return true;
-                }
+                return;
             }
-            catch { }
-#endif
 
-            try
-            {
-                if (Input.GetMouseButton(0) || Input.GetMouseButtonDown(0))
-                {
-                    Vector3 m = Input.mousePosition;
-                    screenPos = new Vector2(m.x, m.y);
-                    if (screenPos.sqrMagnitude > 1f) return true;
-                }
-            }
-            catch { }
+            hitPoint.x = Mathf.Round(hitPoint.x * 4f) / 4f;
+            hitPoint.z = Mathf.Round(hitPoint.z * 4f) / 4f;
+            hitPoint.y = 0.01f;
+            ghostObj.transform.position = hitPoint;
+        }
 
-            try
-            {
-                if (Input.touchCount > 0)
-                {
-                    UnityEngine.Touch t = Input.GetTouch(0);
-                    if (t.phase == UnityEngine.TouchPhase.Began || t.phase == UnityEngine.TouchPhase.Moved || t.phase == UnityEngine.TouchPhase.Stationary)
-                    {
-                        screenPos = t.position;
-                        return screenPos.sqrMagnitude > 1f;
-                    }
-                }
-            }
-            catch { }
-
-#if ENABLE_INPUT_SYSTEM
-            try
-            {
-                if (UnityEngine.InputSystem.Touchscreen.current != null &&
-                    UnityEngine.InputSystem.Touchscreen.current.primaryTouch.press.isPressed)
-                {
-                    screenPos = UnityEngine.InputSystem.Touchscreen.current.primaryTouch.position.ReadValue();
-                    if (screenPos.sqrMagnitude > 1f) return true;
-                }
-            }
-            catch { }
-#endif
-            return false;
+        public bool IsPlacementHudButton(GameObject go)
+        {
+            if (go == null || placementHUDCanvas == null) return false;
+            if (!go.transform.IsChildOf(placementHUDCanvas.transform)) return false;
+            Button button = go.GetComponentInParent<Button>();
+            return button != null && button.transform.IsChildOf(placementHUDCanvas.transform);
         }
 
         private bool IsPointerOverPlacementControls(Vector2 screenPos)
@@ -670,35 +631,15 @@ namespace Farm2Shelf.Core
         private static bool TryScreenPointOnGround(Camera cam, Vector2 screenPos, out Vector3 worldPos)
         {
             worldPos = Vector3.zero;
-            if (cam == null) return false;
+            if (cam == null || !TouchInputHelper.IsValidScreenPoint(screenPos)) return false;
 
-            Vector3 pixel = new Vector3(screenPos.x, screenPos.y, 0f);
-            Rect pixelRect = cam.pixelRect;
-            if (pixelRect.width > 8f && pixelRect.height > 8f)
-            {
-                if (pixel.x < pixelRect.xMin || pixel.x > pixelRect.xMax || pixel.y < pixelRect.yMin || pixel.y > pixelRect.yMax)
-                {
-                    pixel.x = pixelRect.x + (screenPos.x / Mathf.Max(1f, Screen.width)) * pixelRect.width;
-                    pixel.y = pixelRect.y + (screenPos.y / Mathf.Max(1f, Screen.height)) * pixelRect.height;
-                }
-            }
-
+            Ray ray = cam.ScreenPointToRay(new Vector3(screenPos.x, screenPos.y, 0f));
             Plane floorPlane = new Plane(Vector3.up, new Vector3(0f, 0.01f, 0f));
-            Ray ray = cam.ScreenPointToRay(pixel);
-            if (floorPlane.Raycast(ray, out float enter) && enter >= 0f)
+            if (floorPlane.Raycast(ray, out float enter) && enter >= 0f && enter < 800f)
             {
                 worldPos = ray.GetPoint(enter);
                 worldPos.y = 0.01f;
-                return true;
-            }
-
-            Vector3 origin = cam.ScreenToWorldPoint(new Vector3(pixel.x, pixel.y, Mathf.Max(0.5f, cam.nearClipPlane)));
-            ray = new Ray(origin, cam.transform.forward);
-            if (floorPlane.Raycast(ray, out enter) && enter >= 0f)
-            {
-                worldPos = ray.GetPoint(enter);
-                worldPos.y = 0.01f;
-                return true;
+                return !(float.IsNaN(worldPos.x) || float.IsInfinity(worldPos.x));
             }
 
             return false;
@@ -1286,6 +1227,14 @@ namespace Farm2Shelf.Core
             if (!isPlacing || ghostObj == null) return;
 
             Vector3 pos = ghostObj.transform.position;
+            if (float.IsNaN(pos.x) || float.IsInfinity(pos.x) || float.IsNaN(pos.z) || float.IsInfinity(pos.z))
+            {
+                FurnitureItemDef startDef = FurnitureDatabase.GetDef(currentType);
+                pos = (startDef != null && startDef.zone == FurnitureZone.StorageOnly)
+                    ? new Vector3(7.0f, 0.01f, 4.5f)
+                    : new Vector3(-5.0f, 0.01f, 4.0f);
+            }
+            ghostObj.transform.position = pos;
             Quaternion rot = ghostObj.transform.rotation;
 
             FurnitureItemDef def = FurnitureDatabase.GetDef(currentType);
@@ -1350,7 +1299,7 @@ namespace Farm2Shelf.Core
             if (floorGridObj != null) return;
 
             floorGridObj = new GameObject("Placement_FloorGrid_Overlay");
-            floorGridObj.transform.position = new Vector3(-5.0f, 0.02f, 6.0f);
+            floorGridObj.transform.position = new Vector3(-5.0f, 0.045f, 6.0f);
             floorGridObj.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
 
             GameObject storeQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
@@ -1372,21 +1321,30 @@ namespace Farm2Shelf.Core
             Texture2D gridTex = UIStyleUtility.GetFloorGridTexture();
             gridMat.mainTexture = gridTex;
             if (gridMat.HasProperty("_BaseMap")) gridMat.SetTexture("_BaseMap", gridTex);
-            if (gridMat.HasProperty("_BaseColor")) gridMat.SetColor("_BaseColor", Color.white);
-            gridMat.color = Color.white;
+            if (gridMat.HasProperty("_BaseColor")) gridMat.SetColor("_BaseColor", new Color(1f, 1f, 1f, 1f));
+            if (gridMat.HasProperty("_Color")) gridMat.SetColor("_Color", new Color(1f, 1f, 1f, 1f));
+            gridMat.color = new Color(1f, 1f, 1f, 1f);
 
-            gridMat.mainTextureScale = new Vector2(16f, 20f);
-            if (gridMat.HasProperty("_BaseMap")) gridMat.SetTextureScale("_BaseMap", new Vector2(16f, 20f));
+            Vector2 tile = new Vector2(16f, 20f);
+            gridMat.mainTextureScale = tile;
+            if (gridMat.HasProperty("_BaseMap")) gridMat.SetTextureScale("_BaseMap", tile);
 
+            gridMat.SetOverrideTag("RenderType", "Transparent");
             gridMat.SetFloat("_Surface", 1);
             gridMat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
             gridMat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
             gridMat.SetInt("_ZWrite", 0);
+            gridMat.SetInt("_Cull", (int)UnityEngine.Rendering.CullMode.Off);
+            gridMat.DisableKeyword("_ALPHATEST_ON");
             gridMat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
             gridMat.EnableKeyword("_ALPHABLEND_ON");
-            gridMat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            gridMat.renderQueue = 3100;
+            gridMat.SetFloat("_Cutoff", 0f);
 
-            storeQuad.GetComponent<Renderer>().sharedMaterial = gridMat;
+            Renderer gridRend = storeQuad.GetComponent<Renderer>();
+            gridRend.sharedMaterial = gridMat;
+            gridRend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            gridRend.receiveShadows = false;
 
             floorGridObj.SetActive(false);
         }
@@ -1400,10 +1358,23 @@ namespace Farm2Shelf.Core
                 Transform storeQuad = floorGridObj.transform.Find("Store_Grid_Quad");
                 FurnitureZone gridZone = currentDef != null ? currentDef.zone : FurnitureZone.StoreOnly;
                 GetPlacementZoneRect(gridZone, out float minX, out float maxX, out float minZ, out float maxZ);
-                floorGridObj.transform.position = new Vector3((minX + maxX) * 0.5f, 0.02f, (minZ + maxZ) * 0.5f);
+                floorGridObj.transform.position = new Vector3((minX + maxX) * 0.5f, 0.045f, (minZ + maxZ) * 0.5f);
                 if (storeQuad != null)
                 {
-                    storeQuad.localScale = new Vector3(Mathf.Max(1f, maxX - minX), Mathf.Max(1f, maxZ - minZ), 1f);
+                    float width = Mathf.Max(1f, maxX - minX);
+                    float depth = Mathf.Max(1f, maxZ - minZ);
+                    storeQuad.localScale = new Vector3(width, depth, 1f);
+                    const float cellMeters = 0.5f;
+                    Vector2 tile = new Vector2(width / cellMeters, depth / cellMeters);
+                    Renderer rend = storeQuad.GetComponent<Renderer>();
+                    if (rend != null && rend.sharedMaterial != null)
+                    {
+                        rend.sharedMaterial.mainTextureScale = tile;
+                        if (rend.sharedMaterial.HasProperty("_BaseMap"))
+                        {
+                            rend.sharedMaterial.SetTextureScale("_BaseMap", tile);
+                        }
+                    }
                 }
                 floorGridObj.SetActive(visible);
             }
@@ -1424,6 +1395,19 @@ namespace Farm2Shelf.Core
             scaler.referenceResolution = new Vector2(1920, 1080);
             scaler.matchWidthOrHeight = 0.5f;
             placementHUDCanvas.AddComponent<GraphicRaycaster>();
+
+            GameObject catcherObj = new GameObject("HUD_WorldPointerCatcher");
+            catcherObj.transform.SetParent(placementHUDCanvas.transform, false);
+            RectTransform catcherRt = catcherObj.AddComponent<RectTransform>();
+            catcherRt.anchorMin = Vector2.zero;
+            catcherRt.anchorMax = Vector2.one;
+            catcherRt.offsetMin = Vector2.zero;
+            catcherRt.offsetMax = Vector2.zero;
+            Image catcherImg = catcherObj.AddComponent<Image>();
+            catcherImg.color = new Color(1f, 1f, 1f, 0f);
+            catcherImg.raycastTarget = true;
+            PlacementPointerCatcher catcher = catcherObj.AddComponent<PlacementPointerCatcher>();
+            catcher.owner = this;
 
             GameObject panel = new GameObject("HUD_BottomBar");
             panel.transform.SetParent(placementHUDCanvas.transform, false);
@@ -1532,6 +1516,9 @@ namespace Farm2Shelf.Core
             btnObj.transform.SetParent(parent, false);
 
             RectTransform r = btnObj.AddComponent<RectTransform>();
+            r.anchorMin = new Vector2(0.5f, 0.5f);
+            r.anchorMax = new Vector2(0.5f, 0.5f);
+            r.pivot = new Vector2(0.5f, 0.5f);
             r.anchoredPosition = pos;
             r.sizeDelta = new Vector2(42f, 42f);
 
@@ -1566,6 +1553,9 @@ namespace Farm2Shelf.Core
             btnObj.transform.SetParent(parent, false);
 
             RectTransform r = btnObj.AddComponent<RectTransform>();
+            r.anchorMin = new Vector2(0.5f, 0.5f);
+            r.anchorMax = new Vector2(0.5f, 0.5f);
+            r.pivot = new Vector2(0.5f, 0.5f);
             r.anchoredPosition = pos;
             r.sizeDelta = size;
 
@@ -1594,6 +1584,27 @@ namespace Farm2Shelf.Core
             txt.raycastTarget = false;
 
             return btnObj;
+        }
+
+        private sealed class PlacementPointerCatcher : MonoBehaviour, IPointerDownHandler, IDragHandler
+        {
+            public FurniturePlacementManager owner;
+
+            public void OnPointerDown(PointerEventData eventData)
+            {
+                if (owner != null)
+                {
+                    owner.MoveGhostToScreenPoint(eventData.position);
+                }
+            }
+
+            public void OnDrag(PointerEventData eventData)
+            {
+                if (owner != null)
+                {
+                    owner.MoveGhostToScreenPoint(eventData.position);
+                }
+            }
         }
     }
 }

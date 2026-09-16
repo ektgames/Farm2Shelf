@@ -156,7 +156,7 @@ namespace Farm2Shelf.UI
             canvasObj = new GameObject("Settings_Modal_Canvas");
             Canvas canvas = canvasObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 1200;
+            canvas.sortingOrder = 3600;
 
             CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -501,7 +501,7 @@ namespace Farm2Shelf.UI
 
             Canvas layerCanvas = layer.AddComponent<Canvas>();
             layerCanvas.overrideSorting = true;
-            layerCanvas.sortingOrder = 1300;
+            layerCanvas.sortingOrder = 3610;
             layer.AddComponent<GraphicRaycaster>();
             return layer.transform;
         }

@@ -75,7 +75,7 @@ namespace Farm2Shelf.UI
             canvasObj = new GameObject("Farm2Shelf_PauseMenu_Canvas");
             Canvas canvas = canvasObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 1100;
+            canvas.sortingOrder = 3200;
 
             CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;

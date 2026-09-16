@@ -44,6 +44,10 @@ namespace Farm2Shelf.UI
         private RectTransform iconRect;
         private Image iconBg;
         private Text iconBadgeText;
+        private bool iconPointerActive;
+        private bool iconDragged;
+        private Vector2 iconPressScreen;
+        private Vector2 iconLastScreen;
         private GameObject canvasObj;
         private RectTransform wheelRect;
         private Button spinButton;
@@ -732,6 +736,55 @@ namespace Farm2Shelf.UI
             return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
         }
 
+        public bool TryBeginIconPointer(GameObject go, Vector2 screenPos)
+        {
+            if (iconRect == null || go == null) return false;
+            if (MainMenuUI.IsMenuVisible) return false;
+            if (go != iconRect.gameObject && !go.transform.IsChildOf(iconRect)) return false;
+
+            iconPointerActive = true;
+            iconDragged = false;
+            iconPressScreen = screenPos;
+            iconLastScreen = screenPos;
+            iconRect.SetAsLastSibling();
+            return true;
+        }
+
+        public void UpdateIconPointer(Vector2 screenPos)
+        {
+            if (!iconPointerActive || iconRect == null || hudCanvas == null) return;
+
+            if (!iconDragged && Vector2.Distance(screenPos, iconPressScreen) >= 18f)
+            {
+                iconDragged = true;
+            }
+
+            if (!iconDragged) return;
+
+            float scale = hudCanvas.scaleFactor <= 0.01f ? 1f : hudCanvas.scaleFactor;
+            iconRect.anchoredPosition += (screenPos - iconLastScreen) / scale;
+            iconLastScreen = screenPos;
+            ClampIconToCanvas();
+        }
+
+        public void EndIconPointer()
+        {
+            if (!iconPointerActive) return;
+            iconPointerActive = false;
+            ClampIconToCanvas();
+            if (iconDragged && iconRect != null)
+            {
+                OnIconPositionChanged(iconRect.anchoredPosition);
+                TouchInputHelper.SuppressNextTap();
+            }
+            else
+            {
+                OnIconClicked();
+            }
+
+            iconDragged = false;
+        }
+
         private class DailySpinIconDrag : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IBeginDragHandler, IDragHandler, IEndDragHandler
         {
             private const float DragThresholdPixels = 18f;
@@ -752,6 +805,7 @@ namespace Farm2Shelf.UI
 
             public void OnPointerDown(PointerEventData eventData)
             {
+                if (owner != null && owner.iconPointerActive) return;
                 pointerHeld = true;
                 dragged = false;
                 pressScreenPos = eventData.position;
@@ -763,11 +817,13 @@ namespace Farm2Shelf.UI
 
             public void OnBeginDrag(PointerEventData eventData)
             {
+                if (owner != null && owner.iconPointerActive) return;
                 pressScreenPos = eventData.position;
             }
 
             public void OnDrag(PointerEventData eventData)
             {
+                if (owner != null && owner.iconPointerActive) return;
                 if (rect == null || canvas == null) return;
 
                 if (!dragged && Vector2.Distance(eventData.position, pressScreenPos) >= DragThresholdPixels)
@@ -784,6 +840,7 @@ namespace Farm2Shelf.UI
 
             public void OnEndDrag(PointerEventData eventData)
             {
+                if (owner != null && owner.iconPointerActive) return;
                 owner?.ClampIconToCanvas();
                 if (dragged && rect != null)
                 {
@@ -794,6 +851,7 @@ namespace Farm2Shelf.UI
 
             public void OnPointerUp(PointerEventData eventData)
             {
+                if (owner != null && owner.iconPointerActive) return;
                 bool wasHeld = pointerHeld;
                 pointerHeld = false;
                 if (!wasHeld || dragged) return;

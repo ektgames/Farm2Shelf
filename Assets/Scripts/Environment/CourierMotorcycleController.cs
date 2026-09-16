@@ -171,23 +171,56 @@ namespace Farm2Shelf.Environment
         public void MountRider(GameObject rider)
         {
             CourierRiderObj = rider;
-            if (rider == null || DriverSeatMount == null) return;
+            if (rider == null) return;
+
+            if (DriverSeatMount == null)
+            {
+                Transform found = transform.Find("Driver_Seat_MountPoint");
+                if (found == null) found = FindDeep(transform, "Driver_Seat_MountPoint");
+                DriverSeatMount = found != null ? found : transform;
+            }
 
             rider.transform.SetParent(DriverSeatMount, false);
-            // Personel kökü ayaktadır; kalçayı seleye indir, gövdeyi gidona doğru yatır.
-            rider.transform.localPosition = new Vector3(0f, -1.02f, 0.06f);
-            rider.transform.localRotation = Quaternion.Euler(14f, 0f, 0f);
+            ApplyMountedRiderPose();
+        }
 
-            CapsuleCollider riderCol = rider.GetComponent<CapsuleCollider>();
-            if (riderCol != null) riderCol.enabled = false;
+        private void LateUpdate()
+        {
+            if (CourierRiderObj != null && CourierRiderObj.transform.parent != null)
+            {
+                ApplyMountedRiderPose();
+            }
+        }
+
+        private void ApplyMountedRiderPose()
+        {
+            GameObject rider = CourierRiderObj;
+            if (rider == null) return;
+
+            const float sitScale = 0.70f;
+            rider.transform.localScale = new Vector3(sitScale, sitScale, sitScale);
 
             Transform legL = FindDeep(rider.transform, "Leg_L");
             Transform legR = FindDeep(rider.transform, "Leg_R");
             Transform armL = FindDeep(rider.transform, "Arm_L");
             Transform armR = FindDeep(rider.transform, "Arm_R");
 
-            if (legL != null) legL.localRotation = Quaternion.Euler(-72f, 20f, 8f);
-            if (legR != null) legR.localRotation = Quaternion.Euler(-72f, -20f, -8f);
+            Vector3 hipLocal = legL != null ? legL.localPosition : new Vector3(0f, 1.10f, 0f);
+            Vector3 scaledHip = Vector3.Scale(hipLocal, rider.transform.localScale);
+            Quaternion sitLean = Quaternion.Euler(7f, 0f, 0f);
+            // Kalça sele ortasında kalsın; öne yatış ayaktan değil kalçadan uygulanır.
+            Vector3 hipOnSeat = new Vector3(0f, 0.04f, -0.10f);
+            rider.transform.localRotation = sitLean;
+            rider.transform.localPosition = hipOnSeat - sitLean * scaledHip;
+
+            CapsuleCollider riderCol = rider.GetComponent<CapsuleCollider>();
+            if (riderCol != null) riderCol.enabled = false;
+
+            if (legL != null) legL.localRotation = Quaternion.Euler(-64f, 10f, 28f);
+            if (legR != null) legR.localRotation = Quaternion.Euler(-64f, -10f, -28f);
+
+            if (gripLeft == null) gripLeft = transform.Find("Grip_L");
+            if (gripRight == null) gripRight = transform.Find("Grip_R");
 
             if (gripLeft != null && armL != null)
             {
@@ -195,7 +228,7 @@ namespace Farm2Shelf.Environment
             }
             else if (armL != null)
             {
-                armL.localRotation = Quaternion.Euler(-78f, 12f, 18f);
+                armL.localRotation = Quaternion.Euler(-68f, 18f, 16f);
             }
 
             if (gripRight != null && armR != null)
@@ -204,7 +237,7 @@ namespace Farm2Shelf.Environment
             }
             else if (armR != null)
             {
-                armR.localRotation = Quaternion.Euler(-78f, -12f, -18f);
+                armR.localRotation = Quaternion.Euler(-68f, -18f, -16f);
             }
         }
 
@@ -244,6 +277,7 @@ namespace Farm2Shelf.Environment
                 CapsuleCollider riderCol = CourierRiderObj.GetComponent<CapsuleCollider>();
                 if (riderCol != null) riderCol.enabled = true;
 
+                CourierRiderObj.transform.localScale = Vector3.one;
                 CourierRiderObj.transform.SetParent(null);
                 CourierRiderObj = null;
             }
