@@ -29,13 +29,25 @@ namespace Farm2Shelf.UI
         public void Initialize(Material source)
         {
             image = GetComponent<Image>();
+            image.raycastTarget = false;
             if (runtimeMat != null) Destroy(runtimeMat);
+            runtimeMat = null;
+
+            bool useHole = source != null && source.shader != null && source.shader.isSupported
+                && source.shader.name.IndexOf("InternalError", System.StringComparison.Ordinal) < 0;
+            if (!useHole)
+            {
+                image.material = null;
+                image.color = new Color(0.02f, 0.03f, 0.06f, 0.58f);
+                ready = false;
+                return;
+            }
+
             runtimeMat = new Material(source);
             image.material = runtimeMat;
             image.color = Color.white;
-            image.raycastTarget = false;
             ready = true;
-            SetDimStrength(0.84f);
+            SetDimStrength(0.62f);
             ApplyImmediate(new Rect(0f, 0f, Screen.width, Screen.height), false);
         }
 

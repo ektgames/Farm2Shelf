@@ -152,13 +152,13 @@ namespace Farm2Shelf.UI
             ovRt.anchorMax = Vector2.one;
             ovRt.offsetMin = Vector2.zero;
             ovRt.offsetMax = Vector2.zero;
-            ovObj.AddComponent<Image>();
+            Image ovImg = ovObj.AddComponent<Image>();
+            ovImg.color = new Color(0.02f, 0.03f, 0.06f, 0.58f);
+            ovImg.raycastTarget = false;
             spotlight = ovObj.AddComponent<TutorialSpotlightOverlay>();
             Shader holeShader = Shader.Find("Farm2Shelf/UI/TutorialSpotlight");
-            if (holeShader != null)
-            {
-                spotlight.Initialize(new Material(holeShader));
-            }
+            Material holeMat = (holeShader != null && holeShader.isSupported) ? new Material(holeShader) : null;
+            spotlight.Initialize(holeMat);
 
             GameObject card = new GameObject("MentorCard");
             card.transform.SetParent(talkRoot.transform, false);
