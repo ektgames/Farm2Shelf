@@ -757,6 +757,7 @@ namespace Farm2Shelf.UI
             brandText.raycastTarget = false;
 
             tabletCloseButtonTransform = UIStyleUtility.CreateCornerCloseButton(tabletBox.transform, ClosePhoneTablet, 52f).transform;
+            TutorialFocusTarget.Tag(tabletCloseButtonTransform.gameObject, "tablet_close");
 
             GameObject screenObj = new GameObject("Tablet_Screen");
             screenObj.transform.SetParent(tabletBox.transform, false);
@@ -7458,6 +7459,10 @@ namespace Farm2Shelf.UI
 
             Button btn = btnObj.AddComponent<Button>();
             btn.targetGraphic = img;
+            btn.navigation = new Navigation { mode = Navigation.Mode.None };
+            ColorBlock buttonColors = btn.colors;
+            buttonColors.selectedColor = buttonColors.normalColor;
+            btn.colors = buttonColors;
             if (onClick != null) btn.onClick.AddListener(onClick);
 
             Text txt = CreateTextInPanel(btnObj.transform, Vector2.zero, Vector2.one, text, fontSize, Color.white, false);

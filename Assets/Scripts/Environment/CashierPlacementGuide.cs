@@ -110,8 +110,14 @@ namespace Farm2Shelf.Environment
 
         private static Material MakeMaterial(Color color)
         {
-            var material = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
-            material.SetColor("_BaseColor", color);
+            // Shader.Find-only references can be stripped from a mobile player.
+            // Keep a safe fallback so an optional arrow cannot abort furniture placement.
+            Shader shader = Shader.Find("Universal Render Pipeline/Unlit")
+                ?? Shader.Find("Universal Render Pipeline/Lit")
+                ?? Shader.Find("Sprites/Default");
+            var material = shader != null ? new Material(shader) : new Material(Graphic.defaultGraphicMaterial);
+            if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", color);
+            if (material.HasProperty("_Color")) material.SetColor("_Color", color);
             return material;
         }
 
@@ -141,7 +147,7 @@ namespace Farm2Shelf.Environment
             label.fontSize = 26;
             label.fontStyle = FontStyle.Bold;
             label.alignment = TextAnchor.MiddleCenter;
-            label.color = material.GetColor("_BaseColor");
+            label.color = material.HasProperty("_BaseColor") ? material.GetColor("_BaseColor") : material.color;
             label.raycastTarget = false;
             label.horizontalOverflow = HorizontalWrapMode.Wrap;
             label.verticalOverflow = VerticalWrapMode.Truncate;

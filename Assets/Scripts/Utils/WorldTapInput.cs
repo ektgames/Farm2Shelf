@@ -61,6 +61,13 @@ namespace Farm2Shelf.Utils
 #if ENABLE_INPUT_SYSTEM
         private static void Enqueue(InputAction.CallbackContext ctx, int kind)
         {
+            // Device Simulator and mobile focus changes can remove/reset a device
+            // while an action is held. Cancellation must not read its freed state.
+            if (kind == 3 || ctx.control == null || !ctx.control.device.added)
+            {
+                CancelGesture();
+                return;
+            }
             var screen = ctx.control.device as Touchscreen;
             var mouse = ctx.control.device as Mouse;
             if (screen == null && mouse == null) return;

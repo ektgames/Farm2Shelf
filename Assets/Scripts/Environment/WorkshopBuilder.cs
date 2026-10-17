@@ -785,30 +785,12 @@ namespace Farm2Shelf.Environment
     /// <summary>
     /// Atölye içindeki hammadde paletine tıklandığında Atölye Palet Arayüzünü açan etkileşim bileşeni.
     /// </summary>
-    public class WorkshopPalletClickable : MonoBehaviour, UnityEngine.EventSystems.IPointerClickHandler, UnityEngine.EventSystems.IPointerDownHandler
+    public class WorkshopPalletClickable : MonoBehaviour, UnityEngine.EventSystems.IPointerClickHandler
     {
         public void OnPointerClick(UnityEngine.EventSystems.PointerEventData eventData)
         {
-            if (eventData != null && eventData.dragging) return;
-            HandleClick();
-        }
-
-        public void OnPointerDown(UnityEngine.EventSystems.PointerEventData eventData)
-        {
-            if (eventData != null && eventData.dragging) return;
-            HandleClick();
-        }
-
-        private void OnMouseDown()
-        {
-            HandleClick();
-        }
-
-        private void HandleClick()
-        {
-            if (Farm2Shelf.Utils.TouchInputHelper.IsWorldInteractionBlocked()) return;
-
-            Farm2Shelf.UI.PalletStorageInventoryModalUI.ShowModal(isWorkshopMode: true);
+            if (eventData == null || eventData.dragging || eventData.button != UnityEngine.EventSystems.PointerEventData.InputButton.Left) return;
+            Farm2Shelf.Utils.TouchInputHelper.Dispatch3DClick(eventData.position);
         }
     }
 }

@@ -30,6 +30,9 @@ namespace Farm2Shelf.Utils
         private static int lastEvaluatedFrame = -1;
         private static float lastGlobalDispatchTime = 0f;
         private static int worldClickSuppressedFrame = -1;
+        private static bool dispatchingWorldTap;
+        private static Vector2 dispatchScreenPosition;
+        private static int lastDispatchedFrame = -1;
 
         public const float MaxTapDuration = 0.95f;
         public const float MaxTapDragDistance = 55f; // Ekran pikselleri (Hafif parmak titremelerinde ve hızlı tıklamalarda da tıklamayı %100 yakalar)
@@ -66,7 +69,8 @@ namespace Farm2Shelf.Utils
             cleanTapTriggeredThisFrame = false;
         }
 
-        public static bool IsWorldInteractionBlocked() => IsWorldInteractionBlocked(GetCurrentPointerPosition());
+        public static bool IsWorldInteractionBlocked() => IsWorldInteractionBlocked(
+            dispatchingWorldTap ? dispatchScreenPosition : GetCurrentPointerPosition());
 
         public static bool IsWorldInteractionBlocked(Vector2 position)
         {
@@ -97,9 +101,24 @@ namespace Farm2Shelf.Utils
         /// </summary>
         public static bool Dispatch3DClick(Vector2 screenPos)
         {
+            if (dispatchingWorldTap) return false;
+            dispatchingWorldTap = true;
+            dispatchScreenPosition = screenPos;
+            try
+            {
+                bool dispatched = DispatchWorldTap(screenPos);
+                if (dispatched) lastDispatchedFrame = Time.frameCount;
+                return dispatched;
+            }
+            finally { dispatchingWorldTap = false; }
+        }
+
+        private static bool DispatchWorldTap(Vector2 screenPos)
+        {
             if (IsWorldInteractionBlocked(screenPos)) return false;
-            if (Time.unscaledTime >= lastGlobalDispatchTime && Time.unscaledTime - lastGlobalDispatchTime < 0.03f) return false;
-            if (Time.unscaledTime >= ModalManager.LastModalCloseTime && Time.unscaledTime - ModalManager.LastModalCloseTime < 0.04f) return false;
+            // Reject duplicate routes for this frame, not a new deliberate gesture
+            // arriving shortly after a dialog closes. SuppressNextTap owns close taps.
+            if (lastDispatchedFrame == Time.frameCount) return false;
             if (screenPos == Vector2.zero) return false;
 
             Camera cam = Camera.main;
@@ -108,6 +127,9 @@ namespace Farm2Shelf.Utils
             if (!IsValidScreenPoint(screenPos)) return false;
 
             Ray ray = cam.ScreenPointToRay(screenPos);
+            // Runtime-built colliders must be queryable even before the next physics
+            // step (menus/tutorials can pause Time.timeScale at startup).
+            Physics.SyncTransforms();
             RaycastHit[] hits = Physics.RaycastAll(ray, 250f);
 
             // ÖNCELİK 0: Teslimat Kolisi veya Palet Tıklaması (Doğrudan ve Hızlı Erişim)
@@ -181,6 +203,14 @@ namespace Farm2Shelf.Utils
                     GameObject go = hit.collider.gameObject;
 
                     // Reyon / Raf / Dolap / Kasa / Depo Mobilyası
+                    TaxiStandClickable taxi = go.GetComponentInParent<TaxiStandClickable>();
+                    if (taxi != null)
+                    {
+                        lastGlobalDispatchTime = Time.unscaledTime;
+                        taxi.OpenJobs();
+                        return true;
+                    }
+
                     PlacedFurnitureController furniture = go.GetComponentInParent<PlacedFurnitureController>() ?? go.GetComponent<PlacedFurnitureController>();
                     if (furniture != null)
                     {
@@ -312,8 +342,8 @@ namespace Farm2Shelf.Utils
                     PalletStorageInventoryModalUI.ShowModal(isWorkshopMode: false);
                     return true;
                 }
-                // A different solid object is in front: never pick a pallet behind it.
-                return false;
+                // Walls/roofs must not swallow a tap that intersects the actual pallet
+                // collider farther along this same ray. No widened/screen-wide hit area.
             }
 
             return false;
@@ -361,6 +391,7 @@ namespace Farm2Shelf.Utils
             pointerTouchCount = 0;
             pointerFrame = lastEvaluatedFrame = -1;
             lastGlobalDispatchTime = -1f;
+            lastDispatchedFrame = -1;
             WorldTapInput.CancelGesture();
             worldClickSuppressedFrame = Time.frameCount;
 #if ENABLE_INPUT_SYSTEM

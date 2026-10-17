@@ -13,31 +13,12 @@ using UnityEngine.InputSystem;
 
 namespace Farm2Shelf.Core
 {
-    public class DeliveryPalletClickable : MonoBehaviour, IPointerClickHandler, IPointerDownHandler
+    public class DeliveryPalletClickable : MonoBehaviour, IPointerClickHandler
     {
-        private static bool CanOpenPallet()
-        {
-            return !TouchInputHelper.IsWorldInteractionBlocked();
-        }
-
-        public void OnPointerDown(PointerEventData eventData)
-        {
-            if (eventData != null && eventData.dragging) return;
-            if (!CanOpenPallet()) return;
-            PalletStorageInventoryModalUI.ShowModal();
-        }
-
         public void OnPointerClick(PointerEventData eventData)
         {
-            if (eventData != null && eventData.dragging) return;
-            if (!CanOpenPallet()) return;
-            PalletStorageInventoryModalUI.ShowModal();
-        }
-
-        private void OnMouseDown()
-        {
-            if (!CanOpenPallet()) return;
-            PalletStorageInventoryModalUI.ShowModal();
+            if (eventData == null || eventData.dragging || eventData.button != PointerEventData.InputButton.Left) return;
+            TouchInputHelper.Dispatch3DClick(eventData.position);
         }
     }
 
@@ -57,6 +38,22 @@ namespace Farm2Shelf.Core
         private GameObject palletObj;
         private Transform boxContainer;
         private readonly List<DeliveryBoxController> activeBoxes = new List<DeliveryBoxController>();
+
+        public bool TryGetTutorialPalletBounds(out Bounds bounds)
+        {
+            bounds = default;
+            if (palletObj == null || !palletObj.activeInHierarchy) return false;
+            Collider pallet = palletObj.GetComponent<Collider>();
+            if (pallet == null || !pallet.enabled) return false;
+            bounds = pallet.bounds;
+            foreach (DeliveryBoxController box in activeBoxes)
+            {
+                if (box == null || !box.gameObject.activeInHierarchy) continue;
+                Collider boxCollider = box.GetComponent<Collider>();
+                if (boxCollider != null && boxCollider.enabled) bounds.Encapsulate(boxCollider.bounds);
+            }
+            return true;
+        }
 
         public List<string> GetActiveBoxTypes()
         {

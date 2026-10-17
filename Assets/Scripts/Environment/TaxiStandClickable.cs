@@ -18,16 +18,11 @@ namespace Farm2Shelf.Environment
 
         public void OnPointerClick(PointerEventData eventData)
         {
-            if (eventData != null && eventData.dragging) return;
-            OpenJobs();
+            if (eventData == null || eventData.dragging || eventData.button != PointerEventData.InputButton.Left) return;
+            TouchInputHelper.Dispatch3DClick(eventData.position);
         }
 
-        private void OnMouseDown()
-        {
-            OpenJobs();
-        }
-
-        private static void OpenJobs()
+        public void OpenJobs()
         {
             if (TouchInputHelper.IsWorldInteractionBlocked())
             {

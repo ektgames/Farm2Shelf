@@ -213,10 +213,25 @@ namespace Farm2Shelf.Environment
 
         public static GameObject CreateFurnitureModel(FurnitureType type, bool isGhost = false)
         {
+            GameObject root = new GameObject("Furniture_" + type.ToString());
+            try
+            {
+                PopulateFurnitureModel(root, type, isGhost);
+                return root;
+            }
+            catch
+            {
+                // Never leave an unowned partial preview behind if model/guide creation fails.
+                root.SetActive(false);
+                Object.Destroy(root);
+                throw;
+            }
+        }
+
+        private static void PopulateFurnitureModel(GameObject root, FurnitureType type, bool isGhost)
+        {
             InitMaterials();
             EnsureSpotlightBeamMaterials();
-
-            GameObject root = new GameObject("Furniture_" + type.ToString());
 
             if (DetailedDecorationBuilder.Handles(type))
                 DetailedDecorationBuilder.Build(root, type, isGhost);
@@ -347,7 +362,6 @@ namespace Farm2Shelf.Environment
                     CashierPlacementGuide.CreateProductPickup(root.transform);
             }
 
-            return root;
         }
 
         public static void ApplyGhostMaterial(GameObject root, Material ghostMat)

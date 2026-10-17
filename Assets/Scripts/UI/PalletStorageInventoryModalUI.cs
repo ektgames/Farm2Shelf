@@ -150,6 +150,7 @@ namespace Farm2Shelf.UI
             boxObj.transform.SetParent(backdrop.transform, false);
 
             RectTransform boxRect = boxObj.AddComponent<RectTransform>();
+            TutorialFocusTarget.Tag(boxObj, "delivery_pallet_inventory");
             boxRect.anchoredPosition = Vector2.zero;
             boxRect.sizeDelta = new Vector2(1000f, 650f);
 

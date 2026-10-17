@@ -32,6 +32,9 @@ namespace Farm2Shelf.Core
 
         // Ekran üzeri kontrol butonları (Mobil Uyumlu HUD)
         private GameObject placementHUDCanvas;
+        private RectTransform placementSafeArea;
+        private Rect lastPlacementSafeArea;
+        private Vector2Int lastPlacementScreenSize;
         private Text infoStatusText;
 
         private float placementStartTime = 0f;
@@ -56,7 +59,7 @@ namespace Farm2Shelf.Core
             if (containerObj == null) containerObj = new GameObject("Placed_Furniture_Container");
             placedFurnitureContainer = containerObj.transform;
 
-            CreatePlacementHUDUI();
+            EnsurePlacementHUD();
         }
 
         private void OnEnable()
@@ -116,9 +119,9 @@ namespace Farm2Shelf.Core
             this.placementPointerArmed = false;
             this.hasPlacementBlockPointer = TouchInputHelper.TryGetPressedPointerPosition(out this.placementBlockPointer);
 
-            ghostObj = FurnitureModelBuilder.CreateFurnitureModel(type, isGhost: true);
-            ConfigureGhostForPlacement(ghostObj);
-            ghostObj.name = "Ghost_" + type.ToString();
+            EnsurePlacementHUD();
+
+            if (!TryCreatePlacementGhost(type)) return;
 
             FurnitureItemDef def = FurnitureDatabase.GetDef(type);
             Vector3 startPos = (def != null && def.zone == FurnitureZone.StorageOnly)
@@ -199,9 +202,9 @@ namespace Farm2Shelf.Core
             this.placementPointerArmed = false;
             this.hasPlacementBlockPointer = TouchInputHelper.TryGetPressedPointerPosition(out this.placementBlockPointer);
 
-            ghostObj = FurnitureModelBuilder.CreateFurnitureModel(type, isGhost: true);
-            ConfigureGhostForPlacement(ghostObj);
-            ghostObj.name = "Ghost_" + type.ToString();
+            EnsurePlacementHUD();
+
+            if (!TryCreatePlacementGhost(type)) return;
             ghostObj.transform.position = origPos;
             ghostObj.transform.rotation = origRot;
 
@@ -220,6 +223,29 @@ namespace Farm2Shelf.Core
                     "Moving {0}{1}\nDrag on screen to move | Tap [Assemble] to place"
                 );
                 infoStatusText.text = string.Format(moveFmt, def.LocalizedName, stateNote);
+            }
+        }
+
+        private bool TryCreatePlacementGhost(FurnitureType type)
+        {
+            try
+            {
+                ghostObj = FurnitureModelBuilder.CreateFurnitureModel(type, isGhost: true);
+                if (ghostObj == null) throw new System.InvalidOperationException("Furniture preview could not be created: " + type);
+                ConfigureGhostForPlacement(ghostObj);
+                ghostObj.name = "Ghost_" + type;
+                return true;
+            }
+            catch (System.Exception error)
+            {
+                Debug.LogException(error, this);
+                // No pallet item has been consumed. Cancel also restores moved furniture.
+                CancelPlacement();
+                ModalManager.ShowModal(
+                    LocalizationManager.L("Placement_LoadErrorTitle", "Önizleme açılamadı", "Preview unavailable"),
+                    LocalizationManager.L("Placement_LoadErrorBody", "Yerleştirme başlatılamadı. Ürünün korunuyor; tekrar deneyebilirsin.", "Placement could not start. Your item has been kept; you can try again."),
+                    LocalizationManager.L("Btn_OK", "Tamam", "OK"));
+                return false;
             }
         }
 
@@ -259,6 +285,8 @@ namespace Farm2Shelf.Core
             {
                 return;
             }
+
+            EnsurePlacementHUD();
 
             // A dialog opened during placement owns input until it closes.
             if (MainMenuUI.IsMenuVisible || ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen) return;
@@ -1330,7 +1358,7 @@ namespace Farm2Shelf.Core
             if (s == null) s = Shader.Find("Sprites/Default");
             if (s == null) s = Shader.Find("Standard");
 
-            Material gridMat = new Material(s);
+            Material gridMat = s != null ? new Material(s) : new Material(Graphic.defaultGraphicMaterial);
             gridMat.name = "Floor_Grid_Material";
             Texture2D gridTex = UIStyleUtility.GetFloorGridTexture();
             gridMat.mainTexture = gridTex;
@@ -1365,6 +1393,7 @@ namespace Farm2Shelf.Core
 
         private void SetFloorGridVisible(bool visible)
         {
+            if (!visible && floorGridObj == null) return;
             if (floorGridObj == null) CreateFloorGridOverlay();
             if (floorGridObj != null)
             {
@@ -1394,10 +1423,33 @@ namespace Farm2Shelf.Core
             }
         }
 
+        private void EnsurePlacementHUD()
+        {
+            if (placementHUDCanvas == null) CreatePlacementHUDUI();
+            if (placementHUDCanvas.activeSelf != isPlacing) placementHUDCanvas.SetActive(isPlacing);
+            UpdatePlacementSafeArea();
+        }
+
+        private void UpdatePlacementSafeArea()
+        {
+            if (placementSafeArea == null || Screen.width <= 0 || Screen.height <= 0) return;
+            Rect safe = Screen.safeArea;
+            var size = new Vector2Int(Screen.width, Screen.height);
+            if (safe == lastPlacementSafeArea && size == lastPlacementScreenSize) return;
+            lastPlacementSafeArea = safe;
+            lastPlacementScreenSize = size;
+            placementSafeArea.anchorMin = new Vector2(safe.xMin / Screen.width, safe.yMin / Screen.height);
+            placementSafeArea.anchorMax = new Vector2(safe.xMax / Screen.width, safe.yMax / Screen.height);
+            placementSafeArea.offsetMin = placementSafeArea.offsetMax = Vector2.zero;
+        }
+
         private void CreatePlacementHUDUI()
         {
-            GameObject existing = GameObject.Find("Placement_HUD_Canvas");
-            if (existing != null) DestroyImmediate(existing);
+            if (placementHUDCanvas != null)
+            {
+                placementHUDCanvas.SetActive(false);
+                Destroy(placementHUDCanvas);
+            }
 
             placementHUDCanvas = new GameObject("Placement_HUD_Canvas");
             Canvas canvas = placementHUDCanvas.AddComponent<Canvas>();
@@ -1423,8 +1475,13 @@ namespace Farm2Shelf.Core
             PlacementPointerCatcher catcher = catcherObj.AddComponent<PlacementPointerCatcher>();
             catcher.owner = this;
 
+            placementSafeArea = new GameObject("Placement_SafeArea", typeof(RectTransform)).GetComponent<RectTransform>();
+            placementSafeArea.SetParent(placementHUDCanvas.transform, false);
+            lastPlacementScreenSize = Vector2Int.zero;
+            UpdatePlacementSafeArea();
+
             GameObject panel = new GameObject("HUD_BottomBar");
-            panel.transform.SetParent(placementHUDCanvas.transform, false);
+            panel.transform.SetParent(placementSafeArea, false);
 
             RectTransform pRect = panel.AddComponent<RectTransform>();
             pRect.anchorMin = new Vector2(0.5f, 0f);
@@ -1472,7 +1529,7 @@ namespace Farm2Shelf.Core
 
             // 🎮 4. MİNİ D-PAD (Hassas İnce Ayar Ok Tuşları: 0.25m Adımlarla Hizalama)
             GameObject dpadPanel = new GameObject("HUD_DPad_Panel");
-            dpadPanel.transform.SetParent(placementHUDCanvas.transform, false);
+            dpadPanel.transform.SetParent(placementSafeArea, false);
 
             RectTransform dpRect = dpadPanel.AddComponent<RectTransform>();
             dpRect.anchorMin = new Vector2(0.5f, 0f);

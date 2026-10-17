@@ -11,6 +11,16 @@ namespace Farm2Shelf.UI
         private bool confirmingRecruitment;
         private readonly int[] lastRecruitmentResult = new int[3];
 
+        // Pending choices are guidance only; tutorial completion still uses actual hired staff.
+        public int GetPendingRecruitmentCount(int group, StaffRole role)
+        {
+            if (group < 0 || group >= recruitmentCounts.Length) return 0;
+            int total = 0;
+            for (int i = 0; i < recruitmentCounts[group].Length; i++)
+                if (RecruitmentRole(group, i) == role) total += recruitmentCounts[group][i];
+            return total;
+        }
+
         private void ClearRecruitmentSelection()
         {
             foreach (var counts in recruitmentCounts) Array.Clear(counts, 0, counts.Length);
@@ -127,13 +137,13 @@ namespace Farm2Shelf.UI
             }
 
             var footer = RecruitmentCard(content, "RecruitmentConfirmation", new Color(.95f,.72f,.18f));
-            TutorialFocusTarget.Tag(footer.gameObject, "hire_confirm_" + group);
             summary = RecruitmentLabel(footer, "", new Vector2(.05f,.36f), new Vector2(.95f,.94f), 20, Color.white);
             confirm = RecruitmentButton(footer, "ConfirmHire", new Vector2(.06f,.08f), new Vector2(.94f,.31f), "", () =>
             {
                 ConfirmRecruitment(group);
                 update();
             }, out confirmLabel);
+            TutorialFocusTarget.Tag(confirm.gameObject, "hire_confirm_" + group);
             update();
         }
 

@@ -38,6 +38,7 @@ namespace Farm2Shelf.UI
         private string lastSpeechKey = "";
         private float focusTimer;
         private float bobTime;
+        private bool palletCameraFocused;
         private readonly List<RectTransform> focusBuf = new List<RectTransform>();
 
         public static bool IsGuideOpen => instance != null && instance.root != null && instance.root.activeSelf;
@@ -397,12 +398,20 @@ namespace Farm2Shelf.UI
             {
                 focusTimer = 0f;
                 RefreshSpotlight();
+                if (introDone) SpeakForStep(false);
             }
         }
 
         private void RefreshSpotlight()
         {
             if (spotlight == null) return;
+
+            TutorialManager tutorial = TutorialManager.Instance;
+            bool placingStep = tutorial != null && tutorial.CurrentStep == TutorialStep.Step6_UnpackAndPlaceFurniture;
+            if (!placingStep) palletCameraFocused = false;
+            if (placingStep && !TabletOpen && !PalletStorageInventoryModalUI.IsModalOpen && !ModalManager.IsModalOpen &&
+                (FurniturePlacementManager.Instance == null || !FurniturePlacementManager.Instance.IsPlacing) &&
+                TryFocusDeliveryPallet()) return;
 
             focusBuf.Clear();
             bool world = false;
@@ -446,6 +455,43 @@ namespace Farm2Shelf.UI
             return Rect.MinMaxRect(xMin, yMin, xMax, yMax);
         }
 
+        private bool TryFocusDeliveryPallet()
+        {
+            Camera camera = Camera.main;
+            FurnitureDeliveryManager delivery = FurnitureDeliveryManager.Instance;
+            if (camera == null || delivery == null || !delivery.TryGetTutorialPalletBounds(out Bounds bounds)) return false;
+
+            Rect visible = Screen.safeArea;
+            Vector3 center = camera.WorldToScreenPoint(bounds.center);
+            if (!palletCameraFocused)
+            {
+                palletCameraFocused = true;
+                // Keep an already visible pallet in place; recover off-screen targets once.
+                if ((center.z <= camera.nearClipPlane || !visible.Contains(new Vector2(center.x, center.y))) &&
+                    Farm2Shelf.CameraSystem.IsometricCameraSetup.Instance != null)
+                    Farm2Shelf.CameraSystem.IsometricCameraSetup.Instance.FocusOn(bounds.center, true);
+            }
+
+            Vector2 min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
+            Vector2 max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
+            for (int i = 0; i < 8; i++)
+            {
+                Vector3 point = camera.WorldToScreenPoint(new Vector3(
+                    (i & 1) == 0 ? bounds.min.x : bounds.max.x,
+                    (i & 2) == 0 ? bounds.min.y : bounds.max.y,
+                    (i & 4) == 0 ? bounds.min.z : bounds.max.z));
+                if (point.z <= camera.nearClipPlane) return false;
+                min = Vector2.Min(min, new Vector2(point.x, point.y));
+                max = Vector2.Max(max, new Vector2(point.x, point.y));
+            }
+            float padding = Mathf.Clamp(Screen.height * .018f, 10f, 28f);
+            Rect hole = Inflate(Rect.MinMaxRect(min.x, min.y, max.x, max.y), padding);
+            if (!hole.Overlaps(new Rect(0, 0, Screen.width, Screen.height))) return false;
+            spotlight.SetDimStrength(.86f);
+            spotlight.SetTarget(hole, true);
+            return true;
+        }
+
         private static Rect Inflate(Rect r, float pad)
         {
             return Rect.MinMaxRect(r.xMin - pad, r.yMin - pad, r.xMax + pad, r.yMax + pad);
@@ -484,7 +530,9 @@ namespace Farm2Shelf.UI
                     break;
 
                 case TutorialStep.Step6_UnpackAndPlaceFurniture:
-                    world = true;
+                    if (TabletOpen) Add(into, "tablet_close");
+                    else if (PalletStorageInventoryModalUI.IsModalOpen) Add(into, "delivery_pallet_inventory");
+                    else world = true; // Placement needs ground dragging, rotation and all HUD controls.
                     break;
 
                 case TutorialStep.Step7_PlaceWholesaleBulkOrder:
@@ -520,6 +568,36 @@ namespace Farm2Shelf.UI
         }
 
         private static bool TabletOpen => EKTPhoneManager.IsTabletOpen;
+
+        private static void FocusRecruitment(List<RectTransform> into, string id)
+        {
+            RectTransform target = TutorialFocusTarget.FindRect(id);
+            if (target == null) return;
+            ScrollRect scroll = target.GetComponentInParent<ScrollRect>();
+            if (scroll != null && scroll.content != null && scroll.vertical)
+            {
+                Canvas.ForceUpdateCanvases();
+                RectTransform viewport = scroll.viewport != null ? scroll.viewport : scroll.transform as RectTransform;
+                if (viewport != null)
+                {
+                    Bounds bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(viewport, target);
+                    Bounds contentBounds = RectTransformUtility.CalculateRelativeRectTransformBounds(viewport, scroll.content);
+                    float hidden = contentBounds.size.y - viewport.rect.height;
+                    float delta = 0f;
+                    if (bounds.min.y < viewport.rect.yMin + 12f)
+                        delta = viewport.rect.yMin + 12f - bounds.min.y;
+                    else if (bounds.max.y > viewport.rect.yMax - 12f)
+                        delta = viewport.rect.yMax - 12f - bounds.max.y;
+                    if (hidden > .1f && Mathf.Abs(delta) > .5f)
+                    {
+                        scroll.StopMovement();
+                        float destination = Mathf.Clamp01(scroll.verticalNormalizedPosition - delta / hidden);
+                        scroll.verticalNormalizedPosition = Mathf.MoveTowards(scroll.verticalNormalizedPosition, destination, .24f);
+                    }
+                }
+            }
+            into.Add(target);
+        }
 
         private void FocusTabletExplore(TutorialManager tm, EKTPhoneManager phone, List<RectTransform> into)
         {
@@ -587,8 +665,12 @@ namespace Farm2Shelf.UI
                     Add(into, "store_tab_2");
                     return;
                 }
-                Add(into, cash < 2 ? "hire_cashier" : "hire_restocker");
-                Add(into, "hire_confirm_0");
+                if (cash + phone.GetPendingRecruitmentCount(0, StaffRole.Kasiyer) < 2)
+                    FocusRecruitment(into, "hire_cashier");
+                else if (rest + phone.GetPendingRecruitmentCount(0, StaffRole.Reyoncu) < 2)
+                    FocusRecruitment(into, "hire_restocker");
+                else
+                    FocusRecruitment(into, "hire_confirm_0");
                 return;
             }
 
@@ -702,8 +784,8 @@ namespace Farm2Shelf.UI
                     Add(into, "farm_tab_2");
                     return;
                 }
-                Add(into, "hire_farmer");
-                Add(into, "hire_confirm_1");
+                FocusRecruitment(into, farmers + phone.GetPendingRecruitmentCount(1, StaffRole.Çiftçi) < 2
+                    ? "hire_farmer" : "hire_confirm_1");
                 return;
             }
             if (phone.ActiveFarmTab != 3)
@@ -750,17 +832,28 @@ namespace Farm2Shelf.UI
                     }
                     break;
                 case TutorialStep.Step3_HireStoreStaffAndCallEarly:
-                    if (tm.GetStoreRoleCount(StaffRole.Kasiyer) < 2)
+                    EKTPhoneManager storePhone = EKTPhoneManager.Instance;
+                    int cashHired = tm.GetStoreRoleCount(StaffRole.Kasiyer);
+                    int restHired = tm.GetStoreRoleCount(StaffRole.Reyoncu);
+                    int cashPending = storePhone != null ? storePhone.GetPendingRecruitmentCount(0, StaffRole.Kasiyer) : 0;
+                    int restPending = storePhone != null ? storePhone.GetPendingRecruitmentCount(0, StaffRole.Reyoncu) : 0;
+                    if (cashHired + cashPending < 2)
                     {
-                        key = "s3_cash";
-                        tr = "Mağaza → İşe Alım. Önce kasiyer kartında 2 kişi seç, sonra Onayla. Onay kartı listenin sonunda.";
-                        en = "Store → Hire. Select 2 cashiers, then Confirm. The confirmation card is at the end of the list.";
+                        key = "s3_cash_select_" + cashHired;
+                        tr = $"Mağaza → İşe Alım. Kasiyer kartındaki İşe Al butonuyla {Mathf.Max(0, 2 - cashHired)} kasiyer seç. Butondaki sayı seçtiğin adedi gösterir. Ardından reyoncuları seçeceğiz.";
+                        en = $"Store → Hire. Use Hire on the cashier card to select {Mathf.Max(0, 2 - cashHired)} cashiers. The number on the button shows your selection. Next, we will select restockers.";
                     }
-                    else if (tm.GetStoreRoleCount(StaffRole.Reyoncu) < 2)
+                    else if (restHired + restPending < 2)
                     {
-                        key = "s3_rest";
-                        tr = "Şimdi 2 reyoncu al. Reyoncu koliyi ve pasaportlu hasadı rafa taşır.";
-                        en = "Now hire 2 restockers. They move boxes and passport harvest onto shelves.";
+                        key = "s3_rest_select_" + restHired;
+                        tr = $"Şimdi reyoncu kartındaki İşe Al butonuyla {Mathf.Max(0, 2 - restHired)} reyoncu seç. Seçimleri bitirince aşağıdaki Onayla butonuna geçeceğiz.";
+                        en = $"Now use Hire on the restocker card to select {Mathf.Max(0, 2 - restHired)} restockers. Once selected, we will move down to Confirm.";
+                    }
+                    else if (cashHired < 2 || restHired < 2)
+                    {
+                        key = "s3_confirm_selection";
+                        tr = "Personel seçimlerin hazır. Ekran aşağı kayıyor. Parlayan Onayla butonuna bas; seçtiğin personeller o zaman işe alınacak.";
+                        en = "Your staff selection is ready. The list is scrolling down. Tap the highlighted Confirm button to hire the selected staff.";
                     }
                     else
                     {
@@ -780,9 +873,30 @@ namespace Farm2Shelf.UI
                     en = "Shopping → Furniture. 3 shelves, 1 cart stand, 3 storage racks, 1 register, 2 fridges. Add and checkout.";
                     break;
                 case TutorialStep.Step6_UnpackAndPlaceFurniture:
-                    key = "s6";
-                    tr = "Mal kabul yanındaki teslimat paletine git. Kutuya dokun, hayaleti sürükle, Kur. En az 8 parça. Yollara dokunma.";
-                    en = "Go to the delivery pallet by Goods Receipt. Tap boxes, drag the ghost, Assemble. At least 8 pieces. Don't change the streets.";
+                    if (TabletOpen)
+                    {
+                        key = "s6_close_tablet";
+                        tr = "Şimdi mobilyaları kuracağız. Parlayan çarpıya basıp tableti kapat.";
+                        en = "Now we will place the furniture. Tap the highlighted X to close the tablet.";
+                    }
+                    else if (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing)
+                    {
+                        key = "s6_place_item";
+                        tr = "Önizlemeyi uygun zemine taşı. Alttaki oklarla hizala, gerekirse Döndür. Yeşil olduğunda Kur'a bas. Sonra kalan mobilyalar için palete döneceğiz.";
+                        en = "Move the preview onto suitable ground. Use the arrows below to adjust it and Rotate if needed. Tap Assemble when it is green. Then return to the pallet for the remaining furniture.";
+                    }
+                    else if (PalletStorageInventoryModalUI.IsModalOpen)
+                    {
+                        key = "s6_choose_item";
+                        tr = "Bu listede satın aldığın mobilyalar var. Kurmak istediğinin Kur butonuna bas. Diğer ürünler için listeyi kaydırabilirsin.";
+                        en = "This list contains your purchased furniture. Tap Assemble on the item you want to place. Scroll to see the other items.";
+                    }
+                    else
+                    {
+                        key = "s6_open_pallet";
+                        tr = "Mal kabul yanındaki aydınlık teslimat paletine dokun. Satın aldığın mobilyalar orada. En az 8 parçayı birlikte kuracağız.";
+                        en = "Tap the highlighted delivery pallet beside Goods Receipt. Your purchased furniture is there. We will place at least 8 pieces together.";
+                    }
                     break;
                 case TutorialStep.Step7_PlaceWholesaleBulkOrder:
                     if (!tm.DidPlaceBulkOrder)
@@ -799,11 +913,19 @@ namespace Farm2Shelf.UI
                     }
                     break;
                 case TutorialStep.Step8_HireFarmStaffAndShifts:
-                    if (tm.GetFarmRoleCount(StaffRole.Çiftçi) < 2)
+                    int farmHired = tm.GetFarmRoleCount(StaffRole.Çiftçi);
+                    int farmPending = EKTPhoneManager.Instance != null ? EKTPhoneManager.Instance.GetPendingRecruitmentCount(1, StaffRole.Çiftçi) : 0;
+                    if (farmHired + farmPending < 2)
                     {
-                        key = "s8_hire";
-                        tr = "Çiftlik → İşe Alım. 2 çiftçi seç ve listenin sonundaki Onayla butonuna bas. Onlar eker ve hasat eder.";
-                        en = "Farm → Hire. Select 2 farmers, then Confirm at the end of the list. They plant and harvest.";
+                        key = "s8_select_" + farmHired;
+                        tr = $"Çiftlik → İşe Alım. İşe Al butonuyla {Mathf.Max(0, 2 - farmHired)} çiftçi seç. Seçilen adet butonda görünür; ardından Onayla butonuna geçeceğiz.";
+                        en = $"Farm → Hire. Use Hire to select {Mathf.Max(0, 2 - farmHired)} farmers. The button shows the selected quantity; next, we will move to Confirm.";
+                    }
+                    else if (farmHired < 2)
+                    {
+                        key = "s8_confirm_selection";
+                        tr = "Çiftçi seçimlerin hazır. Parlayan Onayla butonuna basarak işe alımı tamamla. Sonra vardiyalarını ayarlayacağız.";
+                        en = "Your farmer selection is ready. Tap the highlighted Confirm button to hire them. Next, we will set their shifts.";
                     }
                     else
                     {
