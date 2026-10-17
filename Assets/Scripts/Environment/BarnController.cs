@@ -1,3 +1,4 @@
+﻿using Farm2Shelf.Utils;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using Farm2Shelf.UI;
@@ -29,7 +30,7 @@ namespace Farm2Shelf.Environment
 
         public void OnBarnClicked()
         {
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || Time.unscaledTime - ModalManager.LastModalCloseTime < 0.35f) return;
+            if (TouchInputHelper.IsWorldInteractionBlocked()) return;
 
             if (BarnInventoryModalUI.Instance == null)
             {
@@ -47,7 +48,7 @@ namespace Farm2Shelf.Environment
         public void OnPointerClick(PointerEventData eventData)
         {
             if (eventData != null && eventData.dragging) return;
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || Time.unscaledTime - ModalManager.LastModalCloseTime < 0.35f) return;
+            if (TouchInputHelper.IsWorldInteractionBlocked()) return;
             OnBarnClicked();
         }
 

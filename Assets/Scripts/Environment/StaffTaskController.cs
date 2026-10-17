@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -14,7 +14,7 @@ namespace Farm2Shelf.Environment
     {
         public static StaffTaskController Instance { get; private set; }
 
-        private const float WALK_SPEED = 2.8f; // m/s
+        private const float WALK_SPEED = 2.8f * 1.15f; // m/s
         private readonly List<StaffTaskData> staffTaskList = new List<StaffTaskData>();
 
         public enum StaffAIState
@@ -91,6 +91,8 @@ namespace Farm2Shelf.Environment
 
             // Personel Dinlenme Odası Mavi Koltuk Oturma Durumu
             public bool isSitting;
+            public bool isSeatedAtServiceDesk;
+            public float serviceDeskFloorY;
             public int assignedSofaSeatIndex = -1;
 
             // Online Market Kurye Siparişi Toplama Verisi
@@ -99,6 +101,18 @@ namespace Farm2Shelf.Environment
             public List<OnlineOrderGatherItem> onlineGatherItems = new List<OnlineOrderGatherItem>();
             public int currentOnlineGatherIndex;
             public bool isCarryingDeliveryBoxToMotorcycle;
+        }
+
+        public bool HasActiveCourierPreparation(OnlineCustomerOrder order = null)
+        {
+            foreach (var data in staffTaskList)
+            {
+                if (data == null || data.staffObj == null || !data.staffObj.activeInHierarchy) continue;
+                if (order != null && data.targetOnlineOrder != order) continue;
+                if (data.targetOnlineOrder != null &&
+                    (data.isGatheringForOnlineOrder || data.isCarryingDeliveryBoxToMotorcycle)) return true;
+            }
+            return false;
         }
 
         public class OnlineOrderGatherItem
@@ -191,7 +205,7 @@ namespace Farm2Shelf.Environment
         public static bool IsCashierWorkingAt(PlacedFurnitureController cashier)
         {
             if (Instance == null || Instance.staffTaskList == null || cashier == null) return false;
-            Vector3 cashierStaffSpot = cashier.transform.position + cashier.transform.forward * 0.85f;
+            Vector3 cashierStaffSpot = FurnitureModelBuilder.GetCashierStaffPosition(cashier.transform);
 
             for (int i = 0; i < Instance.staffTaskList.Count; i++)
             {
@@ -582,7 +596,7 @@ namespace Farm2Shelf.Environment
                 {
                     // Koltuğa doğru yürü
                     data.isSitting = false;
-                    data.staffObj.transform.position = Vector3.MoveTowards(data.staffObj.transform.position, targetSitPos, 2.5f * deltaTime);
+                    data.staffObj.transform.position = Vector3.MoveTowards(data.staffObj.transform.position, targetSitPos, 2.5f * 1.15f * deltaTime);
 
                     Vector3 moveDir = (targetSitPos - data.staffObj.transform.position).normalized;
                     if (moveDir != Vector3.zero)
@@ -590,7 +604,7 @@ namespace Farm2Shelf.Environment
                         data.staffObj.transform.rotation = Quaternion.RotateTowards(data.staffObj.transform.rotation, Quaternion.LookRotation(moveDir), 360f * deltaTime);
                     }
 
-                    data.walkCycleTimer += deltaTime * 8.0f;
+                    data.walkCycleTimer += deltaTime * 8.0f * 1.15f;
                     float legAngle = Mathf.Sin(data.walkCycleTimer) * 28.0f;
                     AnimateLimbs(data, legAngle);
                 }
@@ -616,13 +630,13 @@ namespace Farm2Shelf.Environment
                 float distToStand = Vector3.Distance(data.staffObj.transform.position, standPos);
                 if (distToStand > 0.30f)
                 {
-                    data.staffObj.transform.position = Vector3.MoveTowards(data.staffObj.transform.position, standPos, 2.5f * deltaTime);
+                    data.staffObj.transform.position = Vector3.MoveTowards(data.staffObj.transform.position, standPos, 2.5f * 1.15f * deltaTime);
                     Vector3 moveDir = (standPos - data.staffObj.transform.position).normalized;
                     if (moveDir != Vector3.zero)
                     {
                         data.staffObj.transform.rotation = Quaternion.RotateTowards(data.staffObj.transform.rotation, Quaternion.LookRotation(moveDir), 360f * deltaTime);
                     }
-                    data.walkCycleTimer += deltaTime * 8.0f;
+                    data.walkCycleTimer += deltaTime * 8.0f * 1.15f;
                     AnimateLimbs(data, Mathf.Sin(data.walkCycleTimer) * 28.0f);
                 }
                 else
@@ -644,6 +658,10 @@ namespace Farm2Shelf.Environment
 
             lLeg.localRotation = Quaternion.Euler(-80f, 0f, 0f);
             rLeg.localRotation = Quaternion.Euler(-80f, 0f, 0f);
+            Transform leftKnee = lLeg.Find("ServiceKnee");
+            Transform rightKnee = rLeg.Find("ServiceKnee");
+            if (leftKnee != null) leftKnee.localRotation = Quaternion.Euler(80f, 0f, 0f);
+            if (rightKnee != null) rightKnee.localRotation = Quaternion.Euler(80f, 0f, 0f);
 
             // Kollar uyluklara ve kucağa rahatça yaslanır
             Transform lArm = data.leftLimbs[1];
@@ -811,7 +829,7 @@ namespace Farm2Shelf.Environment
                     if (staffIdx >= 0 && data.staffObj != null)
                     {
                         GetStaffLockerPosition(staffIdx, out Vector3 lockerStandPos, out float lockerFacingY);
-                        data.staffObj.transform.position = Vector3.MoveTowards(data.staffObj.transform.position, lockerStandPos, 3.0f * deltaTime);
+                        data.staffObj.transform.position = Vector3.MoveTowards(data.staffObj.transform.position, lockerStandPos, 3.0f * 1.15f * deltaTime);
                         data.staffObj.transform.rotation = Quaternion.RotateTowards(data.staffObj.transform.rotation, Quaternion.Euler(0f, lockerFacingY, 0f), 360f * deltaTime);
                     }
 
@@ -879,8 +897,8 @@ namespace Farm2Shelf.Environment
 
                     if (targetDesk != null)
                     {
-                        Vector3 sideHandoverPos = targetDesk.transform.position + targetDesk.transform.forward * 0.85f + targetDesk.transform.right * 0.65f;
-                        data.staffObj.transform.position = Vector3.MoveTowards(data.staffObj.transform.position, sideHandoverPos, 3.0f * deltaTime);
+                        Vector3 sideHandoverPos = FurnitureModelBuilder.GetCashierStaffPosition(targetDesk.transform) + targetDesk.transform.right * 0.65f;
+                        data.staffObj.transform.position = Vector3.MoveTowards(data.staffObj.transform.position, sideHandoverPos, 3.0f * 1.15f * deltaTime);
                         data.staffObj.transform.rotation = Quaternion.RotateTowards(data.staffObj.transform.rotation, Quaternion.LookRotation(-targetDesk.transform.right), 360f * deltaTime);
                     }
 
@@ -1213,7 +1231,7 @@ namespace Farm2Shelf.Environment
                     if (myIdx < cashiers.Count)
                     {
                         PlacedFurnitureController myCashier = cashiers[myIdx];
-                        return myCashier.transform.position + myCashier.transform.forward * 0.85f;
+                        return FurnitureModelBuilder.GetCashierStaffPosition(myCashier.transform);
                     }
                     else
                     {
@@ -1245,7 +1263,10 @@ namespace Farm2Shelf.Environment
                     {
                         if (f != null && f.FurnitureType == FurnitureType.CustomerServiceDesk)
                         {
-                            return f.transform.position + f.transform.forward * 0.45f;
+                            Transform seat = f.transform.Find("CustomerServiceVisual/StaffSeat");
+                            Vector3 destination = seat != null ? seat.position : f.transform.TransformPoint(new Vector3(0f, 0f, 0.45f));
+                            destination.y = f.transform.position.y + 0.05f;
+                            return destination;
                         }
                     }
                     return new Vector3(-8.0f, 0.05f, 2.0f);
@@ -1521,7 +1542,7 @@ namespace Farm2Shelf.Environment
             }
 
             Vector3 moveDir = toTarget.normalized;
-            float stepDist = 2.4f * deltaTime;
+            float stepDist = 2.4f * 1.15f * deltaTime;
             Vector3 avoidanceDir = CalculateAvoidanceDirection(data.staffObj, currentPos, moveDir, stepDist);
 
             if (avoidanceDir != Vector3.zero)
@@ -1530,13 +1551,13 @@ namespace Farm2Shelf.Environment
             }
             data.staffObj.transform.position = Vector3.MoveTowards(currentPos, currentPos + avoidanceDir, stepDist);
 
-            data.walkCycleTimer += deltaTime * 8.5f;
+            data.walkCycleTimer += deltaTime * 8.5f * 1.15f;
             AnimateLimbs(data, Mathf.Sin(data.walkCycleTimer) * 26.0f);
         }
 
         private void ExecuteCustomerServiceDeskTask(StaffTaskData data, float deltaTime)
         {
-            ResetLimbsToRest(data);
+            if (!data.isSeatedAtServiceDesk) ResetLimbsToRest(data);
 
             var furnitureList = PlacedFurnitureController.AllPlacedFurniture;
             int count = furnitureList.Count;
@@ -1545,11 +1566,37 @@ namespace Farm2Shelf.Environment
                 var f = furnitureList[i];
                 if (f != null && f.FurnitureType == FurnitureType.CustomerServiceDesk)
                 {
-                    data.staffObj.transform.position = f.transform.position + f.transform.forward * 0.45f;
-                    data.staffObj.transform.rotation = Quaternion.LookRotation(-f.transform.forward);
-                    break;
+                    Transform seat = f.transform.Find("CustomerServiceVisual/StaffSeat");
+                    Transform facing = f.transform.Find("CustomerServiceVisual/StaffFacing");
+                    Vector3 seatPosition = seat != null ? seat.position : f.transform.TransformPoint(new Vector3(0f, 0.53f, 0.45f));
+                    Vector3 forward = facing != null && seat != null ? facing.position - seat.position : -f.transform.forward;
+                    forward.y = 0f;
+                    if (forward.sqrMagnitude > 0.001f) data.staffObj.transform.rotation = Quaternion.LookRotation(forward);
+
+                    // Align the actual hip pivots with the cushion, allowing for thigh thickness.
+                    float hipHeight = 0.80f;
+                    if (data.leftLimbs != null && data.leftLimbs.Count > 0 && data.leftLimbs[0] != null)
+                        hipHeight = data.staffObj.transform.InverseTransformPoint(data.leftLimbs[0].position).y;
+                    float scaleY = data.staffObj.transform.lossyScale.y;
+                    data.staffObj.transform.position = seatPosition + Vector3.up * ((0.10f - hipHeight) * scaleY);
+                    data.serviceDeskFloorY = f.transform.position.y + 0.05f;
+                    data.isSeatedAtServiceDesk = true;
+                    ApplySittingPose(data);
+                    // Keep thighs horizontal and lower legs vertical at the desk.
+                    PoseServiceDeskLeg(data.leftLimbs);
+                    PoseServiceDeskLeg(data.rightLimbs);
+                    return;
                 }
             }
+            ResetLimbsToRest(data);
+        }
+
+        private static void PoseServiceDeskLeg(List<Transform> limbs)
+        {
+            if (limbs == null || limbs.Count == 0 || limbs[0] == null) return;
+            limbs[0].localRotation = Quaternion.Euler(-90f, 0f, 0f);
+            Transform knee = limbs[0].Find("ServiceKnee");
+            if (knee != null) knee.localRotation = Quaternion.Euler(90f, 0f, 0f);
         }
 
         #region Role Task Executions
@@ -1568,7 +1615,7 @@ namespace Farm2Shelf.Environment
             {
                 FreeSofaSeat(data);
                 PlacedFurnitureController myCashier = cashierFurnitureList[myCashierIndex];
-                Vector3 myCashierPos = myCashier.transform.position + myCashier.transform.forward * 0.85f;
+                Vector3 myCashierPos = FurnitureModelBuilder.GetCashierStaffPosition(myCashier.transform);
                 Quaternion myCashierRot = Quaternion.LookRotation(-myCashier.transform.forward);
 
                 data.staffObj.transform.position = myCashierPos;
@@ -1805,6 +1852,69 @@ namespace Farm2Shelf.Environment
             }
         }
 
+        private static bool CanRestockFrom(ShelfRowData source, ShelfRowData target)
+        {
+            if (source == null || target == null || target.IsUnassigned || target.IsFull) return false;
+            ProductPassportService.EnsureRowLots(source);
+            ProductPassportService.SyncShelfRowIdentity(target);
+            if (!ProductPassportService.RowHoldsProduct(source, target.productId, target.productName)) return false;
+            foreach (ProductLot lot in source.lots)
+            {
+                if (lot != null && lot.quantity > 0 && lot.productId != target.productId) return false;
+            }
+            return source.currentStock > 0;
+        }
+
+        private static bool TryPlaceRestockLots(PlacedFurnitureController shelf, int rowIndex, List<ProductLot> carried)
+        {
+            ShelfRowData target = shelf.rows[rowIndex];
+            ProductPassportService.SyncShelfRowIdentity(target);
+            // The player may change the assignment while the stocker is walking.
+            // Only matching lots may enter the selected row; keep every rejected unit.
+            for (int i = carried.Count - 1; i >= 0; i--)
+            {
+                ProductLot lot = carried[i];
+                if (lot == null || lot.quantity <= 0) { carried.RemoveAt(i); continue; }
+                if (target.IsUnassigned || string.IsNullOrEmpty(target.productId) || lot.productId != target.productId) continue;
+                int count = Mathf.Min(lot.quantity, Mathf.Max(0, target.maxCapacity - target.currentStock));
+                if (count <= 0) continue;
+                var accepted = new List<ProductLot> { lot.Clone(count) };
+                int added = ProductPassportService.AddStock(target, accepted, target.maxCapacity);
+                lot.quantity -= added;
+                if (lot.quantity == 0) carried.RemoveAt(i);
+            }
+            shelf.UpdateRow3DProductMeshes(rowIndex + 1);
+
+            // Return leftovers to compatible warehouse rows. If storage is full,
+            // retain the box and retry instead of deleting stock or changing a selection.
+            foreach (var storage in PlacedFurnitureController.AllPlacedFurniture)
+            {
+                if (storage == null || storage.FurnitureType != FurnitureType.StorageShelf || storage.rows == null) continue;
+                for (int r = 0; r < storage.rows.Length && carried.Count > 0; r++)
+                {
+                    ShelfRowData row = storage.rows[r];
+                    if (row == null || row.IsFull) continue;
+                    ProductLot lot = carried[0];
+                    WholesaleProductDef product = WholesaleDatabase.GetProductById(lot.productId);
+                    if (product == null) continue;
+                    if (row.currentStock <= 0)
+                    {
+                        ProductPassportService.ClearRowContents(row);
+                        row.productId = product.id;
+                        row.productName = product.name;
+                        row.unitPrice = product.SalePricePerUnit;
+                    }
+                    if (!ProductPassportService.RowHoldsProduct(row, product.id, product.name)) continue;
+                    int count = Mathf.Min(lot.quantity, row.maxCapacity - row.currentStock);
+                    var returned = new List<ProductLot> { lot.Clone(count) };
+                    lot.quantity -= ProductPassportService.AddStock(row, returned, row.maxCapacity);
+                    if (lot.quantity <= 0) carried.RemoveAt(0);
+                    storage.UpdateRow3DProductMeshes(r + 1);
+                }
+            }
+            return carried.Count == 0;
+        }
+
         private static bool IsStoreShelf(FurnitureType t)
         {
             return t == FurnitureType.Shelf || t == FurnitureType.Fridge || t == FurnitureType.OrganicFridge || t == FurnitureType.Freezer ||
@@ -1916,6 +2026,31 @@ namespace Farm2Shelf.Environment
                     data.taskTimer = 1.2f; // Noktaya ulaşınca 1.2 saniye koli alma/bırakma beklemesi
                 });
                 return;
+            }
+
+            // A completed/stale route is not proof of arrival at the current furniture.
+            // Keep courier collection/loading on its existing path.
+            if (!data.isGatheringForOnlineOrder && !data.isCarryingDeliveryBoxToMotorcycle)
+            {
+                PlacedFurnitureController destination = data.isUnloadingTruck
+                    ? (data.isFetchingFromTruck ? null : data.targetStorageShelfForDeposit)
+                    : data.isFetchingFromStorage ? data.sourceStorageShelf
+                    : data.targetShelf1 != null ? data.targetShelf1 : data.targetShelf2;
+                bool hasDestination = destination != null || (data.isUnloadingTruck && data.isFetchingFromTruck);
+                if (hasDestination)
+                {
+                    Vector3 point = destination != null ? destination.GetFrontInteractionPosition(1.2f) : new Vector3(13f, 0.05f, 2f);
+                    Vector3 distance = point - data.staffObj.transform.position;
+                    distance.y = 0f;
+                    if (distance.sqrMagnitude > 0.45f * 0.45f)
+                    {
+                        data.taskTimer = 0f;
+                        data.waypoints = BuildStructuredStaffWaypoints(data.staffObj.transform.position, point);
+                        data.currentWaypointIndex = 1;
+                        return;
+                    }
+                    if (data.taskTimer <= 0f) data.taskTimer = 1.2f;
+                }
             }
 
             // 2. Noktada İnceleme / Bekleme & Koli İşlemi Aşaması
@@ -2108,48 +2243,49 @@ namespace Farm2Shelf.Environment
                                 ? data.targetStorageShelfForDeposit.GetFrontInteractionPosition(1.2f)
                                 : GetStorageShelfPosition();
 
+                            bool deposited = false;
                             if (data.carriedProduct1 != null)
                             {
-                                if (!WholesaleTruckManager.DepositPackageToStorageShelf(data.carriedProduct1, out _, out _))
-                                {
-                                    ReturnUndeliveredPackageToTruck(data.carriedProduct1);
-                                }
-                                data.carriedProduct1 = null;
+                                int before = data.carriedProduct1.packQuantity;
+                                bool finished = WholesaleTruckManager.DepositPackageToStorageShelf(data.carriedProduct1, data.targetStorageShelfForDeposit, out _, out _);
+                                deposited |= data.carriedProduct1.packQuantity < before;
+                                if (finished) data.carriedProduct1 = null;
                             }
                             if (data.carriedProduct2 != null)
                             {
-                                if (!WholesaleTruckManager.DepositPackageToStorageShelf(data.carriedProduct2, out _, out _))
-                                {
-                                    ReturnUndeliveredPackageToTruck(data.carriedProduct2);
-                                }
-                                data.carriedProduct2 = null;
+                                int before = data.carriedProduct2.packQuantity;
+                                bool finished = WholesaleTruckManager.DepositPackageToStorageShelf(data.carriedProduct2, data.targetStorageShelfForDeposit, out _, out _);
+                                deposited |= data.carriedProduct2.packQuantity < before;
+                                if (finished) data.carriedProduct2 = null;
                             }
 
-                            ShowStockPopup(popupPos, LocalizationManager.L("StaffPopup_UnloadedWarehouse", "+Depoya İndirildi 📦", "+Unloaded to Warehouse 📦"));
+                            if (deposited)
+                                ShowStockPopup(popupPos, LocalizationManager.L("StaffPopup_UnloadedWarehouse", "+Depoya İndirildi 📦", "+Unloaded to Warehouse 📦"));
+
+                            // Remaining cargo goes to another warehouse shelf only after walking there.
+                            var nextStorage = WholesaleTruckManager.GetNextAvailableStorageShelfForProduct(data.carriedProduct1);
+                            if (nextStorage == null)
+                                nextStorage = WholesaleTruckManager.GetNextAvailableStorageShelfForProduct(data.carriedProduct2);
+                            if (nextStorage != null)
+                            {
+                                data.targetStorageShelfForDeposit = nextStorage;
+                                CreateCarriedBoxesOnStaff(data, (data.carriedProduct1 != null ? 1 : 0) + (data.carriedProduct2 != null ? 1 : 0));
+                                data.waypoints = BuildStructuredStaffWaypoints(data.staffObj.transform.position, nextStorage.GetFrontInteractionPosition(1.2f));
+                                data.currentWaypointIndex = 1;
+                                return;
+                            }
+
+                            // Preserve undeliverable quantities if storage filled up during transport.
+                            if (data.carriedProduct1 != null) ReturnUndeliveredPackageToTruck(data.carriedProduct1);
+                            if (data.carriedProduct2 != null) ReturnUndeliveredPackageToTruck(data.carriedProduct2);
+                            data.carriedProduct1 = null;
+                            data.carriedProduct2 = null;
                             ClearCarriedBoxesOnStaff(data);
                             data.targetStorageShelfForDeposit = null;
 
-                            bool stillHasPackages = (WholesaleTruckManager.Instance != null &&
-                                WholesaleTruckManager.Instance.IsTruckAtDockWaitingForUnload &&
-                                WholesaleTruckManager.Instance.PendingTruckPackages != null &&
-                                WholesaleTruckManager.Instance.PendingTruckPackages.Count > 0)
-                                ||
-                                (GreenTruckDeliveryManager.Instance != null &&
-                                GreenTruckDeliveryManager.Instance.IsTruckAtDockWaitingForUnload &&
-                                GreenTruckDeliveryManager.Instance.PendingTruckPackages != null &&
-                                GreenTruckDeliveryManager.Instance.PendingTruckPackages.Count > 0);
-
-                            if (stillHasPackages)
-                            {
-                                data.isFetchingFromTruck = true;
-                                Vector3 truckDockPos = new Vector3(13.0f, 0.05f, 2.0f);
-                                data.waypoints = BuildStructuredStaffWaypoints(data.staffObj.transform.position, truckDockPos);
-                                data.currentWaypointIndex = 1;
-                            }
-                            else
-                            {
-                                data.isUnloadingTruck = false;
-                            }
+                            // Re-evaluate warehouse capacity before taking another truck task.
+                            data.isUnloadingTruck = false;
+                            data.isFetchingFromTruck = false;
                         }
                     }
                     else if (data.isFetchingFromStorage)
@@ -2164,13 +2300,13 @@ namespace Farm2Shelf.Environment
                             if (faceDir != Vector3.zero) data.staffObj.transform.rotation = Quaternion.LookRotation(faceDir);
                         }
 
-                        int totalBoxesFetched = 0;
-
                         // 1. SOL EL KOLİSİ ALIMI (Box 1)
+                        int totalBoxesFetched = 0;
                         if (data.sourceStorageShelf != null && data.sourceStorageRowId >= 0 && data.sourceStorageRowId < data.sourceStorageShelf.rows.Length)
                         {
                             ShelfRowData sRow1 = data.sourceStorageShelf.rows[data.sourceStorageRowId];
-                            if (sRow1 != null && sRow1.currentStock > 0 && data.targetShelf1 != null && data.targetRowId1 >= 0 && data.targetRowId1 < data.targetShelf1.rows.Length)
+                            if (sRow1 != null && sRow1.currentStock > 0 && data.targetShelf1 != null && data.targetRowId1 >= 0 && data.targetRowId1 < data.targetShelf1.rows.Length
+                                && CanRestockFrom(sRow1, data.targetShelf1.rows[data.targetRowId1]))
                             {
                                 ShelfRowData tRow1 = data.targetShelf1.rows[data.targetRowId1];
                                 // Hiç ürün yoksa 50 Adet (Tam Koli), %60'ın altındaysa %40'ı kadar (20 Adet)
@@ -2187,16 +2323,19 @@ namespace Farm2Shelf.Environment
                                     sRow1.unitPrice = 0f;
                                 }
                                 data.carriedAmount1 = amountToTake1;
-                                data.sourceStorageShelf.UpdateRow3DProductMeshes(data.sourceStorageRowId + 1);
                                 totalBoxesFetched++;
+                                data.sourceStorageShelf.UpdateRow3DProductMeshes(data.sourceStorageRowId + 1);
                             }
                         }
 
                         // 2. SAĞ EL KOLİSİ ALIMI (Box 2)
-                        if (data.sourceStorageShelf2 != null && data.sourceStorageRowId2 >= 0 && data.sourceStorageRowId2 < data.sourceStorageShelf2.rows.Length)
+                        if (data.sourceStorageShelf2 != null && data.sourceStorageShelf2 == data.sourceStorageShelf && data.sourceStorageRowId2 >= 0 && data.sourceStorageRowId2 < data.sourceStorageShelf2.rows.Length)
                         {
                             ShelfRowData sRow2 = data.sourceStorageShelf2.rows[data.sourceStorageRowId2];
-                            if (sRow2 != null && sRow2.currentStock > 0 && data.targetShelf2 != null && data.targetRowId2 >= 0 && data.targetRowId2 < data.targetShelf2.rows.Length)
+                            if (sRow2 != null && sRow2.currentStock > 0 && data.targetShelf2 != null && data.targetRowId2 >= 0 && data.targetRowId2 < data.targetShelf2.rows.Length
+                                && CanRestockFrom(sRow2, data.targetShelf2.rows[data.targetRowId2])
+                                && (data.targetShelf2 != data.targetShelf1 || data.targetRowId2 != data.targetRowId1
+                                    || data.targetShelf2.rows[data.targetRowId2].currentStock + data.carriedAmount1 < data.targetShelf2.rows[data.targetRowId2].maxCapacity))
                             {
                                 ShelfRowData tRow2 = data.targetShelf2.rows[data.targetRowId2];
                                 int currentFill2 = (data.targetShelf2 == data.targetShelf1 && data.targetRowId2 == data.targetRowId1)
@@ -2216,13 +2355,13 @@ namespace Farm2Shelf.Environment
                                     sRow2.unitPrice = 0f;
                                 }
                                 data.carriedAmount2 = amountToTake2;
-                                data.sourceStorageShelf2.UpdateRow3DProductMeshes(data.sourceStorageRowId2 + 1);
                                 totalBoxesFetched++;
+                                data.sourceStorageShelf2.UpdateRow3DProductMeshes(data.sourceStorageRowId2 + 1);
                             }
                         }
                         
                         // B) Eğer 2. özel atama yapılmadıysa ama depoda stok varsa 2. elimize de koli paketi al!
-                        if (totalBoxesFetched < 2)
+                        if (data.carriedAmount1 > 0 && data.carriedAmount2 == 0)
                         {
                             var allShelves = PlacedFurnitureController.AllPlacedFurniture;
                             int count = allShelves.Count;
@@ -2230,16 +2369,16 @@ namespace Farm2Shelf.Environment
                             {
                                 var storage = allShelves[i];
                                 if (storage == null || storage.rows == null || storage.FurnitureType != FurnitureType.StorageShelf) continue;
+                                if (storage != data.sourceStorageShelf) continue;
                                 for (int sr = 0; sr < storage.rows.Length; sr++)
                                 {
                                     var sRowExtra = storage.rows[sr];
-                                    if (sRowExtra != null && sRowExtra.currentStock > 0)
+                                    if (sRowExtra != null && sRowExtra.currentStock > 0 && !IsStorageRowClaimedByOtherRestocker(data, storage, sr))
                                     {
                                         int extraAmount = Mathf.Min(sRowExtra.currentStock, 20);
                                         string extraName = sRowExtra.productName;
                                         string extraId = sRowExtra.productId;
                                         float extraPrice = sRowExtra.unitPrice;
-                                        List<ProductLot> extraLots = ProductPassportService.RemoveStock(sRowExtra, extraAmount);
 
                                         PlacedFurnitureController extraTarget = null;
                                         int extraTargetRow = -1;
@@ -2250,7 +2389,8 @@ namespace Farm2Shelf.Environment
                                             {
                                                 var rInfo = storeShelf.rows[rId];
                                                 if (rInfo == null || rInfo.IsUnassigned) continue;
-                                                if (!ProductPassportService.RowHoldsProduct(rInfo, extraId, extraName)) continue;
+                                                if (!CanRestockFrom(sRowExtra, rInfo)) continue;
+                                                if (IsShelfRowClaimedByOtherRestocker(data, storeShelf, rId)) continue;
                                                 int curFill = (storeShelf == data.targetShelf1 && rId == data.targetRowId1) ? rInfo.currentStock + data.carriedAmount1 : rInfo.currentStock;
                                                 if (curFill < rInfo.maxCapacity)
                                                 {
@@ -2262,15 +2402,12 @@ namespace Farm2Shelf.Environment
                                             if (extraTarget != null) break;
                                         }
 
-                                        if (extraTarget == null)
-                                        {
-                                            sRowExtra.productName = extraName;
-                                            sRowExtra.productId = extraId;
-                                            sRowExtra.unitPrice = extraPrice;
-                                            ProductPassportService.AddStock(sRowExtra, extraLots, sRowExtra.maxCapacity);
-                                            storage.UpdateRow3DProductMeshes(sr + 1);
-                                            continue;
-                                        }
+                                        if (extraTarget == null) continue;
+                                        int reserved = extraTarget == data.targetShelf1 && extraTargetRow == data.targetRowId1 ? data.carriedAmount1 : 0;
+                                        var extraRow = extraTarget.rows[extraTargetRow];
+                                        extraAmount = Mathf.Min(extraAmount, extraRow.maxCapacity - extraRow.currentStock - reserved);
+                                        if (extraAmount <= 0) continue;
+                                        List<ProductLot> extraLots = ProductPassportService.RemoveStock(sRowExtra, extraAmount);
 
                                         if (sRowExtra.currentStock <= 0)
                                         {
@@ -2297,7 +2434,7 @@ namespace Farm2Shelf.Environment
                         if (totalBoxesFetched > 0)
                         {
                             // Reyoncunun İKİ ELİ DE DOLU (Sol El ve Sağ El) 2 Koli Oluştur!
-                            int boxMeshCount = Mathf.Max(2, totalBoxesFetched);
+                            int boxMeshCount = totalBoxesFetched;
                             CreateCarriedBoxesOnStaff(data, boxMeshCount);
 
                             Vector3 targetPos = data.targetShelf1.GetFrontInteractionPosition(1.2f);
@@ -2324,10 +2461,12 @@ namespace Farm2Shelf.Environment
                             ShelfRowData rData1 = data.targetShelf1.rows[data.targetRowId1];
                             if (rData1 != null)
                             {
-                                ProductPassportService.AddStock(rData1, data.carriedLots1, rData1.maxCapacity);
-                                data.targetShelf1.UpdateRow3DProductMeshes(data.targetRowId1);
+                                int stockBefore = rData1.currentStock;
+                                bool finished = TryPlaceRestockLots(data.targetShelf1, data.targetRowId1, data.carriedLots1);
                                 Vector3 popupPos = data.targetShelf1.GetFrontInteractionPosition(1.2f);
-                                ShowStockPopup(popupPos, string.Format(LocalizationManager.L("StaffPopup_FirstBoxFmt", "+{0} Stok (1. Koli) 📦", "+{0} Stock (Box 1) 📦"), data.carriedAmount1));
+                                if (rData1.currentStock > stockBefore)
+                                    ShowStockPopup(popupPos, string.Format(LocalizationManager.L("StaffPopup_FirstBoxFmt", "+{0} Stok (1. Koli) 📦", "+{0} Stock (Box 1) 📦"), rData1.currentStock - stockBefore));
+                                if (!finished) return;
                             }
                         }
 
@@ -2368,10 +2507,12 @@ namespace Farm2Shelf.Environment
                             ShelfRowData rData2 = data.targetShelf2.rows[data.targetRowId2];
                             if (rData2 != null)
                             {
-                                ProductPassportService.AddStock(rData2, data.carriedLots2, rData2.maxCapacity);
-                                data.targetShelf2.UpdateRow3DProductMeshes(data.targetRowId2);
+                                int stockBefore = rData2.currentStock;
+                                bool finished = TryPlaceRestockLots(data.targetShelf2, data.targetRowId2, data.carriedLots2);
                                 Vector3 popupPos = data.targetShelf2.GetFrontInteractionPosition(1.2f);
-                                ShowStockPopup(popupPos, string.Format(LocalizationManager.L("StaffPopup_SecondBoxFmt", "+{0} Stok (2. Koli) 📦", "+{0} Stock (Box 2) 📦"), data.carriedAmount2));
+                                if (rData2.currentStock > stockBefore)
+                                    ShowStockPopup(popupPos, string.Format(LocalizationManager.L("StaffPopup_SecondBoxFmt", "+{0} Stok (2. Koli) 📦", "+{0} Stock (Box 2) 📦"), rData2.currentStock - stockBefore));
+                                if (!finished) return;
                             }
                         }
 
@@ -2439,17 +2580,33 @@ namespace Farm2Shelf.Environment
                     return;
                 }
 
-                FreeSofaSeat(data);
-                data.isSitting = false;
-                ResetLimbsToRest(data);
+                var pending = WholesaleTruckManager.Instance.IsTruckAtDockWaitingForUnload
+                    ? WholesaleTruckManager.Instance.PendingTruckPackages
+                    : GreenTruckDeliveryManager.Instance.PendingTruckPackages;
+                bool canUnload = false;
+                if (pending != null)
+                {
+                    foreach (var package in pending)
+                    {
+                        if (WholesaleTruckManager.GetNextAvailableStorageShelfForProduct(package) == null) continue;
+                        canUnload = true;
+                        break;
+                    }
+                }
+                if (canUnload)
+                {
+                    FreeSofaSeat(data);
+                    data.isSitting = false;
+                    ResetLimbsToRest(data);
 
-                data.isUnloadingTruck = true;
-                data.isFetchingFromTruck = true;
-                Vector3 truckDockPos = new Vector3(13.0f, 0.05f, 2.0f);
+                    data.isUnloadingTruck = true;
+                    data.isFetchingFromTruck = true;
+                    Vector3 truckDockPos = new Vector3(13.0f, 0.05f, 2.0f);
 
-                data.waypoints = BuildStructuredStaffWaypoints(data.staffObj.transform.position, truckDockPos);
-                data.currentWaypointIndex = 1;
-                return;
+                    data.waypoints = BuildStructuredStaffWaypoints(data.staffObj.transform.position, truckDockPos);
+                    data.currentWaypointIndex = 1;
+                    return;
+                }
             }
 
             // GÖREV 2: Depo Rafından Mağaza Raflarına Koli Taşıma
@@ -2506,7 +2663,7 @@ namespace Farm2Shelf.Environment
                             for (int sr = 0; sr < storage.rows.Length; sr++)
                             {
                                 var sRow = storage.rows[sr];
-                                bool isMatch1 = sRow != null && sRow.currentStock > 0 && ProductPassportService.RowHoldsProduct(sRow, rData.productId, rData.productName);
+                                bool isMatch1 = CanRestockFrom(sRow, rData);
                                 if (isMatch1 && !IsStorageRowClaimedByOtherRestocker(data, storage, sr))
                                 {
                                     data.targetShelf1 = s;
@@ -2553,7 +2710,8 @@ namespace Farm2Shelf.Environment
                                 for (int sr = 0; sr < storage.rows.Length; sr++)
                                 {
                                     var sRow = storage.rows[sr];
-                                    bool isMatch2 = sRow != null && ProductPassportService.RowHoldsProduct(sRow, rData.productId, rData.productName);
+                                    bool isMatch2 = CanRestockFrom(sRow, rData);
+                                    if (storage != data.sourceStorageShelf) continue;
                                     int availableStorage = isMatch2 ? sRow.currentStock : 0;
                                     if (storage == data.sourceStorageShelf && sr == data.sourceStorageRowId) availableStorage -= 20;
 
@@ -2830,10 +2988,10 @@ namespace Farm2Shelf.Environment
                 data.staffObj.transform.rotation = Quaternion.RotateTowards(data.staffObj.transform.rotation, targetRot, 360f * deltaTime);
             }
 
-            Vector3 nextPosNorm = Vector3.MoveTowards(currentPos, targetPatrolPos, 1.8f * deltaTime);
+            Vector3 nextPosNorm = Vector3.MoveTowards(currentPos, targetPatrolPos, 1.8f * 1.15f * deltaTime);
             data.staffObj.transform.position = nextPosNorm;
 
-            data.walkCycleTimer += deltaTime * 6.5f;
+            data.walkCycleTimer += deltaTime * 6.5f * 1.15f;
             float legAngle = Mathf.Sin(data.walkCycleTimer) * 22.0f;
             AnimateLimbs(data, legAngle);
         }
@@ -2866,7 +3024,10 @@ namespace Farm2Shelf.Environment
             }
 
             bool isFinalWaypoint = (data.currentWaypointIndex == data.waypoints.Count - 1);
-            float arrivalThreshold = isFinalWaypoint ? 0.95f : 0.85f;
+            bool physicalStockTransfer = data.staffMember.role == StaffRole.Reyoncu &&
+                !data.isGatheringForOnlineOrder && !data.isCarryingDeliveryBoxToMotorcycle &&
+                (data.isUnloadingTruck || data.isFetchingFromStorage || data.targetShelf1 != null || data.targetShelf2 != null);
+            float arrivalThreshold = isFinalWaypoint ? (physicalStockTransfer ? 0.35f : 0.95f) : 0.85f;
 
             // 1. VARMA KONTROLÜ
             if (toTarget.magnitude < arrivalThreshold)
@@ -2917,7 +3078,7 @@ namespace Farm2Shelf.Environment
             Vector3 moveDir = toTarget.normalized;
 
             // 3. İLERLEME VE KAÇINMA YÖNÜ HESAPLAMA (14 Açılı Dairesel Kaçınma & Duvar Kayması)
-            float stepDist = WALK_SPEED * deltaTime;
+            float stepDist = Mathf.Min(WALK_SPEED * deltaTime, toTarget.magnitude);
             Vector3 avoidanceDir = CalculateAvoidanceDirection(data.staffObj, currentPos, moveDir, stepDist);
 
             if (avoidanceDir != Vector3.zero)
@@ -2929,7 +3090,7 @@ namespace Farm2Shelf.Environment
             Vector3 nextPos = Vector3.MoveTowards(currentPos, currentPos + avoidanceDir, stepDist);
             data.staffObj.transform.position = nextPos;
 
-            data.walkCycleTimer += deltaTime * 8.5f;
+            data.walkCycleTimer += deltaTime * 8.5f * 1.15f;
             float legAngle = Mathf.Sin(data.walkCycleTimer) * 26.0f;
             AnimateLimbs(data, legAngle);
         }
@@ -2979,6 +3140,7 @@ namespace Farm2Shelf.Environment
 
         private void AnimateLimbs(StaffTaskData data, float angle)
         {
+            ReleaseServiceDeskSeat(data);
             AnimateLimbSide(data.leftLimbs, angle, true, data != null && data.isCarryingBoxes);
             AnimateLimbSide(data.rightLimbs, -angle, false, data != null && data.isCarryingBoxes);
         }
@@ -2990,6 +3152,11 @@ namespace Farm2Shelf.Environment
             {
                 Transform t = limbs[i];
                 if (t == null) continue;
+                if (t.name.StartsWith("Leg_", StringComparison.Ordinal))
+                {
+                    Transform knee = t.Find("ServiceKnee");
+                    if (knee != null) knee.localRotation = Quaternion.identity;
+                }
                 if (carrying && t.name.StartsWith("Arm", StringComparison.Ordinal))
                 {
                     t.localRotation = left ? CarryArmRotL : CarryArmRotR;
@@ -3003,6 +3170,7 @@ namespace Farm2Shelf.Environment
 
         private void ResetLimbsToRest(StaffTaskData data)
         {
+            ReleaseServiceDeskSeat(data);
             if (data != null && data.isCarryingBoxes)
             {
                 AnimateLimbSide(data.leftLimbs, 0f, true, false);
@@ -3013,6 +3181,15 @@ namespace Farm2Shelf.Environment
 
             AnimateLimbSide(data != null ? data.leftLimbs : null, 0f, true, false);
             AnimateLimbSide(data != null ? data.rightLimbs : null, 0f, false, false);
+        }
+
+        private static void ReleaseServiceDeskSeat(StaffTaskData data)
+        {
+            if (data == null || !data.isSeatedAtServiceDesk || data.staffObj == null) return;
+            Vector3 position = data.staffObj.transform.position;
+            position.y = data.serviceDeskFloorY;
+            data.staffObj.transform.position = position;
+            data.isSeatedAtServiceDesk = false;
         }
 
         #endregion

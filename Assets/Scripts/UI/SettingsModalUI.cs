@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using Farm2Shelf.Core;
@@ -547,8 +547,7 @@ namespace Farm2Shelf.UI
                 SelectLanguage(language);
             });
 
-            LanguagePickButton picker = btnObj.AddComponent<LanguagePickButton>();
-            picker.Setup(language, SelectLanguage);
+            // Button.onClick is the single owner of this language selection.
 
             GameObject txtObj = new GameObject("Label");
             txtObj.transform.SetParent(btnObj.transform, false);

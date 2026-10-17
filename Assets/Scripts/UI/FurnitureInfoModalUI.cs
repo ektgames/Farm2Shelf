@@ -11,7 +11,7 @@ namespace Farm2Shelf.UI
     public class FurnitureInfoModalUI : MonoBehaviour
     {
         public static FurnitureInfoModalUI Instance { get; private set; }
-        public static bool IsFurnitureModalOpen => Instance != null && Instance.modalCanvasObj != null && Instance.modalCanvasObj.activeSelf;
+        public static bool IsFurnitureModalOpen => Instance != null && Instance.modalCanvasObj != null && Instance.modalCanvasObj.activeInHierarchy;
 
         private static bool globalIsHideAssignedActive = false;
 
@@ -181,6 +181,20 @@ namespace Farm2Shelf.UI
                 Text shText = CreateText(subHeader, string.Format(stockFmt, zoneStr, totalStock, totalCapacity, fillRatio), 16, FontStyle.Bold, new Color(0.85f, 0.90f, 0.95f));
                 shText.alignment = TextAnchor.MiddleCenter;
 
+                bool canAutoAssign = furniture.FurnitureType != FurnitureType.StorageShelf && furniture.rows != null;
+                if (canAutoAssign)
+                {
+                    GameObject autoButton = CreateButton(panel,
+                        LocalizationManager.L("Furniture_AutoAssign", "Otomatik Ürün Ata", "Auto-Assign Products"),
+                        new Color(0.16f, 0.48f, 0.38f), () => AutoAssignProducts(furniture));
+                    RectTransform autoRect = autoButton.GetComponent<RectTransform>();
+                    autoRect.anchorMin = new Vector2(0, 1);
+                    autoRect.anchorMax = new Vector2(1, 1);
+                    autoRect.pivot = new Vector2(0.5f, 1);
+                    autoRect.anchoredPosition = new Vector2(0, -115);
+                    autoRect.sizeDelta = new Vector2(-40, 48);
+                }
+
                 // Raf Kat Kartları Konteyneri (Maskeli Kaydırılabilir Liste)
                 GameObject scrollObj = new GameObject("Rows_ScrollArea");
                 scrollObj.transform.SetParent(panel.transform, false);
@@ -188,7 +202,7 @@ namespace Farm2Shelf.UI
                 sRect.anchorMin = new Vector2(0, 0);
                 sRect.anchorMax = new Vector2(1, 1);
                 sRect.offsetMin = new Vector2(20, 95);  // Alt Butonlar Barının Üstü
-                sRect.offsetMax = new Vector2(-20, -115); // Üst Özet Bilgi Barının Altı
+                sRect.offsetMax = new Vector2(-20, canAutoAssign ? -175 : -115);
 
                 Image sBgImg = scrollObj.AddComponent<Image>();
                 sBgImg.color = new Color(0.08f, 0.12f, 0.18f, 0.60f);
@@ -285,12 +299,22 @@ namespace Farm2Shelf.UI
             vlg.childControlWidth = true;
             vlg.childControlHeight = true;
 
-            if (def.passiveIncomePerUse > 0)
+            if (furniture.FurnitureType == FurnitureType.AtmMachine)
+            {
+                hText.text = LocalizationManager.L("ATM_InfoTitle", "Bankamatik — Müşteri Etkileşimi", "ATM — Customer Interaction");
+                BuildInfoCard(contentBox, LocalizationManager.L("ATM_BenefitTitle", "Ek Alışveriş", "Extra Shopping"), LocalizationManager.L("ATM_Benefit", "Kullanan müşteri stoktan 2–3 ek ürün alır.", "Each user buys 2–3 extra stocked items."), new Color(0.30f, 0.85f, 0.45f));
+                BuildInfoCard(contentBox, LocalizationManager.L("ATM_RuleTitle", "Kullanım Koşulu", "Usage Rule"), LocalizationManager.L("ATM_Rule", "Müşteri başına bir kez; uygun reyon stoğu gerekir.", "Once per customer; suitable shelf stock required."), new Color(0.95f, 0.80f, 0.25f));
+                BuildInfoCard(contentBox, LocalizationManager.L("ATM_IncomeTitle", "Gelir", "Income"), LocalizationManager.L("ATM_Income", "Pasif gelir yok. Ek ürünler kasada ödenir.", "No passive income. Extra items are paid at checkout."), new Color(0.20f, 0.85f, 0.95f));
+            }
+            else if (def.passiveIncomePerUse > 0)
             {
                 // Ticari Satış / Otomat Cihazları
                 BuildInfoCard(contentBox, LocalizationManager.L("Furniture_UseIncome", "💰 Müşteri Satış / Kullanım Geliri", "💰 Customer Sale / Use Income"), string.Format(LocalizationManager.L("Furniture_PerUseFmt", "+{0:N0}C / Kullanım", "+{0:N0}C / Use"), def.passiveIncomePerUse), new Color(0.30f, 0.85f, 0.45f));
                 BuildInfoCard(contentBox, LocalizationManager.L("Furniture_TotalPassive", "📊 Kazanılan Toplam Pasif Gelir", "📊 Total Passive Income Earned"), $"+{furniture.TotalEarnedPassiveIncome:N0}C", new Color(0.95f, 0.80f, 0.25f));
-                BuildInfoCard(contentBox, LocalizationManager.L("Furniture_VendingStatusTitle", "⚡ Durum ve Otomat Türü", "⚡ Status and Vending Type"), LocalizationManager.L("Furniture_VendingStatus", "🟢 Aktif Ticari Otomat (Otomatik Satış)", "🟢 Active Commercial Vending Machine (Automatic Sales)"), new Color(0.20f, 0.85f, 0.95f));
+                BuildInfoCard(contentBox, LocalizationManager.L("Furniture_VendingStatusTitle", "⚡ Durum ve Otomat Türü", "⚡ Status and Vending Type"),
+                    furniture.FurnitureType == FurnitureType.ArcadeMachine
+                        ? LocalizationManager.L("Arcade_UseDuration", "Tek oyuncu • 30 veya 60 gerçek saniye\nGelir oyun tamamlandığında verilir.", "One player • 30 or 60 real seconds\nIncome is awarded when play ends.")
+                        : LocalizationManager.L("Furniture_VendingStatus", "🟢 Aktif Ticari Otomat (Otomatik Satış)", "🟢 Active Commercial Vending Machine (Automatic Sales)"), new Color(0.20f, 0.85f, 0.95f));
             }
             else
             {
@@ -384,6 +408,159 @@ namespace Farm2Shelf.UI
             vText.verticalOverflow = VerticalWrapMode.Truncate;
         }
 
+        private static int CountAssignedShelves(string productId, string productName)
+        {
+            int count = 0;
+            foreach (var shelf in PlacedFurnitureController.AllPlacedFurniture)
+            {
+                if (shelf == null || shelf.rows == null || shelf.FurnitureType == FurnitureType.StorageShelf) continue;
+                foreach (var row in shelf.rows)
+                {
+                    if (row != null && !row.IsUnassigned && ProductPassportService.RowHoldsProduct(row, productId, productName))
+                        count++;
+                }
+            }
+            return count;
+        }
+
+        private static string AssignmentCountLabel(int count)
+        {
+            return string.Format(LocalizationManager.L("Furniture_AssignmentCount", "Raf: {0}", "Shelves: {0}"), count);
+        }
+
+        private void AutoAssignProducts(PlacedFurnitureController furniture)
+        {
+            if (furniture == null || furniture.rows == null || furniture.FurnitureType == FurnitureType.StorageShelf) return;
+            var products = GetAssignableProducts(furniture, false);
+            var counts = new Dictionary<string, int>();
+            foreach (var product in products)
+            {
+                if (!string.IsNullOrEmpty(product.id))
+                    counts[product.id] = CountAssignedShelves(product.id, product.name);
+            }
+
+            int assigned = 0;
+            for (int i = 0; i < furniture.rows.Length; i++)
+            {
+                var row = furniture.rows[i];
+                // Preserve existing selections and all stock, including legacy lot-only data.
+                if (row == null || !row.IsUnassigned || row.currentStock > 0 ||
+                    (row.lots != null && row.lots.Count > 0) || row.maxCapacity <= 0) continue;
+
+                WholesaleProductDef selected = null;
+                int lowestCount = int.MaxValue;
+                foreach (var product in products)
+                {
+                    if (string.IsNullOrEmpty(product.id)) continue;
+                    int count = counts[product.id];
+                    if (count < lowestCount)
+                    {
+                        selected = product;
+                        lowestCount = count;
+                    }
+                }
+                if (selected == null) break;
+
+                row.productId = selected.id;
+                row.productName = selected.name;
+                row.unitPrice = selected.SalePricePerUnit;
+                ProductPassportService.ClearRowContents(row);
+                counts[selected.id]++;
+                furniture.UpdateRow3DProductMeshes(i + 1);
+                assigned++;
+            }
+
+            if (assigned > 0)
+            {
+                ShowModal(furniture);
+                if (TutorialManager.Instance != null) TutorialManager.Instance.NotifyProductAssignedToShelf();
+            }
+            else
+            {
+                ShowStorageWarningModal(
+                    LocalizationManager.L("Furniture_AutoAssign", "Otomatik Ürün Ata", "Auto-Assign Products"),
+                    products.Count == 0
+                        ? LocalizationManager.L("Furniture_NoAutoProducts", "Bu raf için mevcut seviyeye ve mevsime uygun ürün bulunmuyor.", "No products are available for this shelf at the current level and season.")
+                        : LocalizationManager.L("Furniture_NoUnassignedRows", "Bu rafta ürün atanmamış boş bölme yok. Mevcut ürün seçimleriniz korundu.", "This shelf has no empty, unassigned slots. Your existing product selections were preserved."));
+            }
+        }
+
+        private static List<WholesaleProductDef> GetAssignableProducts(PlacedFurnitureController furniture, bool includeExistingSelections = true)
+        {
+            int currentLevel = (Farm2Shelf.Environment.EnvironmentBuilder.Instance != null) ? Farm2Shelf.Environment.EnvironmentBuilder.Instance.CurrentUpgradeLevel : 1;
+            List<WholesaleProductDef> productsPool = new List<WholesaleProductDef>();
+
+            if (furniture.FurnitureType == FurnitureType.ProduceShelf)
+            {
+                TimeManager.Season currentSeason = (TimeManager.Instance != null) ? TimeManager.Instance.CurrentSeason : TimeManager.Season.İlkbahar;
+
+                // MANAV RAFI İÇİN ŞU AN TOHUMU SATIN ALINABİLEN (Aktif Mevsim + Yeterli Seviye) ÜRÜNLERİ FİLTRELE!
+                List<GardenSeedDef> purchasableSeeds = GardenSeedDatabase.GetAllSeeds().FindAll(s => s.season == currentSeason && s.requiredLevel <= currentLevel);
+
+                if (includeExistingSelections && furniture.rows != null)
+                {
+                    foreach (var r in furniture.rows)
+                    {
+                        if (r != null && !r.IsUnassigned)
+                        {
+                            GardenSeedDef existingDef = GardenSeedDatabase.GetSeedById(r.productId);
+                            if (existingDef != null && !purchasableSeeds.Contains(existingDef))
+                            {
+                                purchasableSeeds.Add(existingDef);
+                            }
+                        }
+                    }
+                }
+
+                foreach (var seed in purchasableSeeds)
+                {
+                    string cropName = seed.name.Replace(" Tohumu", "").Replace(" Tohum", "");
+                    int wholesalePrice = Mathf.Max(1, Mathf.RoundToInt(seed.unitSalePrice / 1.4f));
+                    WholesaleProductDef cropProd = new WholesaleProductDef(
+                        seed.id,
+                        cropName,
+                        seed.iconEmoji,
+                        FurnitureType.ProduceShelf,
+                        seed.requiredLevel,
+                        wholesalePrice,
+                        50,
+                        40f
+                    );
+                    productsPool.Add(cropProd);
+                }
+            }
+            else if (furniture.FurnitureType == FurnitureType.GourmetShelf)
+            {
+                // GURME RAFI: SADECE VE SADECE ATÖLYEDE ÜRETİLEN GURME ÜRÜNLERİ KABUL EDER!
+                List<WorkshopRecipeDef> allRecipes = WorkshopMachineDatabase.GetAllRecipes();
+                foreach (var recipe in allRecipes)
+                {
+                    int wholesalePrice = Mathf.Max(1, Mathf.RoundToInt(recipe.unitSalePrice / 1.4f));
+                    WholesaleProductDef gourmetProd = new WholesaleProductDef(
+                        recipe.outputProductId,
+                        recipe.outputNameTr,
+                        recipe.outputNameEn,
+                        recipe.iconEmoji,
+                        FurnitureType.GourmetShelf,
+                        1,
+                        wholesalePrice,
+                        recipe.outputPackCount,
+                        40f
+                    );
+                    productsPool.Add(gourmetProd);
+                }
+            }
+            else
+            {
+                productsPool = WholesaleDatabase.GetAllProducts().FindAll(p => p.requiredLevel <= currentLevel);
+                if (furniture.FurnitureType != FurnitureType.StorageShelf)
+                {
+                    productsPool = productsPool.FindAll(p => p.targetShelfType == furniture.FurnitureType);
+                }
+            }
+            return productsPool;
+        }
+
         private void BuildRowCard(GameObject parent, ShelfRowData rData)
         {
             GameObject cardObj = new GameObject($"RowCard_{rData.rowId}");
@@ -450,7 +627,11 @@ namespace Farm2Shelf.UI
 
             string priceStr = (!isStorageShelf && !isUnassigned && rData.unitPrice > 0) ? $" ({rData.unitPrice:F2}C)" : "";
 
-            Text pText = CreateText(infoBox, $"{displayName}{priceStr}", 17, FontStyle.Bold, (isStorageShelf && rData.currentStock <= 0) || isUnassigned ? new Color(0.65f, 0.65f, 0.65f) : Color.white);
+            string assignmentLine = !isStorageShelf && !isUnassigned
+                ? "\n<color=#F5C242>" + AssignmentCountLabel(CountAssignedShelves(rData.productId, rData.productName)) + "</color>"
+                : "";
+            Text pText = CreateText(infoBox, $"{displayName}{priceStr}{assignmentLine}", 17, FontStyle.Bold, (isStorageShelf && rData.currentStock <= 0) || isUnassigned ? new Color(0.65f, 0.65f, 0.65f) : Color.white);
+            pText.supportRichText = true;
             RectTransform ptRect = pText.GetComponent<RectTransform>();
             ptRect.anchorMin = new Vector2(0, 0.5f);
             ptRect.anchorMax = new Vector2(1, 1);
@@ -484,7 +665,7 @@ namespace Farm2Shelf.UI
             Text sText = CreateText(infoBox, stockLine, 13, FontStyle.Bold, stockColor);
             RectTransform stRect = sText.GetComponent<RectTransform>();
             stRect.anchorMin = new Vector2(0, 0.02f);
-            stRect.anchorMax = new Vector2(1, 0.52f);
+            stRect.anchorMax = new Vector2(1, 0.48f);
             stRect.offsetMin = Vector2.zero;
             stRect.offsetMax = Vector2.zero;
             sText.alignment = TextAnchor.MiddleLeft;
@@ -749,95 +930,7 @@ namespace Farm2Shelf.UI
 
             scrollRect.content = cRect;
 
-            // --- HANGİ ÜRÜNLERİN DÜKKANDA KAÇ ADET RAFTA ATANMIŞ OLDUĞUNU HESAPLA ---
-            Dictionary<string, int> assignedCounts = new Dictionary<string, int>();
-            var allShelves = PlacedFurnitureController.AllPlacedFurniture;
-            foreach (var s in allShelves)
-            {
-                if (s == null || s.rows == null || s.FurnitureType == FurnitureType.StorageShelf) continue;
-                foreach (var r in s.rows)
-                {
-                    if (r != null && !r.IsUnassigned)
-                    {
-                        if (!assignedCounts.ContainsKey(r.productName))
-                            assignedCounts[r.productName] = 0;
-                        assignedCounts[r.productName]++;
-                    }
-                }
-            }
-
-            // --- KATEGORİ SÜZME VE ÜRÜN HAVUZU OLUSTURMA ---
-            int currentLevel = (Farm2Shelf.Environment.EnvironmentBuilder.Instance != null) ? Farm2Shelf.Environment.EnvironmentBuilder.Instance.CurrentUpgradeLevel : 1;
-            List<WholesaleProductDef> productsPool = new List<WholesaleProductDef>();
-
-            if (furniture.FurnitureType == FurnitureType.ProduceShelf)
-            {
-                TimeManager.Season currentSeason = (TimeManager.Instance != null) ? TimeManager.Instance.CurrentSeason : TimeManager.Season.İlkbahar;
-
-                // MANAV RAFI İÇİN ŞU AN TOHUMU SATIN ALINABİLEN (Aktif Mevsim + Yeterli Seviye) ÜRÜNLERİ FİLTRELE!
-                List<GardenSeedDef> purchasableSeeds = GardenSeedDatabase.GetAllSeeds().FindAll(s => s.season == currentSeason && s.requiredLevel <= currentLevel);
-
-                if (furniture.rows != null)
-                {
-                    foreach (var r in furniture.rows)
-                    {
-                        if (r != null && !r.IsUnassigned)
-                        {
-                            GardenSeedDef existingDef = GardenSeedDatabase.GetSeedById(r.productId);
-                            if (existingDef != null && !purchasableSeeds.Contains(existingDef))
-                            {
-                                purchasableSeeds.Add(existingDef);
-                            }
-                        }
-                    }
-                }
-
-                foreach (var seed in purchasableSeeds)
-                {
-                    string cropName = seed.name.Replace(" Tohumu", "").Replace(" Tohum", "");
-                    int wholesalePrice = Mathf.Max(1, Mathf.RoundToInt(seed.unitSalePrice / 1.4f));
-                    WholesaleProductDef cropProd = new WholesaleProductDef(
-                        seed.id,
-                        cropName,
-                        seed.iconEmoji,
-                        FurnitureType.ProduceShelf,
-                        seed.requiredLevel,
-                        wholesalePrice,
-                        50,
-                        40f
-                    );
-                    productsPool.Add(cropProd);
-                }
-            }
-            else if (furniture.FurnitureType == FurnitureType.GourmetShelf)
-            {
-                // GURME RAFI: SADECE VE SADECE ATÖLYEDE ÜRETİLEN GURME ÜRÜNLERİ KABUL EDER!
-                List<WorkshopRecipeDef> allRecipes = WorkshopMachineDatabase.GetAllRecipes();
-                foreach (var recipe in allRecipes)
-                {
-                    int wholesalePrice = Mathf.Max(1, Mathf.RoundToInt(recipe.unitSalePrice / 1.4f));
-                    WholesaleProductDef gourmetProd = new WholesaleProductDef(
-                        recipe.outputProductId,
-                        recipe.outputNameTr,
-                        recipe.outputNameEn,
-                        recipe.iconEmoji,
-                        FurnitureType.GourmetShelf,
-                        1,
-                        wholesalePrice,
-                        recipe.outputPackCount,
-                        40f
-                    );
-                    productsPool.Add(gourmetProd);
-                }
-            }
-            else
-            {
-                productsPool = WholesaleDatabase.GetAllProducts().FindAll(p => p.requiredLevel <= currentLevel);
-                if (furniture.FurnitureType != FurnitureType.StorageShelf)
-                {
-                    productsPool = productsPool.FindAll(p => p.targetShelfType == furniture.FurnitureType);
-                }
-            }
+            List<WholesaleProductDef> productsPool = GetAssignableProducts(furniture);
 
             // DİNAMİK LİSTE YENİLEME METODU
             System.Action RebuildProductList = () =>
@@ -868,28 +961,7 @@ namespace Farm2Shelf.UI
                     uText.alignment = TextAnchor.MiddleLeft;
 
                     GameObject unassignBtn = CreateButton(unassignCard, LocalizationManager.L("Btn_EmptyShelf", "🧹 Boşalt", "🧹 Empty"), new Color(0.75f, 0.25f, 0.25f), () => {
-                        int stock = rData.currentStock;
-                        if (stock > 0 && !rData.IsUnassigned)
-                        {
-                            int availableSpace = GetTotalAvailableStorageCapacityForProduct(rData.productName);
-                            if (availableSpace < stock)
-                            {
-                                ShowStorageWarningModal(
-                                    LocalizationManager.L("Furniture_StorageFullTitle", "⚠️ Depoda Yeterli Yer Yok!", "⚠️ Not Enough Warehouse Space!"),
-                                    string.Format(
-                                        LocalizationManager.L("Furniture_StorageFullBodyFmt", "Rafta kalan <b>{0} adet {1}</b> ürününü aktarabilmek için depoda yeterli boş alan bulunmuyor!\n\n<i>(Mevcut Boş Depo Kapasitesi: {2} Adet)</i>\n\nLütfen önce depoda yer açın veya yeni bir Depo Rafı kurun.", "There is not enough warehouse space to transfer the remaining <b>{0} units of {1}</b>!\n\n<i>(Available Warehouse Capacity: {2} Units)</i>\n\nFree up space or install a new Storage Shelf first."),
-                                        stock, rData.productName, availableSpace)
-                                );
-                                return;
-                            }
-
-                            string pName = rData.productName;
-                            string pId = rData.productId;
-                            float pPrice = rData.unitPrice;
-
-                            List<ProductLot> movingLots = ProductPassportService.RemoveStock(rData, stock);
-                            TransferLotsToStorageShelves(pName, pId, pPrice, movingLots);
-                        }
+                        if (!TryReturnRowStockToStorage(rData)) return;
 
                         rData.productName = "Boş";
                         rData.productId = "";
@@ -898,7 +970,7 @@ namespace Farm2Shelf.UI
                         ProductPassportService.ClearRowContents(rData);
 
                         furniture.UpdateRow3DProductMeshes(rData.rowId);
-                        Destroy(subPanel);
+                        Destroy(subBackdrop);
                         ShowModal(furniture);
                     });
 
@@ -915,7 +987,7 @@ namespace Farm2Shelf.UI
                 List<WholesaleProductDef> filteredList = new List<WholesaleProductDef>();
                 foreach (var prod in productsPool)
                 {
-                    assignedCounts.TryGetValue(prod.name, out int count);
+                    int count = CountAssignedShelves(prod.id, prod.name);
 
                     // Atanmışları gizle seçeneği aktifse ve ürün en az 1 rafta varsa gizle!
                     if (globalIsHideAssignedActive && count > 0) continue;
@@ -956,15 +1028,13 @@ namespace Farm2Shelf.UI
                         le.preferredHeight = 62;
 
                         Image pBg = prodCard.AddComponent<Image>();
-                        assignedCounts.TryGetValue(prod.name, out int assignedCount);
+                        int assignedCount = CountAssignedShelves(prod.id, prod.name);
 
                         // Atanmışsa şık altın/koyu vurgulu kart rengi
                         pBg.color = (assignedCount > 0) ? new Color(0.18f, 0.22f, 0.28f, 1f) : new Color(0.14f, 0.20f, 0.28f, 1f);
 
                         // Metin ve Stok/Raf Detay Gösterimi
-                        string cardInfoText = (assignedCount > 0)
-                            ? $"{prod.name} (Satış Fiyatı: {prod.SalePricePerUnit:N0}C)\n<color=#F5C242>{assignedCount} adet rafta mevcut</color>"
-                            : $"{prod.name} (Satış Fiyatı: {prod.SalePricePerUnit:N0}C)";
+                        string cardInfoText = $"{prod.LocalizedName} ({prod.SalePricePerUnit:N0}C)\n<color=#F5C242>{AssignmentCountLabel(assignedCount)}</color>";
 
                         Text pText = CreateText(prodCard, cardInfoText, 15, FontStyle.Bold, Color.white);
                         pText.supportRichText = true;
@@ -975,6 +1045,14 @@ namespace Farm2Shelf.UI
 
                         var selectedProd = prod;
                         GameObject selectBtn = CreateButton(prodCard, LocalizationManager.L("Btn_AssignShelf", "✅ Rafa Koy", "✅ Assign to Shelf"), new Color(0.18f, 0.65f, 0.35f), () => {
+                            // Selecting the same product preserves its existing stock.
+                            if (rData.productId == selectedProd.id)
+                            {
+                                Destroy(subBackdrop);
+                                ShowModal(furniture);
+                                return;
+                            }
+                            if (!TryReturnRowStockToStorage(rData)) return;
                             rData.productName = selectedProd.name;
                             rData.productId = selectedProd.id;
                             rData.unitPrice = selectedProd.SalePricePerUnit;
@@ -1070,6 +1148,8 @@ namespace Farm2Shelf.UI
 
             string desc = def != null ? def.LocalizedDescription : LocalizationManager.L("Furniture_GenericDescription", "Mağaza alanı stantı.", "Store floor fixture.");
             string genericInfo = LocalizationManager.L("Furniture_GenericInfo", "Seviye: 1 | Durum: Aktif & Hizmette\nFonksiyon: Mağaza Standı / Hizmet Noktası", "Level: 1 | Status: Active & In Service\nFunction: Store Fixture / Service Point");
+            if (furniture.FurnitureType == FurnitureType.TrashCan)
+                genericInfo = LocalizationManager.L("Furniture_TrashBinInfo", "Fonksiyon: Çöp toplama / kirlenmeyi azaltma\nPersonel veya kullanım ücreti gerektirmez.", "Function: Waste disposal / reduced littering\nNo staff or usage fee required.");
             Text cardText = CreateText(cardObj, $"{desc}\n\n{genericInfo}", 18, FontStyle.Normal, new Color(0.90f, 0.95f, 1.0f));
             cardText.alignment = TextAnchor.UpperLeft;
             cardText.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -1408,84 +1488,98 @@ namespace Farm2Shelf.UI
             return inputField;
         }
 
-        private int GetTotalAvailableStorageCapacityForProduct(string productName)
+        private bool TryReturnRowStockToStorage(ShelfRowData source)
         {
-            int totalSpace = 0;
-            var allFurniture = PlacedFurnitureController.AllPlacedFurniture;
-            foreach (var f in allFurniture)
+            if (source == null || source.currentStock <= 0) return true;
+
+            // Simulate the complete transfer on independent copies before changing any
+            // real shelf. A failed capacity check must not partially move or erase goods.
+            ShelfRowData sourceCopy = CopyRowForStorageTransfer(source);
+            ProductPassportService.EnsureRowLots(sourceCopy);
+            var destinations = new List<(PlacedFurnitureController shelf, int index, ShelfRowData original, ShelfRowData staged)>();
+            bool hasStorage = false;
+            foreach (var furniture in PlacedFurnitureController.AllPlacedFurniture)
             {
-                if (f == null || f.rows == null || f.FurnitureType != FurnitureType.StorageShelf) continue;
-                foreach (var r in f.rows)
+                if (furniture == null || furniture.FurnitureType != FurnitureType.StorageShelf || furniture.rows == null) continue;
+                hasStorage = true;
+                for (int i = 0; i < furniture.rows.Length; i++)
                 {
-                    if (r == null) continue;
-                    if (r.productName == productName || r.IsUnassigned || r.IsEmpty || r.currentStock <= 0)
-                    {
-                        int spaceLeft = r.maxCapacity - (r.currentStock > 0 ? r.currentStock : 0);
-                        if (spaceLeft > 0)
-                        {
-                            totalSpace += spaceLeft;
-                        }
-                    }
+                    ShelfRowData row = furniture.rows[i];
+                    if (row == null || ReferenceEquals(row, source)) continue;
+                    destinations.Add((furniture, i, row, CopyRowForStorageTransfer(row)));
                 }
             }
-            return totalSpace;
+
+            foreach (ProductLot lot in sourceCopy.lots)
+            {
+                if (lot == null || lot.quantity <= 0) continue;
+                string productId = string.IsNullOrEmpty(lot.productId) ? sourceCopy.productId : lot.productId;
+                WholesaleProductDef product = WholesaleDatabase.GetProductById(productId);
+                string productName = product != null ? product.name : sourceCopy.productName;
+                var remaining = new List<ProductLot> { lot.Clone() };
+                remaining[0].productId = productId;
+
+                // First fill matching stock, then use empty warehouse slots.
+                for (int pass = 0; pass < 2 && ProductPassportService.SumLots(remaining) > 0; pass++)
+                {
+                    foreach (var destination in destinations)
+                    {
+                        ShelfRowData row = destination.staged;
+                        bool empty = row.currentStock <= 0;
+                        if ((pass == 0 && empty) || (pass == 1 && !empty)) continue;
+                        if (row.maxCapacity <= row.currentStock) continue;
+                        if (!empty && !ProductPassportService.RowHoldsProduct(row, productId, productName)) continue;
+                        if (empty)
+                        {
+                            ProductPassportService.ClearRowContents(row);
+                            row.productId = productId;
+                            row.productName = productName;
+                            row.unitPrice = productId == sourceCopy.productId || product == null
+                                ? sourceCopy.unitPrice : product.SalePricePerUnit;
+                        }
+                        ProductPassportService.AddStock(row, remaining, row.maxCapacity);
+                        if (ProductPassportService.SumLots(remaining) == 0) break;
+                    }
+                }
+                if (ProductPassportService.SumLots(remaining) > 0)
+                {
+                    ShowStorageWarningModal(
+                        hasStorage
+                            ? LocalizationManager.L("ShelfReturn_FullTitle", "Depoda yeterli yer yok", "Not enough warehouse space")
+                            : LocalizationManager.L("ShelfReturn_NoStorageTitle", "Depo rafı bulunamadı", "No storage shelf found"),
+                        hasStorage
+                            ? LocalizationManager.L("ShelfReturn_FullBody", "Ürünlerin tamamını depoya aktarmak için yeterli uygun alan yok. Önce depoda yer açın veya yeni depo rafı kurun. Ürünler ve raf seçiminiz değişmedi.", "There is not enough compatible space to return all products. Free up warehouse space or install another storage shelf. Your products and shelf selection have not changed.")
+                            : LocalizationManager.L("ShelfReturn_NoStorageBody", "Stoktaki ürünleri kaldırmak veya değiştirmek için önce bir depo rafı kurmalısınız. Ürünler mevcut rafta korunuyor.", "Install a storage shelf before removing or replacing stocked products. Your products remain on their current shelf."));
+                    return false;
+                }
+            }
+
+            var changedRows = new List<(PlacedFurnitureController shelf, int index)>();
+            foreach (var destination in destinations)
+            {
+                ShelfRowData original = destination.original;
+                ShelfRowData staged = destination.staged;
+                if (original.currentStock == staged.currentStock) continue;
+                original.productId = staged.productId;
+                original.productName = staged.productName;
+                original.unitPrice = staged.unitPrice;
+                original.currentStock = staged.currentStock;
+                original.lots = staged.lots;
+                changedRows.Add((destination.shelf, destination.index));
+            }
+            ProductPassportService.ClearRowContents(source);
+            foreach (var destination in changedRows)
+                destination.shelf.UpdateRow3DProductMeshes(destination.index + 1);
+            return true;
         }
 
-        private bool TransferLotsToStorageShelves(string productName, string productId, float unitPrice, List<ProductLot> lots)
+        private static ShelfRowData CopyRowForStorageTransfer(ShelfRowData source)
         {
-            if (lots == null || ProductPassportService.SumLots(lots) <= 0) return true;
-
-            var allFurniture = PlacedFurnitureController.AllPlacedFurniture;
-
-            foreach (var f in allFurniture)
+            return new ShelfRowData(source.rowId, source.productName, source.currentStock,
+                source.maxCapacity, source.unitPrice, source.productId)
             {
-                if (ProductPassportService.SumLots(lots) <= 0) break;
-                if (f == null || f.rows == null || f.FurnitureType != FurnitureType.StorageShelf) continue;
-
-                bool shelfUpdated = false;
-                foreach (var r in f.rows)
-                {
-                    if (ProductPassportService.SumLots(lots) <= 0) break;
-                    if (r != null && !r.IsUnassigned && r.productName == productName && r.currentStock > 0)
-                    {
-                        int before = ProductPassportService.SumLots(lots);
-                        ProductPassportService.AddStock(r, lots, r.maxCapacity);
-                        if (ProductPassportService.SumLots(lots) < before) shelfUpdated = true;
-                    }
-                }
-                if (shelfUpdated)
-                {
-                    f.UpdateRow3DProductMeshes(0);
-                }
-            }
-
-            foreach (var f in allFurniture)
-            {
-                if (ProductPassportService.SumLots(lots) <= 0) break;
-                if (f == null || f.rows == null || f.FurnitureType != FurnitureType.StorageShelf) continue;
-
-                bool shelfUpdated = false;
-                for (int i = 0; i < f.rows.Length; i++)
-                {
-                    if (ProductPassportService.SumLots(lots) <= 0) break;
-                    var r = f.rows[i];
-                    if (r != null && (r.IsUnassigned || r.IsEmpty || r.currentStock <= 0))
-                    {
-                        r.productName = productName;
-                        r.productId = productId;
-                        r.unitPrice = unitPrice;
-                        ProductPassportService.ClearRowContents(r);
-                        ProductPassportService.AddStock(r, lots, r.maxCapacity);
-                        shelfUpdated = true;
-                    }
-                }
-                if (shelfUpdated)
-                {
-                    f.UpdateRow3DProductMeshes(0);
-                }
-            }
-
-            return ProductPassportService.SumLots(lots) <= 0;
+                lots = ProductPassportService.CloneLots(source.lots)
+            };
         }
 
         private void ShowStorageWarningModal(string title, string message)

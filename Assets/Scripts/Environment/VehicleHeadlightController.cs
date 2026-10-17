@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Farm2Shelf.Core;
 
 namespace Farm2Shelf.Environment
 {
@@ -13,12 +14,39 @@ namespace Farm2Shelf.Environment
         public bool isEngineRunning = true;
         public List<Light> spotLights = new List<Light>();
         public List<Renderer> headlightRenderers = new List<Renderer>();
+        private DayNightCycleManager registeredCycle;
+        private float nextRefreshTime;
 
         private void Start()
         {
             if (DayNightCycleManager.Instance != null)
             {
+                registeredCycle = DayNightCycleManager.Instance;
                 DayNightCycleManager.Instance.RegisterVehicleHeadlightController(this);
+            }
+            UpdateHeadlights();
+        }
+
+        private void OnEnable()
+        {
+            nextRefreshTime = 0f;
+        }
+
+        private void OnDisable()
+        {
+            UpdateHeadlights();
+        }
+
+        private void LateUpdate()
+        {
+            if (Time.unscaledTime < nextRefreshTime) return;
+            nextRefreshTime = Time.unscaledTime + 0.25f;
+            // Runtime-spawned and restored vehicles must also bind when the cycle
+            // manager becomes available after their Start method.
+            if (DayNightCycleManager.Instance != null && registeredCycle != DayNightCycleManager.Instance)
+            {
+                registeredCycle = DayNightCycleManager.Instance;
+                registeredCycle.RegisterVehicleHeadlightController(this);
             }
             UpdateHeadlights();
         }
@@ -31,14 +59,19 @@ namespace Farm2Shelf.Environment
 
         public void UpdateHeadlights()
         {
-            bool isNight = (DayNightCycleManager.Instance != null) ? DayNightCycleManager.Instance.IsNight : false;
-            bool turnOn = isEngineRunning && isNight;
+            bool isNight = DayNightCycleManager.Instance != null && DayNightCycleManager.Instance.IsNight;
+            if (TimeManager.Instance != null)
+            {
+                float hour = TimeManager.Instance.Hour + TimeManager.Instance.Minute / 60f;
+                isNight = hour >= 19.5f || hour < 6.5f;
+            }
+            bool turnOn = isActiveAndEnabled && isEngineRunning && isNight;
 
             for (int i = 0; i < spotLights.Count; i++)
             {
                 if (spotLights[i] != null)
                 {
-                    spotLights[i].enabled = turnOn;
+                    if (spotLights[i].enabled != turnOn) spotLights[i].enabled = turnOn;
                 }
             }
 
@@ -47,7 +80,7 @@ namespace Farm2Shelf.Environment
             {
                 for (int i = 0; i < headlightRenderers.Count; i++)
                 {
-                    if (headlightRenderers[i] != null)
+                    if (headlightRenderers[i] != null && headlightRenderers[i].sharedMaterial != targetMat)
                     {
                         headlightRenderers[i].sharedMaterial = targetMat;
                     }

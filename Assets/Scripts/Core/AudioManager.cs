@@ -18,6 +18,7 @@ namespace Farm2Shelf.Core
         [Header("Audio Sources")]
         private AudioSource bgmSource;
         private AudioSource sfxSource;
+        private float announcementMusicGain = 1f;
 
         [Header("Audio Collections")]
         private List<AudioClip> bgmTracks = new List<AudioClip>();
@@ -152,6 +153,15 @@ namespace Farm2Shelf.Core
 
         private void Update()
         {
+            // Temporary mix adjustment: never overwrite the player's saved volume.
+            bool announcementAudible = StoreAnnouncementManager.Instance != null &&
+                StoreAnnouncementManager.Instance.IsAudible;
+            float targetGain = announcementAudible ? 0.12f : 1f;
+            announcementMusicGain = Mathf.MoveTowards(announcementMusicGain, targetGain,
+                Time.unscaledDeltaTime / (announcementAudible ? 0.15f : 0.8f));
+            if (bgmSource != null)
+                bgmSource.volume = isBgmMuted ? 0f : bgmVolume * announcementMusicGain;
+
             // Fon müziği bittiğinde otomatik bir sonraki parçaya geç
             if (bgmSource != null && bgmTracks.Count > 0 && !isBgmMuted && !isChangingTrack && bgmSource.clip != null)
             {
@@ -443,7 +453,7 @@ namespace Farm2Shelf.Core
         {
             if (bgmSource != null)
             {
-                bgmSource.volume = isBgmMuted ? 0f : bgmVolume;
+                bgmSource.volume = isBgmMuted ? 0f : bgmVolume * announcementMusicGain;
             }
             if (sfxSource != null)
             {

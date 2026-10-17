@@ -173,6 +173,9 @@ namespace Farm2Shelf.Environment
 
         public void RegisterVehicleHeadlightController(VehicleHeadlightController ctrl)
         {
+            if (ctrl == null) return;
+            foreach (Light light in ctrl.spotLights)
+                ConfigureAndTrackLight(light);
             if (ctrl != null && !vehicleHeadlightControllers.Contains(ctrl))
             {
                 vehicleHeadlightControllers.Add(ctrl);
@@ -244,6 +247,22 @@ namespace Farm2Shelf.Environment
         public void ClearStoreInteriorLights()
         {
             storeInteriorLights.Clear();
+        }
+
+        public void UnregisterPlayerInteriorLightsUnder(Transform root)
+        {
+            if (root == null) return;
+            for (int i = playerInteriorLights.Count - 1; i >= 0; i--)
+            {
+                Light light = playerInteriorLights[i];
+                if (light != null && !light.transform.IsChildOf(root)) continue;
+                if (light != null)
+                {
+                    playerInteriorIds.Remove(light.GetInstanceID());
+                    configuredLightIds.Remove(light.GetInstanceID());
+                }
+                playerInteriorLights.RemoveAt(i);
+            }
         }
 
         public void ClearPlayerInteriorLights()

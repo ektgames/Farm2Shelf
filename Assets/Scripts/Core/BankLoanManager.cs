@@ -81,6 +81,7 @@ namespace Farm2Shelf.Core
         public int paidAmount;
         public string startDateFormatted;
         public int initialTermDays;
+        public int lastInstallmentDay = -1;
 
         public ActiveLoanData(string loanId, string title, int principalAmount, int dailyInstallment, int totalRepayment, int termDays, string startDateFormatted)
         {
@@ -99,7 +100,16 @@ namespace Farm2Shelf.Core
             ? LocalizationManager.L("Loan_Title_" + loanId, title, BankLoanOffer.GetEnglishTitle(loanId)) 
             : title;
 
-        public int RemainingTotalRepayment => remainingDays * dailyInstallment;
+        public int RemainingTotalRepayment => Mathf.Max(0, totalRepayment - paidAmount);
+
+        public void NormalizePaymentState()
+        {
+            if (initialTermDays <= 0) initialTermDays = 10;
+            if (totalRepayment <= 0) totalRepayment = Mathf.Max(principalAmount, dailyInstallment * initialTermDays);
+            dailyInstallment = Mathf.Max(1, Mathf.CeilToInt((float)totalRepayment / initialTermDays));
+            paidAmount = Mathf.Clamp(paidAmount, 0, totalRepayment);
+            remainingDays = Mathf.CeilToInt((float)RemainingTotalRepayment / dailyInstallment);
+        }
 
         /// <summary>
         /// Erken Kapatma Hesabı:
@@ -108,24 +118,17 @@ namespace Farm2Shelf.Core
         /// </summary>
         public int GetEarlyPayoffAmount()
         {
-            if (remainingDays >= initialTermDays)
+            if (paidAmount <= 0)
             {
                 // Gün geçmemişse (Aynı gün içinde): Tam anapara ödemesi, 0C faiz!
                 return principalAmount;
             }
 
-            int daysPassed = initialTermDays - remainingDays;
-            int totalInterest = totalRepayment - principalAmount;
-
-            // Aradan geçen günlerin anapara ve faiz payı
-            int dailyPrincipal = Mathf.RoundToInt((float)principalAmount / initialTermDays);
-            int remainingPrincipal = principalAmount - (dailyPrincipal * daysPassed);
-
-            int dailyInterest = Mathf.RoundToInt((float)totalInterest / initialTermDays);
-            // Gelecek günlerin faizine %50 erken kapatma indirimi
-            int discountedRemainingInterest = Mathf.RoundToInt(dailyInterest * remainingDays * 0.50f);
-
-            return Mathf.Max(principalAmount / 10, remainingPrincipal + discountedRemainingInterest);
+            if (RemainingTotalRepayment == 0) return 0;
+            float remainingFraction = (float)RemainingTotalRepayment / Mathf.Max(1, totalRepayment);
+            float remainingPrincipal = principalAmount * remainingFraction;
+            float remainingInterest = Mathf.Max(0, totalRepayment - principalAmount) * remainingFraction;
+            return Mathf.Clamp(Mathf.RoundToInt(remainingPrincipal + remainingInterest * 0.5f), 0, RemainingTotalRepayment);
         }
     }
 
@@ -148,7 +151,17 @@ namespace Farm2Shelf.Core
             activeLoans.Clear();
             if (loans != null)
             {
-                activeLoans.AddRange(loans);
+                foreach (ActiveLoanData loan in loans)
+                {
+                    if (loan == null) continue;
+                    loan.NormalizePaymentState();
+                    // Older saves did not store the payment date. A midnight save
+                    // with prior payments must not charge that same day again on resume.
+                    if (loan.lastInstallmentDay <= 0 && loan.paidAmount > 0 &&
+                        TimeManager.Instance != null && TimeManager.Instance.Hour >= 24)
+                        loan.lastInstallmentDay = GetCurrentPaymentDay();
+                    if (loan.RemainingTotalRepayment > 0) activeLoans.Add(loan);
+                }
             }
             OnBankLoansUpdated?.Invoke();
         }
@@ -207,7 +220,7 @@ namespace Farm2Shelf.Core
 
         public bool TakeLoan(BankLoanOffer offer)
         {
-            if (offer == null) return false;
+            if (offer == null || EconomyManager.Instance == null) return false;
 
             // Krediyi Çek ve Parayı Ekle
             if (EconomyManager.Instance != null)
@@ -224,6 +237,9 @@ namespace Farm2Shelf.Core
             string loanId = "LOAN_" + UnityEngine.Random.Range(10000, 99999);
 
             ActiveLoanData activeLoan = new ActiveLoanData(loanId, offer.title, offer.principalAmount, offer.dailyInstallment, offer.totalRepayment, offer.termDays, dateStr);
+            activeLoan.NormalizePaymentState();
+            if (TimeManager.Instance != null && TimeManager.Instance.Hour >= 24)
+                activeLoan.lastInstallmentDay = GetCurrentPaymentDay();
             activeLoans.Add(activeLoan);
 
             OnBankLoansUpdated?.Invoke();
@@ -233,7 +249,7 @@ namespace Farm2Shelf.Core
 
         public bool PayoffLoanEarly(ActiveLoanData loan)
         {
-            if (loan == null || !activeLoans.Contains(loan)) return false;
+            if (loan == null || !activeLoans.Contains(loan) || EconomyManager.Instance == null) return false;
 
             int payoffAmount = loan.GetEarlyPayoffAmount();
 
@@ -258,28 +274,43 @@ namespace Farm2Shelf.Core
 
         private void HandleMidnightRollover()
         {
+            ProcessDailyInstallments();
+        }
+
+        private static int GetCurrentPaymentDay()
+        {
+            var time = TimeManager.Instance;
+            return time.Year * 120 + (int)time.CurrentSeason * 30 + time.Day;
+        }
+
+        public void ProcessDailyInstallments()
+        {
+            if (TimeManager.Instance == null || EconomyManager.Instance == null) return;
+            int paymentDay = GetCurrentPaymentDay();
             // Gece Yarısı Otomatik Günlük Taksit Kesintisi
             for (int i = activeLoans.Count - 1; i >= 0; i--)
             {
                 ActiveLoanData loan = activeLoans[i];
-                int installment = loan.dailyInstallment;
-
-                bool success = true;
-                if (EconomyManager.Instance != null)
-                {
-                    EconomyManager.Instance.ForceDeductCredits(installment);
-                }
-
+                if (loan == null) { activeLoans.RemoveAt(i); continue; }
+                loan.NormalizePaymentState();
+                if (loan.lastInstallmentDay == paymentDay) continue;
+                int installment = Mathf.Min(loan.dailyInstallment, loan.RemainingTotalRepayment);
+                if (installment <= 0) { activeLoans.RemoveAt(i); continue; }
+                loan.lastInstallmentDay = paymentDay;
                 loan.paidAmount += installment;
-                loan.remainingDays--;
+                loan.NormalizePaymentState();
+                EconomyManager.Instance.ForceDeductCredits(installment);
 
                 if (FinanceManager.Instance != null)
                 {
-                    string statusNote = success ? "Ödendi" : "Yetersiz Bakiye Zorunlu Tahsilat";
-                    FinanceManager.Instance.RecordExpense("Banka Kredisi Taksiti", $"Günlük Taksit ({loan.title} - {statusNote})", installment);
+                    string description = string.Format(LocalizationManager.L("Loan_InstallmentPaid",
+                        "Günlük taksit: {0} • Ödenen: {1:N0}C • Kalan borç: {2:N0}C",
+                        "Daily installment: {0} • Paid: {1:N0}C • Remaining debt: {2:N0}C"),
+                        loan.LocalizedTitle, installment, loan.RemainingTotalRepayment);
+                    FinanceManager.Instance.RecordExpense(FinanceCategories.BankLoanInstallment, description, installment);
                 }
 
-                if (loan.remainingDays <= 0)
+                if (loan.RemainingTotalRepayment <= 0)
                 {
                     activeLoans.RemoveAt(i);
                     Debug.Log($"[BankLoanManager] Kredi Tamamen Borçsuz Kapatıldı: {loan.title}");

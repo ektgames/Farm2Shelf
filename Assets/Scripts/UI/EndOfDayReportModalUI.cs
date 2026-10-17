@@ -74,12 +74,14 @@ namespace Farm2Shelf.UI
 
         private void BuildReportCanvas()
         {
+            FinanceManager.Instance?.FinalizeDailyPassiveIncome();
             if (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen)
             {
                 PauseMenuUI.Instance.HideMenu();
             }
 
             IsReportModalOpen = true;
+            GameHUDManager.Instance?.HideLowStockWarningsForReport();
             ModalManager.SetModalOpen(true);
 
             if (EKTPhoneManager.Instance != null && EKTPhoneManager.IsTabletOpen)
@@ -181,11 +183,12 @@ namespace Farm2Shelf.UI
             GameObject scrollRoot = new GameObject("Story_Scroll");
             scrollRoot.transform.SetParent(boxObj.transform, false);
             RectTransform scrollRectTf = scrollRoot.AddComponent<RectTransform>();
-            scrollRectTf.anchorMin = new Vector2(0.5f, 0f);
-            scrollRectTf.anchorMax = new Vector2(0.5f, 1f);
+            scrollRectTf.anchorMin = Vector2.zero;
+            scrollRectTf.anchorMax = Vector2.one;
             scrollRectTf.pivot = new Vector2(0.5f, 0.5f);
-            scrollRectTf.anchoredPosition = new Vector2(0f, 18f);
-            scrollRectTf.sizeDelta = new Vector2(820f, -250f);
+            // Keep the story below the metric strip and above the next-day button.
+            scrollRectTf.offsetMin = new Vector2(30f, 110f);
+            scrollRectTf.offsetMax = new Vector2(-30f, -202f);
 
             Image scrollBg = scrollRoot.AddComponent<Image>();
             scrollBg.sprite = UIStyleUtility.CreateOutlinePillSprite(820, 640, 16, 1, new Color(0.20f, 0.32f, 0.42f, 0.70f), new Color(0.07f, 0.10f, 0.14f, 0.92f));
@@ -392,6 +395,7 @@ namespace Farm2Shelf.UI
             int taxiSum = 0;
             int taxiCount = 0;
             int salarySum = 0;
+            int passiveSum = 0;
             Dictionary<string, int> expenseByCat = new Dictionary<string, int>();
 
             for (int i = 0; i < today.Count; i++)
@@ -420,6 +424,10 @@ namespace Farm2Shelf.UI
                     {
                         contractCount++;
                         contractSum += rec.amount;
+                    }
+                    else if (rec.category == FinanceCategories.Passive)
+                    {
+                        passiveSum += rec.amount;
                     }
                     else if (rec.category == FinanceCategories.TaxiIncome)
                     {
@@ -475,6 +483,13 @@ namespace Farm2Shelf.UI
                     break;
             }
             sb.AppendLine();
+
+            if (passiveSum > 0)
+            {
+                sb.AppendLine(en
+                    ? $"Furniture and vending machines earned {passiveSum:N0}C in passive income today."
+                    : $"Mobilya ve otomatlar bugün toplam {passiveSum:N0}C pasif gelir getirdi.");
+            }
 
             if (onlineCount > 0)
             {

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
@@ -18,6 +18,10 @@ namespace Farm2Shelf.UI
         public static bool HasIntroFinished { get; private set; } = false;
 
         private bool introPlayed = false;
+        private GameObject activeIntroCanvas;
+        public static bool IsIntroVisible => Instance != null &&
+            ((Instance.activeIntroCanvas != null && Instance.activeIntroCanvas.activeInHierarchy) ||
+             (Instance.blackCurtainObj != null && Instance.blackCurtainObj.activeInHierarchy));
         private GameObject blackCurtainObj;
 
         private void Awake()
@@ -81,7 +85,7 @@ namespace Farm2Shelf.UI
         {
             Debug.Log("[INTRO] Routine started");
             introPlayed = true;
-            Time.timeScale = 0f; // Intro boyunca zamanı duraklat
+            Farm2Shelf.Core.GameSimulationTime.SetPaused(Farm2Shelf.Core.GameSimulationTime.PauseReason.Intro, true); // Intro boyunca zamanı duraklat
 
             if (GameHUDManager.Instance != null)
             {
@@ -89,6 +93,7 @@ namespace Farm2Shelf.UI
             }
 
             GameObject canvasObj = new GameObject("EKT_Reklam_Intro_Canvas");
+            activeIntroCanvas = canvasObj;
             Canvas canvas = canvasObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 3000; // İntro Katmanı (En Üstte Görünür)
@@ -270,7 +275,8 @@ namespace Farm2Shelf.UI
                         break;
                     }
 
-                    elapsed += Mathf.Min(Time.unscaledDeltaTime, 0.05f);
+                    // Intro duration is real time even during slow startup frames.
+                    elapsed += Time.unscaledDeltaTime;
 
                     // Dokunma / Tıklama ile atlama kontrolü (1.2 saniyeden sonra)
                     bool skipPressed = false;

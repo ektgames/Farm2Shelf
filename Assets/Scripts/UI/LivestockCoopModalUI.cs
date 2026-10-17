@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 using Farm2Shelf.Core;
 using Farm2Shelf.Environment;
@@ -10,6 +10,7 @@ namespace Farm2Shelf.UI
         public static LivestockCoopModalUI Instance { get; private set; }
 
         private GameObject canvasObj;
+        public bool IsModalOpen => canvasObj != null && canvasObj.activeInHierarchy;
         private LivestockBuildingKind currentKind;
         private int selectedCrates = 1;
 

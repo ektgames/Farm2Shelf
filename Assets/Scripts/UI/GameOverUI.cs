@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 using Farm2Shelf.Core;
 
@@ -57,7 +57,7 @@ namespace Farm2Shelf.UI
             }
 
             BuildUI();
-            Time.timeScale = 0f;
+            GameSimulationTime.SetPaused(GameSimulationTime.PauseReason.GameOver, true);
             ModalManager.SetModalOpen(true);
         }
 
@@ -205,7 +205,7 @@ namespace Farm2Shelf.UI
             }
             else
             {
-                Time.timeScale = 0f;
+                GameSimulationTime.SetPaused(GameSimulationTime.PauseReason.GameOver, true);
             }
         }
     }

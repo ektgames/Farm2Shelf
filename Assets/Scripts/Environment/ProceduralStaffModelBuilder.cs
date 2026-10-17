@@ -83,8 +83,12 @@ namespace Farm2Shelf.Environment
 
             // Sol & Sağ Bacak
             float legX = isFemale ? 0.13f : 0.15f;
-            GameObject lLeg = CreateLimb(tRoot, "Leg_L", new Vector3(-legX, 0.75f, 0f), new Vector3(0.18f, 0.70f, 0.20f), pantsMat, shoeMat);
-            GameObject rLeg = CreateLimb(tRoot, "Leg_R", new Vector3(legX, 0.75f, 0f), new Vector3(0.18f, 0.70f, 0.20f), pantsMat, shoeMat);
+            GameObject lLeg = role == StaffRole.MüşteriHizmetlisi
+                ? CreateSeatedServiceLeg(tRoot, "Leg_L", -legX, pantsMat, shoeMat)
+                : CreateLimb(tRoot, "Leg_L", new Vector3(-legX, 0.75f, 0f), new Vector3(0.18f, 0.70f, 0.20f), pantsMat, shoeMat);
+            GameObject rLeg = role == StaffRole.MüşteriHizmetlisi
+                ? CreateSeatedServiceLeg(tRoot, "Leg_R", legX, pantsMat, shoeMat)
+                : CreateLimb(tRoot, "Leg_R", new Vector3(legX, 0.75f, 0f), new Vector3(0.18f, 0.70f, 0.20f), pantsMat, shoeMat);
             leftLimbs.Add(lLeg.transform);
             rightLimbs.Add(rLeg.transform);
 
@@ -398,6 +402,20 @@ namespace Farm2Shelf.Environment
             }
 
             return cube;
+        }
+
+        private static GameObject CreateSeatedServiceLeg(Transform parent, string name, float x, Material pants, Material shoe)
+        {
+            GameObject hip = new GameObject(name);
+            hip.transform.SetParent(parent, false);
+            hip.transform.localPosition = new Vector3(x, 0.80f, 0f);
+            CreateBlock(hip.transform, "Thigh", new Vector3(0f, -0.18f, 0f), new Vector3(0.18f, 0.36f, 0.20f), pants);
+            Transform knee = new GameObject("ServiceKnee").transform;
+            knee.SetParent(hip.transform, false);
+            knee.localPosition = new Vector3(0f, -0.36f, 0f);
+            CreateBlock(knee, "Shin", new Vector3(0f, -0.17f, 0f), new Vector3(0.17f, 0.34f, 0.18f), pants);
+            CreateBlock(knee, "Shoe", new Vector3(0f, -0.37f, 0.05f), new Vector3(0.19f, 0.10f, 0.29f), shoe);
+            return hip;
         }
 
         private static GameObject CreateLimb(Transform parent, string name, Vector3 localPos, Vector3 localScale, Material pantsMat, Material shoeMat)

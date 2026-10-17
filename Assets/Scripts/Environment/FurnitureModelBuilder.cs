@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using Farm2Shelf.Core;
 
 namespace Farm2Shelf.Environment
@@ -218,7 +218,9 @@ namespace Farm2Shelf.Environment
 
             GameObject root = new GameObject("Furniture_" + type.ToString());
 
-            switch (type)
+            if (DetailedDecorationBuilder.Handles(type))
+                DetailedDecorationBuilder.Build(root, type, isGhost);
+            else switch (type)
             {
                 case FurnitureType.Shelf:
                     BuildStoreShelf(root);
@@ -323,6 +325,26 @@ namespace Farm2Shelf.Environment
             if (isGhost)
             {
                 ApplyGhostMaterial(root, ValidGhostMaterial);
+                if (type == FurnitureType.Cashier) CashierPlacementGuide.Create(root.transform);
+                else if (type == FurnitureType.CustomerServiceDesk) CashierPlacementGuide.Create(root.transform, customerService: true);
+                else if (type == FurnitureType.AtmMachine) CashierPlacementGuide.CreateAtmInteraction(root.transform);
+                else if (type == FurnitureType.ArcadeMachine) CashierPlacementGuide.CreateAtmInteraction(root.transform, true);
+                else if (type == FurnitureType.WaterDispenser) CashierPlacementGuide.CreateAtmInteraction(root.transform, waterDispenser: true);
+                else if (type == FurnitureType.CoffeeMachine) CashierPlacementGuide.CreateAtmInteraction(root.transform, coffeeMachine: true);
+                else if (type == FurnitureType.VendingSnack) CashierPlacementGuide.CreateAtmInteraction(root.transform, snackMachine: true);
+                else if (type == FurnitureType.GumballMachine) CashierPlacementGuide.CreateAtmInteraction(root.transform, candyMachine: true);
+                else if (type == FurnitureType.SlushieMachine) CashierPlacementGuide.CreateAtmInteraction(root.transform, slushieMachine: true);
+                else if (type == FurnitureType.IceCreamCart) CashierPlacementGuide.CreateAtmInteraction(root.transform, iceCreamCart: true);
+                else if (type == FurnitureType.DonutDispenser) CashierPlacementGuide.CreateAtmInteraction(root.transform, donutCabinet: true);
+                else if (type == FurnitureType.Jukebox) CashierPlacementGuide.CreateAtmInteraction(root.transform, jukebox: true);
+                else if (type == FurnitureType.MassageChair) CashierPlacementGuide.CreateAtmInteraction(root.transform, massageChair: true);
+                else if (type == FurnitureType.ShoppingCart) CashierPlacementGuide.CreateBasketPickup(root.transform);
+                else if (type == FurnitureType.TrashCan) CashierPlacementGuide.CreateTrashDropoff(root.transform);
+                else if (type == FurnitureType.Shelf || type == FurnitureType.ProduceShelf || type == FurnitureType.GourmetShelf ||
+                    type == FurnitureType.CosmeticShelf || type == FurnitureType.ElectronicsShelf ||
+                    type == FurnitureType.Fridge || type == FurnitureType.OrganicFridge || type == FurnitureType.Freezer ||
+                    type == FurnitureType.BakeryCounter || type == FurnitureType.ButcherCounter)
+                    CashierPlacementGuide.CreateProductPickup(root.transform);
             }
 
             return root;
@@ -335,6 +357,8 @@ namespace Farm2Shelf.Environment
             foreach (Renderer r in renderers)
             {
                 if (r == null) continue;
+                if (r.GetComponent<TextMesh>() != null && root.GetComponent<DecorationMeshOwner>() != null) continue;
+                if (r.GetComponentInParent<CashierPlacementGuide>() != null) continue;
                 if (r.sharedMaterial != ghostMat)
                 {
                     r.sharedMaterial = ghostMat;
@@ -351,9 +375,42 @@ namespace Farm2Shelf.Environment
 
         // --- MODEL İNŞA FONKSİYONLARI ---
 
-        // 1. Raf (Store Shelf)
-        private static void BuildStoreShelf(GameObject parent)
+        private static bool TryBuildImportedShelf(GameObject parent, FurnitureType type)
         {
+            GameObject prefab = Resources.Load<GameObject>("Furniture/" + type);
+            if (prefab == null) return false;
+            Object.Instantiate(prefab, parent.transform, false).name = "ShelfVisual";
+            return true;
+        }
+
+        public static GameObject BuildProceduralDisplayShelf(FurnitureType type)
+        {
+            InitMaterials();
+            var root = new GameObject("Legacy_" + type);
+            switch (type)
+            {
+                case FurnitureType.Shelf: BuildStoreShelf(root, false); break;
+                case FurnitureType.ProduceShelf: BuildProduceShelf(root, false); break;
+                case FurnitureType.GourmetShelf: BuildGourmetShelf(root, false); break;
+                case FurnitureType.CosmeticShelf: BuildCosmeticsShelf(root, false); break;
+                case FurnitureType.ElectronicsShelf: BuildElectronicsShelf(root, false); break;
+                case FurnitureType.Fridge: BuildCommercialFridge(root, false); break;
+                case FurnitureType.OrganicFridge: BuildOrganicFridge(root, false); break;
+                case FurnitureType.Freezer: BuildChestFreezer(root, false); break;
+                case FurnitureType.BakeryCounter: BuildBakeryCounter(root, false); break;
+                case FurnitureType.ButcherCounter: BuildButcherCounter(root, false); break;
+                case FurnitureType.AtmMachine: BuildAtmMachine(root, false); break;
+                case FurnitureType.ArcadeMachine: BuildArcadeMachine(root, false); break;
+            }
+            Transform arrow = root.transform.Find("Front_Direction_Arrow");
+            if (arrow != null) Object.DestroyImmediate(arrow.gameObject);
+            return root;
+        }
+
+        // 1. Raf (Store Shelf)
+        private static void BuildStoreShelf(GameObject parent, bool useImported = true)
+        {
+            if (useImported && TryBuildImportedShelf(parent, FurnitureType.Shelf)) return;
             // Boyutlar: 1.8m genişlik, 2.0m yükseklik, 0.6m derinlik
             float w = 1.8f, h = 2.0f, d = 0.6f;
 
@@ -408,6 +465,38 @@ namespace Farm2Shelf.Environment
         // 3. Kasa (Checkout Counter)
         private static void BuildCashierCounter(GameObject parent)
         {
+            GameObject prefab = Resources.Load<GameObject>("Furniture/Cashier");
+            if (prefab != null)
+            {
+                GameObject visual = Object.Instantiate(prefab, parent.transform, false);
+                visual.name = "CashierVisual";
+                return;
+            }
+            BuildLegacyCashierCounter(parent);
+        }
+
+        public static GameObject BuildProceduralCashierCounter()
+        {
+            InitMaterials();
+            GameObject root = new GameObject("Legacy_Cashier");
+            BuildLegacyCashierCounter(root, false);
+            return root;
+        }
+
+        public static Vector3 GetCashierStaffPosition(Transform cashier)
+        {
+            Transform marker = cashier.Find("CashierVisual/StaffStand");
+            return marker != null ? marker.position : cashier.TransformPoint(new Vector3(0f, 0.05f, 0.85f));
+        }
+
+        public static Vector3 GetCashierCustomerPosition(Transform cashier)
+        {
+            Transform marker = cashier.Find("CashierVisual/CustomerStand");
+            return marker != null ? marker.position : cashier.TransformPoint(new Vector3(0f, 0.05f, -0.75f));
+        }
+
+        private static void BuildLegacyCashierCounter(GameObject parent, bool showArrow = true)
+        {
             float w = 2.4f, h = 0.95f, d = 1.1f;
 
             // Ana Masa Gövdesi (Ahşap & Beyaz)
@@ -430,7 +519,7 @@ namespace Farm2Shelf.Environment
             CreatePrimitive(parent, "DividerBar", PrimitiveType.Cube, new Vector3(-0.9f, h + 0.08f, 0.25f), new Vector3(0.06f, 0.06f, 0.5f), redAccentMat);
 
             // Kasa Ön L-Şeklinde Kuyruk Yön Oku (Neon Turkuaz)
-            BuildLShapedQueueArrowIndicator(parent, -d / 2f);
+            if (showArrow) BuildLShapedQueueArrowIndicator(parent, -d / 2f);
         }
 
         // Zemin Kasa L-Şeklinde Kuyruk Ok Göstergesi (L-Shaped Cashier Queue Arrow Decal)
@@ -464,8 +553,9 @@ namespace Farm2Shelf.Environment
         }
 
         // 4. Buzdolabı (Commercial Refrigerator)
-        private static void BuildCommercialFridge(GameObject parent)
+        private static void BuildCommercialFridge(GameObject parent, bool useImported = true)
         {
+            if (useImported && TryBuildImportedShelf(parent, FurnitureType.Fridge)) return;
             float w = 1.4f, h = 2.2f, d = 0.85f;
 
             // Çelik Gövde
@@ -490,8 +580,9 @@ namespace Farm2Shelf.Environment
             BuildDirectionalArrowIndicator(parent, -d / 2f, new Color(0.40f, 0.85f, 0.95f));
         }
 
-        private static void BuildOrganicFridge(GameObject parent)
+        private static void BuildOrganicFridge(GameObject parent, bool useImported = true)
         {
+            if (useImported && TryBuildImportedShelf(parent, FurnitureType.OrganicFridge)) return;
             float w = 1.4f, h = 2.2f, d = 0.85f;
             Material creamMat = CreateSmartMaterial("OrganicFridge_Cream", new Color(0.93f, 0.90f, 0.78f));
             Material greenMat = CreateSmartMaterial("OrganicFridge_Green", new Color(0.22f, 0.52f, 0.28f));
@@ -516,8 +607,9 @@ namespace Farm2Shelf.Environment
         }
 
         // 5. Dondurucu (Chest Freezer)
-        private static void BuildChestFreezer(GameObject parent)
+        private static void BuildChestFreezer(GameObject parent, bool useImported = true)
         {
+            if (useImported && TryBuildImportedShelf(parent, FurnitureType.Freezer)) return;
             float w = 2.0f, h = 0.9f, d = 1.0f;
 
             // Beyaz Dış Gövde
@@ -543,8 +635,9 @@ namespace Farm2Shelf.Environment
         }
 
         // 6. Kozmetik Ürün Rafı (Cosmetics Display Shelf)
-        private static void BuildCosmeticsShelf(GameObject parent)
+        private static void BuildCosmeticsShelf(GameObject parent, bool useImported = true)
         {
+            if (useImported && TryBuildImportedShelf(parent, FurnitureType.CosmeticShelf)) return;
             float w = 1.6f, h = 2.1f, d = 0.6f;
 
             // Parlak Beyaz Dolap Gövdesi
@@ -567,8 +660,9 @@ namespace Farm2Shelf.Environment
         }
 
         // 7. Fırın Tezgahı (Bakery Counter)
-        private static void BuildBakeryCounter(GameObject parent)
+        private static void BuildBakeryCounter(GameObject parent, bool useImported = true)
         {
+            if (useImported && TryBuildImportedShelf(parent, FurnitureType.BakeryCounter)) return;
             float w = 2.0f, h = 1.2f, d = 0.9f;
 
             // Koyu Ahşap Taban Dolabı
@@ -589,8 +683,9 @@ namespace Farm2Shelf.Environment
         }
 
         // 8. Manav Rafı (Produce Shelf)
-        private static void BuildProduceShelf(GameObject parent)
+        private static void BuildProduceShelf(GameObject parent, bool useImported = true)
         {
+            if (useImported && TryBuildImportedShelf(parent, FurnitureType.ProduceShelf)) return;
             float w = 1.9f, h = 1.4f, d = 1.0f;
 
             // Eğimli Ahşap İskelet
@@ -620,8 +715,9 @@ namespace Farm2Shelf.Environment
         }
 
         // 8B. Lüks Gurme Reyonu (Gourmet Shelf)
-        private static void BuildGourmetShelf(GameObject parent)
+        private static void BuildGourmetShelf(GameObject parent, bool useImported = true)
         {
+            if (useImported && TryBuildImportedShelf(parent, FurnitureType.GourmetShelf)) return;
             float w = 1.9f, h = 2.1f, d = 0.7f;
 
             // Koyu Ceviz Ağacı Lüks Gövde & Yan Paneller
@@ -645,8 +741,9 @@ namespace Farm2Shelf.Environment
         }
 
         // 9. Kasap Reyonu (Butcher Counter)
-        private static void BuildButcherCounter(GameObject parent)
+        private static void BuildButcherCounter(GameObject parent, bool useImported = true)
         {
+            if (useImported && TryBuildImportedShelf(parent, FurnitureType.ButcherCounter)) return;
             float w = 2.2f, h = 1.15f, d = 0.95f;
 
             // Paslanmaz Çelik Ana Gövde
@@ -666,8 +763,9 @@ namespace Farm2Shelf.Environment
         }
 
         // 10. Elektronik Rafı (Electronics Shelf)
-        private static void BuildElectronicsShelf(GameObject parent)
+        private static void BuildElectronicsShelf(GameObject parent, bool useImported = true)
         {
+            if (useImported && TryBuildImportedShelf(parent, FurnitureType.ElectronicsShelf)) return;
             float w = 1.7f, h = 2.1f, d = 0.65f;
 
             // Modern Koyu Titanyum Gövde
@@ -693,6 +791,13 @@ namespace Farm2Shelf.Environment
         // 11. Alışveriş Sepeti Stantı (Shopping Cart Stand)
         private static void BuildShoppingCartStand(GameObject parent)
         {
+            GameObject prefab = Resources.Load<GameObject>("Furniture/ShoppingBasket");
+            if (prefab != null)
+            {
+                GameObject visual = Object.Instantiate(prefab, parent.transform, false);
+                visual.name = "ShoppingBasketStandVisual";
+                return;
+            }
             float w = 1.2f, h = 0.9f, d = 0.8f;
 
             // Stant Tabanı
@@ -710,12 +815,12 @@ namespace Farm2Shelf.Environment
                 float offsetZ = (i - 1) * 0.18f;
                 float offsetY = 0.25f + (i * 0.08f);
 
+
                 GameObject basket = CreatePrimitive(parent, $"Basket_{i+1}", PrimitiveType.Cube, new Vector3(0f, offsetY, offsetZ), new Vector3(0.55f, 0.35f, 0.42f), redAccentMat);
                 CreatePrimitive(parent, $"Handle_{i+1}", PrimitiveType.Cube, new Vector3(0f, offsetY + 0.18f, offsetZ - 0.18f), new Vector3(0.5f, 0.04f, 0.05f), blackMat);
             }
 
-            // Sepet Alma Yön Oku (Kırmızı/Mercan)
-            BuildDirectionalArrowIndicator(parent, -d / 2f, new Color(0.95f, 0.30f, 0.35f));
+            // Pickup direction is shown only by the placement preview guide.
         }
 
         // Zemin Ön Yön Ok Göstergesi (Directional Arrow Decal)
@@ -731,19 +836,27 @@ namespace Farm2Shelf.Environment
 
             // Ok Gövdesi (Çubuk)
             GameObject shaft = CreatePrimitive(arrowGroup, "Arrow_Shaft", PrimitiveType.Cube, new Vector3(0f, 0.015f, frontOffsetZ - 0.25f), new Vector3(0.14f, 0.015f, 0.35f), arrowMat);
-            Object.Destroy(shaft.GetComponent<Collider>());
+            RemoveIndicatorCollider(shaft);
 
             // Ok Başı (45° döndürülmüş küp)
             GameObject head = CreatePrimitive(arrowGroup, "Arrow_Head", PrimitiveType.Cube, new Vector3(0f, 0.015f, frontOffsetZ - 0.45f), new Vector3(0.24f, 0.015f, 0.24f), arrowMat);
             head.transform.localRotation = Quaternion.Euler(0f, 45f, 0f);
-            Object.Destroy(head.GetComponent<Collider>());
+            RemoveIndicatorCollider(head);
 
             // Zemin Yan Sınır Şeritleri
             GameObject leftDot = CreatePrimitive(arrowGroup, "Arrow_LeftBorder", PrimitiveType.Cube, new Vector3(-0.35f, 0.015f, frontOffsetZ - 0.30f), new Vector3(0.04f, 0.015f, 0.25f), arrowMat);
-            Object.Destroy(leftDot.GetComponent<Collider>());
+            RemoveIndicatorCollider(leftDot);
 
             GameObject rightDot = CreatePrimitive(arrowGroup, "Arrow_RightBorder", PrimitiveType.Cube, new Vector3(0.35f, 0.015f, frontOffsetZ - 0.30f), new Vector3(0.04f, 0.015f, 0.25f), arrowMat);
-            Object.Destroy(rightDot.GetComponent<Collider>());
+            RemoveIndicatorCollider(rightDot);
+        }
+
+        private static void RemoveIndicatorCollider(GameObject indicator)
+        {
+            Collider collider = indicator.GetComponent<Collider>();
+            if (collider == null) return;
+            if (Application.isPlaying) Object.Destroy(collider);
+            else Object.DestroyImmediate(collider);
         }
 
         // Yardımcı ilkel obje üretici
@@ -768,6 +881,12 @@ namespace Farm2Shelf.Environment
         // --- SEVİYE 1 DEKORASYONLAR ---
         private static void BuildPlantPot(GameObject parent)
         {
+            GameObject prefab = Resources.Load<GameObject>("Furniture/PlantPot");
+            if (prefab != null)
+            {
+                Object.Instantiate(prefab, parent.transform, false).name = "PlantPotVisual";
+                return;
+            }
             CreatePrimitive(parent, "Pot", PrimitiveType.Cylinder, new Vector3(0f, 0.25f, 0f), new Vector3(0.45f, 0.25f, 0.45f), whiteGlossMat);
             CreatePrimitive(parent, "Soil", PrimitiveType.Cylinder, new Vector3(0f, 0.48f, 0f), new Vector3(0.42f, 0.02f, 0.42f), darkWoodMat);
             CreatePrimitive(parent, "Leaves", PrimitiveType.Sphere, new Vector3(0f, 0.75f, 0f), new Vector3(0.6f, 0.5f, 0.6f), greenProduceMat);
@@ -782,10 +901,14 @@ namespace Farm2Shelf.Environment
 
         private static void BuildTrashCan(GameObject parent)
         {
-            float d = 0.5f;
+            GameObject prefab = Resources.Load<GameObject>("Furniture/TrashCan");
+            if (prefab != null)
+            {
+                Object.Instantiate(prefab, parent.transform, false).name = "TrashCanVisual";
+                return;
+            }
             CreatePrimitive(parent, "CanBody", PrimitiveType.Cylinder, new Vector3(0f, 0.4f, 0f), new Vector3(0.45f, 0.4f, 0.45f), steelMat);
             CreatePrimitive(parent, "CanLid", PrimitiveType.Cylinder, new Vector3(0f, 0.82f, 0f), new Vector3(0.47f, 0.04f, 0.47f), blackMat);
-            BuildDirectionalArrowIndicator(parent, -d / 2f, new Color(0.20f, 0.85f, 0.40f));
         }
 
         private static void BuildBenchWood(GameObject parent)
@@ -956,21 +1079,31 @@ namespace Farm2Shelf.Environment
 
         private static void BuildWaterDispenser(GameObject parent)
         {
+            GameObject prefab = Resources.Load<GameObject>("Furniture/WaterDispenser");
+            if (prefab != null)
+            {
+                Object.Instantiate(prefab, parent.transform, false).name = "WaterDispenserVisual";
+                return;
+            }
             float d = 0.6f;
             CreatePrimitive(parent, "Body", PrimitiveType.Cube, new Vector3(0f, 0.6f, 0f), new Vector3(0.45f, 1.2f, d), whiteGlossMat);
             CreatePrimitive(parent, "DispenserNiche", PrimitiveType.Cube, new Vector3(0f, 0.75f, -d / 2f + 0.08f), new Vector3(0.35f, 0.35f, 0.15f), blackMat);
             CreatePrimitive(parent, "Jug", PrimitiveType.Cylinder, new Vector3(0f, 1.45f, 0f), new Vector3(0.32f, 0.25f, 0.32f), glassMat);
-            BuildDirectionalArrowIndicator(parent, -d / 2f, new Color(0.10f, 0.85f, 0.95f));
         }
 
         // --- SEVİYE 2 DEKORASYONLAR ---
         private static void BuildCoffeeMachine(GameObject parent)
         {
+            GameObject prefab = Resources.Load<GameObject>("Furniture/CoffeeMachine");
+            if (prefab != null)
+            {
+                Object.Instantiate(prefab, parent.transform, false).name = "CoffeeMachineVisual";
+                return;
+            }
             float d = 0.7f;
             CreatePrimitive(parent, "Cabinet", PrimitiveType.Cube, new Vector3(0f, 0.45f, 0f), new Vector3(1.1f, 0.9f, d), darkWoodMat);
             CreatePrimitive(parent, "MachineBody", PrimitiveType.Cube, new Vector3(0f, 1.25f, 0f), new Vector3(0.85f, 0.7f, 0.5f), blackMat);
             CreatePrimitive(parent, "Screen", PrimitiveType.Cube, new Vector3(0f, 1.35f, -0.26f), new Vector3(0.4f, 0.3f, 0.02f), cyanLedMat);
-            BuildDirectionalArrowIndicator(parent, -d / 2f, new Color(0.95f, 0.65f, 0.20f));
         }
 
         private static void BuildNeonSign(GameObject parent)
@@ -988,6 +1121,12 @@ namespace Farm2Shelf.Environment
 
         private static void BuildGumballMachine(GameObject parent)
         {
+            GameObject prefab = Resources.Load<GameObject>("Furniture/GumballMachine");
+            if (prefab != null)
+            {
+                Object.Instantiate(prefab, parent.transform, false).name = "GumballMachineVisual";
+                return;
+            }
             float d = 0.5f;
             CreatePrimitive(parent, "StandBase", PrimitiveType.Cylinder, new Vector3(0f, 0.3f, 0f), new Vector3(0.35f, 0.3f, 0.35f), redAccentMat);
             CreatePrimitive(parent, "Globe", PrimitiveType.Sphere, new Vector3(0f, 0.85f, 0f), new Vector3(0.45f, 0.45f, 0.45f), glassMat);
@@ -996,6 +1135,12 @@ namespace Farm2Shelf.Environment
 
         private static void BuildVendingSnack(GameObject parent)
         {
+            GameObject prefab = Resources.Load<GameObject>("Furniture/VendingSnack");
+            if (prefab != null)
+            {
+                Object.Instantiate(prefab, parent.transform, false).name = "VendingSnackVisual";
+                return;
+            }
             float d = 0.8f;
             CreatePrimitive(parent, "Body", PrimitiveType.Cube, new Vector3(0f, 1.0f, 0f), new Vector3(1.0f, 2.0f, d), blackMat);
             CreatePrimitive(parent, "GlassFront", PrimitiveType.Cube, new Vector3(-0.1f, 1.1f, -d / 2f + 0.02f), new Vector3(0.7f, 1.4f, 0.04f), glassMat);
@@ -1005,6 +1150,12 @@ namespace Farm2Shelf.Environment
 
         private static void BuildIceCreamCart(GameObject parent)
         {
+            GameObject prefab = Resources.Load<GameObject>("Furniture/IceCreamCart");
+            if (prefab != null)
+            {
+                Object.Instantiate(prefab, parent.transform, false).name = "IceCreamCartVisual";
+                return;
+            }
             float d = 0.9f;
             CreatePrimitive(parent, "CartBody", PrimitiveType.Cube, new Vector3(0f, 0.5f, 0f), new Vector3(1.4f, 0.6f, d), whiteGlossMat);
             CreatePrimitive(parent, "Canopy", PrimitiveType.Cube, new Vector3(0f, 1.4f, 0f), new Vector3(1.5f, 0.08f, d + 0.1f), redAccentMat);
@@ -1039,8 +1190,9 @@ namespace Farm2Shelf.Environment
             CreatePrimitive(parent, "BonsaiFoliage", PrimitiveType.Sphere, new Vector3(0f, 1.15f, 0f), new Vector3(0.45f, 0.35f, 0.45f), greenProduceMat);
         }
 
-        private static void BuildAtmMachine(GameObject parent)
+        private static void BuildAtmMachine(GameObject parent, bool useImported = true)
         {
+            if (useImported && TryBuildImportedShelf(parent, FurnitureType.AtmMachine)) return;
             float d = 0.75f;
             CreatePrimitive(parent, "KioskBody", PrimitiveType.Cube, new Vector3(0f, 1.0f, 0f), new Vector3(0.9f, 2.0f, d), metalMat);
             CreatePrimitive(parent, "Screen", PrimitiveType.Cube, new Vector3(0f, 1.35f, -d / 2f + 0.02f), new Vector3(0.55f, 0.35f, 0.02f), cyanLedMat);
@@ -1049,8 +1201,9 @@ namespace Farm2Shelf.Environment
         }
 
         // --- SEVİYE 3 DEKORASYONLAR ---
-        private static void BuildArcadeMachine(GameObject parent)
+        private static void BuildArcadeMachine(GameObject parent, bool useImported = true)
         {
+            if (useImported && TryBuildImportedShelf(parent, FurnitureType.ArcadeMachine)) return;
             float d = 0.85f;
             CreatePrimitive(parent, "Cabinet", PrimitiveType.Cube, new Vector3(0f, 1.0f, 0f), new Vector3(0.85f, 2.0f, d), blackMat);
             CreatePrimitive(parent, "Screen", PrimitiveType.Cube, new Vector3(0f, 1.4f, -0.15f), new Vector3(0.6f, 0.45f, 0.02f), pinkLedMat);
@@ -1061,6 +1214,12 @@ namespace Farm2Shelf.Environment
 
         private static void BuildAquariumGrand(GameObject parent)
         {
+            GameObject prefab = Resources.Load<GameObject>("Furniture/AquariumGrand");
+            if (prefab != null)
+            {
+                Object.Instantiate(prefab, parent.transform, false).name = "AquariumGrandVisual";
+                return;
+            }
             CreatePrimitive(parent, "BaseStand", PrimitiveType.Cube, new Vector3(0f, 0.4f, 0f), new Vector3(2.2f, 0.8f, 0.8f), darkWoodMat);
             CreatePrimitive(parent, "TankGlass", PrimitiveType.Cube, new Vector3(0f, 1.3f, 0f), new Vector3(2.1f, 1.0f, 0.7f), glassMat);
             CreatePrimitive(parent, "WaterVolume", PrimitiveType.Cube, new Vector3(0f, 1.28f, 0f), new Vector3(2.05f, 0.92f, 0.65f), cyanLedMat);
@@ -1068,6 +1227,12 @@ namespace Farm2Shelf.Environment
 
         private static void BuildJukebox(GameObject parent)
         {
+            GameObject prefab = Resources.Load<GameObject>("Furniture/Jukebox");
+            if (prefab != null)
+            {
+                Object.Instantiate(prefab, parent.transform, false).name = "JukeboxVisual";
+                return;
+            }
             float d = 0.7f;
             CreatePrimitive(parent, "JukeboxBody", PrimitiveType.Cube, new Vector3(0f, 0.8f, 0f), new Vector3(1.0f, 1.6f, d), darkWoodMat);
             CreatePrimitive(parent, "NeonArch", PrimitiveType.Cylinder, new Vector3(0f, 1.45f, -d / 2f + 0.04f), new Vector3(0.8f, 0.04f, 0.8f), pinkLedMat);
@@ -1077,6 +1242,12 @@ namespace Farm2Shelf.Environment
 
         private static void BuildGoldenStatue(GameObject parent)
         {
+            GameObject prefab = Resources.Load<GameObject>("Furniture/GoldenStatue");
+            if (prefab != null)
+            {
+                Object.Instantiate(prefab, parent.transform, false).name = "GoldenStatueVisual";
+                return;
+            }
             CreatePrimitive(parent, "MarbleBase", PrimitiveType.Cube, new Vector3(0f, 0.4f, 0f), new Vector3(0.7f, 0.8f, 0.7f), blackMat);
             CreatePrimitive(parent, "GoldTrophy", PrimitiveType.Cylinder, new Vector3(0f, 1.3f, 0f), new Vector3(0.35f, 1.0f, 0.35f), orangeMetalMat);
         }
@@ -1090,6 +1261,12 @@ namespace Farm2Shelf.Environment
 
         private static void BuildSlushieMachine(GameObject parent)
         {
+            GameObject prefab = Resources.Load<GameObject>("Furniture/SlushieMachine");
+            if (prefab != null)
+            {
+                Object.Instantiate(prefab, parent.transform, false).name = "SlushieMachineVisual";
+                return;
+            }
             float d = 0.65f;
             CreatePrimitive(parent, "MachineBase", PrimitiveType.Cube, new Vector3(0f, 0.4f, 0f), new Vector3(0.85f, 0.8f, d), steelMat);
             CreatePrimitive(parent, "Bowl_L", PrimitiveType.Cylinder, new Vector3(-0.2f, 1.05f, 0f), new Vector3(0.32f, 0.4f, 0.32f), redAccentMat);
@@ -1099,6 +1276,12 @@ namespace Farm2Shelf.Environment
 
         private static void BuildMassageChair(GameObject parent)
         {
+            GameObject prefab = Resources.Load<GameObject>("Furniture/MassageChair");
+            if (prefab != null)
+            {
+                Object.Instantiate(prefab, parent.transform, false).name = "MassageChairVisual";
+                return;
+            }
             float d = 1.1f;
             CreatePrimitive(parent, "SeatBase", PrimitiveType.Cube, new Vector3(0f, 0.35f, 0f), new Vector3(0.9f, 0.7f, d), blackMat);
             CreatePrimitive(parent, "BackRest", PrimitiveType.Cube, new Vector3(0f, 0.85f, d / 3f), new Vector3(0.85f, 0.9f, 0.25f), blackMat);
@@ -1108,6 +1291,12 @@ namespace Farm2Shelf.Environment
 
         private static void BuildDonutDispenser(GameObject parent)
         {
+            GameObject prefab = Resources.Load<GameObject>("Furniture/DonutDispenser");
+            if (prefab != null)
+            {
+                Object.Instantiate(prefab, parent.transform, false).name = "DonutDispenserVisual";
+                return;
+            }
             float d = 0.75f;
             CreatePrimitive(parent, "Cabinet", PrimitiveType.Cube, new Vector3(0f, 0.45f, 0f), new Vector3(0.9f, 0.9f, d), whiteGlossMat);
             CreatePrimitive(parent, "GlassDome", PrimitiveType.Cylinder, new Vector3(0f, 1.3f, 0f), new Vector3(0.75f, 0.8f, 0.75f), glassMat);
@@ -1130,6 +1319,26 @@ namespace Farm2Shelf.Environment
 
         // 9. Müşteri Hizmetleri Masası (Customer Service Desk)
         private static void BuildCustomerServiceDesk(GameObject parent)
+        {
+            GameObject prefab = Resources.Load<GameObject>("Furniture/CustomerServiceDesk");
+            if (prefab != null)
+            {
+                GameObject visual = Object.Instantiate(prefab, parent.transform, false);
+                visual.name = "CustomerServiceVisual";
+                return;
+            }
+            BuildLegacyCustomerServiceDesk(parent);
+        }
+
+        public static GameObject BuildProceduralCustomerServiceDesk()
+        {
+            InitMaterials();
+            GameObject root = new GameObject("Legacy_CustomerServiceDesk");
+            BuildLegacyCustomerServiceDesk(root);
+            return root;
+        }
+
+        private static void BuildLegacyCustomerServiceDesk(GameObject parent)
         {
             float w = 1.8f;
             float h = 1.05f;

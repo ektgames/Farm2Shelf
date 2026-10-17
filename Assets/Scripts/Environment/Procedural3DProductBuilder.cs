@@ -82,7 +82,8 @@ namespace Farm2Shelf.Environment
                 return;
             }
 
-            BuildSpecificProductModel(itemObj.transform, meshKey, scaleFactor);
+            if (!ProductDisplayModels.Attach(itemObj.transform, productId, productName, scaleFactor))
+                BuildSpecificProductModel(itemObj.transform, meshKey, scaleFactor);
         }
 
         public static void CreateProduct3DMesh(Transform parent, string productName, Vector3 localPos, bool isStorageShelf)
@@ -112,12 +113,17 @@ namespace Farm2Shelf.Environment
 
         public static void CreateBasketProduct3DMesh(Transform parent, string productName, Vector3 localPos, int itemIndex)
         {
+            CreateBasketProduct3DMesh(parent, "", productName, localPos, itemIndex);
+        }
+
+        public static void CreateBasketProduct3DMesh(Transform parent, string productId, string productName, Vector3 localPos, int itemIndex)
+        {
             GameObject itemObj = new GameObject("BasketItem_" + itemIndex + "_" + productName);
             itemObj.transform.SetParent(parent, false);
             itemObj.transform.localPosition = localPos;
 
-            float randomYRot = (itemIndex * 37f) % 360f;
-            itemObj.transform.localRotation = Quaternion.Euler(0f, randomYRot, 0f);
+            // Right-angle alignment retains the model's proportions inside its own basket cell.
+            itemObj.transform.localRotation = Quaternion.Euler(0f, (itemIndex % 2) * 180f, 0f);
 
             if (string.IsNullOrEmpty(productName) || productName == "Boş" || productName.StartsWith("Ürün"))
             {
@@ -125,7 +131,38 @@ namespace Farm2Shelf.Environment
                 productName = fallbackProducts[itemIndex % fallbackProducts.Length];
             }
 
-            BuildSpecificProductModel(itemObj.transform, productName, scaleFactor: 0.55f);
+            if (!ProductDisplayModels.Attach(itemObj.transform, productId, productName, 1f))
+                BuildSpecificProductModel(itemObj.transform, productName, scaleFactor: 0.55f);
+            FitBasketProduct(itemObj.transform, localPos);
+        }
+
+        private static void FitBasketProduct(Transform product, Vector3 cellPosition)
+        {
+            Bounds bounds = default;
+            bool found = false;
+            foreach (MeshFilter filter in product.GetComponentsInChildren<MeshFilter>())
+            {
+                if (filter.sharedMesh == null) continue;
+                Bounds mesh = filter.sharedMesh.bounds;
+                Matrix4x4 matrix = product.parent.worldToLocalMatrix * filter.transform.localToWorldMatrix;
+                for (int i = 0; i < 8; i++)
+                {
+                    Vector3 point = matrix.MultiplyPoint3x4(new Vector3(
+                        (i & 1) == 0 ? mesh.min.x : mesh.max.x,
+                        (i & 2) == 0 ? mesh.min.y : mesh.max.y,
+                        (i & 4) == 0 ? mesh.min.z : mesh.max.z));
+                    if (!found) { bounds = new Bounds(point, Vector3.zero); found = true; }
+                    else bounds.Encapsulate(point);
+                }
+            }
+            if (!found) return;
+            float fit = Mathf.Min(1f, .125f / Mathf.Max(.001f, bounds.size.x),
+                .080f / Mathf.Max(.001f, bounds.size.y), .100f / Mathf.Max(.001f, bounds.size.z));
+            Vector3 pivot = product.localPosition;
+            Vector3 center = pivot + (bounds.center - pivot) * fit;
+            float bottom = pivot.y + (bounds.min.y - pivot.y) * fit;
+            product.localScale *= fit;
+            product.localPosition += new Vector3(cellPosition.x - center.x, cellPosition.y - bottom, cellPosition.z - center.z);
         }
 
         private static void BuildWholesaleBox(Transform parent, string productName, float scaleFactor)

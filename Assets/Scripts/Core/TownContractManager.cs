@@ -424,6 +424,12 @@ namespace Farm2Shelf.Core
         {
             errorTr = "";
             errorEn = "";
+            if (TimeManager.Instance != null && TimeManager.Instance.Hour >= 22)
+            {
+                errorTr = "Kurye sipariş alımı 22:00'de kapanır. Yeni kontratlar için ertesi günü bekleyin.";
+                errorEn = "Courier orders close at 22:00. Please wait until the next day for new contracts.";
+                return false;
+            }
             TownContractOffer offer = GetOffer(offerId);
             if (offer == null || offer.status != TownContractOfferStatus.Open)
             {
@@ -472,6 +478,7 @@ namespace Farm2Shelf.Core
 
         public void TryStartNextQueuedContract()
         {
+            if (!OnlineMarketOrderManager.CanReceiveNewOrders) return;
             if (HasActiveContractOrder()) return;
             if (queueOfferIds.Count == 0) return;
             if (StoreStatusManager.Instance != null && !StoreStatusManager.Instance.IsOpen) return;
@@ -928,29 +935,14 @@ namespace Farm2Shelf.Core
 
             if (FinanceManager.Instance == null) return;
 
-            if (contractPay > 0)
-            {
-                FinanceManager.Instance.RecordIncome(
-                    FinanceCategories.TownContracts,
-                    string.Format(LocalizationManager.L("FinDesc_ContractFee", "Kontrat ücreti: {0}", "Contract fee: {0}"), who),
-                    contractPay);
-            }
-
-            if (distancePay > 0)
-            {
-                FinanceManager.Instance.RecordIncome(
-                    FinanceCategories.TownContracts,
-                    string.Format(LocalizationManager.L("FinDesc_ContractDistance", "Kontrat mesafe primi: {0}", "Contract distance bonus: {0}"), who),
-                    distancePay);
-            }
-
-            if (localPay > 0)
-            {
-                FinanceManager.Instance.RecordIncome(
-                    FinanceCategories.TownContracts,
-                    string.Format(LocalizationManager.L("FinDesc_ContractLocal", "Kontrat yerel ürün primi: {0}", "Contract local-goods bonus: {0}"), who),
-                    localPay);
-            }
+            int total = Mathf.Max(0, contractPay) + Mathf.Max(0, distancePay) + Mathf.Max(0, localPay);
+            FinanceManager.Instance.RecordIncome(
+                FinanceCategories.TownContracts,
+                string.Format(LocalizationManager.L("FinDesc_ContractTotal",
+                    "{0} • Ücret: {1:N0}C + Mesafe: {2:N0}C + Yerel ürün: {3:N0}C",
+                    "{0} • Fee: {1:N0}C + Distance: {2:N0}C + Local goods: {3:N0}C"),
+                    who, Mathf.Max(0, contractPay), Mathf.Max(0, distancePay), Mathf.Max(0, localPay)),
+                total);
         }
 
         private static bool OrderUsedLocalGoods(OnlineCustomerOrder order)

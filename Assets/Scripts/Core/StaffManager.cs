@@ -129,7 +129,7 @@ namespace Farm2Shelf.Core
 
         public StaffMember HireStaffByRole(StaffRole role)
         {
-            string newId = "S" + UnityEngine.Random.Range(200, 999);
+            string newId = "S" + Guid.NewGuid().ToString("N");
 
             bool isEnglish = LocalizationManager.Instance != null && LocalizationManager.Instance.CurrentLanguage == GameLanguage.English;
             string[] maleNames = isEnglish ? maleFirstNamesEn : maleFirstNamesTr;
@@ -240,7 +240,7 @@ namespace Farm2Shelf.Core
         {
             // Benzersiz Rastgele İsim Üret (Erkek veya Kadın, İsim Tekrarı Olmaz)
             string randomName = GenerateUniqueFarmWorkerName();
-            string newId = "FS" + UnityEngine.Random.Range(100, 999);
+            string newId = "FS" + Guid.NewGuid().ToString("N");
             string defaultShift = "☀️ Sabah (08:00 - 16:00)";
             int dailySalary = GetRoleDailySalary(StaffRole.Çiftçi);
 
@@ -327,7 +327,7 @@ namespace Farm2Shelf.Core
         public StaffMember HireCourier(bool isFemale)
         {
             string randomName = GenerateUniqueCourierName(isFemale);
-            string newId = "CR" + UnityEngine.Random.Range(100, 999);
+            string newId = "CR" + Guid.NewGuid().ToString("N");
             string defaultShift = "☀️ Sabah (08:00 - 16:00)";
             int dailySalary = GetRoleDailySalary(StaffRole.Kurye);
 

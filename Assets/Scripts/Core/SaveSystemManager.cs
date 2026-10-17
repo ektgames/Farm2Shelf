@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -131,6 +131,8 @@ namespace Farm2Shelf.Core
                 saveData.workshopLevel = WorkshopManager.Instance.CurrentWorkshopLevel;
             }
 
+            saveData.storeAnnouncements = StoreAnnouncementManager.Instance?.CaptureState();
+
             // 3. DÜKKAN AÇIK / KAPALI DURUMU VE ŞİRKET BİLGİLERİ
             if (StoreStatusManager.Instance != null)
             {
@@ -200,6 +202,7 @@ namespace Farm2Shelf.Core
                 saveData.dailyExpenses = FinanceManager.Instance.DailyExpenses;
                 saveData.monthlyRevenue = FinanceManager.Instance.MonthlyRevenue;
                 saveData.monthlyExpenses = FinanceManager.Instance.MonthlyExpenses;
+                saveData.dailyPassiveIncomeRecord = FinanceManager.Instance.DailyPassiveRecord;
 
                 List<TransactionRecord> logs = FinanceManager.Instance.GetTransactionLog();
                 if (logs != null)
@@ -566,7 +569,7 @@ namespace Farm2Shelf.Core
             }
 
             // 1. Zamanı Sıfırla ve Başlat
-            Time.timeScale = 1.0f;
+            GameSimulationTime.BeginSession();
 
             // 2. Sahnedeki Eski Müşteri ve Personel Modellerini Temizle
             if (CustomerShoppingManager.Instance != null)
@@ -721,7 +724,8 @@ namespace Farm2Shelf.Core
                     saveData.monthlyRevenue,
                     saveData.monthlyExpenses,
                     saveData.transactionLog,
-                    saveData.financeCategoryTotals
+                    saveData.financeCategoryTotals,
+                    saveData.dailyPassiveIncomeRecord
                 );
             }
 
@@ -929,6 +933,8 @@ namespace Farm2Shelf.Core
                 StoreStatusManager.Instance.RestoreStoreStatus(saveData.isStoreOpen && saveData.gameHour < 24);
             }
 
+            StoreAnnouncementManager.Instance?.RestoreState(saveData.storeAnnouncements);
+
             // 16. Oyun Zamanı, Günü, Mevsimi ve Yılı Yükleme
             if (TimeManager.Instance != null)
             {
@@ -1045,8 +1051,9 @@ namespace Farm2Shelf.Core
 
         public void ResetRuntimeForNewGame()
         {
+            StoreAnnouncementManager.Instance?.RestoreState(null);
             BeginNewUnsavedSession();
-            Time.timeScale = 1f;
+            GameSimulationTime.BeginSession();
 
             StoreStatusManager.Instance?.RestoreStoreStatus(false);
             CustomerShoppingManager.Instance?.ClearAllCustomers();

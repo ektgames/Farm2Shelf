@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 using Farm2Shelf.Core;
 
@@ -54,14 +54,14 @@ namespace Farm2Shelf.UI
         public void ShowPauseMenu()
         {
             if (EndOfDayReportModalUI.IsReportModalOpen) return;
-            Time.timeScale = 0f; // Oyunu duraklat
+            GameSimulationTime.SetPaused(GameSimulationTime.PauseReason.PauseMenu, true); // Oyunu duraklat
             ModalManager.SetModalOpen(true);
             BuildUI();
         }
 
         public void HideMenu()
         {
-            Time.timeScale = 1.0f; // Oyunu devam ettir
+            GameSimulationTime.SetPaused(GameSimulationTime.PauseReason.PauseMenu, false); // Oyunu devam ettir
             if (canvasObj != null) Destroy(canvasObj);
             ModalManager.SetModalOpen(false);
         }

@@ -1,3 +1,4 @@
+using Farm2Shelf.Utils;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -29,9 +30,10 @@ namespace Farm2Shelf.Environment
         public bool WateredToday { get; private set; } = false;
 
         private GameObject cropMeshObj;
+        private int lastPlotClickFrame = -1;
 
         private static GameObject radialMenuCanvasObj;
-        public static bool IsRadialMenuOpen => radialMenuCanvasObj != null;
+        public static bool IsRadialMenuOpen => radialMenuCanvasObj != null && radialMenuCanvasObj.activeInHierarchy;
 
         private void OnEnable()
         {
@@ -47,6 +49,7 @@ namespace Farm2Shelf.Environment
         private void OnDisable()
         {
             AllPlots.Remove(this);
+            if (AllPlots.Count == 0) SeedPlantingModeUI.Cancel();
 
             if (TimeManager.Instance != null)
             {
@@ -97,14 +100,23 @@ namespace Farm2Shelf.Environment
 
         public void OnPlotClicked()
         {
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || Time.unscaledTime - ModalManager.LastModalCloseTime < 0.35f) return;
+            if (MainMenuUI.IsMenuVisible || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen)) return;
+            if (TouchInputHelper.IsWorldInteractionBlocked()) return;
+            if (lastPlotClickFrame == Time.frameCount) return;
+            lastPlotClickFrame = Time.frameCount;
+            if (SeedPlantingModeUI.HandlePlotClick(this)) return;
+            if (State == PlotState.Empty)
+            {
+                OpenRadialPlantingMenu();
+                return;
+            }
             FieldPlotDetailModalUI.ShowDetail(this);
         }
 
         public void OnPointerClick(PointerEventData eventData)
         {
             if (eventData != null && eventData.dragging) return;
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || Time.unscaledTime - ModalManager.LastModalCloseTime < 0.35f) return;
+            if (TouchInputHelper.IsWorldInteractionBlocked()) return;
             OnPlotClicked();
         }
 
@@ -152,8 +164,10 @@ namespace Farm2Shelf.Environment
 
         public void PlantSeed(string seedId)
         {
+            if (State != PlotState.Empty) return;
             GardenSeedDef sDef = GardenSeedDatabase.GetSeedById(seedId);
             if (sDef == null) return;
+            if (TimeManager.Instance != null && sDef.season != TimeManager.Instance.CurrentSeason) return;
 
             if (!GardenSeedInventoryManager.Instance.ConsumeSeed(seedId, 1))
             {
@@ -248,6 +262,7 @@ namespace Farm2Shelf.Environment
 
         public static void ResetAllPlotsToEmpty()
         {
+            SeedPlantingModeUI.Cancel();
             if (AllPlots != null)
             {
                 for (int i = 0; i < AllPlots.Count; i++)
@@ -487,7 +502,9 @@ namespace Farm2Shelf.Environment
             string selectedSeedId = s.id;
             btn.onClick.AddListener(() => {
                 CloseRadialMenu();
+                SeedPlantingModeUI.SelectSeed(selectedSeedId, this);
                 PlantSeed(selectedSeedId);
+                SeedPlantingModeUI.Refresh();
             });
 
             GameObject bTxtObj = new GameObject("Txt");
@@ -519,7 +536,12 @@ namespace Farm2Shelf.Environment
 
         private static void CloseRadialMenu()
         {
-            if (radialMenuCanvasObj != null) Destroy(radialMenuCanvasObj);
+            if (radialMenuCanvasObj != null)
+            {
+                radialMenuCanvasObj.SetActive(false);
+                Destroy(radialMenuCanvasObj);
+                radialMenuCanvasObj = null;
+            }
             ModalManager.SetModalOpen(false);
         }
 

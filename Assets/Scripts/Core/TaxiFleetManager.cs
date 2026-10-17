@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -368,7 +368,7 @@ namespace Farm2Shelf.Core
             string dropTr,
             string dropEn)
         {
-            yield return new WaitForSecondsRealtime(0.85f);
+            yield return new WaitForSeconds(0.85f);
             if (waiter != null && taxi != null)
             {
                 yield return WalkPassengerToTaxi(waiter, taxi);
@@ -394,7 +394,7 @@ namespace Farm2Shelf.Core
 
         private IEnumerator HoldAtDropThenReturn(TaxiVehicleController taxi, Vector3 dropWait, int fare, int meters, string dropTr, string dropEn)
         {
-            yield return new WaitForSecondsRealtime(2.15f);
+            yield return new WaitForSeconds(2.15f);
             FinishDropAndReturn(taxi, dropWait, fare, meters, dropTr, dropEn, false);
         }
 
@@ -407,7 +407,7 @@ namespace Farm2Shelf.Core
             const float duration = 0.75f;
             while (elapsed < duration && waiter != null && taxi != null)
             {
-                elapsed += Time.unscaledDeltaTime;
+                elapsed += Time.deltaTime;
                 float t = Mathf.SmoothStep(0f, 1f, elapsed / duration);
                 waiter.transform.position = Vector3.Lerp(start, door, t);
                 Vector3 look = door - waiter.transform.position;

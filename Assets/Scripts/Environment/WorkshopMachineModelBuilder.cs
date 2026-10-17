@@ -32,6 +32,19 @@ namespace Farm2Shelf.Environment
 
         public static GameObject BuildMachineModel(WorkshopMachineType machineType)
         {
+            GameObject prefab = Resources.Load<GameObject>("WorkshopMachines/" + machineType);
+            if (prefab != null)
+            {
+                GameObject model = Object.Instantiate(prefab);
+                model.name = "Machine_Model_" + machineType;
+                return model;
+            }
+            return BuildProceduralMachineModel(machineType);
+        }
+
+        // Also used by the editor importer to preserve the original placement envelope.
+        public static GameObject BuildProceduralMachineModel(WorkshopMachineType machineType)
+        {
             InitMaterials();
 
             GameObject root = new GameObject("Machine_Model_" + machineType);

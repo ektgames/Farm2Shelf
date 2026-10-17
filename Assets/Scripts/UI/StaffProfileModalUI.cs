@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using Farm2Shelf.Core;
@@ -108,8 +108,12 @@ namespace Farm2Shelf.UI
             rootRect.anchorMax = Vector2.one;
             rootRect.offsetMin = Vector2.zero;
             rootRect.offsetMax = Vector2.zero;
+            Canvas modalLayer = modalContainer.AddComponent<Canvas>();
+            modalLayer.overrideSorting = true;
+            modalLayer.sortingOrder = 1100;
+            modalContainer.AddComponent<GraphicRaycaster>();
 
-            // Arka Plan Karartma (Overlay Backdrop - Şeffaf ve 3D Tıklamaları Engellemez)
+            // Arka Plan Karartma (Overlay Backdrop - Arka plan etkileşimlerini engeller)
             GameObject backdropObj = new GameObject("Backdrop");
             backdropObj.transform.SetParent(modalContainer.transform, false);
             RectTransform bdRect = backdropObj.AddComponent<RectTransform>();
@@ -120,7 +124,7 @@ namespace Farm2Shelf.UI
 
             Image bdImg = backdropObj.AddComponent<Image>();
             bdImg.color = new Color(0.04f, 0.06f, 0.10f, 0.20f);
-            bdImg.raycastTarget = false; // 3D dünyadaki personel, müşteri ve nesne tıklamalarını KESİNLİKLE engellemez
+            bdImg.raycastTarget = true; // Block interaction behind the open profile.
 
             // Personel Kartı Paneli (Sol Alt Taraf - Safe Area Desteğiyle)
             cardPanel = new GameObject("Staff_Profile_CardPanel");
@@ -524,9 +528,10 @@ namespace Farm2Shelf.UI
             if (modalContainer != null)
             {
                 modalContainer.SetActive(false);
+                Farm2Shelf.Utils.TouchInputHelper.SuppressNextTap();
             }
         }
 
-        public bool IsModalOpen => modalContainer != null && modalContainer.activeSelf;
+        public bool IsModalOpen => modalContainer != null && modalContainer.activeInHierarchy;
     }
 }

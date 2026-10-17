@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -88,7 +88,7 @@ namespace Farm2Shelf.Core
             {
                 foreach (var tStr in boxTypes)
                 {
-                    if (Enum.TryParse<FurnitureType>(tStr, out FurnitureType fType))
+                    if (Enum.TryParse<FurnitureType>(tStr, out FurnitureType fType) && fType != FurnitureType.DividerFence)
                     {
                         CreateCargoBoxOnPallet(fType);
                     }
@@ -102,6 +102,7 @@ namespace Farm2Shelf.Core
         private Material cardboardMat;
         private Material tapeMat;
         private GameObject arrivalGlowRoot;
+        private PalletCargoArrow cargoArrow;
 
         private void Awake()
         {
@@ -141,8 +142,8 @@ namespace Farm2Shelf.Core
             palletObj.transform.position = palletPosition;
 
             BoxCollider pCol = palletObj.AddComponent<BoxCollider>();
-            pCol.center = new Vector3(0f, 1.2f, 0f);
-            pCol.size = new Vector3(4.2f, 3.2f, 4.2f); // Geniş dokunmatik/tıklama alanı
+            pCol.center = new Vector3(0f, 0.0725f, 0f);
+            pCol.size = new Vector3(1.6f, 0.145f, 1.6f); // Match the visible pallet, not surrounding empty space.
 
             palletObj.AddComponent<DeliveryPalletClickable>();
 
@@ -219,6 +220,7 @@ namespace Farm2Shelf.Core
 
         public DeliveryBoxController CreateCargoBoxOnPallet(FurnitureType type)
         {
+            if (type == FurnitureType.DividerFence) return null;
             InitMaterials();
 
             GameObject boxObj = new GameObject("CargoBox_" + type.ToString());
@@ -241,8 +243,8 @@ namespace Farm2Shelf.Core
             Destroy(tapeX.GetComponent<Collider>());
 
             BoxCollider col = boxObj.AddComponent<BoxCollider>();
-            col.center = Vector3.zero;
-            col.size = new Vector3(0.80f, 0.70f, 0.80f);
+            col.center = new Vector3(0f, 0.005f, 0f);
+            col.size = new Vector3(0.56f, 0.46f, 0.55f);
 
             DeliveryBoxController controller = boxObj.AddComponent<DeliveryBoxController>();
             controller.SetupBox(type);
@@ -313,7 +315,21 @@ namespace Farm2Shelf.Core
             if (hasCargo)
             {
                 EnsureArrivalGlow();
+                if (cargoArrow == null && palletObj != null)
+                {
+                    GameObject arrowObj = new GameObject("Pallet_Cargo_Arrow");
+                    arrowObj.transform.SetParent(palletObj.transform, false);
+                    cargoArrow = arrowObj.AddComponent<PalletCargoArrow>();
+                    cargoArrow.Initialize();
+                }
+                if (cargoArrow != null)
+                {
+                    float cargoTop = 0.62f + ((activeBoxes.Count - 1) / 4) * 0.48f;
+                    cargoArrow.SetHeight(Mathf.Max(2.2f, cargoTop + 0.85f));
+                }
             }
+
+            if (cargoArrow != null) cargoArrow.gameObject.SetActive(hasCargo);
 
             if (arrivalGlowRoot != null)
             {
@@ -418,6 +434,70 @@ namespace Farm2Shelf.Core
             tex.SetPixels(pixels);
             tex.Apply(false, true);
             return tex;
+        }
+    }
+
+    internal sealed class PalletCargoArrow : MonoBehaviour
+    {
+        private Mesh arrowMesh;
+        private Material yellowMaterial;
+        private Material outlineMaterial;
+        private float baseHeight = 2.2f;
+
+        public void Initialize()
+        {
+            // A small unlit mesh stays legible at night without HDR emission or extra lights.
+            arrowMesh = new Mesh { name = "PalletCargoArrowMesh" };
+            arrowMesh.vertices = new[]
+            {
+                new Vector3(-0.42f, 0f, 0f), new Vector3(0f, -0.46f, 0f),
+                new Vector3(0.42f, 0f, 0f), new Vector3(0.16f, 0f, 0f),
+                new Vector3(0.16f, 0.55f, 0f), new Vector3(-0.16f, 0.55f, 0f),
+                new Vector3(-0.16f, 0f, 0f)
+            };
+            arrowMesh.triangles = new[] { 0, 1, 2, 3, 4, 5, 3, 5, 6 };
+            arrowMesh.RecalculateNormals();
+            arrowMesh.RecalculateBounds();
+            yellowMaterial = ShaderHelper.CreateUnlitOpaqueMaterial(new Color(1f, 0.79f, 0.06f), "PalletArrowYellow");
+            outlineMaterial = ShaderHelper.CreateUnlitOpaqueMaterial(new Color(0.22f, 0.13f, 0.025f), "PalletArrowOutline");
+            CreateLayer("Outline", outlineMaterial, 1.12f, 0.015f);
+            CreateLayer("Yellow", yellowMaterial, 1f, -0.015f);
+        }
+
+        private void CreateLayer(string name, Material material, float scale, float depth)
+        {
+            GameObject layer = new GameObject(name);
+            layer.transform.SetParent(transform, false);
+            layer.transform.localPosition = new Vector3(0f, 0f, depth);
+            layer.transform.localScale = Vector3.one * scale;
+            layer.AddComponent<MeshFilter>().sharedMesh = arrowMesh;
+            MeshRenderer renderer = layer.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = material;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            material.SetInt("_Cull", (int)UnityEngine.Rendering.CullMode.Off);
+            // No collider or UI raycast target: the indicator cannot intercept pallet taps.
+        }
+
+        public void SetHeight(float height)
+        {
+            baseHeight = height;
+            transform.localPosition = new Vector3(0f, baseHeight, 0f);
+        }
+
+        private void LateUpdate()
+        {
+            float bounce = 0.5f - 0.5f * Mathf.Cos(Time.time * 4.5f);
+            transform.localPosition = new Vector3(0f, baseHeight + bounce * 0.28f, 0f);
+            Camera camera = GameplayPerf.MainCamera;
+            if (camera != null) transform.rotation = camera.transform.rotation;
+        }
+
+        private void OnDestroy()
+        {
+            if (arrowMesh != null) Destroy(arrowMesh);
+            if (yellowMaterial != null) Destroy(yellowMaterial);
+            if (outlineMaterial != null) Destroy(outlineMaterial);
         }
     }
 

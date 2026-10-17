@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Farm2Shelf.UI;
@@ -45,8 +45,11 @@ namespace Farm2Shelf.Core
             pDef = null;
             if (PendingTruckPackages != null && PendingTruckPackages.Count > 0)
             {
-                pDef = PendingTruckPackages[0];
-                PendingTruckPackages.RemoveAt(0);
+                int packageIndex = PendingTruckPackages.FindIndex(package =>
+                    WholesaleTruckManager.GetNextAvailableStorageShelfForProduct(package) != null);
+                if (packageIndex < 0) return false;
+                pDef = PendingTruckPackages[packageIndex];
+                PendingTruckPackages.RemoveAt(packageIndex);
                 string fetchedProductId = pDef != null ? pDef.id : null;
                 int activeIndex = activeDeliveryPackages.FindIndex(p => p != null && p.id == fetchedProductId);
                 if (activeIndex >= 0) activeDeliveryPackages.RemoveAt(activeIndex);

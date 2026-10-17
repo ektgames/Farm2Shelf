@@ -71,7 +71,7 @@ namespace Farm2Shelf.Core
                 case Animals: return LocalizationManager.L("TrxCat_Animals", "Hayvan", "Livestock");
                 case Renovation: return LocalizationManager.L("TrxCat_Renovation", "Tadilat", "Renovation");
                 case Expansion: return LocalizationManager.L("TrxCat_Expansion", "Geliştirme", "Expansion");
-                case OnlineDelivery: return LocalizationManager.L("TrxCat_OnlineDelivery", "Online Market & Kurye Geliri", "Online Market & Courier Revenue");
+                case OnlineDelivery: return LocalizationManager.L("TrxCat_OnlineOrders", "Online Siparişler", "Online Orders");
                 case TownContracts: return LocalizationManager.L("TrxCat_TownContracts", "Kasaba Kontratları", "Town Contracts");
                 case Vehicles: return LocalizationManager.L("TrxCat_Vehicles", "Araçlar & Filo", "Vehicles & Fleet");
                 case StocksBuy: return LocalizationManager.L("TrxCat_Stock", "Borsa Yatırımı", "Stock Investment");
@@ -96,7 +96,9 @@ namespace Farm2Shelf.Core
                 || category == Overtime
                 || category == BankLoan
                 || category == BankLoanPayoff
-                || category == BankLoanInstallment;
+                || category == BankLoanInstallment
+                || category == TownContracts
+                || category == OnlineDelivery;
         }
     }
 
@@ -109,6 +111,8 @@ namespace Farm2Shelf.Core
 
         private const int MaxTransactionLog = 500;
         private int nextRecordSerial = 1;
+        private TransactionRecord dailyPassiveRecord;
+        public TransactionRecord DailyPassiveRecord => dailyPassiveRecord;
 
         private int totalRevenue = 0;
         private int totalExpenses = 0;
@@ -136,7 +140,7 @@ namespace Farm2Shelf.Core
             RestoreFinanceData(totRev, totExp, dRev, dExp, mRev, mExp, logs, null);
         }
 
-        public void RestoreFinanceData(int totRev, int totExp, int dRev, int dExp, int mRev, int mExp, List<TransactionRecord> logs, List<FinanceCategoryTotalSave> categoryTotals)
+        public void RestoreFinanceData(int totRev, int totExp, int dRev, int dExp, int mRev, int mExp, List<TransactionRecord> logs, List<FinanceCategoryTotalSave> categoryTotals, TransactionRecord passiveRecord = null)
         {
             totalRevenue = totRev;
             totalExpenses = totExp;
@@ -151,6 +155,17 @@ namespace Farm2Shelf.Core
             {
                 transactionLog.AddRange(logs);
             }
+            dailyPassiveRecord = passiveRecord;
+            nextRecordSerial = 1;
+            foreach (TransactionRecord record in transactionLog)
+            {
+                if (record == null) continue;
+                if (passiveRecord != null && record.id == passiveRecord.id)
+                    dailyPassiveRecord = record;
+                if (record.id != null && record.id.StartsWith("TRX") &&
+                    int.TryParse(record.id.Substring(3), out int serial))
+                    nextRecordSerial = Math.Max(nextRecordSerial, serial + 1);
+            }
 
             if (categoryTotals != null && categoryTotals.Count > 0)
             {
@@ -164,6 +179,8 @@ namespace Farm2Shelf.Core
             else
             {
                 RebuildCategoryTotalsFromLog();
+                if (dailyPassiveRecord != null && !transactionLog.Contains(dailyPassiveRecord))
+                    AddCategoryAmount(categoryIncome, FinanceCategories.Passive, dailyPassiveRecord.amount);
             }
 
             OnFinanceUpdated?.Invoke();
@@ -291,6 +308,24 @@ namespace Farm2Shelf.Core
         public void RecordIncome(string category, string description, int amount)
         {
             if (amount <= 0) return;
+            if (category == FinanceCategories.Passive)
+            {
+                // Money is already paid by the furniture. Update accounting immediately,
+                // but publish only one history row when this day closes.
+                if (dailyPassiveRecord == null)
+                {
+                    string date = TimeManager.Instance != null ? TimeManager.Instance.GetFormattedDate() : "";
+                    dailyPassiveRecord = new TransactionRecord("PASSIVE-" + Guid.NewGuid().ToString("N"),
+                        date + " 24:00", FinanceCategories.Passive, "DailyPassiveIncome", 0, true);
+                }
+                dailyPassiveRecord.amount += amount;
+                totalRevenue += amount;
+                dailyRevenue += amount;
+                monthlyRevenue += amount;
+                AddCategoryAmount(categoryIncome, FinanceCategories.Passive, amount);
+                OnFinanceUpdated?.Invoke();
+                return;
+            }
             RecordTransactionInternal(string.IsNullOrEmpty(category) ? FinanceCategories.Sales : category, description, amount, true);
             OnFinanceUpdated?.Invoke();
         }
@@ -320,11 +355,22 @@ namespace Farm2Shelf.Core
 
         private void HandleMidnightRollover()
         {
+            FinalizeDailyPassiveIncome();
+            OnFinanceUpdated?.Invoke();
+        }
+
+        public void FinalizeDailyPassiveIncome()
+        {
+            if (dailyPassiveRecord == null || dailyPassiveRecord.amount <= 0 || transactionLog.Contains(dailyPassiveRecord)) return;
+            transactionLog.Insert(0, dailyPassiveRecord);
+            TrimTransactionLog();
             OnFinanceUpdated?.Invoke();
         }
 
         private void HandleNewDayStarted(TimeManager.Season season, int day, int year)
         {
+            FinalizeDailyPassiveIncome();
+            dailyPassiveRecord = null;
             if (day != 1) return;
             monthlyRevenue = 0;
             monthlyExpenses = 0;
@@ -333,6 +379,8 @@ namespace Farm2Shelf.Core
 
         public void ResetDailyStats()
         {
+            FinalizeDailyPassiveIncome();
+            dailyPassiveRecord = null;
             dailyRevenue = 0;
             dailyExpenses = 0;
             OnFinanceUpdated?.Invoke();
@@ -340,6 +388,8 @@ namespace Farm2Shelf.Core
 
         public void ResetToDefaults()
         {
+            dailyPassiveRecord = null;
+            nextRecordSerial = 1;
             totalRevenue = 0;
             totalExpenses = 0;
             dailyRevenue = 0;

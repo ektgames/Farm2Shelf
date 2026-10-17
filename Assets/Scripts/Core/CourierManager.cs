@@ -388,15 +388,21 @@ namespace Farm2Shelf.Core
         /// </summary>
         public bool HasOutstandingNightWork()
         {
+            bool dayClosed = OnlineMarketOrderManager.IsCourierDayClosed;
             for (int i = 0; i < spawnedMotorcycles.Count; i++)
             {
                 var moto = spawnedMotorcycles[i];
                 if (moto == null) continue;
                 if (moto.IsDeliveryTripInProgress) return true;
                 if (IsMotorcycleDrivingOnRoad(moto)) return true;
+                // Parked orders remain saved for the morning; they must not deadlock the report.
+                if (dayClosed) continue;
                 if (moto.CurrentState == MotorcycleState.WaitingForStocker) return true;
                 if (moto.LoadedOrders != null && moto.LoadedOrders.Count > 0) return true;
             }
+
+            if (dayClosed)
+                return StaffTaskController.Instance != null && StaffTaskController.Instance.HasActiveCourierPreparation();
 
             if (OnlineMarketOrderManager.Instance != null && OnlineMarketOrderManager.Instance.HasPendingCourierDeliveries())
             {
@@ -508,6 +514,7 @@ namespace Farm2Shelf.Core
                         {
                             MountWaitingCourierOnMotorcycle(state, moto);
                         }
+                        CheckAndDispatchOvernightOrders(moto);
                         continue;
                     }
 
@@ -700,7 +707,7 @@ namespace Farm2Shelf.Core
         {
             if (character == null) yield break;
 
-            float walkSpeed = 2.8f;
+            float walkSpeed = 2.8f * 1.15f;
             float walkCycleTimer = 0f;
 
             // Rota Adımları (Sağ Kaldırım Boyunca Yürüyüş):
@@ -726,7 +733,7 @@ namespace Farm2Shelf.Core
                         character.transform.rotation = Quaternion.Slerp(character.transform.rotation, Quaternion.LookRotation(dir, Vector3.up), 12f * Time.deltaTime);
                     }
 
-                    walkCycleTimer += Time.deltaTime * 8.5f;
+                    walkCycleTimer += Time.deltaTime * 8.5f * 1.15f;
                     float legAngle = Mathf.Sin(walkCycleTimer) * 26.0f;
 
                     if (state != null && state.leftLimbs != null)
@@ -795,6 +802,7 @@ namespace Farm2Shelf.Core
 
         public void CheckAndDispatchOvernightOrders(CourierMotorcycleController moto)
         {
+            if (OnlineMarketOrderManager.IsCourierDayClosed) return;
             if (moto == null || moto.LoadedOrders == null || moto.LoadedOrders.Count == 0) return;
             if (moto.AssignedCourier == null && moto.CourierRiderObj == null) return;
             if (moto.IsDeliveryTripInProgress || IsMotorcycleDrivingOnRoad(moto)) return;
@@ -866,7 +874,7 @@ namespace Farm2Shelf.Core
         {
             if (character == null) yield break;
 
-            float walkSpeed = 2.8f;
+            float walkSpeed = 2.8f * 1.15f;
             float walkCycleTimer = 0f;
 
             List<Transform> leftLimbs = new List<Transform>();
@@ -903,7 +911,7 @@ namespace Farm2Shelf.Core
                         character.transform.rotation = Quaternion.Slerp(character.transform.rotation, Quaternion.LookRotation(dir, Vector3.up), 12f * Time.deltaTime);
                     }
 
-                    walkCycleTimer += Time.deltaTime * 8.5f;
+                    walkCycleTimer += Time.deltaTime * 8.5f * 1.15f;
                     float legAngle = Mathf.Sin(walkCycleTimer) * 26.0f;
 
                     foreach (var l in leftLimbs) if (l != null) l.localRotation = Quaternion.Euler(legAngle, 0f, 0f);

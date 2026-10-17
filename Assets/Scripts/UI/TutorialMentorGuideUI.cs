@@ -125,7 +125,7 @@ namespace Farm2Shelf.UI
             dimRoot.transform.SetParent(root.transform, false);
             Canvas dimCanvas = dimRoot.AddComponent<Canvas>();
             dimCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            dimCanvas.sortingOrder = 920;
+            dimCanvas.sortingOrder = 1120; // Above tablet, pallet and ordinary gameplay windows.
             CanvasScaler dimScaler = dimRoot.AddComponent<CanvasScaler>();
             dimScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             dimScaler.referenceResolution = new Vector2(1920, 1080);
@@ -136,7 +136,7 @@ namespace Farm2Shelf.UI
             talkRoot.transform.SetParent(root.transform, false);
             Canvas canvas = talkRoot.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 980;
+            canvas.sortingOrder = 1140; // Mentor/Skip remain usable above the spotlight.
             CanvasScaler scaler = talkRoot.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);
@@ -152,13 +152,8 @@ namespace Farm2Shelf.UI
             ovRt.anchorMax = Vector2.one;
             ovRt.offsetMin = Vector2.zero;
             ovRt.offsetMax = Vector2.zero;
-            Image ovImg = ovObj.AddComponent<Image>();
-            ovImg.color = new Color(0.02f, 0.03f, 0.06f, 0.58f);
-            ovImg.raycastTarget = false;
             spotlight = ovObj.AddComponent<TutorialSpotlightOverlay>();
-            Shader holeShader = Shader.Find("Farm2Shelf/UI/TutorialSpotlight");
-            Material holeMat = (holeShader != null && holeShader.isSupported) ? new Material(holeShader) : null;
-            spotlight.Initialize(holeMat);
+            spotlight.Initialize();
 
             GameObject card = new GameObject("MentorCard");
             card.transform.SetParent(talkRoot.transform, false);
@@ -436,10 +431,18 @@ namespace Farm2Shelf.UI
         {
             Vector3[] c = new Vector3[4];
             rt.GetWorldCorners(c);
-            float xMin = Mathf.Min(c[0].x, c[2].x);
-            float xMax = Mathf.Max(c[0].x, c[2].x);
-            float yMin = Mathf.Min(c[0].y, c[2].y);
-            float yMax = Mathf.Max(c[0].y, c[2].y);
+            Canvas ownerCanvas = rt.GetComponentInParent<Canvas>();
+            Camera eventCamera = ownerCanvas != null && ownerCanvas.renderMode != RenderMode.ScreenSpaceOverlay
+                ? ownerCanvas.worldCamera : null;
+            Vector2 min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
+            Vector2 max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
+            for (int i = 0; i < c.Length; i++)
+            {
+                Vector2 point = RectTransformUtility.WorldToScreenPoint(eventCamera, c[i]);
+                min = Vector2.Min(min, point);
+                max = Vector2.Max(max, point);
+            }
+            float xMin = min.x, yMin = min.y, xMax = max.x, yMax = max.y;
             return Rect.MinMaxRect(xMin, yMin, xMax, yMax);
         }
 
@@ -585,6 +588,7 @@ namespace Farm2Shelf.UI
                     return;
                 }
                 Add(into, cash < 2 ? "hire_cashier" : "hire_restocker");
+                Add(into, "hire_confirm_0");
                 return;
             }
 
@@ -699,6 +703,7 @@ namespace Farm2Shelf.UI
                     return;
                 }
                 Add(into, "hire_farmer");
+                Add(into, "hire_confirm_1");
                 return;
             }
             if (phone.ActiveFarmTab != 3)
@@ -748,8 +753,8 @@ namespace Farm2Shelf.UI
                     if (tm.GetStoreRoleCount(StaffRole.Kasiyer) < 2)
                     {
                         key = "s3_cash";
-                        tr = "Mağaza → İşe Alım. Önce 2 kasiyer al. Yalnızca kasiyer kartı parlıyor.";
-                        en = "Store → Hire. Take 2 cashiers first. Only the cashier card is lit.";
+                        tr = "Mağaza → İşe Alım. Önce kasiyer kartında 2 kişi seç, sonra Onayla. Onay kartı listenin sonunda.";
+                        en = "Store → Hire. Select 2 cashiers, then Confirm. The confirmation card is at the end of the list.";
                     }
                     else if (tm.GetStoreRoleCount(StaffRole.Reyoncu) < 2)
                     {
@@ -797,8 +802,8 @@ namespace Farm2Shelf.UI
                     if (tm.GetFarmRoleCount(StaffRole.Çiftçi) < 2)
                     {
                         key = "s8_hire";
-                        tr = "Çiftlik → İşe Alım. 2 çiftçi al. Onlar eker, hasat eder, pasaportu tarlaya işler.";
-                        en = "Farm → Hire. Take 2 farmers. They plant, harvest, and stamp the plot on the passport.";
+                        tr = "Çiftlik → İşe Alım. 2 çiftçi seç ve listenin sonundaki Onayla butonuna bas. Onlar eker ve hasat eder.";
+                        en = "Farm → Hire. Select 2 farmers, then Confirm at the end of the list. They plant and harvest.";
                     }
                     else
                     {

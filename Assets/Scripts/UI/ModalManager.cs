@@ -18,7 +18,9 @@ namespace Farm2Shelf.UI
 
         public static float LastModalCloseTime { get; private set; } = -1f;
 
-        public static bool IsModalOpen => modalState || IsAnyModalCanvasActive();
+        // The visible owners are authoritative. A stale boolean from a destroyed
+        // window must not lock the camera and every world interaction indefinitely.
+        public static bool IsModalOpen => IsAnyModalCanvasActive();
 
         public static void SetModalOpen(bool isOpen)
         {
@@ -65,6 +67,11 @@ namespace Farm2Shelf.UI
             if (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen) return true;
             if (DailySpinWheelUI.Instance != null && DailySpinWheelUI.Instance.IsWheelOpen) return true;
             if (GameOverUI.IsOpen) return true;
+            if (WorkshopPalletModalUI.IsModalOpen) return true;
+            if (WorkshopMachineModalUI.Instance != null && WorkshopMachineModalUI.Instance.IsModalOpen) return true;
+            if (LivestockCoopModalUI.Instance != null && LivestockCoopModalUI.Instance.IsModalOpen) return true;
+            if (CustomerProfileModalUI.Instance != null && CustomerProfileModalUI.Instance.IsModalOpen) return true;
+            if (StaffProfileModalUI.Instance != null && StaffProfileModalUI.Instance.IsModalOpen) return true;
 
             return false;
         }
@@ -123,7 +130,7 @@ namespace Farm2Shelf.UI
         /// <summary>
         /// Ekrana başlık, mesaj ve buton içeren şık bir modal iletişim kutusu açar.
         /// </summary>
-        public static void ShowModal(string title, string message, string buttonText = "Tamam")
+        public static void ShowModal(string title, string message, string buttonText = "Tamam", bool largeNote = false)
         {
             if (string.IsNullOrEmpty(buttonText) || buttonText == "Tamam")
             {
@@ -144,7 +151,7 @@ namespace Farm2Shelf.UI
 
             Canvas canvas = canvasObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 2000;
+            canvas.sortingOrder = 4900; // Above menus/settings, below mandatory day-end and game-over screens.
 
             CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -171,10 +178,10 @@ namespace Farm2Shelf.UI
 
             RectTransform boxRect = boxObj.AddComponent<RectTransform>();
             boxRect.anchoredPosition = Vector2.zero;
-            boxRect.sizeDelta = new Vector2(600f, 320f);
+            boxRect.sizeDelta = new Vector2(largeNote ? 720f : 600f, largeNote ? 560f : 320f);
 
             Image boxBg = boxObj.AddComponent<Image>();
-            boxBg.sprite = UIStyleUtility.CreateOutlinePillSprite(600, 320, 16, 2, new Color(0.95f, 0.40f, 0.55f), new Color(0.12f, 0.15f, 0.20f, 0.98f));
+            boxBg.sprite = UIStyleUtility.CreateOutlinePillSprite(largeNote ? 720 : 600, largeNote ? 560 : 320, 16, 2, new Color(0.95f, 0.40f, 0.55f), new Color(0.12f, 0.15f, 0.20f, 0.98f));
 
             Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
@@ -182,13 +189,13 @@ namespace Farm2Shelf.UI
             GameObject titleObj = new GameObject("Modal_Title");
             titleObj.transform.SetParent(boxObj.transform, false);
             RectTransform tRect = titleObj.AddComponent<RectTransform>();
-            tRect.anchoredPosition = new Vector2(0f, 110f);
-            tRect.sizeDelta = new Vector2(540f, 40f);
+            tRect.anchoredPosition = new Vector2(0f, largeNote ? 220f : 110f);
+            tRect.sizeDelta = new Vector2(largeNote ? 660f : 540f, 44f);
 
             Text tText = titleObj.AddComponent<Text>();
             tText.font = font;
             tText.text = title;
-            tText.fontSize = 22;
+            tText.fontSize = largeNote ? 28 : 22;
             tText.fontStyle = FontStyle.Bold;
             tText.alignment = TextAnchor.MiddleCenter;
             tText.color = new Color(0.95f, 0.45f, 0.60f);
@@ -198,12 +205,12 @@ namespace Farm2Shelf.UI
             msgObj.transform.SetParent(boxObj.transform, false);
             RectTransform mRect = msgObj.AddComponent<RectTransform>();
             mRect.anchoredPosition = new Vector2(0f, 15f);
-            mRect.sizeDelta = new Vector2(520f, 140f);
+            mRect.sizeDelta = new Vector2(largeNote ? 640f : 520f, largeNote ? 350f : 140f);
 
             Text mText = msgObj.AddComponent<Text>();
             mText.font = font;
             mText.text = message;
-            mText.fontSize = 16;
+            mText.fontSize = largeNote ? 24 : 16;
             mText.alignment = TextAnchor.MiddleCenter;
             mText.color = Color.white;
 
@@ -211,8 +218,8 @@ namespace Farm2Shelf.UI
             GameObject btnObj = new GameObject("Modal_Button");
             btnObj.transform.SetParent(boxObj.transform, false);
             RectTransform bRect = btnObj.AddComponent<RectTransform>();
-            bRect.anchoredPosition = new Vector2(0f, -110f);
-            bRect.sizeDelta = new Vector2(220f, 48f);
+            bRect.anchoredPosition = new Vector2(0f, largeNote ? -225f : -110f);
+            bRect.sizeDelta = new Vector2(largeNote ? 300f : 220f, largeNote ? 60f : 48f);
 
             Image bBg = btnObj.AddComponent<Image>();
             bBg.sprite = UIStyleUtility.CreateRoundedPillSprite(220, 48, 12, new Color(0.95f, 0.40f, 0.55f));
@@ -283,7 +290,7 @@ namespace Farm2Shelf.UI
 
             Canvas canvas = canvasObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 2000;
+            canvas.sortingOrder = 4900; // Above menus/settings, below mandatory day-end and game-over screens.
 
             CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;

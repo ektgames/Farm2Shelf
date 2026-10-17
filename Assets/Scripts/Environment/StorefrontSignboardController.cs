@@ -91,6 +91,8 @@ namespace Farm2Shelf.Environment
 
         private void HandleStoreUpgraded(int newLevel)
         {
+            // Retired building objects may still receive the event before deferred Destroy.
+            if (!isActiveAndEnabled) return;
             currentLevel = newLevel;
             RefreshSignboard();
         }

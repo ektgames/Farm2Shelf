@@ -13,8 +13,8 @@ using UnityEngine.InputSystem.UI;
 namespace Farm2Shelf.Utils
 {
     /// <summary>
-    /// Input System + Device Simulator kombinasyonunda EventSystem tıklama/sürüklemeyi
-    /// yutabildiği için buton basışını ve ScrollRect kaydırmasını doğrudan işler.
+    /// UI gestures belong to the EventSystem. The legacy fallback is used only when
+    /// no native input module is available; it must never dispatch a second click.
     /// </summary>
     public static class UiReliableClick
     {
@@ -42,6 +42,43 @@ namespace Farm2Shelf.Utils
 
         private static readonly List<RaycastResult> hits = new List<RaycastResult>(32);
         private static readonly List<Vector2> positions = new List<Vector2>(8);
+#if ENABLE_INPUT_SYSTEM
+        private static InputSystemUIInputModule sharedInputModule;
+#endif
+
+#if UNITY_EDITOR && ENABLE_INPUT_SYSTEM
+        private static InputSettings editorOriginalSettings;
+        private static InputSettings editorPlaySettings;
+
+        private static void ConfigureEditorFocus()
+        {
+            if (!Application.isPlaying) return;
+            if (editorPlaySettings == null)
+            {
+                editorOriginalSettings = InputSystem.settings;
+                editorPlaySettings = Object.Instantiate(editorOriginalSettings);
+                editorPlaySettings.name = "Farm2Shelf_EditorPlayInputSettings";
+                editorPlaySettings.hideFlags = HideFlags.HideAndDontSave;
+                InputSystem.settings = editorPlaySettings;
+                UnityEditor.EditorApplication.playModeStateChanged -= RestoreEditorInputSettings;
+                UnityEditor.EditorApplication.playModeStateChanged += RestoreEditorInputSettings;
+            }
+            // Device Simulator may deliver touches while EventSystem reports unfocused.
+            // Do not discard those events. This override never enters a mobile build.
+            editorPlaySettings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
+        }
+
+        private static void RestoreEditorInputSettings(UnityEditor.PlayModeStateChange state)
+        {
+            if (state != UnityEditor.PlayModeStateChange.ExitingPlayMode) return;
+            if (editorOriginalSettings != null && InputSystem.settings == editorPlaySettings)
+                InputSystem.settings = editorOriginalSettings;
+            if (editorPlaySettings != null) Object.DestroyImmediate(editorPlaySettings);
+            editorPlaySettings = null;
+            editorOriginalSettings = null;
+            UnityEditor.EditorApplication.playModeStateChanged -= RestoreEditorInputSettings;
+        }
+#endif
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
@@ -51,11 +88,19 @@ namespace Farm2Shelf.Utils
 
         public static void ConfigureSharedEventSystem()
         {
-            if (EventSystem.current == null) return;
+            if (EventSystem.current == null)
+            {
+                var eventObject = new GameObject("EventSystem");
+                eventObject.AddComponent<EventSystem>();
+                Object.DontDestroyOnLoad(eventObject);
+            }
 
             EventSystem.current.pixelDragThreshold = Mathf.Max(8, DefaultDragThreshold);
 
 #if ENABLE_INPUT_SYSTEM
+#if UNITY_EDITOR
+            ConfigureEditorFocus();
+#endif
             InputSystem.settings.updateMode = InputSettings.UpdateMode.ProcessEventsInDynamicUpdate;
 
             StandaloneInputModule standalone = EventSystem.current.GetComponent<StandaloneInputModule>();
@@ -67,18 +112,64 @@ namespace Farm2Shelf.Utils
                 inputModule = EventSystem.current.gameObject.AddComponent<InputSystemUIInputModule>();
             }
 
-            if (inputModule.actionsAsset == null)
+            if (inputModule.actionsAsset == null || inputModule.point == null ||
+                inputModule.point.action == null || inputModule.leftClick == null || inputModule.leftClick.action == null)
             {
                 inputModule.AssignDefaultActions();
             }
 
-            inputModule.pointerBehavior = UIPointerBehavior.SingleUnifiedPointer;
+            // Mouse motion must not cancel an in-progress touch (or vice versa).
+            // In particular, Simulator touch positions differ from editor mouse positions.
+            inputModule.pointerBehavior = UIPointerBehavior.AllPointersAsIs;
             inputModule.enabled = true;
+            sharedInputModule = inputModule;
+            // An existing module can survive a scene/menu rebuild with disabled actions.
+            if (!inputModule.point.action.enabled) inputModule.point.action.Enable();
+            if (!inputModule.leftClick.action.enabled) inputModule.leftClick.action.Enable();
+            if (inputModule.scrollWheel != null && inputModule.scrollWheel.action != null && !inputModule.scrollWheel.action.enabled)
+                inputModule.scrollWheel.action.Enable();
+#else
+            var standalone = EventSystem.current.GetComponent<StandaloneInputModule>();
+            if (standalone == null)
+                standalone = EventSystem.current.gameObject.AddComponent<StandaloneInputModule>();
+            standalone.enabled = true;
 #endif
         }
 
         public static void Tick()
         {
+#if ENABLE_INPUT_SYSTEM
+            // Recover after a scene replaces the EventSystem or disables its action map.
+            // Do not run a manual click while the native module is awaiting activation.
+            if (EventSystem.current == null || sharedInputModule == null ||
+                sharedInputModule.gameObject != EventSystem.current.gameObject ||
+                !sharedInputModule.isActiveAndEnabled || sharedInputModule.point == null ||
+                sharedInputModule.point.action == null || !sharedInputModule.point.action.enabled ||
+                sharedInputModule.leftClick == null || sharedInputModule.leftClick.action == null ||
+                !sharedInputModule.leftClick.action.enabled)
+                ConfigureSharedEventSystem();
+#endif
+            // EventSystem already dispatches button clicks, scrolling and placement drags.
+            // A second dispatch in LateUpdate can invoke a rebuilt cart button twice and
+            // overwrite the simulator's correctly transformed pointer coordinates.
+            if (EventSystem.current != null && EventSystem.current.isActiveAndEnabled &&
+#if ENABLE_INPUT_SYSTEM
+                sharedInputModule != null && sharedInputModule.isActiveAndEnabled)
+#else
+                EventSystem.current.currentInputModule != null &&
+                EventSystem.current.currentInputModule.isActiveAndEnabled)
+#endif
+            {
+                restoreAt = -1f;
+                RestoreParkedIfDue();
+                ReleaseScrollCapture(false);
+                inertiaScroll = null;
+                inertiaVel = 0f;
+                pointerHeld = false;
+                skipUntilRelease = false;
+                return;
+            }
+
             RestoreParkedIfDue();
             TickInertia();
             TickMouseWheel();
@@ -446,22 +537,10 @@ namespace Farm2Shelf.Utils
 
         private static void InvokeButton(Button button)
         {
-            if (button == null) return;
-            if (parkedButton != null) return;
-
-            Button.ButtonClickedEvent original = button.onClick;
-            if (original == null) return;
-
-            button.onClick = new Button.ButtonClickedEvent();
-            parkedButton = button;
-            parkedEvent = original;
-            restoreAt = Time.unscaledTime + 0.28f;
-            original.Invoke();
-            if (parkedButton == null)
-            {
-                parkedEvent = null;
-                restoreAt = -1f;
-            }
+            if (button == null || !button.IsActive() || !button.IsInteractable()) return;
+            // Fallback only runs without an active native input module. Never replace
+            // listeners or impose a global delay on unrelated buttons.
+            button.onClick?.Invoke();
         }
 
         private static void RestoreParkedIfDue()

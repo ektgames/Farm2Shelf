@@ -1,3 +1,4 @@
+﻿using Farm2Shelf.Utils;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using Farm2Shelf.UI;
@@ -28,7 +29,7 @@ namespace Farm2Shelf.Environment
 
         private static void OpenJobs()
         {
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || Time.unscaledTime - ModalManager.LastModalCloseTime < 0.35f)
+            if (TouchInputHelper.IsWorldInteractionBlocked())
             {
                 return;
             }

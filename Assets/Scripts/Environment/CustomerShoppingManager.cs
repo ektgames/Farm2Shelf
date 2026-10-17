@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Farm2Shelf.Core;
@@ -11,7 +11,7 @@ namespace Farm2Shelf.Environment
     {
         public static CustomerShoppingManager Instance { get; private set; }
 
-        private const float WALK_SPEED = 3.2f; // m/s (İnsan yürüme hızı)
+        private const float WALK_SPEED = 3.2f * 1.15f; // m/s (İnsan yürüme hızı)
         private float spawnTimer = 0f;
         private Transform customerParentGroup;
 
@@ -47,6 +47,14 @@ namespace Farm2Shelf.Environment
             public int currentWaypointIndex;
             public float walkCycleTimer;
             public float stateWaitTimer;
+            public PlacedFurnitureController activeArcade;
+            public float arcadeSecondsRemaining;
+            public PlacedFurnitureController activeMassage;
+            public MassageCustomerPose massagePose;
+            public long massageFinishMinute;
+            public Vector3 massageChairPosition;
+            public Quaternion massageChairRotation;
+            public Vector3 arcadeUsePosition;
 
             public bool isShopping;
             public bool isCheckingOut;
@@ -64,13 +72,26 @@ namespace Farm2Shelf.Environment
             // Müşteri Hizmetleri Danışma Etkileşimi
             public bool visitedCustomerServiceDesk;
             public bool isVisitingCustomerService;
+            public bool visitedAtm;
+            public int atmVisitStage;
+            public PlacedFurnitureController atmTarget;
+            public Vector3 atmWaypoint;
+            public int atmExtraItemsRemaining;
+            public PlacedFurnitureController atmExtraShelf;
+            public Vector3 atmExtraShelfWaypoint;
+            public HashSet<PlacedFurnitureController> atmTriedShelves = new HashSet<PlacedFurnitureController>();
 
             // Alışveriş Sepeti Sistemi Verileri
             public bool hasShoppingCart;
             public GameObject carriedCartObj;
+            public Transform basketCarryArm;
+            public Transform basketCarryHand;
             public bool hasCartStand;
             public bool hasNoCartWarningShown;
             public bool grabbedCartFromStand;
+            public bool hasTrashBinDetour;
+            public PlacedFurnitureController trashBinTarget;
+            public Vector3 trashBinWaypoint;
 
             // Kasa Kuyruk Sistemi Verileri
             public PlacedFurnitureController assignedCashier;
@@ -924,9 +945,14 @@ namespace Farm2Shelf.Environment
 
             int visits = Random.value < 0.38f ? 2 : 1;
             visits = Mathf.Clamp(visits, 1, paid.Count);
+            int lastShoppingStop = Mathf.Max(0, route.Count - 1);
             for (int i = 0; i < visits; i++)
             {
-                route.Add(paid[i].GetFrontInteractionPosition(0.85f));
+                Vector3 access = paid[i].GetFrontInteractionPosition(0.85f);
+                // A massage is a shopping break: retain a shelf visit after the session.
+                if (paid[i].FurnitureType == FurnitureType.MassageChair)
+                    route.Insert(lastShoppingStop, access);
+                else route.Add(access);
             }
         }
 
@@ -1162,31 +1188,26 @@ namespace Farm2Shelf.Environment
 
             cData.carriedCartObj = new GameObject("Carried_Shopping_Basket");
             cData.carriedCartObj.transform.SetParent(cData.customerObj.transform, false);
-            cData.carriedCartObj.transform.localPosition = new Vector3(0.32f, 0.70f, 0.35f);
-            cData.carriedCartObj.transform.localRotation = Quaternion.Euler(10f, 0f, 0f);
+            cData.basketCarryArm = cData.customerObj.transform.Find("Arm_R");
+            cData.basketCarryHand = cData.basketCarryArm != null
+                ? cData.basketCarryArm.Find("Arm_R_Mesh/Hand") : null;
+            if (cData.basketCarryArm != null && cData.basketCarryHand != null)
+                cData.carriedCartObj.transform.SetParent(cData.basketCarryArm, false);
+            else
+                cData.carriedCartObj.transform.localPosition = new Vector3(0.44f, 0.45f, 0.16f);
 
             Material redMat = FurnitureModelBuilder.RedAccentMaterial;
             Material blackMat = FurnitureModelBuilder.BlackMaterial;
-
-            // Kırmızı Alışveriş Sepeti Gövdesi
-            GameObject basket = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            basket.name = "BasketBody";
-            basket.transform.SetParent(cData.carriedCartObj.transform, false);
-            basket.transform.localPosition = Vector3.zero;
-            basket.transform.localScale = new Vector3(0.36f, 0.24f, 0.30f);
-            if (redMat != null) basket.GetComponent<Renderer>().sharedMaterial = redMat;
-            Collider c1 = basket.GetComponent<Collider>();
-            if (c1 != null) Destroy(c1);
-
-            // Siyah Kulp
-            GameObject handle = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            handle.name = "BasketHandle";
-            handle.transform.SetParent(cData.carriedCartObj.transform, false);
-            handle.transform.localPosition = new Vector3(0f, 0.14f, -0.12f);
-            handle.transform.localScale = new Vector3(0.34f, 0.03f, 0.04f);
-            if (blackMat != null) handle.GetComponent<Renderer>().sharedMaterial = blackMat;
-            Collider c2 = handle.GetComponent<Collider>();
-            if (c2 != null) Destroy(c2);
+            Transform root = cData.carriedCartObj.transform;
+            // Open basket, with a raised U-shaped handle. The palm meets its top bar.
+            CreateCarriedBasketPart(root, "BasketBase", new Vector3(0f, -0.105f, 0f), new Vector3(0.36f, 0.03f, 0.30f), redMat);
+            CreateCarriedBasketPart(root, "BasketFront", new Vector3(0f, 0f, 0.135f), new Vector3(0.36f, 0.24f, 0.03f), redMat);
+            CreateCarriedBasketPart(root, "BasketBack", new Vector3(0f, 0f, -0.135f), new Vector3(0.36f, 0.24f, 0.03f), redMat);
+            CreateCarriedBasketPart(root, "BasketLeft", new Vector3(-0.165f, 0f, 0f), new Vector3(0.03f, 0.24f, 0.24f), redMat);
+            CreateCarriedBasketPart(root, "BasketRight", new Vector3(0.165f, 0f, 0f), new Vector3(0.03f, 0.24f, 0.24f), redMat);
+            CreateCarriedBasketPart(root, "HandleLeft", new Vector3(-0.155f, 0.20f, 0f), new Vector3(0.025f, 0.18f, 0.035f), blackMat);
+            CreateCarriedBasketPart(root, "HandleRight", new Vector3(0.155f, 0.20f, 0f), new Vector3(0.025f, 0.18f, 0.035f), blackMat);
+            CreateCarriedBasketPart(root, "BasketHandle", new Vector3(0f, 0.28f, 0f), new Vector3(0.335f, 0.03f, 0.035f), blackMat);
 
             // Sepet İçi Ürünler Grubu
             GameObject itemsGroup = new GameObject("ItemsInBasket");
@@ -1194,9 +1215,30 @@ namespace Farm2Shelf.Environment
             itemsGroup.transform.localPosition = new Vector3(0f, 0.05f, 0f);
 
             cData.hasShoppingCart = true;
+            UpdateBasketGrip(cData, 0f);
         }
 
-        private void AddProductItemToCarriedCart(ActiveCustomerData cData, string productName, int itemCount)
+        private static void CreateCarriedBasketPart(Transform parent, string name, Vector3 position, Vector3 scale, Material material)
+        {
+            GameObject part = PrimitiveFactory.CreateVisualCube(name, parent);
+            part.transform.localPosition = position;
+            part.transform.localScale = scale;
+            if (material != null) part.GetComponent<Renderer>().sharedMaterial = material;
+        }
+
+        private static void UpdateBasketGrip(ActiveCustomerData customer, float walkAngle)
+        {
+            if (customer.carriedCartObj == null || customer.basketCarryArm == null || customer.basketCarryHand == null) return;
+            Transform arm = customer.basketCarryArm;
+            // Small carrying swing; a loaded hand must not perform the full walking swing.
+            arm.localRotation = Quaternion.Euler(-18f + walkAngle * 0.12f, 0f, 12f);
+            Transform basket = customer.carriedCartObj.transform;
+            basket.localRotation = Quaternion.Inverse(arm.localRotation);
+            Vector3 palm = arm.InverseTransformPoint(customer.basketCarryHand.position);
+            basket.localPosition = palm - basket.localRotation * new Vector3(0f, 0.28f, 0f);
+        }
+
+        private void AddProductItemToCarriedCart(ActiveCustomerData cData, string productId, string productName, int itemCount)
         {
             if (cData == null || cData.carriedCartObj == null) return;
             Transform itemsGroup = cData.carriedCartObj.transform.Find("ItemsInBasket");
@@ -1208,11 +1250,12 @@ namespace Farm2Shelf.Environment
             {
                 int index = currentItemCount + i;
                 float offsetX = ((index % 2) == 0 ? -0.07f : 0.07f);
-                float offsetZ = ((index / 2) == 0 ? -0.06f : ((index / 2) == 1 ? 0f : 0.06f));
-                float offsetY = 0.02f + (index / 4) * 0.06f;
+                float offsetZ = ((index / 2) % 2 == 0 ? -0.055f : 0.055f);
+                // ItemsInBasket is at +0.05; the basket floor is -0.09 in basket space.
+                float offsetY = -0.13f + (index / 4) * 0.085f;
 
                 Vector3 localPos = new Vector3(offsetX, offsetY, offsetZ);
-                Procedural3DProductBuilder.CreateBasketProduct3DMesh(itemsGroup, productName, localPos, index);
+                Procedural3DProductBuilder.CreateBasketProduct3DMesh(itemsGroup, productId, productName, localPos, index);
             }
         }
 
@@ -1223,7 +1266,13 @@ namespace Farm2Shelf.Environment
                 Destroy(cData.carriedCartObj);
                 cData.carriedCartObj = null;
             }
-            if (cData != null) cData.hasShoppingCart = false;
+            if (cData != null)
+            {
+                if (cData.basketCarryArm != null) cData.basketCarryArm.localRotation = Quaternion.identity;
+                cData.basketCarryArm = null;
+                cData.basketCarryHand = null;
+                cData.hasShoppingCart = false;
+            }
         }
 
         private void ShowNoShoppingCartWarning(Vector3 pos)
@@ -1391,7 +1440,7 @@ namespace Farm2Shelf.Environment
             if (activeCashier != null)
             {
                 // Kasadan çıkış: Tezgahın sol açık tarafına (Local -X = -1.2m) adım atıp sıradan ve tezgahtan uzaklaşır:
-                Vector3 stepAsidePos = activeCashier.transform.TransformPoint(new Vector3(-1.2f, 0.05f, -0.75f));
+                Vector3 stepAsidePos = FurnitureModelBuilder.GetCashierCustomerPosition(activeCashier.transform) - activeCashier.transform.right * 1.2f;
                 stepAsidePos.x = Mathf.Clamp(stepAsidePos.x, -12.0f, 2.2f);
                 stepAsidePos.z = Mathf.Clamp(stepAsidePos.z, -1.8f, 32.0f);
                 stepAsidePos.y = 0.05f;
@@ -1993,29 +2042,33 @@ namespace Farm2Shelf.Environment
         {
             if (cashier == null) return new Vector3(-6.5f, 0.05f, 1.5f);
 
-            // Zemin Turkuaz L-Kuyruk Oku Üzerinde Birebir ve Kusursuz Tek Sıra Hizalama (Exact L-Arrow Alignment):
+            Vector3 customerStand = cashier.transform.InverseTransformPoint(FurnitureModelBuilder.GetCashierCustomerPosition(cashier.transform));
             Vector3 localSlotPos;
             if (slotIndex <= 0)
             {
                 // Slot 0: Kasa Tezgahı & Barkod Okuyucu Önü (Ödeme Yapan Kişi)
-                localSlotPos = new Vector3(0f, 0.05f, -0.75f);
+                localSlotPos = customerStand;
             }
             else if (slotIndex == 1)
             {
                 // Slot 1: L-Dönüş Köşesi (2. Sıradaki Müşteri - Slot 0'ın hemen sağ arkası)
-                localSlotPos = new Vector3(0.95f, 0.05f, -0.75f);
+                localSlotPos = customerStand + Vector3.right * 0.95f;
             }
             else
             {
                 // Slot 2, 3, 4, 5...: Turkuaz Düz Koridor Şeridi Boyunca Tek Sıra (Her müşteri arası 0.95m net mesafe)
-                localSlotPos = new Vector3(0.95f, 0.05f, -0.75f - (slotIndex - 1) * 0.95f);
+                localSlotPos = customerStand + new Vector3(0.95f, 0f, -(slotIndex - 1) * 0.95f);
             }
 
             Vector3 rawWorldPos = cashier.transform.TransformPoint(localSlotPos);
 
             // Dükkan içi sınır kenetleme (X: -12.0 ile +2.2 arası, Z: -2.2 ile +32.0 arası):
-            rawWorldPos.x = Mathf.Clamp(rawWorldPos.x, -12.0f, 2.2f);
-            rawWorldPos.z = Mathf.Clamp(rawWorldPos.z, -2.2f, 32.0f);
+            // The payment position must stay aligned with its preview marker.
+            if (slotIndex > 0)
+            {
+                rawWorldPos.x = Mathf.Clamp(rawWorldPos.x, -12.0f, 2.2f);
+                rawWorldPos.z = Mathf.Clamp(rawWorldPos.z, -2.2f, 32.0f);
+            }
             rawWorldPos.y = 0.05f;
 
             return rawWorldPos;
@@ -2108,7 +2161,18 @@ namespace Farm2Shelf.Environment
 
         private void UpdatePedestrianCustomer(ActiveCustomerData cData, float deltaTime, int index)
         {
-            if (cData.customerObj == null || !TryGetCurrentWaypoint(cData, out _)) return;
+            if (cData.customerObj == null) return;
+            if (UpdateMassageUse(cData)) return;
+            if (!TryGetCurrentWaypoint(cData, out _)) return;
+            if (UpdateArcadeUse(cData)) return;
+            if (cData.hasTrashBinDetour && (cData.hasPaidAndExiting || cData.isInCashierQueue ||
+                !cData.waypoints.Contains(cData.trashBinWaypoint)))
+            {
+                cData.hasTrashBinDetour = false;
+                cData.trashBinTarget = null;
+                if (StoreCleanlinessManager.Instance != null)
+                    StoreCleanlinessManager.Instance.DropCustomerTrash(cData.customerObj.transform.position);
+            }
             if (cData.stateWaitTimer > 0f)
             {
                 cData.stateWaitTimer -= deltaTime;
@@ -2291,7 +2355,7 @@ namespace Farm2Shelf.Environment
                     {
                         cData.customerObj.transform.rotation = Quaternion.RotateTowards(cData.customerObj.transform.rotation, Quaternion.LookRotation(queueStepDir), 360f * deltaTime);
                     }
-                    cData.walkCycleTimer += deltaTime * 8.5f;
+                    cData.walkCycleTimer += deltaTime * 8.5f * 1.15f;
                     AnimateHumanLimbs(cData, Mathf.Sin(cData.walkCycleTimer) * 26.0f);
                     return;
                 }
@@ -2340,6 +2404,28 @@ namespace Farm2Shelf.Environment
 
             if (distToTarget < (cData.hasPaidAndExiting ? 0.85f : 0.65f))
             {
+                if (!cData.hasPaidAndExiting && !cData.isInCashierQueue && ProcessAtmWaypoint(cData, targetWaypoint)) return;
+                if (cData.hasTrashBinDetour && !cData.hasPaidAndExiting && !cData.isInCashierQueue &&
+                    (targetWaypoint - cData.trashBinWaypoint).sqrMagnitude < 0.01f)
+                {
+                    var bin = cData.trashBinTarget;
+                    bool binStillHere = bin != null && bin.isActiveAndEnabled &&
+                        (bin.GetFrontInteractionPosition(StoreCleanlinessManager.BinInteractionOffset) - cData.trashBinWaypoint).sqrMagnitude < 0.04f;
+                    if (binStillHere)
+                    {
+                        Vector3 face = bin.transform.position - currentPos;
+                        face.y = 0f;
+                        if (face.sqrMagnitude > 0.001f) cData.customerObj.transform.rotation = Quaternion.LookRotation(face);
+                        if (StoreCleanlinessManager.Instance != null) StoreCleanlinessManager.Instance.ShowBinDisposal(currentPos, bin);
+                    }
+                    else if (StoreCleanlinessManager.Instance != null)
+                        StoreCleanlinessManager.Instance.DropCustomerTrash(currentPos);
+                    cData.hasTrashBinDetour = false;
+                    cData.trashBinTarget = null;
+                    cData.currentWaypointIndex++;
+                    cData.stateWaitTimer = 0.8f;
+                    return;
+                }
                 if (cData.hasPaidAndExiting)
                 {
                     // ✅ Ödemesini tamamlamış müşteri: Doğrudan çıkış noktalarını takip edip dükkandan ayrılır!
@@ -2442,6 +2528,11 @@ namespace Farm2Shelf.Environment
                             // 3. Ücretli dekorasyon (otomat, kahve, arcade vb.) kullanımı
                             else if (!isAtServiceDesk && !cData.isInCashierQueue && TryProcessPaidDecorationVisit(cData, targetWaypoint))
                             {
+                                if (cData.arcadeSecondsRemaining > 0f || cData.massagePose != null)
+                                {
+                                    cData.currentWaypointIndex++;
+                                    return;
+                                }
                             }
                             // 4. Raftan Alışveriş Yapma
                             else if (!isAtServiceDesk && !cData.isInCashierQueue && (targetWaypoint.z > 0.5f))
@@ -2453,6 +2544,11 @@ namespace Farm2Shelf.Environment
                                     cData.visitedShelvesSet.Add(targetShelf);
                                     cData.stateWaitTimer = Random.Range(1.8f, 3.2f);
                                     ProcessCustomerShoppingAtShelf(cData, targetShelf);
+                                    if (cData.hasTrashBinDetour)
+                                    {
+                                        cData.currentWaypointIndex++;
+                                        return;
+                                    }
                                 }
                             }
 
@@ -2461,6 +2557,7 @@ namespace Farm2Shelf.Environment
                                 && (targetWaypoint.z <= 2.0f || cData.currentWaypointIndex >= cData.waypoints.Count - 2);
                             if (isApproachingCheckout && !cData.isInCashierQueue)
                             {
+                                if (TryScheduleAtmVisit(cData)) return;
                                 if (cData.totalItemsBought <= 0)
                                 {
                                     int customerTier = GetCustomerTier(cData.type);
@@ -2616,7 +2713,7 @@ namespace Farm2Shelf.Environment
 
             if (avoidanceDir != Vector3.zero) cData.customerObj.transform.rotation = Quaternion.RotateTowards(cData.customerObj.transform.rotation, Quaternion.LookRotation(avoidanceDir), 360f * deltaTime);
             cData.customerObj.transform.position = Vector3.MoveTowards(currentPos, currentPos + avoidanceDir, stepDist);
-            cData.walkCycleTimer += deltaTime * (cData.visitedCustomerServiceDesk ? 10.6f : 8.5f);
+            cData.walkCycleTimer += deltaTime * (cData.visitedCustomerServiceDesk ? 10.6f : 8.5f) * 1.15f;
             Camera cam = GameplayPerf.MainCamera;
             bool animateLimbs = cam == null || (currentPos - cam.transform.position).sqrMagnitude < 6400f || (Time.frameCount & 1) == 0;
             if (animateLimbs)
@@ -2690,12 +2787,201 @@ namespace Farm2Shelf.Environment
             if (cData.visitedPaidDecorations.Contains(deco)) return false;
 
             cData.visitedPaidDecorations.Add(deco);
+            if (deco.FurnitureType == FurnitureType.MassageChair)
+            {
+                var clock = TimeManager.Instance;
+                if (clock == null || !clock.IsDayActive || clock.Hour >= 22 ||
+                    StoreStatusManager.Instance == null || !StoreStatusManager.Instance.IsOpen) return true;
+                foreach (var other in activeCustomers)
+                    if (other != null && other != cData && other.activeMassage == deco && other.massagePose != null)
+                        return true;
+                cData.activeMassage = deco;
+                cData.massageChairPosition = deco.transform.position;
+                cData.massageChairRotation = deco.transform.rotation;
+                cData.massageFinishMinute = MassageClockMinute(clock) + 15;
+                ResetLimbsToRest(cData);
+                cData.massagePose = cData.customerObj.AddComponent<MassageCustomerPose>();
+                cData.massagePose.Begin(deco.transform, cData.carriedCartObj);
+                cData.stateWaitTimer = 0f;
+                cData.stuckTimer = 0f;
+                return true;
+            }
+            if (deco.FurnitureType == FurnitureType.ArcadeMachine)
+            {
+                foreach (var other in activeCustomers)
+                    if (other != null && other != cData && other.activeArcade == deco && other.arcadeSecondsRemaining > 0f)
+                        return true;
+                cData.activeArcade = deco;
+                cData.arcadeUsePosition = decoFront;
+                cData.arcadeSecondsRemaining = Random.value < 0.5f ? 30f : 60f;
+                cData.stuckTimer = 0f;
+                return true;
+            }
             cData.stateWaitTimer = Random.Range(1.4f, 2.5f);
             deco.RegisterCustomerUse();
             return true;
         }
 
-        private void ProcessCustomerShoppingAtShelf(ActiveCustomerData cData, PlacedFurnitureController shelf)
+        private static long MassageClockMinute(TimeManager clock)
+        {
+            return (((long)clock.Year * 120 + (int)clock.CurrentSeason * 30 + clock.Day) * 24 + clock.Hour) * 60 + clock.Minute;
+        }
+
+        private bool UpdateMassageUse(ActiveCustomerData customer)
+        {
+            if (customer.massagePose == null) return false;
+            var chair = customer.activeMassage;
+            var clock = TimeManager.Instance;
+            bool cancelled = chair == null || !chair.isActiveAndEnabled || clock == null ||
+                customer.hasPaidAndExiting || customer.isInCashierQueue ||
+                StoreStatusManager.Instance == null || !StoreStatusManager.Instance.IsOpen;
+            if (!cancelled)
+                cancelled = clock.Hour >= 24 || !clock.IsDayActive ||
+                    (chair.transform.position - customer.massageChairPosition).sqrMagnitude > .0025f ||
+                    Quaternion.Angle(chair.transform.rotation, customer.massageChairRotation) > 1f;
+            bool completed = !cancelled && MassageClockMinute(clock) >= customer.massageFinishMinute;
+            float poseDelta = clock != null && !clock.IsTimePaused &&
+                (PauseMenuUI.Instance == null || !PauseMenuUI.Instance.IsPauseMenuOpen) ? Time.deltaTime : 0f;
+            if (completed && !customer.massagePose.StandUp(poseDelta))
+            {
+                customer.stuckTimer = 0f;
+                customer.lastTrackedPos = customer.customerObj.transform.position;
+                return true;
+            }
+            if (cancelled || completed)
+            {
+                customer.massagePose.Restore();
+                Destroy(customer.massagePose);
+                customer.massagePose = null;
+                customer.activeMassage = null;
+                customer.stateWaitTimer = 0f;
+                ResetLimbsToRest(customer);
+                customer.stuckTimer = 0f;
+                customer.lastTrackedPos = customer.customerObj.transform.position;
+                if (completed) chair.RegisterCustomerUse(true);
+                return false;
+            }
+            customer.massagePose.Apply(poseDelta);
+            customer.stuckTimer = 0f;
+            customer.lastTrackedPos = customer.customerObj.transform.position;
+            return true;
+        }
+
+        private bool UpdateArcadeUse(ActiveCustomerData customer)
+        {
+            if (customer.arcadeSecondsRemaining <= 0f) return false;
+            var arcade = customer.activeArcade;
+            // Removal, moving the cabinet or a forced exit cancels without charging.
+            if (arcade == null || !arcade.isActiveAndEnabled || customer.hasPaidAndExiting || customer.isInCashierQueue ||
+                (arcade.GetFrontInteractionPosition(0.85f) - customer.arcadeUsePosition).sqrMagnitude > 0.04f)
+            {
+                customer.activeArcade = null;
+                customer.arcadeSecondsRemaining = 0f;
+                return false;
+            }
+            ResetLimbsToRest(customer);
+            Vector3 face = arcade.transform.position - customer.customerObj.transform.position;
+            face.y = 0f;
+            if (face.sqrMagnitude > 0.001f) customer.customerObj.transform.rotation = Quaternion.LookRotation(face);
+            customer.stuckTimer = 0f;
+            customer.lastTrackedPos = customer.customerObj.transform.position;
+            if (Time.timeScale <= 0f || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen)) return true;
+            customer.arcadeSecondsRemaining = Mathf.Max(0f, customer.arcadeSecondsRemaining - Time.deltaTime);
+            if (customer.arcadeSecondsRemaining <= 0f)
+            {
+                customer.activeArcade = null;
+                arcade.RegisterCustomerUse(true);
+            }
+            return true;
+        }
+
+        private bool TryScheduleAtmVisit(ActiveCustomerData customer)
+        {
+            if (customer.visitedAtm || customer.atmVisitStage != 0 || !customer.grabbedCartFromStand ||
+                customer.hasPaidAndExiting || customer.totalItemsBought == 0 ||
+                !HasAnyStockedShelfForCustomer(GetCustomerTier(customer.type))) return false;
+            PlacedFurnitureController selected = null;
+            float nearest = float.MaxValue;
+            foreach (var furniture in PlacedFurnitureController.AllPlacedFurniture)
+            {
+                if (furniture == null || !furniture.isActiveAndEnabled || furniture.FurnitureType != FurnitureType.AtmMachine) continue;
+                bool busy = false;
+                foreach (var other in activeCustomers)
+                    if (other != null && other != customer && other.atmTarget == furniture &&
+                        (other.atmVisitStage == 1 || other.stateWaitTimer > 0f) && !other.hasPaidAndExiting)
+                    { busy = true; break; }
+                if (busy) continue;
+                float distance = (furniture.transform.position - customer.customerObj.transform.position).sqrMagnitude;
+                if (distance < nearest) { nearest = distance; selected = furniture; }
+            }
+            if (selected == null) return false;
+            customer.atmTarget = selected;
+            customer.atmVisitStage = 1;
+            customer.atmWaypoint = selected.GetFrontInteractionPosition(0.85f);
+            customer.waypoints.Insert(customer.currentWaypointIndex, customer.atmWaypoint);
+            return true;
+        }
+
+        private bool ProcessAtmWaypoint(ActiveCustomerData customer, Vector3 waypoint)
+        {
+            if (customer.atmVisitStage == 0) return false;
+            Vector3 expected = customer.atmVisitStage == 1 ? customer.atmWaypoint : customer.atmExtraShelfWaypoint;
+            if ((waypoint - expected).sqrMagnitude > 0.01f) return false;
+            if (customer.atmVisitStage == 1)
+            {
+                customer.visitedAtm = true;
+                var atm = customer.atmTarget;
+                if (atm != null && atm.isActiveAndEnabled &&
+                    (atm.GetFrontInteractionPosition(0.85f) - expected).sqrMagnitude < 0.04f)
+                {
+                    Vector3 face = atm.transform.position - customer.customerObj.transform.position;
+                    face.y = 0f;
+                    if (face.sqrMagnitude > 0.001f) customer.customerObj.transform.rotation = Quaternion.LookRotation(face);
+                    customer.stateWaitTimer = 2.5f;
+                    customer.atmExtraItemsRemaining = Random.Range(2, 4);
+                    customer.targetBasketGoal = customer.totalItemsBought + customer.atmExtraItemsRemaining;
+                }
+            }
+            else
+            {
+                customer.atmTarget = null;
+                var shelf = customer.atmExtraShelf;
+                if (shelf != null && shelf.isActiveAndEnabled &&
+                    (shelf.GetFrontInteractionPosition(0.75f) - expected).sqrMagnitude < 0.04f)
+                {
+                    int before = customer.totalItemsBought;
+                    ProcessCustomerShoppingAtShelf(customer, shelf, true);
+                    customer.atmExtraItemsRemaining = Mathf.Max(0, customer.atmExtraItemsRemaining - (customer.totalItemsBought - before));
+                    customer.stateWaitTimer = 2f;
+                }
+            }
+
+            customer.atmVisitStage = 0;
+            customer.atmExtraShelf = null;
+            if (customer.atmExtraItemsRemaining > 0)
+            {
+                foreach (var shelf in PlacedFurnitureController.AllPlacedFurniture)
+                {
+                    if (shelf == null || !shelf.isActiveAndEnabled || customer.atmTriedShelves.Contains(shelf) ||
+                        !IsShelfStockedForCustomer(shelf, GetCustomerTier(customer.type))) continue;
+                    customer.atmTriedShelves.Add(shelf);
+                    customer.atmExtraShelf = shelf;
+                    customer.atmExtraShelfWaypoint = shelf.GetFrontInteractionPosition(0.75f);
+                    customer.waypoints.Insert(customer.currentWaypointIndex + 1, customer.atmExtraShelfWaypoint);
+                    customer.atmVisitStage = 2;
+                    break;
+                }
+            }
+            if (customer.atmVisitStage == 0)
+            {
+                customer.atmExtraItemsRemaining = 0;
+                customer.atmTarget = null;
+            }
+            customer.currentWaypointIndex++;
+            return true;
+        }
+
+        private void ProcessCustomerShoppingAtShelf(ActiveCustomerData cData, PlacedFurnitureController shelf, bool atmExtraPurchase = false)
         {
             if (cData == null || cData.customerObj == null || shelf == null || shelf.rows == null) return;
 
@@ -2740,6 +3026,7 @@ namespace Farm2Shelf.Environment
 
             // Rafta kaç farklı sıraya bakacağını belirle
             int rowsToInspect = Mathf.Min(Random.Range(1, populatedRows.Count + 1), populatedRows.Count);
+            if (atmExtraPurchase) rowsToInspect = populatedRows.Count;
             for (int i = 0; i < rowsToInspect; i++)
             {
                 if (cData.totalItemsBought >= cData.targetBasketGoal && cData.totalItemsBought >= 1) break;
@@ -2750,7 +3037,7 @@ namespace Farm2Shelf.Environment
                 // ÇEŞİTLİLİK KURALI: Eğer müşteri bu üründen zaten sepete atmışsa ve rafta başka seçenek varsa,
                 // tekrar aynı ürünü almak yerine başka ürünlere baksın!
                 bool alreadyHasThisProduct = (cData.boughtProductNames != null && cData.boughtProductNames.Contains(rData.productName));
-                if (alreadyHasThisProduct && populatedRows.Count > 1)
+                if (!atmExtraPurchase && alreadyHasThisProduct && populatedRows.Count > 1)
                 {
                     continue;
                 }
@@ -2758,7 +3045,7 @@ namespace Farm2Shelf.Environment
                 // FİYAT TEPKİSİ KONTROLÜ (Tepki Çeker / Yüksek Fiyat):
                 // Eğer ürün fahiş fiyattan satılıyorsa müşteri %70 ihtimalle pahalı bulup almaktan vazgeçer (satış hızı yavaşlar)
                 bool isOverpriced = IsProductOverpriced(rData.productId, rData.productName, rData.unitPrice);
-                if (isOverpriced)
+                if (isOverpriced && !atmExtraPurchase)
                 {
                     string tName = cData.type.ToString();
                     bool isWealthy = tName.Contains("VIP") || tName.Contains("Billionaire") || tName.Contains("Business");
@@ -2777,6 +3064,7 @@ namespace Farm2Shelf.Environment
                 // Her bir üründen 1 veya 2 adet alır (böylece sepet tek tip ürünle dolmaz, farklı ürünlerle zenginleşir)
                 int desiredFromRow = (cData.targetBasketGoal > 8) ? Random.Range(1, 3) : 1;
                 if (cData.visitedCustomerServiceDesk && Random.value < 0.35f) desiredFromRow += 1;
+                if (atmExtraPurchase) desiredFromRow = cData.targetBasketGoal - cData.totalItemsBought;
 
                 int buyCount = Mathf.Min(desiredFromRow, rData.currentStock);
                 int remainingToGoal = cData.targetBasketGoal - cData.totalItemsBought;
@@ -2811,7 +3099,7 @@ namespace Farm2Shelf.Environment
 
                     if (cData.hasShoppingCart)
                     {
-                        AddProductItemToCarriedCart(cData, rData.productName, buyCount);
+                        AddProductItemToCarriedCart(cData, rData.productId, rData.productName, buyCount);
                     }
 
                     string originTag = ProductPassportService.GetLotsTag(soldLots);
@@ -2835,9 +3123,19 @@ namespace Farm2Shelf.Environment
                 }
             }
 
-            if (StoreCleanlinessManager.Instance != null && cData.customerObj != null && Random.value < 0.25f)
+            if (!atmExtraPurchase && StoreCleanlinessManager.Instance != null && cData.customerObj != null && Random.value < 0.25f)
             {
-                StoreCleanlinessManager.Instance.TrySpawnCustomerTrash(cData.customerObj.transform.position);
+                if (!cData.hasTrashBinDetour && cData.waypoints != null && !cData.isInCashierQueue && !cData.hasPaidAndExiting)
+                {
+                    PlacedFurnitureController bin = StoreCleanlinessManager.Instance.TrySpawnCustomerTrash(cData.customerObj.transform.position);
+                    if (bin != null)
+                    {
+                        cData.hasTrashBinDetour = true;
+                        cData.trashBinTarget = bin;
+                        cData.trashBinWaypoint = bin.GetFrontInteractionPosition(StoreCleanlinessManager.BinInteractionOffset);
+                        cData.waypoints.Insert(Mathf.Clamp(cData.currentWaypointIndex + 1, 0, cData.waypoints.Count), cData.trashBinWaypoint);
+                    }
+                }
             }
         }
 
@@ -2894,6 +3192,7 @@ namespace Farm2Shelf.Environment
                     if (r != null) r.localRotation = Quaternion.Euler(-angle, 0f, 0f);
                 }
             }
+            UpdateBasketGrip(cData, angle);
         }
 
         private void ResetLimbsToRest(ActiveCustomerData cData)
@@ -2912,6 +3211,7 @@ namespace Farm2Shelf.Environment
                     if (r != null) r.localRotation = Quaternion.identity;
                 }
             }
+            UpdateBasketGrip(cData, 0f);
         }
     }
 }

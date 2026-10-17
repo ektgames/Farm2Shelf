@@ -195,6 +195,8 @@ namespace Farm2Shelf.Environment
             foreach (GameObject rootGo in rootObjects)
             {
                 if (rootGo == null) continue;
+                // Input services live at the origin but are not store geometry.
+                if (rootGo.GetComponent<Farm2Shelf.Utils.TouchInputRunner>() != null) continue;
                 string n = rootGo.name;
                 
                 // Ana sistem yöneticileri, atölye, mobilya konteyneri, kamera ve UI tuvalini KESİNLİKLE KORU
@@ -242,6 +244,9 @@ namespace Farm2Shelf.Environment
                 bool isFence = lowerName.Contains("fence") || lowerName.Contains("wooden_fence");
 
                 Transform topParent = go.transform.root;
+                // FindObjectsByType also includes DontDestroyOnLoad services. Preserve
+                // the world-click runner during new-game/load/store reconstruction.
+                if (topParent != null && topParent.GetComponent<Farm2Shelf.Utils.TouchInputRunner>() != null) continue;
                 string topName = topParent != null ? topParent.name : "";
 
                 bool isProtectedParent = (topName == "Farm2Shelf_Environment" || topName == "Core_Managers" || topName == "UI_Manager" ||
@@ -279,7 +284,7 @@ namespace Farm2Shelf.Environment
                         Farm2Shelf.Core.FinanceManager.Instance.RecordExpense("Geliştirme", $"Market Seviye {targetLevel} Genişletme", cost);
                     }
 
-                    BuildEnvironment();
+                    RebuildStoreExpansion();
                     GameplayPerf.InvalidateWalls();
                     OnStoreUpgraded?.Invoke(currentUpgradeLevel);
 
@@ -307,13 +312,53 @@ namespace Farm2Shelf.Environment
             }
 
             currentUpgradeLevel = targetLevel;
-            BuildEnvironment();
+            RebuildStoreExpansion();
             GameplayPerf.InvalidateWalls();
             OnStoreUpgraded?.Invoke(currentUpgradeLevel);
             Debug.Log($"[Farm2Shelf] Market Seviyesi Yüklendi: {currentUpgradeLevel}");
         }
 
         public int CurrentUpgradeLevel => currentUpgradeLevel;
+
+        private void RebuildStoreExpansion()
+        {
+            if (environmentRoot == null)
+            {
+                GameObject existing = GameObject.Find("Farm2Shelf_Environment");
+                if (existing != null) environmentRoot = existing.transform;
+            }
+
+            // Initial world creation still uses the complete builder. Only these two
+            // existing groups depend on the store level; other districts stay alive.
+            if (environmentRoot == null || environmentRoot.Find("Building_Complex") == null ||
+                environmentRoot.Find("Customer_Parking_System") == null)
+            {
+                BuildEnvironment();
+                return;
+            }
+
+            RetireStoreGroup(environmentRoot.Find("Building_Complex"));
+            RetireStoreGroup(environmentRoot.Find("Customer_Parking_System"));
+            InitializeMaterials();
+            CreateUnifiedBuilding();
+            CreateCustomerParkingLotAndTurnstile();
+            RefreshAll3DWorldLabels();
+        }
+
+        private void RetireStoreGroup(Transform group)
+        {
+            activeWorldLabels.RemoveAll(info => info == null || info.mesh == null ||
+                info.mesh.transform.IsChildOf(group));
+            if (DayNightCycleManager.Instance != null)
+                DayNightCycleManager.Instance.UnregisterPlayerInteriorLightsUnder(group);
+
+            // Destroy is deferred until frame end. Disable and rename first so physics,
+            // barrier lookup and wall remounting cannot see both versions in this frame.
+            group.gameObject.SetActive(false);
+            group.name += "_Retired";
+            if (Application.isPlaying) Destroy(group.gameObject);
+            else DestroyImmediate(group.gameObject);
+        }
 
         private void InitializeMaterials()
         {

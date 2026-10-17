@@ -178,8 +178,11 @@ namespace Farm2Shelf.Core
 
         private void Update()
         {
-            // Yalnızca dükkan açıkken online sipariş düşer
-            if (StoreStatusManager.Instance != null && !StoreStatusManager.Instance.IsOpen) return;
+            if (!CanReceiveNewOrders)
+            {
+                orderTimer = 0f;
+                return;
+            }
 
             orderTimer += Time.deltaTime;
             if (orderTimer >= nextOrderInterval)
@@ -288,6 +291,7 @@ namespace Farm2Shelf.Core
 
         public void TryCreateNewOnlineOrder()
         {
+            if (!CanReceiveNewOrders) return;
             if (CourierManager.Instance == null) return;
 
             // Müsait ve kuryesi atanmış bir motor var mı?
@@ -354,6 +358,13 @@ namespace Farm2Shelf.Core
             Debug.Log($"[Online Market] Yeni Sipariş Geldi: {order.orderId} -> {order.LocalizedDestination} ({order.requestedProducts.Count} Çeşit Ürün)");
         }
 
+        public static bool CanReceiveNewOrders => TimeManager.Instance != null
+            && TimeManager.Instance.Hour < 22
+            && TimeManager.Instance.IsDayActive
+            && StoreStatusManager.Instance != null && StoreStatusManager.Instance.IsOpen;
+
+        public static bool IsCourierDayClosed => TimeManager.Instance != null && TimeManager.Instance.Hour >= 24;
+
         public void EnqueueExistingOrder(OnlineCustomerOrder order)
         {
             if (order == null) return;
@@ -372,9 +383,13 @@ namespace Farm2Shelf.Core
 
         public OnlineCustomerOrder GetNextOrderNeedingStocker()
         {
+            if (IsCourierDayClosed) return null;
             for (int i = 0; i < pendingOrders.Count; i++)
             {
                 var o = pendingOrders[i];
+                if (o != null && o.isAssignedToStocker &&
+                    (StaffTaskController.Instance == null || !StaffTaskController.Instance.HasActiveCourierPreparation(o)))
+                    o.isAssignedToStocker = false;
                 if (o != null && !o.isGatheringCompleted && !o.isAssignedToStocker && o.assignedMotorcycle != null)
                 {
                     // Sadece park yerinde veya reyoncuyu bekleyen motorlar için ürün toplanır (yoldaki motor kovalanmaz!)
@@ -408,14 +423,14 @@ namespace Farm2Shelf.Core
             }
 
             // Eğer motora ait TÜM siparişler (tek adres veya çift adres) reyoncu tarafından yüklendiyse kurye yola çıksın!
-            if (!hasUncollectedOrderForSameMoto)
+            if (!hasUncollectedOrderForSameMoto && !IsCourierDayClosed)
             {
                 bool hasRider = order.assignedMotorcycle.AssignedCourier != null ||
                                 order.assignedMotorcycle.CourierRiderObj != null;
 
                 if (hasRider)
                 {
-                    // Gece 24:00 olsa bile bagaj doluysa teslimat yarıda kesilmez; kurye adrese gider.
+                    // Existing orders may depart until midnight; parked cargo then waits for morning.
                     order.assignedMotorcycle.StartDeliveryRoute();
                 }
                 else

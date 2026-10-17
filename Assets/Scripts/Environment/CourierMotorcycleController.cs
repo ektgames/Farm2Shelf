@@ -115,6 +115,7 @@ namespace Farm2Shelf.Environment
             bool isMoving =
                 CurrentState == MotorcycleState.Departing ||
                 CurrentState == MotorcycleState.EnRouteDelivery ||
+                CurrentState == MotorcycleState.DeliveringAtDoorstep ||
                 CurrentState == MotorcycleState.ReturningToStore;
             ApplyHeadlights(isMoving);
         }
@@ -136,8 +137,8 @@ namespace Farm2Shelf.Environment
             }
             else if (TimeManager.Instance != null)
             {
-                int h = TimeManager.Instance.CurrentHour;
-                isNight = (h >= 20 || h < 7);
+                float h = TimeManager.Instance.Hour + TimeManager.Instance.Minute / 60f;
+                isNight = (h >= 19.5f || h < 6.5f);
             }
             else
             {
@@ -287,6 +288,7 @@ namespace Farm2Shelf.Environment
 
         public bool CanTakeOrders()
         {
+            if (!OnlineMarketOrderManager.CanReceiveNewOrders) return false;
             return (CurrentState == MotorcycleState.ParkedInBay || CurrentState == MotorcycleState.WaitingForStocker)
                 && AssignedCourier != null
                 && LoadedOrders.Count < 2;
@@ -294,6 +296,7 @@ namespace Farm2Shelf.Environment
 
         public bool CanTakeContractOrder()
         {
+            if (!OnlineMarketOrderManager.CanReceiveNewOrders) return false;
             return (CurrentState == MotorcycleState.ParkedInBay)
                 && AssignedCourier != null
                 && (LoadedOrders == null || LoadedOrders.Count == 0);
@@ -312,6 +315,7 @@ namespace Farm2Shelf.Environment
 
         public void DispatchDeliveryTrip()
         {
+            if (OnlineMarketOrderManager.IsCourierDayClosed) return;
             if (LoadedOrders.Count == 0) return;
             if (IsDeliveryTripInProgress) return;
             StopAllCoroutines();

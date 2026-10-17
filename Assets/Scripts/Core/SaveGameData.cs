@@ -158,6 +158,7 @@ namespace Farm2Shelf.Core
     [Serializable]
     public class SaveGameData
     {
+        public StoreAnnouncementSaveData storeAnnouncements;
         public int saveFormatVersion;
         public int slotIndex;
         public string saveTimestamp;       // ör. 18.08.2026 - 15:30
@@ -203,6 +204,7 @@ namespace Farm2Shelf.Core
         public int monthlyExpenses;
         public List<TransactionRecord> transactionLog = new List<TransactionRecord>();
         public List<FinanceCategoryTotalSave> financeCategoryTotals = new List<FinanceCategoryTotalSave>();
+        public TransactionRecord dailyPassiveIncomeRecord;
         public int lastSalaryPaidDay = -1;
 
         // Banka Kredileri

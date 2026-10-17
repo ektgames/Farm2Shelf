@@ -25,16 +25,11 @@ namespace Farm2Shelf.Utils
     /// </summary>
     public static class TouchInputHelper
     {
-        private static Vector2 pressPosition;
-        private static float pressTime;
-        private static bool isPressed;
-        private static bool isDragging;
-        private static bool wasMultiTouch;
         private static bool cleanTapTriggeredThisFrame;
         private static Vector2 lastTapPosition;
         private static int lastEvaluatedFrame = -1;
         private static float lastGlobalDispatchTime = 0f;
-        private static float worldClickSuppressedUntil = 0f;
+        private static int worldClickSuppressedFrame = -1;
 
         public const float MaxTapDuration = 0.95f;
         public const float MaxTapDragDistance = 55f; // Ekran pikselleri (Hafif parmak titremelerinde ve hızlı tıklamalarda da tıklamayı %100 yakalar)
@@ -56,29 +51,28 @@ namespace Farm2Shelf.Utils
                 runnerObj.AddComponent<TouchInputRunner>();
             }
 
+            WorldTapInput.EnsureInitialized();
+            if (!runnerObj.activeSelf) runnerObj.SetActive(true);
+            var runner = runnerObj.GetComponent<TouchInputRunner>();
+            if (runner != null && !runner.enabled) runner.enabled = true;
             UiReliableClick.ConfigureSharedEventSystem();
         }
 
         public static void SuppressNextTap()
         {
             lastGlobalDispatchTime = Time.unscaledTime;
-            worldClickSuppressedUntil = Time.unscaledTime + 0.45f;
+            worldClickSuppressedFrame = Time.frameCount;
+            WorldTapInput.CancelGesture();
             cleanTapTriggeredThisFrame = false;
-            isPressed = false;
-            isDragging = false;
-            wasMultiTouch = false;
         }
 
-        public static bool IsWorldInteractionBlocked()
+        public static bool IsWorldInteractionBlocked() => IsWorldInteractionBlocked(GetCurrentPointerPosition());
+
+        public static bool IsWorldInteractionBlocked(Vector2 position)
         {
-            if (Time.unscaledTime < worldClickSuppressedUntil) return true;
-            if (MainMenuUI.IsMenuVisible) return true;
-            if (EKTReklamIntroManager.Instance != null && !EKTReklamIntroManager.HasIntroFinished) return true;
-            if (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen) return true;
+            if (Time.frameCount == worldClickSuppressedFrame) return true;
             if (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing) return true;
-            if (ModalManager.IsModalOpen) return true;
-            if (EKTPhoneManager.IsTabletOpen) return true;
-            return false;
+            return WorldInteractionGate.IsBlocked(position);
         }
 
         public static bool IsCleanTapThisFrame(out Vector2 tapPosition)
@@ -92,73 +86,9 @@ namespace Farm2Shelf.Utils
         {
             if (lastEvaluatedFrame == Time.frameCount) return;
             lastEvaluatedFrame = Time.frameCount;
-            cleanTapTriggeredThisFrame = false;
-
-            int touchCount = GetTouchCount();
-            if (touchCount > 1)
-            {
-                wasMultiTouch = true;
-                isDragging = true;
-            }
-
-            Vector2 currentPointerPos = GetCurrentPointerPosition();
-
-            // 1. Dokunma / Tıklama Başlangıcı (Pointer Down)
-            if (WasPointerPressedThisFrame())
-            {
-                isPressed = true;
-                isDragging = false;
-                pressTime = Time.unscaledTime;
-                pressPosition = currentPointerPos;
-                wasMultiTouch = (touchCount > 1);
-            }
-
-            // 2. Basılı Tutma / Sürükleme Kontrolü (Pointer Hold / Move)
-            if (isPressed)
-            {
-                if (currentPointerPos.sqrMagnitude > 0.001f && pressPosition.sqrMagnitude > 0.001f)
-                {
-                    float dragDist = Vector2.Distance(currentPointerPos, pressPosition);
-                    if (dragDist > MaxTapDragDistance)
-                    {
-                        isDragging = true;
-                    }
-                }
-            }
-
-            // 3. Dokunma / Tıklama Bitişi (Pointer Up / Release)
-            if (WasPointerReleasedThisFrame())
-            {
-                if (isPressed)
-                {
-                    isPressed = false;
-                    Vector2 effectiveReleasePos = (currentPointerPos.sqrMagnitude > 0.001f) ? currentPointerPos : pressPosition;
-                    float dragDist = (pressPosition.sqrMagnitude > 0.001f) ? Vector2.Distance(effectiveReleasePos, pressPosition) : 0f;
-                    float duration = Time.unscaledTime - pressTime;
-
-                    if (!wasMultiTouch && !isDragging && dragDist <= MaxTapDragDistance && duration <= MaxTapDuration)
-                    {
-                        cleanTapTriggeredThisFrame = true;
-                        lastTapPosition = (pressPosition.sqrMagnitude > 0.001f) ? pressPosition : effectiveReleasePos;
-
-                        if (IsWorldInteractionBlocked())
-                        {
-                            cleanTapTriggeredThisFrame = false;
-                        }
-                        else
-                        {
-                            ModalManager.CloseWorldBlockingOverlays();
-                            if (!IsWorldInteractionBlocked() && !IsPointerOverUI(lastTapPosition))
-                            {
-                                Dispatch3DClick(lastTapPosition);
-                            }
-                        }
-                    }
-                }
-
-                isDragging = false;
-                wasMultiTouch = false;
-            }
+            cleanTapTriggeredThisFrame = WorldTapInput.Poll(out lastTapPosition);
+            if (cleanTapTriggeredThisFrame && !IsWorldInteractionBlocked(lastTapPosition))
+                Dispatch3DClick(lastTapPosition);
         }
 
         /// <summary>
@@ -167,11 +97,9 @@ namespace Farm2Shelf.Utils
         /// </summary>
         public static bool Dispatch3DClick(Vector2 screenPos)
         {
-            if (IsWorldInteractionBlocked()) return false;
-            ModalManager.CloseWorldBlockingOverlays();
-            if (IsWorldInteractionBlocked() || IsPointerOverUI(screenPos)) return false;
-            if (Time.unscaledTime - lastGlobalDispatchTime < 0.03f) return false;
-            if (Time.unscaledTime - ModalManager.LastModalCloseTime < 0.04f) return false;
+            if (IsWorldInteractionBlocked(screenPos)) return false;
+            if (Time.unscaledTime >= lastGlobalDispatchTime && Time.unscaledTime - lastGlobalDispatchTime < 0.03f) return false;
+            if (Time.unscaledTime >= ModalManager.LastModalCloseTime && Time.unscaledTime - ModalManager.LastModalCloseTime < 0.04f) return false;
             if (screenPos == Vector2.zero) return false;
 
             Camera cam = Camera.main;
@@ -181,31 +109,11 @@ namespace Farm2Shelf.Utils
 
             Ray ray = cam.ScreenPointToRay(screenPos);
             RaycastHit[] hits = Physics.RaycastAll(ray, 250f);
-            RaycastHit[] palletSphereHits = Physics.SphereCastAll(ray, 0.85f, 250f);
 
             // ÖNCELİK 0: Teslimat Kolisi veya Palet Tıklaması (Doğrudan ve Hızlı Erişim)
-            if (TryDispatchPalletOrBox(hits) || TryDispatchPalletOrBox(palletSphereHits))
+            if (TryDispatchPalletOrBox(hits))
             {
                 return true;
-            }
-
-            if (hits != null && hits.Length > 0)
-            {
-                foreach (var hit in hits)
-                {
-                    if (hit.collider == null) continue;
-                    GameObject go = hit.collider.gameObject;
-
-                    DeliveryBoxController box = go.GetComponentInParent<DeliveryBoxController>();
-                    if (box == null) box = go.GetComponent<DeliveryBoxController>();
-                    if (box != null)
-                    {
-                        lastGlobalDispatchTime = Time.unscaledTime;
-                        CloseAnyOpenProfileCard();
-                        box.TriggerPlacement();
-                        return true;
-                    }
-                }
             }
 
             // ÖNCELİK 1: Karakterler (Personel & Müşteri) - Doğrudan Raycast ve Mobil Dokunmatik Toleransı (SphereCast)
@@ -321,17 +229,6 @@ namespace Farm2Shelf.Utils
                     if (sHit.collider == null) continue;
                     GameObject sGo = sHit.collider.gameObject;
 
-                    // Teslimat Paleti
-                    DeliveryPalletClickable pallet = sGo.GetComponentInParent<DeliveryPalletClickable>() ?? sGo.GetComponent<DeliveryPalletClickable>();
-                    if (pallet != null || sGo.name.Contains("Pallet") || sGo.name.Contains("Delivery") ||
-                        (sGo.transform.parent != null && sGo.transform.parent.name.Contains("Pallet")))
-                    {
-                        lastGlobalDispatchTime = Time.unscaledTime;
-                        CloseAnyOpenProfileCard();
-                        PalletStorageInventoryModalUI.ShowModal(isWorkshopMode: false);
-                        return true;
-                    }
-
                     // Mobilya / Raf / Depo Palet Rafı
                     PlacedFurnitureController furniture = sGo.GetComponentInParent<PlacedFurnitureController>() ?? sGo.GetComponent<PlacedFurnitureController>();
                     if (furniture != null)
@@ -385,7 +282,7 @@ namespace Farm2Shelf.Utils
             System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
             for (int i = 0; i < hits.Length; i++)
             {
-                if (hits[i].collider == null) continue;
+                if (hits[i].collider == null || hits[i].collider.isTrigger) continue;
                 GameObject go = hits[i].collider.gameObject;
 
                 DeliveryBoxController box = go.GetComponentInParent<DeliveryBoxController>() ?? go.GetComponent<DeliveryBoxController>();
@@ -408,15 +305,15 @@ namespace Farm2Shelf.Utils
                 }
 
                 DeliveryPalletClickable pallet = go.GetComponentInParent<DeliveryPalletClickable>() ?? go.GetComponent<DeliveryPalletClickable>();
-                if (pallet != null || go.name.Contains("Pallet") || go.name.Contains("Delivery") || go.name.Contains("Cargo") ||
-                    (go.transform.parent != null && (go.transform.parent.name.Contains("Pallet") || go.transform.parent.name.Contains("Delivery") || go.transform.parent.name.Contains("Cargo"))) ||
-                    (go.transform.root != null && (go.transform.root.name.Contains("Pallet") || go.transform.root.name.Contains("Delivery"))))
+                if (pallet != null)
                 {
                     lastGlobalDispatchTime = Time.unscaledTime;
                     CloseAnyOpenProfileCard();
                     PalletStorageInventoryModalUI.ShowModal(isWorkshopMode: false);
                     return true;
                 }
+                // A different solid object is in front: never pick a pallet behind it.
+                return false;
             }
 
             return false;
@@ -434,265 +331,175 @@ namespace Farm2Shelf.Utils
             }
         }
 
-        public static int GetTouchCount()
-        {
-            try
-            {
-                if (Input.touchCount > 0) return Input.touchCount;
-            }
-            catch { }
-
+        // One snapshot per frame: never combine legacy mouse edges with Simulator
+        // touch coordinates. Keep the touch source through its release frame.
+        private static int pointerFrame = -1;
+        private static Vector2 pointerPosition;
+        private static bool pointerDown, pointerUp, pointerPressed, pointerCancelled, pointerIsTouch;
+        private static int pointerTouchCount;
 #if ENABLE_INPUT_SYSTEM
-            try
-            {
-                if (Touchscreen.current != null)
-                {
-                    int count = 0;
-                    foreach (var touch in Touchscreen.current.touches)
-                    {
-                        if (touch.press.isPressed) count++;
-                    }
-                    return count;
-                }
-            }
-            catch { }
-#endif
-            return 0;
-        }
-
-        public static bool PreferDesktopMouse()
+        public struct CameraTouch
         {
-            return !Application.isMobilePlatform && GetTouchCount() == 0;
+            public Vector2 position, delta;
+            public UnityEngine.InputSystem.TouchPhase phase;
+        }
+        private static CameraTouch[] cameraTouches = new CameraTouch[16];
+        private static int trackedTouchId = -1;
+
+        public static CameraTouch GetCameraTouch(int index)
+        {
+            ReadPointerFrame();
+            return index >= 0 && index < pointerTouchCount ? cameraTouches[index] : default;
+        }
+#endif
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        public static void ResetGestureState()
+        {
+            cleanTapTriggeredThisFrame = false;
+            pointerDown = pointerUp = pointerPressed = pointerCancelled = pointerIsTouch = false;
+            pointerTouchCount = 0;
+            pointerFrame = lastEvaluatedFrame = -1;
+            lastGlobalDispatchTime = -1f;
+            WorldTapInput.CancelGesture();
+            worldClickSuppressedFrame = Time.frameCount;
+#if ENABLE_INPUT_SYSTEM
+            trackedTouchId = -1;
+#endif
         }
 
+        private static void ReadPointerFrame()
+        {
+            if (pointerFrame == Time.frameCount) return;
+            pointerFrame = Time.frameCount;
+            bool previouslyHeld = pointerPressed;
+            bool previouslyTouch = pointerIsTouch;
+            pointerDown = pointerUp = pointerPressed = pointerCancelled = pointerIsTouch = false;
+            pointerTouchCount = 0;
+#if ENABLE_INPUT_SYSTEM
+            var screen = Touchscreen.current;
+            if (screen != null && screen.enabled)
+            {
+                if (cameraTouches.Length < screen.touches.Count)
+                    cameraTouches = new CameraTouch[screen.touches.Count];
+                UnityEngine.InputSystem.Controls.TouchControl selected = null;
+                UnityEngine.InputSystem.Controls.TouchControl firstHeld = null;
+                UnityEngine.InputSystem.Controls.TouchControl quickTap = null;
+                foreach (var touch in screen.touches)
+                {
+                    var phase = touch.phase.ReadValue();
+                    bool held = touch.press.isPressed && phase != UnityEngine.InputSystem.TouchPhase.Ended &&
+                        phase != UnityEngine.InputSystem.TouchPhase.Canceled && phase != UnityEngine.InputSystem.TouchPhase.None;
+                    if (held)
+                    {
+                        cameraTouches[pointerTouchCount++] = new CameraTouch
+                        { position = touch.position.ReadValue(), delta = touch.delta.ReadValue(), phase = phase };
+                        if (firstHeld == null) firstHeld = touch;
+                    }
+                    if (touch.press.wasPressedThisFrame && touch.press.wasReleasedThisFrame)
+                        quickTap = touch;
+                    // primaryTouch is synthetic and can remain pressed until every finger
+                    // has ended. Track the actual contact, including its release frame.
+                    if (touch.touchId.ReadValue() == trackedTouchId &&
+                        (held || phase == UnityEngine.InputSystem.TouchPhase.Ended ||
+                         phase == UnityEngine.InputSystem.TouchPhase.Canceled)) selected = touch;
+                }
+                if (selected == null) selected = quickTap ?? firstHeld;
+                if (selected != null)
+                {
+                    int id = selected.touchId.ReadValue();
+                    pointerIsTouch = true;
+                    pointerPosition = selected.position.ReadValue();
+                    var phase = selected.phase.ReadValue();
+                    pointerCancelled = phase == UnityEngine.InputSystem.TouchPhase.Canceled;
+                    pointerUp = phase == UnityEngine.InputSystem.TouchPhase.Ended || pointerCancelled;
+                    pointerPressed = !pointerUp && selected.press.isPressed;
+                    // Button edge caches use InputSystem update steps, which may differ
+                    // from game frames in Device Simulator. Track actual contact state.
+                    pointerDown = (pointerPressed && (!previouslyHeld || !previouslyTouch || trackedTouchId != id)) ||
+                        (selected == quickTap && trackedTouchId != id);
+                    trackedTouchId = pointerUp ? -1 : id;
+                    return;
+                }
+                trackedTouchId = -1;
+            }
+            if (previouslyHeld && previouslyTouch)
+            {
+                // Device reset/lost release: cancel the old gesture instead of keeping
+                // it pressed or interpreting a new mouse position as its release.
+                pointerIsTouch = pointerUp = pointerCancelled = true;
+                return;
+            }
+            var mouse = Mouse.current;
+            if (mouse != null && mouse.enabled)
+            {
+                pointerPosition = mouse.position.ReadValue();
+                pointerPressed = mouse.leftButton.isPressed;
+                pointerDown = pointerPressed && (!previouslyHeld || previouslyTouch);
+                pointerUp = !pointerPressed && previouslyHeld && !previouslyTouch;
+                if (!previouslyHeld && !pointerPressed && mouse.leftButton.wasPressedThisFrame && mouse.leftButton.wasReleasedThisFrame)
+                    pointerDown = pointerUp = true;
+            }
+#else
+            pointerTouchCount = Input.touchCount;
+            if (pointerTouchCount > 0)
+            {
+                var touch = Input.GetTouch(0);
+                pointerIsTouch = true;
+                pointerPosition = touch.position;
+                pointerDown = touch.phase == UnityEngine.TouchPhase.Began;
+                pointerCancelled = touch.phase == UnityEngine.TouchPhase.Canceled;
+                pointerUp = touch.phase == UnityEngine.TouchPhase.Ended || pointerCancelled;
+                pointerPressed = !pointerUp;
+            }
+            else
+            {
+                pointerPosition = Input.mousePosition;
+                pointerDown = Input.GetMouseButtonDown(0);
+                pointerUp = Input.GetMouseButtonUp(0);
+                pointerPressed = Input.GetMouseButton(0);
+            }
+#endif
+        }
+
+        public static int GetTouchCount() { ReadPointerFrame(); return pointerTouchCount; }
+        public static bool PreferDesktopMouse() { ReadPointerFrame(); return !pointerIsTouch; }
         public static bool IsValidScreenPoint(Vector2 p)
         {
-            if (float.IsNaN(p.x) || float.IsNaN(p.y) || float.IsInfinity(p.x) || float.IsInfinity(p.y))
-                return false;
-            float max = Mathf.Max(64f, Mathf.Max(Screen.width, Screen.height) * 4f);
-            return p.x >= -64f && p.y >= -64f && p.x <= max && p.y <= max;
+            return !float.IsNaN(p.x) && !float.IsNaN(p.y) && !float.IsInfinity(p.x) &&
+                   !float.IsInfinity(p.y) && p.x >= 0f && p.y >= 0f && p.x <= Screen.width && p.y <= Screen.height;
         }
 
         public static bool TryGetMouseScreenPosition(out Vector2 screenPos)
         {
             screenPos = Vector2.zero;
 #if ENABLE_INPUT_SYSTEM
-            try
-            {
-                if (Mouse.current != null)
-                {
-                    Vector2 mPos = Mouse.current.position.ReadValue();
-                    if (IsValidScreenPoint(mPos))
-                    {
-                        screenPos = mPos;
-                        return true;
-                    }
-                }
-            }
-            catch { }
+            if (Mouse.current == null || !Mouse.current.enabled) return false;
+            screenPos = Mouse.current.position.ReadValue();
+#else
+            screenPos = Input.mousePosition;
 #endif
-            try
-            {
-                Vector3 legacy = Input.mousePosition;
-                Vector2 p = new Vector2(legacy.x, legacy.y);
-                if (IsValidScreenPoint(p))
-                {
-                    screenPos = p;
-                    return true;
-                }
-            }
-            catch { }
-
-            return false;
+            return IsValidScreenPoint(screenPos);
         }
 
         public static bool IsMousePressed()
         {
 #if ENABLE_INPUT_SYSTEM
-            try
-            {
-                if (Mouse.current != null && (Mouse.current.leftButton.isPressed || Mouse.current.leftButton.wasPressedThisFrame))
-                {
-                    return true;
-                }
-            }
-            catch { }
+            return Mouse.current != null && Mouse.current.enabled && Mouse.current.leftButton.isPressed;
+#else
+            return Input.GetMouseButton(0);
 #endif
-            try
-            {
-                if (Input.GetMouseButton(0) || Input.GetMouseButtonDown(0)) return true;
-            }
-            catch { }
-
-            return false;
         }
 
-        public static Vector2 GetCurrentPointerPosition()
-        {
-            if (PreferDesktopMouse() && TryGetMouseScreenPosition(out Vector2 desktopMouse))
-            {
-                return desktopMouse;
-            }
-
-#if ENABLE_INPUT_SYSTEM
-            try
-            {
-                if (!PreferDesktopMouse() && Touchscreen.current != null)
-                {
-                    var touch = Touchscreen.current.primaryTouch;
-                    if (touch.press.isPressed)
-                    {
-                        Vector2 touchPos = touch.position.ReadValue();
-                        if (touchPos.sqrMagnitude > 0.001f) return touchPos;
-                    }
-                }
-                if (TryGetMouseScreenPosition(out Vector2 mPos)) return mPos;
-            }
-            catch { }
-#endif
-            try
-            {
-                if (Input.touchCount > 0)
-                {
-                    return Input.GetTouch(0).position;
-                }
-                Vector3 legacy = Input.mousePosition;
-                if (legacy.sqrMagnitude > 0.001f)
-                {
-                    return new Vector2(legacy.x, legacy.y);
-                }
-            }
-            catch { }
-
-            return Vector2.zero;
-        }
-
-        public static bool IsPointerHeld()
-        {
-            if (PreferDesktopMouse())
-            {
-                return IsMousePressed();
-            }
-
-#if ENABLE_INPUT_SYSTEM
-            try
-            {
-                if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.isPressed) return true;
-                if (Mouse.current != null && Mouse.current.leftButton.isPressed) return true;
-            }
-            catch { }
-#endif
-            try
-            {
-                if (Input.GetMouseButton(0)) return true;
-                if (Input.touchCount > 0)
-                {
-                    UnityEngine.TouchPhase phase = Input.GetTouch(0).phase;
-                    if (phase == UnityEngine.TouchPhase.Began || phase == UnityEngine.TouchPhase.Moved || phase == UnityEngine.TouchPhase.Stationary)
-                    {
-                        return true;
-                    }
-                }
-            }
-            catch { }
-
-            return false;
-        }
-
+        public static Vector2 GetCurrentPointerPosition() { ReadPointerFrame(); return pointerPosition; }
+        public static bool IsPointerHeld() { ReadPointerFrame(); return pointerPressed; }
+        public static bool WasPointerPressedThisFrame() { ReadPointerFrame(); return pointerDown; }
+        public static bool WasPointerReleasedThisFrame() { ReadPointerFrame(); return pointerUp; }
         public static bool TryGetPressedPointerPosition(out Vector2 screenPos)
         {
-            screenPos = Vector2.zero;
-            if (!IsPointerHeld() && !WasPointerPressedThisFrame()) return false;
-
-            if (PreferDesktopMouse())
-            {
-                return TryGetMouseScreenPosition(out screenPos);
-            }
-
-#if ENABLE_INPUT_SYSTEM
-            try
-            {
-                if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.isPressed)
-                {
-                    Vector2 touchPos = Touchscreen.current.primaryTouch.position.ReadValue();
-                    if (IsValidScreenPoint(touchPos))
-                    {
-                        screenPos = touchPos;
-                        return true;
-                    }
-                }
-                if (Mouse.current != null && (Mouse.current.leftButton.isPressed || Mouse.current.leftButton.wasPressedThisFrame))
-                {
-                    Vector2 mPos = Mouse.current.position.ReadValue();
-                    if (IsValidScreenPoint(mPos))
-                    {
-                        screenPos = mPos;
-                        return true;
-                    }
-                }
-            }
-            catch { }
-#endif
-            try
-            {
-                if (Input.touchCount > 0)
-                {
-                    screenPos = Input.GetTouch(0).position;
-                    if (screenPos.sqrMagnitude > 1f) return true;
-                }
-                if (Input.GetMouseButton(0) || Input.GetMouseButtonDown(0))
-                {
-                    Vector3 mPos = Input.mousePosition;
-                    if (mPos.sqrMagnitude > 1f)
-                    {
-                        screenPos = new Vector2(mPos.x, mPos.y);
-                        return true;
-                    }
-                }
-            }
-            catch { }
-
-            return false;
-        }
-
-        public static bool WasPointerPressedThisFrame()
-        {
-            try
-            {
-                if (Input.GetMouseButtonDown(0)) return true;
-                if (Input.touchCount > 0 && Input.GetTouch(0).phase == UnityEngine.TouchPhase.Began) return true;
-            }
-            catch { }
-
-#if ENABLE_INPUT_SYSTEM
-            try
-            {
-                if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.wasPressedThisFrame) return true;
-                if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame) return true;
-            }
-            catch { }
-#endif
-            return false;
-        }
-
-        public static bool WasPointerReleasedThisFrame()
-        {
-            try
-            {
-                if (Input.GetMouseButtonUp(0)) return true;
-                if (Input.touchCount > 0 && (Input.GetTouch(0).phase == UnityEngine.TouchPhase.Ended || Input.GetTouch(0).phase == UnityEngine.TouchPhase.Canceled)) return true;
-            }
-            catch { }
-
-#if ENABLE_INPUT_SYSTEM
-            try
-            {
-                if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.wasReleasedThisFrame) return true;
-                if (Mouse.current != null && Mouse.current.leftButton.wasReleasedThisFrame) return true;
-            }
-            catch { }
-#endif
-            return false;
+            ReadPointerFrame();
+            screenPos = pointerPosition;
+            return (pointerPressed || pointerDown) && IsValidScreenPoint(screenPos);
         }
 
         private static readonly List<RaycastResult> cachedRaycastResults = new List<RaycastResult>(32);
@@ -742,7 +549,12 @@ namespace Farm2Shelf.Utils
                 }
 
                 GameObject go = result.gameObject;
-                if (go.GetComponent<TutorialSpotlightOverlay>() != null) continue;
+                TutorialSpotlightOverlay spotlight = go.GetComponent<TutorialSpotlightOverlay>();
+                if (spotlight != null)
+                {
+                    if (spotlight.BlocksScreenPoint(screenPosition)) return true;
+                    continue;
+                }
                 if (go.GetComponentInParent<TutorialMentorGuideUI>() != null &&
                     go.GetComponentInParent<Button>() == null &&
                     go.GetComponentInParent<Toggle>() == null)
@@ -783,6 +595,9 @@ namespace Farm2Shelf.Utils
     [DefaultExecutionOrder(1000)]
     public class TouchInputRunner : MonoBehaviour
     {
+        private void OnDisable() => WorldTapInput.CancelGesture();
+        private void OnApplicationFocus(bool focused) => TouchInputHelper.ResetGestureState();
+        private void OnApplicationPause(bool paused) => TouchInputHelper.ResetGestureState();
         private void Awake()
         {
             TouchInputHelper.EnsureRunner();

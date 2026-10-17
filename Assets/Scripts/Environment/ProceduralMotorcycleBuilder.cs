@@ -308,9 +308,10 @@ namespace Farm2Shelf.Environment
                 ctrl.spotLights.Add(spot);
             }
 
-            Transform lens = root.Find("Moto_Headlight_Lens");
-            if (lens != null)
+            foreach (string lensName in new[] { "Moto_Headlight_Lens", "Moto_HeadInner" })
             {
+                Transform lens = root.Find(lensName);
+                if (lens == null) continue;
                 Renderer r = lens.GetComponent<Renderer>();
                 if (r != null && !ctrl.headlightRenderers.Contains(r))
                 {

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Farm2Shelf.Core;
@@ -148,7 +148,7 @@ namespace Farm2Shelf.Environment
             }
 
             Vector3 dir = to / dist;
-            Vector3 next = transform.position + dir * speed * Time.deltaTime;
+            Vector3 next = transform.position + dir * Mathf.Min(dist, speed * Time.deltaTime);
             next.y = CityTrafficManager.GetBridgeElevation(next.x, next.z, out _);
             if (TaxiRoadRouter.IsCampusInterior(next) || TaxiRoadRouter.IsIllegalRiverPoint(next))
             {

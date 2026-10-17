@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 namespace Farm2Shelf.Core
@@ -235,7 +235,7 @@ namespace Farm2Shelf.Core
             },
             {
                 FurnitureType.TrashCan,
-                new FurnitureItemDef(FurnitureType.TrashCan, "Paslanmaz Çöp Kovası", "Stainless Trash Can", "Müşteriler için geri dönüşümlü krom çöp kovası.", "Recycling chrome trash bin for customers.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 1, 150, "🗑️", 0)
+                new FurnitureItemDef(FurnitureType.TrashCan, "Çöp Kovası", "Trash Bin", "Müşteriler, 6 metre yakınlarındaki önü açık çöp kovalarını kullanabilir. Uygun bir kova varsa yere çöp bırakma olaylarının %30'u kovaya yönlendirilir. Dükkan daha yavaş kirlenir; temizlik ihtiyacı devam eder. Ek kovalar etkiyi katlamaz, erişim alanını artırır. Önündeki çöp atma noktasını boş bırakın.", "Customers can use an accessible bin within 6 metres. When one is available, 30% of littering events are redirected to the bin. The store gets dirty more slowly but still needs cleaning. Additional bins improve coverage rather than stacking the reduction. Keep the disposal point clear.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 1, 150, "🗑️", 0)
             },
             {
                 FurnitureType.BenchWood,
@@ -243,7 +243,7 @@ namespace Farm2Shelf.Core
             },
             {
                 FurnitureType.WelcomeMat,
-                new FurnitureItemDef(FurnitureType.WelcomeMat, "Hoş Geldiniz Paspası", "Welcome Floor Mat", "Mağaza ana girişi için özel desenli paspas.", "Custom patterned entrance mat for store front.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 1, 80, "🚪", 0)
+                new FurnitureItemDef(FurnitureType.WelcomeMat, "Hoş Geldiniz Paspası", "Welcome Floor Mat", "WELCOME yazılı giriş paspası. Kapı önüne koyulabilir, geçişi engellemez.", "WELCOME entrance mat. Place it by the door without blocking customers.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 1, 80, "🚪", 0)
             },
             {
                 FurnitureType.WallClock,
@@ -263,17 +263,17 @@ namespace Farm2Shelf.Core
             },
             {
                 FurnitureType.WaterDispenser,
-                new FurnitureItemDef(FurnitureType.WaterDispenser, "Su Sebili", "Water Dispenser", "Müşteri ve personel için soğuk/sıcak su sebili otomatı.", "Cold/hot water dispenser for customers and staff.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 1, 350, "🚰", 12)
+                new FurnitureItemDef(FurnitureType.WaterDispenser, "Su Sebili", "Water Dispenser", "Müşteriler su aldığında kullanım başına 12C pasif gelir sağlar. Ön tarafını müşterilerin ulaşabileceği şekilde yerleştirin.", "Earns 12C in passive income each time a customer uses it. Keep the front accessible to customers.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 1, 350, "🚰", 12)
             },
 
             // ==================== SEVİYE 2 DEKORASYONLAR (10 Adet) ====================
             {
                 FurnitureType.CoffeeMachine,
-                new FurnitureItemDef(FurnitureType.CoffeeMachine, "Kahve Otomatı Standı", "Coffee Vending Machine", "Müşteriler için taze espressolu kahve otomatı.", "Fresh espresso coffee vending machine for customers.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 2, 850, "☕", 35)
+                new FurnitureItemDef(FurnitureType.CoffeeMachine, "Kahve Otomatı Standı", "Coffee Vending Machine", "Müşteriler kahve aldığında kullanım başına 35C pasif gelir sağlar. Kahve alma yönünü açık bırakın.", "Earns 35C in passive income each time a customer buys coffee. Keep the coffee pickup side accessible.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 2, 850, "☕", 35)
             },
             {
                 FurnitureType.NeonSign,
-                new FurnitureItemDef(FurnitureType.NeonSign, "Neon Mağaza Logosu", "Neon Store Sign", "Duvara asılan ışıl ışıl 'OPEN 24/7' neon yazısı.", "Bright wall-mounted 'OPEN 24/7' neon sign.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 2, 650, "🚨", 0)
+                new FurnitureItemDef(FurnitureType.NeonSign, "Neon Mağaza Logosu", "Neon Store Sign", "Yalnızca duvara monte edilen, dekoratif neon yazılı ışıklı tabela.", "Glowing sign with abstract decorative neon lettering, mounted on walls only.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 2, 650, "🚨", 0)
             },
             {
                 FurnitureType.FountainSmall,
@@ -281,23 +281,23 @@ namespace Farm2Shelf.Core
             },
             {
                 FurnitureType.GumballMachine,
-                new FurnitureItemDef(FurnitureType.GumballMachine, "Şeker Otomatı", "Candy Gumball Machine", "Çocuklar için renkli şekerleme ve sakız otomatı.", "Colorful candy and gumball dispenser for kids.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 2, 450, "🍬", 15)
+                new FurnitureItemDef(FurnitureType.GumballMachine, "Şeker Otomatı", "Candy Gumball Machine", "Müşteriler şeker aldığında kullanım başına 15C pasif gelir sağlar. Şeker alma yönünü açık bırakın.", "Earns 15C in passive income each time a customer buys candy. Keep the candy pickup side accessible.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 2, 450, "🍬", 15)
             },
             {
                 FurnitureType.VendingSnack,
-                new FurnitureItemDef(FurnitureType.VendingSnack, "Atıştırmalık Otomatı", "Snack Vending Machine", "Cips, kraker ve çikolata otomatı.", "Automated snack machine for chips, crackers, and chocolates.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 2, 1500, "🍫", 50)
+                new FurnitureItemDef(FurnitureType.VendingSnack, "Atıştırmalık Otomatı", "Snack Vending Machine", "Müşteriler atıştırmalık aldığında kullanım başına 50C pasif gelir sağlar. Ürün alma yönünü açık bırakın.", "Earns 50C in passive income each time a customer buys a snack. Keep the pickup side accessible.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 2, 1500, "🍫", 50)
             },
             {
                 FurnitureType.IceCreamCart,
-                new FurnitureItemDef(FurnitureType.IceCreamCart, "Dondurma Arabası", "Ice Cream Cart", "Nostaljik tekerlekli taze dondurma aracı.", "Nostalgic wheeled fresh ice cream cart.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 2, 1100, "🍦", 25)
+                new FurnitureItemDef(FurnitureType.IceCreamCart, "Dondurma Arabası", "Ice Cream Cart", "Müşteriler dondurma aldığında kullanım başına 25C pasif gelir sağlar. Dondurma alma yönünü açık bırakın.", "Earns 25C in passive income each time a customer buys ice cream. Keep the pickup side accessible.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 2, 1100, "🍦", 25)
             },
             {
                 FurnitureType.RedCarpet,
-                new FurnitureItemDef(FurnitureType.RedCarpet, "Kırmızı Protokol Halısı", "Red Protocol Carpet", "Dükkan girişi için pirinç bariyerli kırmızı halı.", "Red carpet with brass stanchions for store entrance.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 2, 500, "👠", 0)
+                new FurnitureItemDef(FurnitureType.RedCarpet, "Kırmızı Protokol Halısı", "Red Protocol Carpet", "Üzerinden yürünebilen, altın bordürlü kırmızı dokuma halı.", "Walkable crimson woven carpet with golden edging.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 2, 500, "👠", 0)
             },
             {
                 FurnitureType.DigitalMenuBoard,
-                new FurnitureItemDef(FurnitureType.DigitalMenuBoard, "Dijital Ekran Panosu", "Digital Menu Board", "Tavan tipi 3'lü dijital fiyat panosu.", "Ceiling-mounted 3-screen digital price board.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 2, 950, "🖥️", 0)
+                new FurnitureItemDef(FurnitureType.DigitalMenuBoard, "Dijital Ekran Panosu", "Digital Menu Board", "Duvar yakınına tavandan monte edilir; duvara renkli ürün görselleri yansıtır.", "Ceiling-mounted near a wall, displaying colorful product artwork on the wall.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 2, 950, "🖥️", 0)
             },
             {
                 FurnitureType.BonsaiTree,
@@ -305,21 +305,21 @@ namespace Farm2Shelf.Core
             },
             {
                 FurnitureType.AtmMachine,
-                new FurnitureItemDef(FurnitureType.AtmMachine, "Bankamatik (ATM)", "ATM Cash Machine", "Müşteriler için hızlı nakit para çekme otomatı.", "Automated teller machine for fast customer cash withdrawals.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 2, 1800, "🏧", 0)
+                new FurnitureItemDef(FurnitureType.AtmMachine, "Bankamatik (ATM)", "ATM Cash Machine", "Dekoratif nakit çekme noktası. Kullanan müşteri, uygun reyon stoğu bulunduğunda 2–3 adet ek ürün alır. Her müşteri için bir kez uygulanır; pasif gelir sağlamaz. Önünü açık bırakın.", "Decorative cash withdrawal point. Each user buys 2–3 extra items when suitable shelf stock is available. Applies once per customer; generates no passive income. Keep the front clear.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 2, 1800, "🏧", 0)
             },
 
             // ==================== SEVİYE 3 DEKORASYONLAR (10 Adet) ====================
             {
                 FurnitureType.ArcadeMachine,
-                new FurnitureItemDef(FurnitureType.ArcadeMachine, "Arcade Oyun Makinesi", "Retro Arcade Cabinet", "Müşterilerin vakit geçireceği retro jetonlu oyun kabini.", "Coin-operated arcade cabinet for customer entertainment.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 3, 2400, "🕹️", 75)
+                new FurnitureItemDef(FurnitureType.ArcadeMachine, "Arcade Oyun Makinesi", "Retro Arcade Cabinet", "Tek müşteri aynı anda oynar. Oyun 30 veya 60 gerçek saniye sürer; tamamlanan kullanım 75C pasif gelir getirir. Duraklatmada süre durur. Kullanım yönünü açık bırakın.", "One customer plays at a time. Games last 30 or 60 real seconds; each completed session earns 75C passive income. The timer pauses with the game. Keep the access side clear.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 3, 2400, "🕹️", 75)
             },
             {
                 FurnitureType.AquariumGrand,
-                new FurnitureItemDef(FurnitureType.AquariumGrand, "Dev Tropikal Akvaryum", "Grand Tropical Aquarium", "İçinde renkli balıklar yüzen ışıklı dev akvaryum.", "Giant illuminated aquarium with swimming colorful tropical fish.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 3, 3500, "🐠", 0)
+                new FurnitureItemDef(FurnitureType.AquariumGrand, "Dev Tropikal Akvaryum", "Grand Tropical Aquarium", "Renkli balıklar ve su altı detaylarıyla dekoratif akvaryum. Yalnızca dekorasyon amaçlıdır; pasif gelir sağlamaz.", "Decorative aquarium with colorful fish and underwater details. Decoration only; generates no passive income.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 3, 3500, "🐠", 0)
             },
             {
                 FurnitureType.Jukebox,
-                new FurnitureItemDef(FurnitureType.Jukebox, "Nostaljik Müzik Kutusu", "Nostalgic Jukebox", "Neon aydınlatmalı retro jukebox müzik otomatı.", "Retro neon-lit jukebox music machine.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 3, 2800, "📻", 80)
+                new FurnitureItemDef(FurnitureType.Jukebox, "Nostaljik Müzik Kutusu", "Nostalgic Jukebox", "Müşteriler müzik kutusunu kullandığında kullanım başına 80C pasif gelir sağlar. Müzik seçme yönünü açık bırakın.", "Earns 80C in passive income each time a customer uses the jukebox. Keep the music selection side accessible.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 3, 2800, "📻", 80)
             },
             {
                 FurnitureType.GoldenStatue,
@@ -327,27 +327,27 @@ namespace Farm2Shelf.Core
             },
             {
                 FurnitureType.ChandelierCrystal,
-                new FurnitureItemDef(FurnitureType.ChandelierCrystal, "Lüks Kristal Avize", "Luxury Crystal Chandelier", "Tavan için sarkıt parlak kristal dev avize.", "Hanging sparkling crystal chandelier for ceiling.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 3, 3800, "✨", 0)
+                new FurnitureItemDef(FurnitureType.ChandelierCrystal, "Lüks Kristal Avize", "Luxury Crystal Chandelier", "Tavana monte edilen kristal avize. Altına raf koyulabilir ve altından yürünebilir.", "Ceiling-mounted crystal chandelier with clearance for shelves and customers below.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 3, 3800, "✨", 0)
             },
             {
                 FurnitureType.SlushieMachine,
-                new FurnitureItemDef(FurnitureType.SlushieMachine, "Buzlu İçecek Otomatı", "Slushie Machine", "2 hazneli buzlu meyve suyu otomatı.", "2-tank frozen slushie beverage dispenser.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 3, 2100, "🍹", 40)
+                new FurnitureItemDef(FurnitureType.SlushieMachine, "Buzlu İçecek Otomatı", "Slushie Machine", "Müşteriler buzlu içecek aldığında kullanım başına 40C pasif gelir sağlar. İçecek alma yönünü açık bırakın.", "Earns 40C in passive income each time a customer buys a frozen drink. Keep the drink pickup side accessible.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 3, 2100, "🍹", 40)
             },
             {
                 FurnitureType.MassageChair,
-                new FurnitureItemDef(FurnitureType.MassageChair, "Lüks Masaj Koltuğu", "Luxury Massage Chair", "Müşterilerin rahatlaması için deri masaj koltuğu.", "Leather massage chair for customer relaxation.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 3, 2600, "🛋️", 100)
+                new FurnitureItemDef(FurnitureType.MassageChair, "Lüks Masaj Koltuğu", "Luxury Massage Chair", "Müşteriler 15 oyun dakikası oturup dinlenir. Tamamlanan her kullanım 100C pasif gelir sağlar. Koltuğun önünü açık bırakın.", "Customers sit and relax for 15 in-game minutes. Each completed session earns 100C. Keep the front of the chair accessible.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 3, 2600, "🛋️", 100)
             },
             {
                 FurnitureType.DonutDispenser,
-                new FurnitureItemDef(FurnitureType.DonutDispenser, "Taze Donut Dolabı", "Fresh Donut Cabinet", "Döner cam vitrinli ışıklı donut otomatı.", "Illuminated rotary glass display donut dispenser.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 3, 2200, "🍩", 45)
+                new FurnitureItemDef(FurnitureType.DonutDispenser, "Taze Donut Dolabı", "Fresh Donut Cabinet", "Müşteriler donut aldığında kullanım başına 45C pasif gelir sağlar. Donut alma yönünü açık bırakın.", "Earns 45C in passive income each time a customer buys a donut. Keep the pickup side accessible.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 3, 2200, "🍩", 45)
             },
             {
                 FurnitureType.HologramProjector,
-                new FurnitureItemDef(FurnitureType.HologramProjector, "3D Hologram Projektörü", "3D Hologram Projector", "Mağaza ortasında dönen 3D reklam hologramı.", "Futuristic 3D rotating ad hologram projector.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 3, 4500, "🔮", 0)
+                new FurnitureItemDef(FurnitureType.HologramProjector, "3D Hologram Projektörü", "3D Hologram Projector", "Etrafına hareketli renkli ışıklar saçan, halkalı hologram projektörü.", "Orbital hologram projector with moving colorful lights around its base.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 3, 4500, "🔮", 0)
             },
             {
                 FurnitureType.FlowerArch,
-                new FurnitureItemDef(FurnitureType.FlowerArch, "Lüks Çiçek Kemeri", "Luxury Flower Arch", "Kırmızı ve beyaz güllerle kaplı ihtişamlı çiçek takı.", "Grand floral arch covered in red and white roses.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 3, 3100, "💐", 0)
+                new FurnitureItemDef(FurnitureType.FlowerArch, "Lüks Çiçek Kemeri", "Luxury Flower Arch", "Altından geçilebilen, güller ve yapraklarla süslü pirinç çiçek kemeri.", "Walk-through brass arch decorated with roses and foliage.", FurnitureZone.StoreOnly, FurnitureCategory.Decoration, 3, 3100, "💐", 0)
             }
         };
 
@@ -362,7 +362,10 @@ namespace Farm2Shelf.Core
 
         public static List<FurnitureItemDef> GetAllDefs()
         {
-            return new List<FurnitureItemDef>(database.Values);
+            var result = new List<FurnitureItemDef>();
+            foreach (var item in database)
+                if (item.Key != FurnitureType.DividerFence) result.Add(item.Value);
+            return result;
         }
 
         public static List<FurnitureItemDef> GetDefsByCategory(FurnitureCategory cat)
@@ -370,7 +373,7 @@ namespace Farm2Shelf.Core
             List<FurnitureItemDef> list = new List<FurnitureItemDef>();
             foreach (var kvp in database)
             {
-                if (kvp.Value.category == cat)
+                if (kvp.Value.category == cat && kvp.Key != FurnitureType.DividerFence)
                 {
                     list.Add(kvp.Value);
                 }
@@ -380,11 +383,12 @@ namespace Farm2Shelf.Core
 
         public static bool IsWallMountedDecoration(FurnitureType type)
         {
-            return type == FurnitureType.WallClock;
+            return type == FurnitureType.WallClock || type == FurnitureType.NeonSign || type == FurnitureType.DigitalMenuBoard;
         }
 
         public static bool GrantsCustomerUseIncome(FurnitureType type)
         {
+            if (type == FurnitureType.AtmMachine || type == FurnitureType.AquariumGrand) return false;
             FurnitureItemDef def = GetDef(type);
             return def != null && def.category == FurnitureCategory.Decoration && def.passiveIncomePerUse > 0;
         }

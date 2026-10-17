@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using System;
 using Farm2Shelf.UI;
 
@@ -122,6 +122,8 @@ namespace Farm2Shelf.Core
 
         public void SkipToNextDay06AM()
         {
+            // Also settle days ended manually. The loan manager guards repeat payments.
+            BankLoanManager.Instance?.ProcessDailyInstallments();
             currentHour = 6;
             currentMinute = 0;
             timer = 0f;
@@ -159,9 +161,9 @@ namespace Farm2Shelf.Core
             }
 
             timer += Time.deltaTime;
-            if (timer >= realSecondsPerGameMinute)
+            while (timer >= Mathf.Max(0.01f, realSecondsPerGameMinute) && !isTimePaused && isDayActive && currentHour < 24 && Time.timeScale > 0f)
             {
-                timer -= realSecondsPerGameMinute;
+                timer -= Mathf.Max(0.01f, realSecondsPerGameMinute);
                 currentMinute++;
 
                 if (currentMinute >= 60)
@@ -186,12 +188,14 @@ namespace Farm2Shelf.Core
                             StoreStatusManager.Instance.SetStoreStatus(false);
                         }
 
+                        StoreAnnouncementManager.Instance?.OnClockMinute(currentHour, currentMinute);
                         OnTimeUpdated?.Invoke(currentHour, currentMinute);
                         OnMidnightRollover?.Invoke();
                         return;
                     }
                 }
 
+                StoreAnnouncementManager.Instance?.OnClockMinute(currentHour, currentMinute);
                 OnTimeUpdated?.Invoke(currentHour, currentMinute);
             }
         }

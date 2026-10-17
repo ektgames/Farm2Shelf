@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -119,7 +119,9 @@ namespace Farm2Shelf.UI
         public void ShowMenu()
         {
             Debug.Log("[MAIN_MENU] ShowMenu called");
-            Time.timeScale = 0f;
+            GameSimulationTime.SetPaused(GameSimulationTime.PauseReason.MainMenu, true);
+            GameSimulationTime.SetPaused(GameSimulationTime.PauseReason.Intro, false);
+            GameSimulationTime.SetPaused(GameSimulationTime.PauseReason.PauseMenu, false);
             Farm2Shelf.Utils.UiReliableClick.IgnoreCurrentPointerUntilRelease();
             ConfigureMenuEventSystem();
             if (EKTReklamIntroManager.HasIntroFinished)
@@ -139,7 +141,7 @@ namespace Farm2Shelf.UI
         public void HideMenu()
         {
             Debug.Log("[MAIN_MENU] HideMenu called");
-            Time.timeScale = 1.0f;
+            GameSimulationTime.SetPaused(GameSimulationTime.PauseReason.MainMenu, false);
             RestoreMenuEventSystem();
             RestoreWorldPhysicsRaycasters();
             TouchInputHelper.SuppressNextTap();
@@ -352,18 +354,24 @@ namespace Farm2Shelf.UI
                     ShowNewGameProfileSetupModal();
                     break;
                 case 1: // 2. KAYITLI OYUN YÜKLE
+                    if (SaveLoadSlotModalUI.Instance == null)
+                        gameObject.AddComponent<SaveLoadSlotModalUI>();
                     if (SaveLoadSlotModalUI.Instance != null)
                     {
                         SaveLoadSlotModalUI.Instance.ShowLoadModal();
                     }
                     break;
                 case 2: // 3. AYARLAR
+                    if (SettingsModalUI.Instance == null)
+                        gameObject.AddComponent<SettingsModalUI>();
                     if (SettingsModalUI.Instance != null)
                     {
                         SettingsModalUI.Instance.ShowModal();
                     }
                     break;
                 case 3: // 4. NASIL OYNANIR
+                    if (HowToPlayModalUI.Instance == null)
+                        gameObject.AddComponent<HowToPlayModalUI>();
                     if (HowToPlayModalUI.Instance != null)
                     {
                         HowToPlayModalUI.Instance.ShowModal();

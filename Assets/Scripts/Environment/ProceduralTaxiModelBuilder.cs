@@ -334,6 +334,14 @@ namespace Farm2Shelf.Environment
                 Renderer r = hr.GetComponent<Renderer>();
                 if (r != null && !ctrl.headlightRenderers.Contains(r)) ctrl.headlightRenderers.Add(r);
             }
+            foreach (string lensName in new[] { "HeadLens_L", "HeadLens_R" })
+            {
+                Transform lens = root.Find(lensName);
+                if (lens == null) continue;
+                Renderer renderer = lens.GetComponent<Renderer>();
+                if (renderer != null && !ctrl.headlightRenderers.Contains(renderer))
+                    ctrl.headlightRenderers.Add(renderer);
+            }
 
             if (DayNightCycleManager.Instance != null)
             {

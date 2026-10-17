@@ -1,117 +1,137 @@
-using UnityEngine;
-using UnityEngine.EventSystems;
+﻿using UnityEngine;
 using UnityEngine.UI;
 
 namespace Farm2Shelf.UI
 {
-    /// <summary>
-    /// Yumuşak delikli eğitim karartması. Delik dışına tıklamayı keser, deliğin içini geçirir.
-    /// </summary>
-    [RequireComponent(typeof(Image))]
-    public class TutorialSpotlightOverlay : MonoBehaviour, ICanvasRaycastFilter
+    /// <summary>Platform-independent UI spotlight; no dynamically located shader required.</summary>
+    [RequireComponent(typeof(CanvasRenderer))]
+    public class TutorialSpotlightOverlay : MaskableGraphic, ICanvasRaycastFilter
     {
-        private static readonly int HoleCenterId = Shader.PropertyToID("_HoleCenter");
-        private static readonly int HoleHalfId = Shader.PropertyToID("_HoleHalf");
-        private static readonly int HoleEnabledId = Shader.PropertyToID("_HoleEnabled");
-        private static readonly int SoftnessId = Shader.PropertyToID("_Softness");
-        private static readonly int CornerId = Shader.PropertyToID("_Corner");
-
-        private Image image;
-        private Material runtimeMat;
         private Rect currentHole;
         private Rect targetHole;
         private bool holeEnabled;
         private bool targetHoleEnabled;
-        private bool ready;
-
+        private float strength = 0.62f;
+        private readonly Vector3[] outerCorners = new Vector3[4];
+        private readonly Vector3[] innerCorners = new Vector3[4];
         public bool BlocksOutside => holeEnabled;
 
-        public void Initialize(Material source)
+        public void Initialize()
         {
-            image = GetComponent<Image>();
-            image.raycastTarget = false;
-            if (runtimeMat != null) Destroy(runtimeMat);
-            runtimeMat = null;
-
-            bool useHole = source != null && source.shader != null && source.shader.isSupported
-                && source.shader.name.IndexOf("InternalError", System.StringComparison.Ordinal) < 0;
-            if (!useHole)
-            {
-                image.material = null;
-                image.color = new Color(0.02f, 0.03f, 0.06f, 0.58f);
-                ready = false;
-                return;
-            }
-
-            runtimeMat = new Material(source);
-            image.material = runtimeMat;
-            image.color = Color.white;
-            ready = true;
-            SetDimStrength(0.62f);
-            ApplyImmediate(new Rect(0f, 0f, Screen.width, Screen.height), false);
+            raycastTarget = true;
+            color = Color.white;
+            material = null; // Unity's built-in UI material is included on every platform.
+            SetVerticesDirty();
         }
 
         public void SetDimStrength(float alpha)
         {
-            if (runtimeMat == null) return;
-            runtimeMat.SetColor("_Color", new Color(0.012f, 0.016f, 0.03f, Mathf.Clamp01(alpha)));
+            float value = Mathf.Clamp01(alpha);
+            if (Mathf.Approximately(strength, value)) return;
+            strength = value;
+            SetVerticesDirty();
         }
 
         public void SetTarget(Rect screenHole, bool enableHole)
         {
             targetHole = screenHole;
             targetHoleEnabled = enableHole;
-            if (!ready) return;
-            if (!holeEnabled && enableHole)
-            {
-                currentHole = screenHole;
-            }
+            if (!holeEnabled && enableHole) currentHole = screenHole;
+            SetVerticesDirty();
         }
 
         public void ApplyImmediate(Rect screenHole, bool enableHole)
         {
-            currentHole = screenHole;
-            targetHole = screenHole;
-            holeEnabled = enableHole;
-            targetHoleEnabled = enableHole;
-            PushMaterial();
+            currentHole = targetHole = screenHole;
+            holeEnabled = targetHoleEnabled = enableHole;
+            SetVerticesDirty();
         }
 
-        private void LateUpdate()
+        public bool BlocksScreenPoint(Vector2 point)
         {
-            if (!ready) return;
-
-            float t = 1f - Mathf.Exp(-12f * Time.unscaledDeltaTime);
-            holeEnabled = targetHoleEnabled;
-            currentHole.xMin = Mathf.Lerp(currentHole.xMin, targetHole.xMin, t);
-            currentHole.xMax = Mathf.Lerp(currentHole.xMax, targetHole.xMax, t);
-            currentHole.yMin = Mathf.Lerp(currentHole.yMin, targetHole.yMin, t);
-            currentHole.yMax = Mathf.Lerp(currentHole.yMax, targetHole.yMax, t);
-            PushMaterial();
-        }
-
-        private void PushMaterial()
-        {
-            if (runtimeMat == null) return;
-            float w = Mathf.Max(1f, Screen.width);
-            float h = Mathf.Max(1f, Screen.height);
-            Vector4 center = new Vector4(currentHole.center.x / w, currentHole.center.y / h, 0f, 0f);
-            Vector4 half = new Vector4((currentHole.width * 0.5f) / w, (currentHole.height * 0.5f) / h, 0f, 0f);
-            runtimeMat.SetVector(HoleCenterId, center);
-            runtimeMat.SetVector(HoleHalfId, half);
-            runtimeMat.SetFloat(HoleEnabledId, holeEnabled ? 1f : 0f);
-            runtimeMat.SetFloat(SoftnessId, holeEnabled ? 0.014f : 0.02f);
-            runtimeMat.SetFloat(CornerId, 0.012f);
+            // Camera and free-placement steps must keep world gestures available.
+            // During UI guidance only the current objective accepts input.
+            return isActiveAndEnabled && targetHoleEnabled && !targetHole.Contains(point);
         }
 
         public bool IsRaycastLocationValid(Vector2 screenPoint, Camera eventCamera)
         {
-            return false;
+            return BlocksScreenPoint(screenPoint);
         }
 
-        private void OnDestroy()
+        private void LateUpdate()
         {
-            if (runtimeMat != null) Destroy(runtimeMat);
+            float t = 1f - Mathf.Exp(-12f * Time.unscaledDeltaTime);
+            Rect before = currentHole;
+            bool changed = holeEnabled != targetHoleEnabled;
+            holeEnabled = targetHoleEnabled;
+            currentHole = new Rect(Vector2.Lerp(currentHole.position, targetHole.position, t),
+                Vector2.Lerp(currentHole.size, targetHole.size, t));
+            if (changed || currentHole != before) SetVerticesDirty();
+        }
+
+        protected override void OnPopulateMesh(VertexHelper vh)
+        {
+            vh.Clear();
+            Rect full = rectTransform.rect;
+            Color dim = new Color(0.012f, 0.016f, 0.03f, strength);
+            if (!holeEnabled)
+            {
+                Quad(vh, full, dim);
+                return;
+            }
+            Camera camera = canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay ? canvas.worldCamera : null;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(rectTransform, currentHole.min, camera, out Vector2 min);
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(rectTransform, currentHole.max, camera, out Vector2 max);
+            Rect hole = Rect.MinMaxRect(Mathf.Clamp(min.x, full.xMin, full.xMax), Mathf.Clamp(min.y, full.yMin, full.yMax),
+                Mathf.Clamp(max.x, full.xMin, full.xMax), Mathf.Clamp(max.y, full.yMin, full.yMax));
+            if (hole.width <= 0f || hole.height <= 0f) { Quad(vh, full, dim); return; }
+            float feather = Mathf.Min(10f, Mathf.Min(hole.width, hole.height) * 0.15f);
+            Quad(vh, Rect.MinMaxRect(full.xMin, full.yMin, full.xMax, hole.yMin), dim);
+            Quad(vh, Rect.MinMaxRect(full.xMin, hole.yMax, full.xMax, full.yMax), dim);
+            Quad(vh, Rect.MinMaxRect(full.xMin, hole.yMin, hole.xMin, hole.yMax), dim);
+            Quad(vh, Rect.MinMaxRect(hole.xMax, hole.yMin, full.xMax, hole.yMax), dim);
+            Rect inner = Rect.MinMaxRect(hole.xMin + feather, hole.yMin + feather, hole.xMax - feather, hole.yMax - feather);
+            Ring(vh, hole, inner, dim, new Color(dim.r, dim.g, dim.b, 0f));
+            Rect rim = Rect.MinMaxRect(inner.xMin - 2f, inner.yMin - 2f, inner.xMax + 2f, inner.yMax + 2f);
+            Ring(vh, rim, inner, new Color(1f, 0.82f, 0.28f, 0.65f), new Color(1f, 0.82f, 0.28f, 0f));
+        }
+
+        private static void Corners(Rect rect, Vector3[] points)
+        {
+            points[0] = new Vector3(rect.xMin, rect.yMin, 0f);
+            points[1] = new Vector3(rect.xMin, rect.yMax, 0f);
+            points[2] = new Vector3(rect.xMax, rect.yMax, 0f);
+            points[3] = new Vector3(rect.xMax, rect.yMin, 0f);
+        }
+
+        private void Quad(VertexHelper vh, Rect rect, Color tint)
+        {
+            if (rect.width <= 0f || rect.height <= 0f) return;
+            Corners(rect, outerCorners);
+            int start = vh.currentVertCount;
+            for (int i = 0; i < 4; i++) vh.AddVert(outerCorners[i], tint, Vector2.zero);
+            vh.AddTriangle(start, start + 1, start + 2);
+            vh.AddTriangle(start, start + 2, start + 3);
+        }
+
+        private void Ring(VertexHelper vh, Rect outer, Rect inner, Color outerColor, Color innerColor)
+        {
+            Corners(outer, outerCorners);
+            Corners(inner, innerCorners);
+            int start = vh.currentVertCount;
+            for (int i = 0; i < 4; i++)
+            {
+                vh.AddVert(outerCorners[i], outerColor, Vector2.zero);
+                vh.AddVert(innerCorners[i], innerColor, Vector2.zero);
+            }
+            for (int i = 0; i < 4; i++)
+            {
+                int a = start + i * 2;
+                int b = start + ((i + 1) % 4) * 2;
+                vh.AddTriangle(a, b, b + 1);
+                vh.AddTriangle(a, b + 1, a + 1);
+            }
         }
     }
 }

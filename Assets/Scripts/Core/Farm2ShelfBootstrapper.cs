@@ -62,6 +62,9 @@ namespace Farm2Shelf.Core
             if (managersObj.GetComponent<AudioManager>() == null)
                 managersObj.AddComponent<AudioManager>();
 
+            if (managersObj.GetComponent<StoreAnnouncementManager>() == null)
+                managersObj.AddComponent<StoreAnnouncementManager>();
+
             if (managersObj.GetComponent<EconomyManager>() == null)
                 managersObj.AddComponent<EconomyManager>();
 

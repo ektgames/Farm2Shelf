@@ -5,8 +5,6 @@ using Farm2Shelf.Utils;
 
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
-using UnityEngine.InputSystem.EnhancedTouch;
-using Touch = UnityEngine.InputSystem.EnhancedTouch.Touch;
 #endif
 
 namespace Farm2Shelf.CameraSystem
@@ -79,20 +77,40 @@ namespace Farm2Shelf.CameraSystem
 
         private void OnEnable()
         {
+            Instance = this;
+            ResetCameraGestures();
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.update += UpdateSimulatorWheelTarget;
+#endif
 #if ENABLE_INPUT_SYSTEM
-            EnhancedTouchSupport.Enable();
-            if (Mouse.current != null && !Mouse.current.enabled)
-                InputSystem.EnableDevice(Mouse.current);
+            // Touchscreen controls are shared with TouchInputHelper.
+            // Simulator/TouchSimulation owns mouse enablement. Re-enabling its source
+            // device creates competing mouse and touch gestures for the same click.
 #endif
         }
 
         private void OnDisable()
         {
-#if ENABLE_INPUT_SYSTEM
-            EnhancedTouchSupport.Disable();
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.update -= UpdateSimulatorWheelTarget;
+            DetachSimulatorWheel();
 #endif
+            ResetCameraGestures();
             if (Instance == this) Instance = null;
         }
+
+        private void ResetCameraGestures()
+        {
+            queuedScrollY = 0f;
+            isMousePanning = isMousePanningAllowed = false;
+            isMouseRotating = isMouseRotatingAllowed = false;
+            isMiddleZooming = isMiddleZoomAllowed = false;
+            isTouchOverUI = false;
+            lastPinchDistance = lastPinchAngle = 0f;
+        }
+
+        private void OnApplicationFocus(bool focused) => ResetCameraGestures();
+        private void OnApplicationPause(bool paused) => ResetCameraGestures();
 
         private void OnGUI()
         {
@@ -100,6 +118,40 @@ namespace Farm2Shelf.CameraSystem
             if (e != null && e.type == EventType.ScrollWheel)
                 queuedScrollY += e.delta.y;
         }
+
+#if UNITY_EDITOR
+        private UnityEngine.UIElements.VisualElement simulatorWheelTarget;
+
+        private void UpdateSimulatorWheelTarget()
+        {
+            var window = UnityEditor.EditorWindow.focusedWindow;
+            var target = Application.isPlaying && window != null &&
+                window.GetType().Name == "SimulatorWindow" ? window.rootVisualElement : null;
+            if (target == simulatorWheelTarget) return;
+            DetachSimulatorWheel();
+            simulatorWheelTarget = target;
+            if (simulatorWheelTarget != null)
+                simulatorWheelTarget.RegisterCallback<UnityEngine.UIElements.WheelEvent>(
+                    OnSimulatorWheel, UnityEngine.UIElements.TrickleDown.TrickleDown);
+        }
+
+        private void DetachSimulatorWheel()
+        {
+            if (simulatorWheelTarget != null)
+                simulatorWheelTarget.UnregisterCallback<UnityEngine.UIElements.WheelEvent>(
+                    OnSimulatorWheel, UnityEngine.UIElements.TrickleDown.TrickleDown);
+            simulatorWheelTarget = null;
+        }
+
+        private void OnSimulatorWheel(UnityEngine.UIElements.WheelEvent wheel)
+        {
+            // Only actual wheel events, never mouse button/state events. Simulator
+            // may disable the source mouse, so read its editor wheel without enabling it.
+            // Do not consume the event: Simulator and UI scrolling retain ownership.
+            if (!Application.isPlaying || !isActiveAndEnabled) return;
+            queuedScrollY += wheel.delta.y;
+        }
+#endif
 
         public void SetupCamera()
         {
@@ -138,12 +190,15 @@ namespace Farm2Shelf.CameraSystem
             bool isPauseOpen = (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen);
             if (MainMenuUI.IsMenuVisible || ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || isPauseOpen)
             {
+                queuedScrollY = 0f;
                 isMousePanning = false;
                 isMousePanningAllowed = false;
                 isMouseRotating = false;
                 isMouseRotatingAllowed = false;
                 isMiddleZooming = false;
                 isMiddleZoomAllowed = false;
+                lastPinchDistance = 0f;
+                lastPinchAngle = 0f;
                 isTouchOverUI = false;
                 return;
             }
@@ -177,7 +232,7 @@ namespace Farm2Shelf.CameraSystem
 
             // SADECE mobil platformlarda veya gerçek dokunmatik ekranda dokunma hareketlerini işle!
             // PC'de fare sol tıkının yanlışlıkla pinch-zoom tetiklemesini kesin olarak önler.
-            if (!Application.isMobilePlatform && Input.touchCount == 0)
+            if (TouchInputHelper.GetTouchCount() == 0)
             {
                 lastPinchDistance = 0f;
                 lastPinchAngle = 0f;
@@ -186,10 +241,9 @@ namespace Farm2Shelf.CameraSystem
             }
 
 #if ENABLE_INPUT_SYSTEM
-            if (Touchscreen.current != null)
+            if (Touchscreen.current != null && Touchscreen.current.enabled)
             {
-                var activeTouches = Touch.activeTouches;
-                int touchCount = activeTouches.Count;
+                int touchCount = TouchInputHelper.GetTouchCount();
                 if (touchCount == 0)
                 {
                     lastPinchDistance = 0f;
@@ -201,10 +255,10 @@ namespace Farm2Shelf.CameraSystem
                     lastPinchDistance = 0f;
                     lastPinchAngle = 0f;
 
-                    var touch = activeTouches[0];
+                    var touch = TouchInputHelper.GetCameraTouch(0);
                     if (touch.phase == UnityEngine.InputSystem.TouchPhase.Began)
                     {
-                        isTouchOverUI = TouchInputHelper.IsPointerOverUI(touch.screenPosition);
+                        isTouchOverUI = TouchInputHelper.IsPointerOverUI(touch.position);
                     }
                     else if (touch.phase == UnityEngine.InputSystem.TouchPhase.Ended || touch.phase == UnityEngine.InputSystem.TouchPhase.Canceled)
                     {
@@ -230,11 +284,21 @@ namespace Farm2Shelf.CameraSystem
                 }
                 else if (touchCount >= 2)
                 {
-                    var touch0 = activeTouches[0];
-                    var touch1 = activeTouches[1];
+                    var touch0 = TouchInputHelper.GetCameraTouch(0);
+                    var touch1 = TouchInputHelper.GetCameraTouch(1);
+                    // Only the same frame's live contacts can form a pinch gesture.
+                    if (touch0.phase == UnityEngine.InputSystem.TouchPhase.Ended ||
+                        touch0.phase == UnityEngine.InputSystem.TouchPhase.Canceled ||
+                        touch1.phase == UnityEngine.InputSystem.TouchPhase.Ended ||
+                        touch1.phase == UnityEngine.InputSystem.TouchPhase.Canceled)
+                    {
+                        lastPinchDistance = 0f;
+                        lastPinchAngle = 0f;
+                        return;
+                    }
 
-                    Vector2 pos0 = touch0.screenPosition;
-                    Vector2 pos1 = touch1.screenPosition;
+                    Vector2 pos0 = touch0.position;
+                    Vector2 pos1 = touch1.position;
 
                     if (TouchInputHelper.IsPointerOverUI(pos0) || TouchInputHelper.IsPointerOverUI(pos1))
                     {
@@ -414,7 +478,7 @@ namespace Farm2Shelf.CameraSystem
 
         private void HandleMousePan(bool isPlacing)
         {
-            if (isPlacing)
+            if (isPlacing || !TouchInputHelper.PreferDesktopMouse())
             {
                 isMousePanning = false;
                 isMousePanningAllowed = false;
@@ -425,7 +489,7 @@ namespace Farm2Shelf.CameraSystem
             bool wasPressedThisFrame = false;
 
 #if ENABLE_INPUT_SYSTEM
-            if (Mouse.current != null)
+            if (Mouse.current != null && Mouse.current.enabled)
             {
                 isPanDown = Mouse.current.leftButton.isPressed;
                 wasPressedThisFrame = Mouse.current.leftButton.wasPressedThisFrame;
@@ -441,7 +505,7 @@ namespace Farm2Shelf.CameraSystem
 
             Vector2 curMouse = Vector2.zero;
 #if ENABLE_INPUT_SYSTEM
-            if (Mouse.current != null) curMouse = Mouse.current.position.ReadValue();
+            if (Mouse.current != null && Mouse.current.enabled) curMouse = Mouse.current.position.ReadValue();
 #else
             try { curMouse = (Vector2)Input.mousePosition; } catch {}
 #endif
@@ -501,7 +565,7 @@ namespace Farm2Shelf.CameraSystem
             bool isDown = false;
             bool wasPressedThisFrame = false;
 #if ENABLE_INPUT_SYSTEM
-            if (Mouse.current != null)
+            if (Mouse.current != null && Mouse.current.enabled)
             {
                 isDown = Mouse.current.rightButton.isPressed;
                 wasPressedThisFrame = Mouse.current.rightButton.wasPressedThisFrame;
@@ -552,7 +616,7 @@ namespace Farm2Shelf.CameraSystem
 
         private void HandleMiddleMouseZoom(bool isPlacing)
         {
-            if (isPlacing)
+            if (isPlacing || !TouchInputHelper.PreferDesktopMouse())
             {
                 isMiddleZooming = false;
                 isMiddleZoomAllowed = false;
@@ -562,7 +626,7 @@ namespace Farm2Shelf.CameraSystem
             bool isDown = false;
             bool wasPressedThisFrame = false;
 #if ENABLE_INPUT_SYSTEM
-            if (Mouse.current != null)
+            if (Mouse.current != null && Mouse.current.enabled)
             {
                 isDown = Mouse.current.middleButton.isPressed;
                 wasPressedThisFrame = Mouse.current.middleButton.wasPressedThisFrame;
@@ -579,9 +643,9 @@ namespace Farm2Shelf.CameraSystem
             Vector2 curMouse = ReadMousePosition();
             if (isDown)
             {
-                if (wasPressedThisFrame || !isMiddleZooming)
+                if (wasPressedThisFrame)
                 {
-                    if (!TouchInputHelper.IsPointerOverScrollRect(curMouse))
+                    if (!TouchInputHelper.IsPointerOverUI(curMouse))
                     {
                         isMiddleZoomAllowed = true;
                         isMiddleZooming = true;
@@ -593,7 +657,7 @@ namespace Farm2Shelf.CameraSystem
                         isMiddleZooming = false;
                     }
                 }
-                else if (isMiddleZoomAllowed)
+                else if (isMiddleZooming && isMiddleZoomAllowed)
                 {
                     float dy = curMouse.y - lastMiddleZoomPos.y;
                     lastMiddleZoomPos = curMouse;
@@ -614,7 +678,7 @@ namespace Farm2Shelf.CameraSystem
         private static Vector2 ReadMousePosition()
         {
 #if ENABLE_INPUT_SYSTEM
-            if (Mouse.current != null) return Mouse.current.position.ReadValue();
+            if (Mouse.current != null && Mouse.current.enabled) return Mouse.current.position.ReadValue();
 #endif
             try { return (Vector2)Input.mousePosition; } catch { return Vector2.zero; }
         }
@@ -649,26 +713,18 @@ namespace Farm2Shelf.CameraSystem
 
             float deviceScroll = 0f;
 #if ENABLE_INPUT_SYSTEM
-            if (Mouse.current != null)
+            if (Mouse.current != null && Mouse.current.enabled)
             {
-                if (!Mouse.current.enabled)
-                    InputSystem.EnableDevice(Mouse.current);
-
                 Vector2 s = Mouse.current.scroll.ReadValue();
                 if (Mathf.Abs(s.y) > 0.0001f) deviceScroll = s.y;
-                else if (Mathf.Abs(s.x) > 0.0001f) deviceScroll = s.x;
-            }
-#endif
-            if (Mathf.Abs(deviceScroll) < 0.0001f)
-            {
-                try
-                {
-                    deviceScroll = Input.mouseScrollDelta.y;
-                }
-                catch {}
-            }
 
-            float guiScroll = queuedScrollY;
+            }
+#else
+            try { deviceScroll = Input.mouseScrollDelta.y; } catch {}
+#endif
+
+            // IMGUI uses the opposite wheel direction to Input System.
+            float guiScroll = -queuedScrollY;
             queuedScrollY = 0f;
             float scrollY = Mathf.Abs(deviceScroll) > 0.0001f ? deviceScroll : guiScroll;
             if (Mathf.Abs(scrollY) < 0.0001f) return;
@@ -679,7 +735,7 @@ namespace Farm2Shelf.CameraSystem
 
         private void HandleKeyboardInput(bool isPlacing = false)
         {
-            float dt = Time.deltaTime;
+            float dt = Time.unscaledDeltaTime;
             Vector3 inputDir = Vector3.zero;
             bool qPressed = false;
             bool ePressed = false;
@@ -765,10 +821,10 @@ namespace Farm2Shelf.CameraSystem
             if (cam == null) return;
 
             // Pürüzsüz Enterpolasyon (SmoothDamp)
-            currentPosition = Vector3.SmoothDamp(currentPosition, targetPosition, ref positionVelocity, smoothTime);
-            currentOrthographicSize = Mathf.SmoothDamp(currentOrthographicSize, orthographicSize, ref zoomVelocity, smoothTime);
-            currentDistance = Mathf.SmoothDamp(currentDistance, distance, ref distanceVelocity, smoothTime);
-            currentYawAngle = Mathf.SmoothDampAngle(currentYawAngle, yawAngle, ref yawVelocity, smoothTime);
+            currentPosition = Vector3.SmoothDamp(currentPosition, targetPosition, ref positionVelocity, smoothTime, Mathf.Infinity, Time.unscaledDeltaTime);
+            currentOrthographicSize = Mathf.SmoothDamp(currentOrthographicSize, orthographicSize, ref zoomVelocity, smoothTime, Mathf.Infinity, Time.unscaledDeltaTime);
+            currentDistance = Mathf.SmoothDamp(currentDistance, distance, ref distanceVelocity, smoothTime, Mathf.Infinity, Time.unscaledDeltaTime);
+            currentYawAngle = Mathf.SmoothDampAngle(currentYawAngle, yawAngle, ref yawVelocity, smoothTime, Mathf.Infinity, Time.unscaledDeltaTime);
 
             cam.orthographic = useOrthographic;
             cam.orthographicSize = currentOrthographicSize;

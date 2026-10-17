@@ -14,10 +14,10 @@ namespace Farm2Shelf.UI
     /// açılan gerçekçi Tablet cihazı arayüz yöneticisi.
     /// Kademeli sırayla açılan Seviye 2 (18 Araç) ve Seviye 3 (26 Araç) dükkan & dinamik otopark genişletme arayüzü.
     /// </summary>
-    public class EKTPhoneManager : MonoBehaviour
+    public partial class EKTPhoneManager : MonoBehaviour
     {
         public static EKTPhoneManager Instance { get; private set; }
-        public static bool IsTabletOpen => Instance != null && Instance.tabletPopupRoot != null && Instance.tabletPopupRoot.activeSelf;
+        public static bool IsTabletOpen => Instance != null && Instance.tabletPopupRoot != null && Instance.tabletPopupRoot.activeInHierarchy;
         public bool IsHomeScreenVisible => homeScreenView != null && homeScreenView.gameObject.activeSelf;
         public bool IsStoreAppVisible => storeMgmtAppView != null && storeMgmtAppView.gameObject.activeSelf;
         public bool IsFarmAppVisible => farmAppView != null && farmAppView.gameObject.activeSelf;
@@ -598,11 +598,13 @@ namespace Farm2Shelf.UI
         public void ClosePhoneTablet()
         {
             if (isAnimating || tabletPopupRoot == null) return;
+            ClearRecruitmentSelection();
             StartCoroutine(AnimateTabletClose());
         }
 
         public void ClosePhoneTabletInstant()
         {
+            ClearRecruitmentSelection();
             StopAllCoroutines();
             isAnimating = false;
             if (tabletPopupRoot != null) tabletPopupRoot.SetActive(false);
@@ -972,6 +974,7 @@ namespace Farm2Shelf.UI
             bText.alignment = TextAnchor.MiddleCenter;
             bText.color = new Color(0.35f, 0.85f, 1.0f);
             bText.raycastTarget = false;
+            ConfigureTabletHomeButton(bText);
 
             GameObject titleObj = new GameObject("TitleText");
             titleObj.transform.SetParent(headerObj.transform, false);
@@ -1147,6 +1150,7 @@ namespace Farm2Shelf.UI
             bText.alignment = TextAnchor.MiddleCenter;
             bText.color = new Color(0.35f, 0.85f, 1.0f);
             bText.raycastTarget = false;
+            ConfigureTabletHomeButton(bText);
 
             GameObject titleObj = new GameObject("TitleText");
             titleObj.transform.SetParent(headerObj.transform, false);
@@ -1489,22 +1493,7 @@ namespace Farm2Shelf.UI
             bText.alignment = TextAnchor.MiddleCenter;
             bText.color = new Color(0.95f, 0.40f, 0.55f);
             bText.raycastTarget = false;
-
-            // Başlık
-            GameObject titleObj = new GameObject("TitleText");
-            titleObj.transform.SetParent(headerObj.transform, false);
-            RectTransform tRect = titleObj.AddComponent<RectTransform>();
-            tRect.anchoredPosition = new Vector2(-210f, 0f);
-            tRect.sizeDelta = new Vector2(210f, 46f);
-
-            Text tText = titleObj.AddComponent<Text>();
-            tText.font = globalFont;
-            tText.text = "🛍️ TRENDYSHOP";
-            ApplyTabletFont(tText, 20);
-            tText.fontStyle = FontStyle.Bold;
-            tText.alignment = TextAnchor.MiddleLeft;
-            tText.color = new Color(0.95f, 0.45f, 0.60f);
-            tText.raycastTarget = false;
+            ConfigureTabletHomeButton(bText);
 
             // Toplu Sipariş Butonu (Arama Çubuğunun Sol Tarafında)
             GameObject bulkOrderBtnObj = new GameObject("BulkOrderButton");
@@ -1883,6 +1872,28 @@ namespace Farm2Shelf.UI
             EnsureCloseButtonOnTop();
         }
 
+        private static void ConfigureTabletHomeButton(Text label)
+        {
+            RectTransform buttonRect = label.transform.parent.GetComponent<RectTransform>();
+            buttonRect.anchorMin = buttonRect.anchorMax = new Vector2(0f, 0.5f);
+            buttonRect.pivot = new Vector2(0f, 0.5f);
+            buttonRect.anchoredPosition = new Vector2(12f, 0f);
+            buttonRect.sizeDelta = new Vector2(208f, 48f);
+
+            RectTransform textRect = label.rectTransform;
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = new Vector2(10f, 4f);
+            textRect.offsetMax = new Vector2(-10f, -4f);
+            label.fontSize = 22;
+            label.resizeTextForBestFit = true;
+            label.resizeTextMinSize = 18;
+            label.resizeTextMaxSize = 22;
+            label.horizontalOverflow = HorizontalWrapMode.Wrap;
+            label.verticalOverflow = VerticalWrapMode.Truncate;
+            label.raycastTarget = false;
+        }
+
         private void CreateJobsAppView(Transform parent)
         {
             GameObject viewObj = new GameObject("JobsAppView");
@@ -1918,6 +1929,7 @@ namespace Farm2Shelf.UI
             Text bText = CreateTextInPanel(backBtnObj.transform, Vector2.zero, Vector2.one,
                 LocalizationManager.L("Btn_HomeScreen", "← Ana Ekran", "← Home Screen"), 16, new Color(0.45f, 0.88f, 1.0f));
             bText.alignment = TextAnchor.MiddleCenter;
+            ConfigureTabletHomeButton(bText);
             bText.horizontalOverflow = HorizontalWrapMode.Overflow;
 
             GameObject titleObj = new GameObject("TitleText");
@@ -2299,6 +2311,7 @@ namespace Farm2Shelf.UI
             bText.alignment = TextAnchor.MiddleCenter;
             bText.color = new Color(0.35f, 0.85f, 1.0f);
             bText.raycastTarget = false;
+            ConfigureTabletHomeButton(bText);
 
             GameObject titleObj = new GameObject("TitleText");
             titleObj.transform.SetParent(headerObj.transform, false);
@@ -3045,93 +3058,7 @@ namespace Farm2Shelf.UI
 
         private void RenderOnlineMarketCandidateView()
         {
-            if (onlineMarketCandidateContent == null) return;
-            foreach (Transform child in onlineMarketCandidateContent) Destroy(child.gameObject);
-
-            // 2 Aday Kartı (1 Kadın Kurye, 1 Erkek Kurye)
-            (string nameTr, string nameEn, bool isFemale)[] candidates = new (string, string, bool)[]
-            {
-                ("Selin Aydın", "Lisa Martinez", true),
-                ("Burak Çelik", "David Wilson", false)
-            };
-
-            int hireFee = (StaffManager.Instance != null) ? StaffManager.Instance.GetRoleHireFee(StaffRole.Kurye) : 450;
-            int dailySalary = (StaffManager.Instance != null) ? StaffManager.Instance.GetRoleDailySalary(StaffRole.Kurye) : 120;
-
-            for (int i = 0; i < candidates.Length; i++)
-            {
-                var cand = candidates[i];
-                bool isFemale = cand.isFemale;
-                string candName = (LocalizationManager.Instance != null && LocalizationManager.Instance.IsEnglish) ? cand.nameEn : cand.nameTr;
-
-                GameObject cardObj = new GameObject("CandidateCard_" + i);
-                cardObj.transform.SetParent(onlineMarketCandidateContent, false);
-
-                Image cardBg = cardObj.AddComponent<Image>();
-                cardBg.sprite = UIStyleUtility.CreateOutlinePillSprite(400, 160, 16, 1, new Color(0.00f, 0.85f, 0.65f, 0.8f), new Color(0.12f, 0.16f, 0.22f, 0.95f));
-
-                // Sol Avatar Kutusu
-                GameObject avBox = new GameObject("AvatarBox");
-                avBox.transform.SetParent(cardObj.transform, false);
-                RectTransform avRect = avBox.AddComponent<RectTransform>();
-                avRect.anchoredPosition = new Vector2(-135f, 15f);
-                avRect.sizeDelta = new Vector2(68f, 68f);
-
-                Image avImg = avBox.AddComponent<Image>();
-                avImg.sprite = ProfileAvatarDatabase.GetStaffAvatarSprite(StaffRole.Kurye, isFemale, candName);
-
-                // Bilgi Alanı
-                GameObject infoObj = new GameObject("InfoObj");
-                infoObj.transform.SetParent(cardObj.transform, false);
-                RectTransform ipRect = infoObj.AddComponent<RectTransform>();
-                ipRect.anchoredPosition = new Vector2(40f, 15f);
-                ipRect.sizeDelta = new Vector2(250f, 75f);
-
-                string roleStr = LocalizationManager.L("OM_RoleCourier", "🛵 Kurye (Teslimat Sorumlusu)", "🛵 Courier (Delivery Driver)");
-                Text nameTxt = CreateTextInPanel(infoObj.transform, new Vector2(0f, 22f), new Vector2(250f, 22f), $"<b>{candName}</b>", 18, Color.white);
-                nameTxt.alignment = TextAnchor.MiddleLeft;
-
-                Text roleTxt = CreateTextInPanel(infoObj.transform, new Vector2(0f, 2f), new Vector2(250f, 18f), roleStr, 14, new Color(0.00f, 0.85f, 0.65f));
-                roleTxt.alignment = TextAnchor.MiddleLeft;
-
-                string salFmt = LocalizationManager.L("OM_SalaryFmt", "Maaş: {0:N0}C/Gün (Gece 00:00) | İşe Alım: Ücretsiz", "Salary: {0:N0}C/Day (At 00:00) | Hire: Free");
-                Text salTxt = CreateTextInPanel(infoObj.transform, new Vector2(0f, -18f), new Vector2(250f, 18f), string.Format(salFmt, dailySalary), 13, new Color(0.95f, 0.85f, 0.30f));
-                salTxt.alignment = TextAnchor.MiddleLeft;
-
-                // Alt İşe Al Butonu
-                GameObject hireBtnObj = new GameObject("HireBtn");
-                hireBtnObj.transform.SetParent(cardObj.transform, false);
-                RectTransform hbRect = hireBtnObj.AddComponent<RectTransform>();
-                hbRect.anchoredPosition = new Vector2(0f, -50f);
-                hbRect.sizeDelta = new Vector2(360f, 38f);
-
-                Image hbBg = hireBtnObj.AddComponent<Image>();
-                hbBg.sprite = UIStyleUtility.CreateRoundedPillSprite(360, 38, 14, new Color(0.12f, 0.70f, 0.38f));
-
-                Button hbBtn = hireBtnObj.AddComponent<Button>();
-                hbBtn.targetGraphic = hbBg;
-                hbBtn.onClick.AddListener(() => {
-                    if (StaffManager.Instance != null)
-                    {
-                        StaffMember hired = StaffManager.Instance.HireCourier(isFemale);
-                        if (CourierManager.Instance != null) CourierManager.Instance.AutoAssignCouriersToMotorcycles();
-
-                        ModalManager.ShowModal(
-                            LocalizationManager.L("Modal_Hire_SuccessTitle", "🎉 Kurye İşe Alındı!", "🎉 Courier Hired!"),
-                            string.Format(LocalizationManager.L("Modal_Hire_SuccessBody", "{0} başarıyla kurye kadrosuna katıldı.\n\nGünlük maaşı ({1:N0}C) gece 00:00'da ödenecektir. Vardiyasından 30 dk önce gelip motorsikletine binecektir.", "{0} successfully joined the courier team.\n\nDaily salary ({1:N0}C) will be paid at midnight 00:00. They arrive 30 mins before shift to mount their bike."), candName, dailySalary),
-                            LocalizationManager.L("Btn_Ok", "Harika!", "Awesome!")
-                        );
-
-                        activeOnlineMarketTab = 2; // Kadro sekmesine geç
-                        RefreshVirtualMarketViews();
-                    }
-                });
-
-                string hireBtnText = LocalizationManager.L("Btn_HireCourierFree", "✅ İşe Al (Ücretsiz Başlangıç)", "✅ Hire (Free Start)");
-                Text hbTxt = CreateTextInPanel(hireBtnObj.transform, Vector2.zero, Vector2.one, hireBtnText, 15, Color.white);
-                hbTxt.alignment = TextAnchor.MiddleCenter;
-                hbTxt.fontStyle = FontStyle.Bold;
-            }
+            RenderBulkRecruitment(onlineMarketCandidateContent, 2);
         }
 
         private void RenderOnlineMarketShiftView()
@@ -3287,6 +3214,7 @@ namespace Farm2Shelf.UI
             bText.alignment = TextAnchor.MiddleCenter;
             bText.color = new Color(0.95f, 0.60f, 0.15f);
             bText.raycastTarget = false;
+            ConfigureTabletHomeButton(bText);
 
             GameObject titleObj = new GameObject("TitleText");
             titleObj.transform.SetParent(headerObj.transform, false);
@@ -4101,6 +4029,44 @@ namespace Farm2Shelf.UI
             UpdateCartSummary();
         }
 
+        private sealed class WholesaleStockSummary
+        {
+            public int shelfStock, warehouseStock, assignedRows, capacity;
+        }
+
+        private WholesaleStockSummary ReadWholesaleStock(WholesaleProductDef product)
+        {
+            var result = new WholesaleStockSummary();
+            foreach (var furniture in PlacedFurnitureController.AllPlacedFurniture)
+            {
+                if (furniture == null || !furniture.isActiveAndEnabled || furniture.rows == null) continue;
+                foreach (var row in furniture.rows)
+                {
+                    if (row == null || row.IsUnassigned) continue;
+                    bool matches = !string.IsNullOrEmpty(row.productId)
+                        ? row.productId == product.id : RowMatchesWholesaleProduct(row, product);
+                    if (!matches) continue;
+                    if (furniture.FurnitureType == FurnitureType.StorageShelf)
+                        result.warehouseStock += Mathf.Max(0, row.currentStock);
+                    else
+                    {
+                        result.assignedRows++;
+                        result.shelfStock += Mathf.Max(0, row.currentStock);
+                        result.capacity += Mathf.Max(1, row.maxCapacity);
+                    }
+                }
+            }
+            return result;
+        }
+
+        private static int WholesalePriority(WholesaleProductDef product, WholesaleStockSummary stock, int level)
+        {
+            if (product.requiredLevel > level) return 4;
+            if (stock.assignedRows == 0) return 3;
+            if (stock.shelfStock == 0) return 0;
+            return stock.shelfStock <= stock.capacity * 0.2f ? 1 : 2;
+        }
+
         private void RenderWholesaleProductList()
         {
             if (furnitureListContent == null) return;
@@ -4111,6 +4077,17 @@ namespace Farm2Shelf.UI
                 : 1;
 
             List<WholesaleProductDef> items = WholesaleDatabase.GetWholesaleOnlyProducts();
+            var stocks = new Dictionary<string, WholesaleStockSummary>();
+            foreach (var product in items) stocks[product.id] = ReadWholesaleStock(product);
+            items = new List<WholesaleProductDef>(items);
+            items.Sort((a, b) =>
+            {
+                int priority = WholesalePriority(a, stocks[a.id], currentLevel).CompareTo(WholesalePriority(b, stocks[b.id], currentLevel));
+                if (priority != 0) return priority;
+                int stock = (stocks[a.id].shelfStock + stocks[a.id].warehouseStock).CompareTo(stocks[b.id].shelfStock + stocks[b.id].warehouseStock);
+                if (stock != 0) return stock;
+                return string.Compare(a.LocalizedName, b.LocalizedName, System.StringComparison.CurrentCultureIgnoreCase);
+            });
 
             // Aktif Sekmedeki Toptancı Ürünlerini Arama Filtresine Göre Süzme
             string query = string.IsNullOrEmpty(currentShoppingSearchQuery) ? "" : currentShoppingSearchQuery.Trim().ToLower(System.Globalization.CultureInfo.GetCultureInfo("tr-TR"));
@@ -4144,10 +4121,13 @@ namespace Farm2Shelf.UI
 
                 GameObject cardObj = new GameObject("WholesaleCard_" + def.id);
                 cardObj.transform.SetParent(furnitureListContent, false);
+                // This shared list has childControlHeight=false: set the actual rect as well.
+                RectTransform cardRect = cardObj.AddComponent<RectTransform>();
+                cardRect.sizeDelta = new Vector2(0f, 320f);
 
                 LayoutElement lElem = cardObj.AddComponent<LayoutElement>();
-                lElem.minHeight = 156f;
-                lElem.preferredHeight = 156f;
+                lElem.minHeight = 320f;
+                lElem.preferredHeight = 320f;
 
                 Image cardBg = cardObj.AddComponent<Image>();
                 cardBg.sprite = UIStyleUtility.CreateOutlinePillSprite(520, 136, 12, 1, new Color(0.95f, 0.55f, 0.20f, 0.6f), new Color(0.14f, 0.16f, 0.22f, 0.90f));
@@ -4156,7 +4136,9 @@ namespace Farm2Shelf.UI
                 GameObject iconBox = new GameObject("IconBox");
                 iconBox.transform.SetParent(cardObj.transform, false);
                 RectTransform ibRect = iconBox.AddComponent<RectTransform>();
-                ibRect.anchoredPosition = new Vector2(-225f, 0f);
+                ibRect.anchorMin = ibRect.anchorMax = new Vector2(0f, 1f);
+                ibRect.pivot = new Vector2(0f, 1f);
+                ibRect.anchoredPosition = new Vector2(14f, -12f);
                 ibRect.sizeDelta = new Vector2(50f, 50f);
 
                 Image ibBg = iconBox.AddComponent<Image>();
@@ -4166,21 +4148,44 @@ namespace Farm2Shelf.UI
                 GameObject infoPanel = new GameObject("InfoPanel");
                 infoPanel.transform.SetParent(cardObj.transform, false);
                 RectTransform ipRect = infoPanel.AddComponent<RectTransform>();
-                ipRect.anchoredPosition = new Vector2(-30f, 0f);
-                ipRect.sizeDelta = new Vector2(300f, 120f);
+                ipRect.anchorMin = Vector2.zero;
+                ipRect.anchorMax = Vector2.one;
+                ipRect.offsetMin = new Vector2(16f, 14f);
+                ipRect.offsetMax = new Vector2(-158f, -76f);
                 BeginShoppingInfoColumn(infoPanel);
 
-                Text titleText = CreateTextInPanel(infoPanel.transform, Vector2.zero, new Vector2(300f, 24f), $"{def.LocalizedName} (50)", 19, Color.white);
+                Text titleText = CreateTextInPanel(cardObj.transform, Vector2.zero, Vector2.one, def.LocalizedName, 22, Color.white);
+                titleText.rectTransform.anchorMin = new Vector2(0f, 1f);
+                titleText.rectTransform.anchorMax = Vector2.one;
+                titleText.rectTransform.offsetMin = new Vector2(78f, -66f);
+                titleText.rectTransform.offsetMax = new Vector2(-14f, -10f);
+                titleText.fontSize = 22;
+                titleText.resizeTextForBestFit = true;
+                titleText.resizeTextMinSize = 18;
+                titleText.resizeTextMaxSize = 22;
+                titleText.horizontalOverflow = HorizontalWrapMode.Wrap;
+                titleText.verticalOverflow = VerticalWrapMode.Truncate;
+                titleText.alignment = TextAnchor.MiddleLeft;
                 titleText.fontStyle = FontStyle.Bold;
-                FinishShoppingInfoLine(titleText, 24);
 
-                int storeStock = GetProductStockInStore(def);
-                List<ProductLot> storeLots = ProductPassportService.CollectStoreLots(def.id, def.name);
-                string stockPassport = storeStock > 0
-                    ? string.Format(LocalizationManager.L("Passport_EktStockFmt", "Rafta {0} adet • {1}", "On shelf {0} pcs • {1}"), storeStock, ProductPassportService.GetLotsTag(storeLots))
-                    : LocalizationManager.L("Passport_EktNoStock", "Rafta stok yok", "None on shelf");
-                Text stockPassText = CreateTextInPanel(infoPanel.transform, Vector2.zero, new Vector2(300f, 20f), stockPassport, 14, new Color(0.70f, 0.95f, 0.75f));
-                FinishShoppingInfoLine(stockPassText, 20);
+
+                WholesaleStockSummary stockSummary = stocks[def.id];
+                int priority = WholesalePriority(def, stockSummary, currentLevel);
+                string status = stockSummary.assignedRows == 0
+                    ? LocalizationManager.L("Wholesale_Unassigned", "Reyona atanmamış", "Not assigned to shelves")
+                    : stockSummary.shelfStock == 0
+                        ? LocalizationManager.L("Wholesale_EmptyShelf", "REYON STOĞU BİTTİ", "SHELF OUT OF STOCK")
+                        : priority == 1
+                            ? LocalizationManager.L("Wholesale_LowShelf", "REYON STOĞU AZ", "LOW SHELF STOCK")
+                            : LocalizationManager.L("Wholesale_Assigned", "Reyona atanmış", "Assigned to shelves");
+                string stockText = status + "\n" + string.Format(LocalizationManager.L("Wholesale_StockBreakdown",
+                    "Reyon: {0} • Depo: {1}\nToplam: {2} adet", "Shelf: {0} • Warehouse: {1}\nTotal: {2} pcs"),
+                    stockSummary.shelfStock, stockSummary.warehouseStock, stockSummary.shelfStock + stockSummary.warehouseStock);
+                Text stockPassText = CreateTextInPanel(infoPanel.transform, Vector2.zero, new Vector2(300f, 78f), stockText, 19,
+                    priority <= 1 ? new Color(1f, 0.75f, 0.38f) : new Color(0.70f, 0.95f, 0.75f));
+                stockPassText.fontSize = 19;
+                stockPassText.resizeTextForBestFit = false;
+                FinishShoppingInfoLine(stockPassText, 78);
 
                 Button passBtn = iconBox.AddComponent<Button>();
                 passBtn.targetGraphic = ibBg;
@@ -4198,11 +4203,15 @@ namespace Farm2Shelf.UI
 
                 string priceLineFmt = LocalizationManager.L("Wholesale_PriceLineFmt", "Toptan Koli Alış: {0:N0}C ({1:N0}C/Birim)", "Wholesale Pack Cost: {0:N0}C ({1:N0}C/Pcs)");
                 Text priceText = CreateTextInPanel(infoPanel.transform, Vector2.zero, new Vector2(300f, 22f), string.Format(priceLineFmt, def.TotalPackCost, def.wholesaleUnitPrice), 16, new Color(0.95f, 0.85f, 0.30f));
-                FinishShoppingInfoLine(priceText, 22);
+                priceText.fontSize = 18;
+                priceText.resizeTextForBestFit = false;
+                FinishShoppingInfoLine(priceText, 48);
 
                 string profitLineFmt = LocalizationManager.L("Wholesale_ProfitLineFmt", "Kâr: +{0:N0}C (%20)", "Profit: +{0:N0}C (20%)");
                 Text profitText = CreateTextInPanel(infoPanel.transform, Vector2.zero, new Vector2(300f, 22f), string.Format(profitLineFmt, def.TotalPackProfit), 16, new Color(0.95f, 0.85f, 0.30f));
-                FinishShoppingInfoLine(profitText, 22);
+                profitText.fontSize = 18;
+                profitText.resizeTextForBestFit = false;
+                FinishShoppingInfoLine(profitText, 26);
 
                 string badgeUnlockedFmt = LocalizationManager.L("Wholesale_UnlockedBadge", "Seviye {0} | {1} (50 Adet)", "Level {0} | {1} (50 Pcs)");
                 string badgeLockedFmt = LocalizationManager.L("Wholesale_LockedBadge", "Seviye {0} Gereklidir | {1}", "Requires Level {0} | {1}");
@@ -4210,13 +4219,17 @@ namespace Farm2Shelf.UI
                 Color badgeColor = isUnlocked ? new Color(0.30f, 0.85f, 0.45f) : new Color(0.95f, 0.45f, 0.35f);
 
                 Text subText = CreateTextInPanel(infoPanel.transform, Vector2.zero, new Vector2(300f, 22f), badgeText, 15, badgeColor);
-                FinishShoppingInfoLine(subText, 22);
+                subText.fontSize = 18;
+                subText.resizeTextForBestFit = false;
+                FinishShoppingInfoLine(subText, 48);
 
                 // Sağ Kontrol Alanı
                 GameObject ctrlPanel = new GameObject("CtrlPanel");
                 ctrlPanel.transform.SetParent(cardObj.transform, false);
                 RectTransform cpRect = ctrlPanel.AddComponent<RectTransform>();
-                cpRect.anchoredPosition = new Vector2(190f, 0f);
+                cpRect.anchorMin = cpRect.anchorMax = new Vector2(1f, 0.5f);
+                cpRect.pivot = new Vector2(1f, 0.5f);
+                cpRect.anchoredPosition = new Vector2(-14f, -24f);
                 cpRect.sizeDelta = new Vector2(130f, 50f);
 
                 UpdateWholesaleCardControls(ctrlPanel.transform, def, isUnlocked);
@@ -4270,11 +4283,12 @@ namespace Farm2Shelf.UI
                 {
                     // "+ Koli Ekle" Butonu
                     string btnAddPackLabel = LocalizationManager.L("Btn_AddPack", "+ Koli Ekle", "+ Add Pack");
-                    GameObject addBtn = CreateButtonInPanel(ctrlParent, new Vector2(0f, 0f), new Vector2(110f, 38f), btnAddPackLabel, new Color(0.95f, 0.55f, 0.20f), () => {
+                    GameObject addBtn = CreateButtonInPanel(ctrlParent, new Vector2(0f, 0f), new Vector2(130f, 50f), btnAddPackLabel, new Color(0.95f, 0.55f, 0.20f), () => {
                         wholesaleCart[targetProdId] = 1;
                         UpdateWholesaleCardControls(ctrlParent, def, isUnlocked);
                         UpdateCartSummary();
                     }, 17);
+                    FitShoppingActionLabel(addBtn);
                 }
             }
             else
@@ -4429,11 +4443,12 @@ namespace Farm2Shelf.UI
                 {
                     // "+ Sepete Ekle" Butonu
                     string btnAddSeedLabel = LocalizationManager.L("Btn_AddToCart", "+ Sepete Ekle", "+ Add to Cart");
-                    GameObject addBtn = CreateButtonInPanel(ctrlParent, new Vector2(0f, 0f), new Vector2(110f, 38f), btnAddSeedLabel, new Color(0.20f, 0.75f, 0.35f), () => {
+                    GameObject addBtn = CreateButtonInPanel(ctrlParent, new Vector2(0f, 0f), new Vector2(130f, 48f), btnAddSeedLabel, new Color(0.20f, 0.75f, 0.35f), () => {
                         seedCart[targetSeedId] = 1;
                         UpdateSeedCardControls(ctrlParent, def, canBuy);
                         UpdateCartSummary();
                     }, 17);
+                    FitShoppingActionLabel(addBtn);
                 }
             }
             else
@@ -4572,12 +4587,13 @@ namespace Farm2Shelf.UI
                 string btnAdd = canAdd
                     ? LocalizationManager.L("Btn_AddToCart", "+ Sepete Ekle", "+ Add to Cart")
                     : LocalizationManager.L("Btn_AnimalCap", "🔒 Kapasite Dolu", "🔒 Capacity Full");
-                CreateButtonInPanel(ctrlParent, new Vector2(0f, 0f), new Vector2(110f, 38f), btnAdd, canAdd ? new Color(0.20f, 0.75f, 0.35f) : new Color(0.35f, 0.35f, 0.40f), () => {
+                GameObject addBtn = CreateButtonInPanel(ctrlParent, new Vector2(0f, 0f), new Vector2(130f, 48f), btnAdd, canAdd ? new Color(0.20f, 0.75f, 0.35f) : new Color(0.35f, 0.35f, 0.40f), () => {
                     if (!canAdd) return;
                     animalCart[def.type] = 1;
                     UpdateAnimalCardControls(ctrlParent, def, remainingIfThisRemoved);
                     UpdateCartSummary();
                 }, 15);
+                FitShoppingActionLabel(addBtn);
             }
         }
 
@@ -4909,7 +4925,11 @@ namespace Farm2Shelf.UI
         private void UpdateFurnitureCardControls(Transform ctrlParent, FurnitureItemDef def, bool isUnlocked)
         {
             if (ctrlParent == null || def == null) return;
-            foreach (Transform child in ctrlParent) Destroy(child.gameObject);
+            foreach (Transform child in ctrlParent)
+            {
+                child.gameObject.SetActive(false);
+                Destroy(child.gameObject);
+            }
 
             int inCartCount = shoppingCart.ContainsKey(def.type) ? shoppingCart[def.type] : 0;
 
@@ -4944,11 +4964,12 @@ namespace Farm2Shelf.UI
                 {
                     // "Sepete Ekle" Butonu
                     string btnAddToCartLabel = LocalizationManager.L("Btn_AddToCart", "+ Sepete Ekle", "+ Add to Cart");
-                    GameObject addBtn = CreateButtonInPanel(ctrlParent, new Vector2(0f, 0f), new Vector2(110f, 38f), btnAddToCartLabel, new Color(0.95f, 0.40f, 0.55f), () => {
+                    GameObject addBtn = CreateButtonInPanel(ctrlParent, new Vector2(0f, 0f), new Vector2(130f, 48f), btnAddToCartLabel, new Color(0.95f, 0.40f, 0.55f), () => {
                         shoppingCart[def.type] = 1;
                         UpdateFurnitureCardControls(ctrlParent, def, isUnlocked);
                         UpdateCartSummary();
                     }, 17);
+                    FitShoppingActionLabel(addBtn);
                 }
             }
             else
@@ -5358,18 +5379,21 @@ namespace Farm2Shelf.UI
             footerObj.transform.SetParent(boxObj.transform, false);
             RectTransform ftRect = footerObj.AddComponent<RectTransform>();
             ftRect.anchoredPosition = new Vector2(0f, -195f);
-            ftRect.sizeDelta = new Vector2(590f, 50f);
+            ftRect.sizeDelta = new Vector2(590f, 60f);
 
-            Text totalTxt = CreateTextInPanel(footerObj.transform, new Vector2(-130f, 0f), new Vector2(300f, 40f), "", 22, new Color(0.95f, 0.85f, 0.30f));
+            Text totalTxt = CreateTextInPanel(footerObj.transform, new Vector2(-155f, 0f), new Vector2(260f, 54f), "", 22, new Color(0.95f, 0.85f, 0.30f));
             totalTxt.alignment = TextAnchor.MiddleLeft;
+            totalTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
+            totalTxt.verticalOverflow = VerticalWrapMode.Truncate;
 
             string payBtnLabel = LocalizationManager.L("Btn_PlaceOrderPay", "💳 ÖDEME YAP VE SİPARİŞ VER", "💳 PLACE ORDER & PAY");
-            GameObject payBtnObj = CreateButtonInPanel(footerObj.transform, new Vector2(165f, 0f), new Vector2(230f, 44f), payBtnLabel, new Color(0.20f, 0.75f, 0.35f), () => {
+            GameObject payBtnObj = CreateButtonInPanel(footerObj.transform, new Vector2(135f, 0f), new Vector2(290f, 56f), payBtnLabel, new Color(0.20f, 0.75f, 0.35f), () => {
                 if (CheckoutShoppingCart())
                 {
                     if (canvasObj != null) Destroy(canvasObj);
                 }
             }, 17);
+            FitShoppingActionLabel(payBtnObj);
             Button payBtn = payBtnObj.GetComponent<Button>();
 
             RenderCartModalItems(cartContent, totalTxt, payBtn);
@@ -5643,6 +5667,7 @@ namespace Farm2Shelf.UI
 
         private void RefreshStoreManagementViews()
         {
+            if (confirmingRecruitment) return;
             if (StaffManager.Instance == null) return;
 
             UpdateStoreTabVisuals();
@@ -5855,8 +5880,8 @@ namespace Farm2Shelf.UI
                     GameObject activeCard = new GameObject("ActiveCard_" + lData.loanId);
                     activeCard.transform.SetParent(financeLoansContent, false);
                     RectTransform acRect = activeCard.AddComponent<RectTransform>();
-                    acRect.sizeDelta = new Vector2(820f, 100f);
-                    PinCardHeight(activeCard, 100f);
+                    acRect.sizeDelta = new Vector2(820f, 160f);
+                    PinCardHeight(activeCard, 160f);
 
                     Image acBg = activeCard.AddComponent<Image>();
                     acBg.sprite = UIStyleUtility.CreateOutlinePillSprite(820, 100, 14, 2, new Color(0.20f, 0.70f, 0.95f), new Color(0.14f, 0.18f, 0.25f, 0.95f));
@@ -5865,7 +5890,7 @@ namespace Farm2Shelf.UI
                     infoObj.transform.SetParent(activeCard.transform, false);
                     RectTransform iRect = infoObj.AddComponent<RectTransform>();
                     iRect.anchoredPosition = new Vector2(-100f, 0f);
-                    iRect.sizeDelta = new Vector2(580f, 75f);
+                    iRect.sizeDelta = new Vector2(580f, 140f);
                     Text iTxt = infoObj.AddComponent<Text>();
                     iTxt.font = globalFont;
                     int earlyCost = lData.GetEarlyPayoffAmount();
@@ -5874,14 +5899,19 @@ namespace Farm2Shelf.UI
                     string earlyBadge = (lData.remainingDays >= lData.initialTermDays) ? sameDayBadge : discountBadge;
 
                     string activeLoanRowFmt = LocalizationManager.L(
-                        "ActiveLoan_RowFmt",
-                        "💳 <b>{0}</b> ({1})\n  • Ana Para: <b>{2:N0}C</b>   |   Günlük Taksit: <b>{3:N0}C</b>\n  • Kalan Vade: <b>{4} Gün</b>   |   Erken Kapatma Tutarı: <color=#00E676><b>{5:N0}C</b></color> {6}",
-                        "💳 <b>{0}</b> ({1})\n  • Principal: <b>{2:N0}C</b>   |   Daily Installment: <b>{3:N0}C</b>\n  • Remaining Term: <b>{4} Days</b>   |   Early Payoff Amount: <color=#00E676><b>{5:N0}C</b></color> {6}"
+                        "ActiveLoan_PaymentBreakdown",
+                        "💳 <b>{0}</b> ({1})\nÇekilen kredi: {2:N0}C • Günlük taksit: <b>{3:N0}C</b>\nToplam ödenen: <b>{7:N0}C</b> • Kalan borç: <b>{8:N0}C</b>\nKalan vade: {4} gün\nİndirimli erken kapatma: <color=#00E676><b>{5:N0}C</b></color> {6}",
+                        "💳 <b>{0}</b> ({1})\nAmount borrowed: {2:N0}C • Daily installment: <b>{3:N0}C</b>\nTotal paid: <b>{7:N0}C</b> • Remaining debt: <b>{8:N0}C</b>\nRemaining term: {4} days\nDiscounted early payoff: <color=#00E676><b>{5:N0}C</b></color> {6}"
                     );
-                    iTxt.text = string.Format(activeLoanRowFmt, lData.LocalizedTitle, lData.startDateFormatted, lData.principalAmount, lData.dailyInstallment, lData.remainingDays, earlyCost, earlyBadge);
+                    iTxt.text = string.Format(activeLoanRowFmt, lData.LocalizedTitle, lData.startDateFormatted, lData.principalAmount, lData.dailyInstallment, lData.remainingDays, earlyCost, earlyBadge, lData.paidAmount, lData.RemainingTotalRepayment);
                     ApplyTabletFont(iTxt, 17);
                     iTxt.alignment = TextAnchor.MiddleLeft;
                     iTxt.color = Color.white;
+                    iTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
+                    float loanTextHeight = Mathf.Max(140f, iTxt.preferredHeight);
+                    iRect.sizeDelta = new Vector2(580f, loanTextHeight);
+                    acRect.sizeDelta = new Vector2(820f, loanTextHeight + 20f);
+                    PinCardHeight(activeCard, loanTextHeight + 20f);
 
                     // Erken Kapat Butonu (Sağ Taraf Sabit Konumlandırma)
                     GameObject payoffBtn = new GameObject("PayoffBtn");
@@ -6661,11 +6691,12 @@ namespace Farm2Shelf.UI
                 GameObject cardObj = new GameObject("TrxCard_" + trx.id);
                 cardObj.transform.SetParent(financeHistoryContent, false);
 
+                float historyRowHeight = trx.category == FinanceCategories.TownContracts || trx.description == "DailyPassiveIncome" ? 104f : 72f;
                 RectTransform cRect = cardObj.AddComponent<RectTransform>();
-                cRect.sizeDelta = new Vector2(820f, 72f);
+                cRect.sizeDelta = new Vector2(820f, historyRowHeight);
                 LayoutElement cardLe = cardObj.AddComponent<LayoutElement>();
-                cardLe.minHeight = 72f;
-                cardLe.preferredHeight = 72f;
+                cardLe.minHeight = historyRowHeight;
+                cardLe.preferredHeight = historyRowHeight;
 
                 string sign = trx.isIncome ? "+" : "-";
 
@@ -6717,6 +6748,11 @@ namespace Farm2Shelf.UI
                     .Replace("Hırsızdan Kurtarılan Ürün", LocalizationManager.L("Label_StolenRecovered", "Hırsızdan Kurtarılan Ürün", "Recovered Stolen Item"))
                     .Replace("Hırsız Suçüstü Yakalandı", LocalizationManager.L("Label_ShoplifterCaught", "Hırsız Suçüstü Yakalandı", "Shoplifter Caught in the Act"))
                     .Replace("Pasif Satış", LocalizationManager.L("Label_PassiveSale", "Pasif Satış", "Passive Sale"));
+
+                if (trx.description == "DailyPassiveIncome")
+                    descLoc = string.Format(LocalizationManager.L("FinDesc_DailyPassiveTotal",
+                        "Mobilya ve otomatlar bugün toplam {0:N0}C pasif gelir getirdi.",
+                        "Furniture and vending machines earned {0:N0}C in passive income today."), trx.amount);
 
                 iText.text = $"<b>[{categoryLoc}]</b>  <color={(trx.isIncome ? "#32E664" : "#F54848")}>{sign}{trx.amount:N0}C</color>\n<size=15><color=#A0A8B5>{timeStampLoc}</color>  {descLoc}</size>";
                 ApplyTabletFont(iText, 18);
@@ -6881,106 +6917,7 @@ namespace Farm2Shelf.UI
 
         private void RenderPermanentRoleRecruitmentList()
         {
-            if (candidateListContent == null) return;
-
-            foreach (Transform child in candidateListContent)
-            {
-                Destroy(child.gameObject);
-            }
-
-            string[] roleDescriptions = new string[] {
-                LocalizationManager.L("RoleDesc_Cashier", "Kasa ve ödemeler", "Checkout & payments"),
-                LocalizationManager.L("RoleDesc_Stocker", "Depodan reyon dizimi", "Shelf restocking from warehouse"),
-                LocalizationManager.L("RoleDesc_Cleaner", "Hijyen ve temizlik", "Store sanitation & hygiene"),
-                LocalizationManager.L("RoleDesc_Guard", "Otopark & Güvenlik", "Parking & store security"),
-                LocalizationManager.L("RoleDesc_Support", "Müşteri ilişkileri", "Customer assistance"),
-                LocalizationManager.L("RoleDesc_Mascot", "Reklam & Tanıtım şovu", "Advertising & promotion show")
-            };
-
-            for (int r = 0; r < 6; r++)
-            {
-                StaffRole roleEnum = (StaffRole)r;
-                int salary = (StaffManager.Instance != null) ? StaffManager.Instance.GetRoleDailySalary(roleEnum) : 100;
-
-                GameObject cardObj = new GameObject("RoleCard_" + r);
-                cardObj.transform.SetParent(candidateListContent, false);
-                if (roleEnum == StaffRole.Kasiyer) TutorialFocusTarget.Tag(cardObj, "hire_cashier");
-                if (roleEnum == StaffRole.Reyoncu) TutorialFocusTarget.Tag(cardObj, "hire_restocker");
-
-                Image cardBg = cardObj.AddComponent<Image>();
-                cardBg.sprite = UIStyleUtility.CreateOutlinePillSprite(265, 160, 16, 2, roleCategoryColors[r], new Color(0.12f, 0.16f, 0.22f, 0.90f));
-                cardBg.raycastTarget = false;
-
-                GameObject infoObj = new GameObject("InfoText");
-                infoObj.transform.SetParent(cardObj.transform, false);
-
-                RectTransform iRect = infoObj.AddComponent<RectTransform>();
-                iRect.anchoredPosition = new Vector2(0f, 28f);
-                iRect.sizeDelta = new Vector2(268f, 110f);
-
-                Text iText = infoObj.AddComponent<Text>();
-                iText.font = globalFont;
-                iText.text = string.Format(LocalizationManager.L("StaffRecruit_DailySalaryFmt", "<b>{0}</b>\n<size=14><color=#A0B0C0>{1}</color></size>\n\n<color=#4CD964>💰 Günlük Maaş: {2} Credit</color>", "<b>{0}</b>\n<size=14><color=#A0B0C0>{1}</color></size>\n\n<color=#4CD964>💰 Daily Salary: {2} Credits</color>"), GetRoleCategoryName(r), roleDescriptions[r], salary);
-                ApplyTabletFont(iText, 15, true);
-                iText.alignment = TextAnchor.MiddleCenter;
-                iText.color = Color.white;
-                iText.raycastTarget = false;
-
-                GameObject hireBtnObj = new GameObject("HireBtn");
-                hireBtnObj.transform.SetParent(cardObj.transform, false);
-
-                RectTransform hRect = hireBtnObj.AddComponent<RectTransform>();
-                hRect.anchoredPosition = new Vector2(0f, -68f);
-                hRect.sizeDelta = new Vector2(230f, 42f);
-
-                Image hBg = hireBtnObj.AddComponent<Image>();
-                hBg.sprite = UIStyleUtility.CreateRoundedPillSprite(230, 42, 18, new Color(0.18f, 0.55f, 0.28f, 0.95f));
-                hBg.raycastTarget = true;
-
-                Button hBtn = hireBtnObj.AddComponent<Button>();
-                hBtn.targetGraphic = hBg;
-                var currentRole = roleEnum;
-                hBtn.onClick.AddListener(() => {
-                    StaffMember hired = StaffManager.Instance.HireStaffByRole(currentRole);
-                    if (hired != null)
-                    {
-                        if (TutorialManager.Instance != null)
-                        {
-                            TutorialManager.Instance.NotifyStaffHired(currentRole);
-                        }
-
-                        string title = LocalizationManager.L("Modal_HireSuccess_Title", "İşe Alım Başarılı! 🎉", "Recruitment Successful! 🎉");
-                        string roleName = GetRoleCategoryName((int)currentRole);
-                        string bodyFmt = LocalizationManager.L(
-                            "Modal_StoreHireSuccess_Body",
-                            "<b>{0}</b> başarıyla <b>{1}</b> pozisyonunda işe alındı!\n\nGünlük Maaş: <b>{2} Credit</b> (Gece 00:00'da kesilir).\n\nVardiya ayarlarını 'Vardiyalar' sekmesinden düzenleyebilirsiniz.",
-                            "<b>{0}</b> was successfully hired for the position of <b>{1}</b>!\n\nDaily Salary: <b>{2} Credit</b> (Deducted at midnight 00:00).\n\nYou can manage shift schedules from the 'Shifts' tab."
-                        );
-                        string okBtn = LocalizationManager.L("Btn_OK", "Tamam", "OK");
-
-                        ModalManager.ShowModal(
-                            title,
-                            string.Format(bodyFmt, hired.name, roleName, hired.dailySalary),
-                            okBtn
-                        );
-                    }
-                });
-
-                GameObject htObj = new GameObject("Text");
-                htObj.transform.SetParent(hireBtnObj.transform, false);
-                RectTransform htRect = htObj.AddComponent<RectTransform>();
-                htRect.anchorMin = Vector2.zero;
-                htRect.anchorMax = Vector2.one;
-
-                Text htText = htObj.AddComponent<Text>();
-                htText.font = globalFont;
-                htText.text = LocalizationManager.L("Btn_HireStaff", "➕ İŞE AL", "➕ HIRE STAFF");
-                ApplyTabletFont(htText, 16);
-                htText.fontStyle = FontStyle.Bold;
-                htText.alignment = TextAnchor.MiddleCenter;
-                htText.color = Color.white;
-                htText.raycastTarget = false;
-            }
+            RenderBulkRecruitment(candidateListContent, 0);
         }
 
         private void RenderCategorizedShiftManagementList()
@@ -7113,6 +7050,12 @@ namespace Farm2Shelf.UI
             ApplyTabletFont(txt, 14);
             txt.fontStyle = FontStyle.Bold;
             txt.alignment = TextAnchor.MiddleCenter;
+            txt.resizeTextForBestFit = true;
+            txt.resizeTextMinSize = 10;
+            txt.resizeTextMaxSize = 14;
+            txt.horizontalOverflow = HorizontalWrapMode.Wrap;
+            txt.verticalOverflow = VerticalWrapMode.Truncate;
+            txt.raycastTarget = false;
 
             if (isAlreadyCalled)
             {
@@ -7300,6 +7243,7 @@ namespace Farm2Shelf.UI
             bText.alignment = TextAnchor.MiddleCenter;
             bText.color = new Color(0.35f, 0.85f, 1.0f);
             bText.raycastTarget = false;
+            ConfigureTabletHomeButton(bText);
 
             GameObject titleObj = new GameObject("TitleText");
             titleObj.transform.SetParent(headerObj.transform, false);
@@ -7481,6 +7425,24 @@ namespace Farm2Shelf.UI
             return txt;
         }
 
+        private static void FitShoppingActionLabel(GameObject button)
+        {
+            Text label = button.GetComponentInChildren<Text>();
+            if (label == null) return;
+            RectTransform rect = label.rectTransform;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = new Vector2(8f, 4f);
+            rect.offsetMax = new Vector2(-8f, -4f);
+            label.horizontalOverflow = HorizontalWrapMode.Wrap;
+            label.verticalOverflow = VerticalWrapMode.Truncate;
+            label.resizeTextForBestFit = true;
+            label.resizeTextMinSize = 14;
+            label.resizeTextMaxSize = 19;
+            label.alignment = TextAnchor.MiddleCenter;
+            label.raycastTarget = false;
+        }
+
         private GameObject CreateButtonInPanel(Transform parent, Vector2 pos, Vector2 size, string text, Color bgColor, UnityEngine.Events.UnityAction onClick, int fontSize = 16)
         {
             GameObject btnObj = new GameObject("Btn_" + text);
@@ -7625,92 +7587,7 @@ namespace Farm2Shelf.UI
 
         private void RenderFarmCandidateList()
         {
-            if (farmCandidateContent == null) return;
-            foreach (Transform child in farmCandidateContent) Destroy(child.gameObject);
-
-            Color farmColor = new Color(0.25f, 0.85f, 0.40f);
-
-            GameObject cardObj = new GameObject("FarmRoleCard_Worker");
-            cardObj.transform.SetParent(farmCandidateContent, false);
-            TutorialFocusTarget.Tag(cardObj, "hire_farmer");
-
-            Image cardBg = cardObj.AddComponent<Image>();
-            cardBg.sprite = UIStyleUtility.CreateOutlinePillSprite(265, 160, 16, 2, farmColor, new Color(0.12f, 0.16f, 0.22f, 0.90f));
-            cardBg.raycastTarget = false;
-
-            GameObject infoObj = new GameObject("InfoText");
-            infoObj.transform.SetParent(cardObj.transform, false);
-
-            RectTransform iRect = infoObj.AddComponent<RectTransform>();
-            iRect.anchoredPosition = new Vector2(0f, 28f);
-            iRect.sizeDelta = new Vector2(268f, 110f);
-
-            Text iText = infoObj.AddComponent<Text>();
-            iText.font = globalFont;
-            iText.text = LocalizationManager.L("FarmWorker_CardInfo", "🌾 Çiftlik İşçisi\n<size=14>Sulama, çapa & ürün hasadı\n(Erkek / Kadın Rastgele Aday)</size>\n💰 Maaş: 250 Cr/Gün (Gece 12'de)", "🌾 Farm Worker\n<size=14>Watering, hoeing & crop harvesting\n(Random Male / Female Candidate)</size>\n💰 Salary: 250 Cr/Day (At Midnight)");
-            ApplyTabletFont(iText, 16, true);
-            iText.fontStyle = FontStyle.Bold;
-            iText.alignment = TextAnchor.MiddleCenter;
-            iText.color = new Color(0.40f, 0.95f, 0.55f);
-            iText.raycastTarget = false;
-
-            GameObject hireBtnObj = new GameObject("HireButton_Farm");
-            hireBtnObj.transform.SetParent(cardObj.transform, false);
-
-            RectTransform hRect = hireBtnObj.AddComponent<RectTransform>();
-            hRect.anchoredPosition = new Vector2(0f, -68f);
-            hRect.sizeDelta = new Vector2(230f, 42f);
-
-            Image hBg = hireBtnObj.AddComponent<Image>();
-            hBg.sprite = UIStyleUtility.CreateRoundedPillSprite(230, 42, 18, farmColor * 0.85f);
-            hBg.raycastTarget = true;
-
-            Button hBtn = hireBtnObj.AddComponent<Button>();
-            hBtn.targetGraphic = hBg;
-            hBtn.onClick.AddListener(() => {
-                if (StaffManager.Instance != null)
-                {
-                    StaffMember hired = StaffManager.Instance.HireFarmWorker();
-                    if (hired != null)
-                    {
-                        if (TutorialManager.Instance != null)
-                        {
-                            TutorialManager.Instance.NotifyStaffHired(StaffRole.Çiftçi);
-                        }
-
-                        string title = LocalizationManager.L("Modal_HireSuccess_Title", "İşe Alım Başarılı! 🎉", "Recruitment Successful! 🎉");
-                        string roleName = LocalizationManager.L("Role_FarmerName", "Çiftlik İşçisi (Çiftçi)", "Farm Worker (Farmer)");
-                        string bodyFmt = LocalizationManager.L(
-                            "Modal_FarmHireSuccess_Body",
-                            "<b>{0}</b> başarıyla <b>{1}</b> pozisyonunda işe alındı!\n\nGünlük Maaş: <b>{2} Credit</b> (Gece 00:00'da kesilir).\n\nVardiya ayarlarını 'Vardiyalar' sekmesinden düzenleyebilirsiniz.",
-                            "<b>{0}</b> was successfully hired for the position of <b>{1}</b>!\n\nDaily Salary: <b>{2} Credit</b> (Deducted at midnight 00:00).\n\nYou can manage shift schedules from the 'Shifts' tab."
-                        );
-                        string okBtn = LocalizationManager.L("Btn_OK", "Tamam", "OK");
-
-                        ModalManager.ShowModal(
-                            title,
-                            string.Format(bodyFmt, hired.name, roleName, hired.dailySalary),
-                            okBtn
-                        );
-                    }
-                }
-                RenderFarmCandidateList();
-            });
-
-            GameObject htObj = new GameObject("Text");
-            htObj.transform.SetParent(hireBtnObj.transform, false);
-            RectTransform htRect = htObj.AddComponent<RectTransform>();
-            htRect.anchorMin = Vector2.zero;
-            htRect.anchorMax = Vector2.one;
-
-            Text htText = htObj.AddComponent<Text>();
-            htText.font = globalFont;
-            htText.text = LocalizationManager.L("Btn_HireStaff", "➕ İŞE AL", "➕ HIRE STAFF");
-            ApplyTabletFont(htText, 18);
-            htText.fontStyle = FontStyle.Bold;
-            htText.alignment = TextAnchor.MiddleCenter;
-            htText.color = Color.white;
-            htText.raycastTarget = false;
+            RenderBulkRecruitment(farmCandidateContent, 1);
         }
 
         private void RenderFarmStaffList()
@@ -8176,6 +8053,7 @@ namespace Farm2Shelf.UI
 
             Text bTxt = CreateTextInPanel(backBtnObj.transform, Vector2.zero, Vector2.one, LocalizationManager.L("Btn_HomeScreen", "← Ana Ekran", "← Home Screen"), 16, new Color(0.35f, 0.85f, 1.0f));
             bTxt.alignment = TextAnchor.MiddleCenter;
+            ConfigureTabletHomeButton(bTxt);
             bTxt.fontStyle = FontStyle.Bold;
 
             GameObject titleObj = new GameObject("Title");

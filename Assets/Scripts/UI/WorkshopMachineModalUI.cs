@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -16,6 +16,7 @@ namespace Farm2Shelf.UI
         public static WorkshopMachineModalUI Instance { get; private set; }
 
         private GameObject canvasObj;
+        public bool IsModalOpen => canvasObj != null && canvasObj.activeInHierarchy;
         private WorkshopMachineController activeMachine;
         private Transform listContentTransform;
         private Text statusHeaderText;

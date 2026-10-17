@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Farm2Shelf.UI;
@@ -48,8 +48,11 @@ namespace Farm2Shelf.Core
             pDef = null;
             if (PendingTruckPackages != null && PendingTruckPackages.Count > 0)
             {
-                pDef = PendingTruckPackages[0];
-                PendingTruckPackages.RemoveAt(0);
+                int packageIndex = PendingTruckPackages.FindIndex(package =>
+                    WholesaleTruckManager.GetNextAvailableStorageShelfForProduct(package) != null);
+                if (packageIndex < 0) return false;
+                pDef = PendingTruckPackages[packageIndex];
+                PendingTruckPackages.RemoveAt(packageIndex);
                 string fetchedProductId = pDef != null ? pDef.id : null;
                 int activeIndex = activeDeliveryPackages.FindIndex(p => p != null && p.id == fetchedProductId);
                 if (activeIndex >= 0) activeDeliveryPackages.RemoveAt(activeIndex);
@@ -163,11 +166,11 @@ namespace Farm2Shelf.Core
             return products;
         }
 
-        public static bool DepositPackageToStorageShelf(WholesaleProductDef pDef, out PlacedFurnitureController usedShelf, out int usedRow)
+        public static bool DepositPackageToStorageShelf(WholesaleProductDef pDef, PlacedFurnitureController destination, out PlacedFurnitureController usedShelf, out int usedRow)
         {
             usedShelf = null;
             usedRow = -1;
-            if (pDef == null) return false;
+            if (pDef == null || destination == null || destination.FurnitureType != FurnitureType.StorageShelf) return false;
 
             int remaining = Mathf.Max(pDef.packQuantity, ProductPassportService.SumLots(pDef.attachedLots));
             if (remaining <= 0) remaining = pDef.packQuantity;
@@ -178,7 +181,7 @@ namespace Farm2Shelf.Core
 
             while (remaining > 0)
             {
-                if (!TryFindDepositRow(pDef, canonicalName, out PlacedFurnitureController shelf, out int rowIndex, out ShelfRowData row))
+                if (!TryFindDepositRow(pDef, canonicalName, out PlacedFurnitureController shelf, out int rowIndex, out ShelfRowData row, destination))
                 {
                     break;
                 }
@@ -232,7 +235,7 @@ namespace Farm2Shelf.Core
             return Mathf.Max(0, pDef.SalePricePerUnit);
         }
 
-        private static bool TryFindDepositRow(WholesaleProductDef pDef, string canonicalName, out PlacedFurnitureController shelf, out int rowIndex, out ShelfRowData row)
+        private static bool TryFindDepositRow(WholesaleProductDef pDef, string canonicalName, out PlacedFurnitureController shelf, out int rowIndex, out ShelfRowData row, PlacedFurnitureController destination = null)
         {
             shelf = null;
             rowIndex = -1;
@@ -240,43 +243,17 @@ namespace Farm2Shelf.Core
             var placedFurniture = PlacedFurnitureController.AllPlacedFurniture;
             if (placedFurniture == null || pDef == null) return false;
 
-            FurnitureType storeType = pDef.targetShelfType;
-            bool farmLike = !pDef.isOrderable || GardenSeedDatabase.GetSeedById(pDef.id) != null
-                || WorkshopMachineDatabase.GetRecipeByOutputId(pDef.id) != null
-                || LivestockProductDatabase.GetById(pDef.id) != null;
+            // Truck cargo must enter warehouse stock first, never a sales shelf.
+            // A specified destination confines every unit to the shelf the worker reached.
+            System.Func<PlacedFurnitureController, bool> matchesShelf = f =>
+                f.FurnitureType == FurnitureType.StorageShelf && (destination == null || f == destination);
+            if (TryFindRowByPredicate(placedFurniture, matchesShelf,
+                r => ProductPassportService.RowHoldsProduct(r, pDef.id, canonicalName) && r.currentStock > 0 && r.currentStock < r.maxCapacity,
+                out shelf, out rowIndex, out row)) return true;
 
-            if (farmLike)
-            {
-                if (TryFindRowByPredicate(placedFurniture, f => f.FurnitureType == storeType, r => ProductPassportService.RowHoldsProduct(r, pDef.id, canonicalName) && r.currentStock < r.maxCapacity, out shelf, out rowIndex, out row))
-                {
-                    return true;
-                }
-
-                if (TryFindRowByPredicate(placedFurniture, f => f.FurnitureType == storeType, r => r.IsUnassigned || r.IsEmpty || r.currentStock <= 0, out shelf, out rowIndex, out row))
-                {
-                    return true;
-                }
-            }
-
-            if (TryFindRowByPredicate(placedFurniture, f => f.FurnitureType == FurnitureType.StorageShelf, r => ProductPassportService.RowHoldsProduct(r, pDef.id, canonicalName) && r.currentStock > 0 && r.currentStock < r.maxCapacity, out shelf, out rowIndex, out row))
-            {
-                return true;
-            }
-
-            if (TryFindRowByPredicate(placedFurniture, f => f.FurnitureType == FurnitureType.StorageShelf, r => (r.IsUnassigned || r.IsEmpty || r.currentStock <= 0) && r.maxCapacity > 0, out shelf, out rowIndex, out row))
-            {
-                return true;
-            }
-
-            if (!farmLike)
-            {
-                if (TryFindRowByPredicate(placedFurniture, f => f.FurnitureType == storeType, r => ProductPassportService.RowHoldsProduct(r, pDef.id, canonicalName) && r.currentStock < r.maxCapacity, out shelf, out rowIndex, out row))
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            return TryFindRowByPredicate(placedFurniture, matchesShelf,
+                r => r.currentStock <= 0 && r.maxCapacity > 0,
+                out shelf, out rowIndex, out row);
         }
 
         private static bool TryFindRowByPredicate(
@@ -551,24 +528,8 @@ namespace Farm2Shelf.Core
         public static PlacedFurnitureController GetNextAvailableStorageShelfForProduct(WholesaleProductDef pDef)
         {
             if (pDef == null) return null;
-            var placedFurniture = PlacedFurnitureController.AllPlacedFurniture;
-            foreach (var f in placedFurniture)
-            {
-                if (f == null || f.rows == null || f.FurnitureType != FurnitureType.StorageShelf) continue;
-                for (int i = 0; i < f.rows.Length; i++)
-                {
-                    var row = f.rows[i];
-                    if (row != null && (row.IsUnassigned || row.IsEmpty || ProductPassportService.RowHoldsProduct(row, pDef.id, pDef.name)))
-                    {
-                        int spaceLeft = row.maxCapacity - row.currentStock;
-                        if (spaceLeft > 0)
-                        {
-                            return f;
-                        }
-                    }
-                }
-            }
-            return null;
+            string name = ProductPassportService.GetCanonicalShelfName(pDef.id, pDef.name);
+            return TryFindDepositRow(pDef, name, out PlacedFurnitureController shelf, out _, out _) ? shelf : null;
         }
 
         private bool TryDepositProductPack(WholesaleProductDef pDef, out int depositedUnits)

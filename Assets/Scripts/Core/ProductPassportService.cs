@@ -376,7 +376,8 @@ namespace Farm2Shelf.Core
         public static bool RowHoldsProduct(ShelfRowData row, string productId, string productName)
         {
             if (row == null) return false;
-            if (!string.IsNullOrEmpty(productId) && !string.IsNullOrEmpty(row.productId) && row.productId == productId) return true;
+            // An explicit identity must never fall back to a coincidentally matching label.
+            if (!string.IsNullOrEmpty(productId) && !string.IsNullOrEmpty(row.productId)) return row.productId == productId;
             if (!string.IsNullOrEmpty(productName) && row.productName == productName) return true;
             string canonical = GetCanonicalShelfName(productId, productName);
             if (!string.IsNullOrEmpty(canonical) && row.productName == canonical) return true;

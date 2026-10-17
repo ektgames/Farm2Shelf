@@ -357,8 +357,8 @@ namespace Farm2Shelf.UI
             if (plot.State == PlotState.RipeReadyToHarvest)
             {
                 CreateActionButton(parent, new Vector2(-130f, -195f), new Vector2(240f, 50f), "🌾 " + LocalizationManager.L("Btn_HarvestToBarn", "Biç ve Ahıra Koy", "Harvest to Barn"), new Color(1.00f, 0.75f, 0.15f), font, 18, () => {
-                    plot.HarvestCrop();
                     CloseModal();
+                    SeedPlantingModeUI.BeginHarvest(plot);
                 });
 
                 CreateActionButton(parent, new Vector2(130f, -195f), new Vector2(240f, 50f), LocalizationManager.L("Btn_Close", "Kapat", "Close"), new Color(0.35f, 0.40f, 0.48f), font, 18, () => {

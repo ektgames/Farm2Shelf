@@ -14,7 +14,7 @@ namespace Farm2Shelf.UI
     {
         public static PalletStorageInventoryModalUI Instance { get; private set; }
 
-        public static bool IsModalOpen => currentCanvasObj != null && currentCanvasObj.activeSelf;
+        public static bool IsModalOpen => currentCanvasObj != null && currentCanvasObj.activeInHierarchy;
 
         private static GameObject currentCanvasObj;
         private static Font globalFont;
@@ -94,6 +94,7 @@ namespace Farm2Shelf.UI
         {
             if (currentCanvasObj != null)
             {
+                currentCanvasObj.SetActive(false);
                 Destroy(currentCanvasObj);
                 currentCanvasObj = null;
             }

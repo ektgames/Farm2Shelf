@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using Farm2Shelf.Core;
@@ -23,6 +23,10 @@ namespace Farm2Shelf.UI
         private Image storeButtonBg;
         private Text storeButtonText;
         private Text clockText;
+        private readonly Button[] speedButtons = new Button[3];
+        private readonly Text[] speedLabels = new Text[3];
+        private int displayedSpeed = -1;
+        private bool speedControlsEnabled;
         private Text calendarText;
         private Text weatherText;
         private Text creditsText;
@@ -329,6 +333,85 @@ namespace Farm2Shelf.UI
             clockText.alignment = TextAnchor.MiddleCenter;
             clockText.color = new Color(1.0f, 0.90f, 0.30f);
             clockText.raycastTarget = false;
+            CreateSpeedControls(widget.transform);
+        }
+
+        private void CreateSpeedControls(Transform clock)
+        {
+            GameObject row = new GameObject("SimulationSpeed", typeof(RectTransform));
+            row.transform.SetParent(clock, false);
+            RectTransform rect = (RectTransform)row.transform;
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0f);
+            rect.pivot = new Vector2(0.5f, 1f);
+            rect.anchoredPosition = new Vector2(0f, -10f);
+            rect.sizeDelta = new Vector2(220f, 60f);
+            Sprite rounded = UIStyleUtility.CreateRoundedPillSprite(68, 60, 16, Color.white);
+            string[] labels = { "I", "II", "III" };
+            for (int i = 0; i < 3; i++)
+            {
+                int selectedSpeed = i + 1;
+                GameObject item = new GameObject("Speed_" + selectedSpeed, typeof(RectTransform));
+                item.transform.SetParent(row.transform, false);
+                RectTransform itemRect = (RectTransform)item.transform;
+                itemRect.anchorMin = itemRect.anchorMax = new Vector2(0f, 0.5f);
+                itemRect.pivot = new Vector2(0f, 0.5f);
+                itemRect.anchoredPosition = new Vector2(i * 76f, 0f);
+                itemRect.sizeDelta = new Vector2(68f, 60f);
+                Image image = item.AddComponent<Image>();
+                image.sprite = rounded;
+                Button button = item.AddComponent<Button>();
+                button.targetGraphic = image;
+                button.navigation = new Navigation { mode = Navigation.Mode.None };
+                button.onClick.AddListener(() =>
+                {
+                    if (!CanChangeSimulationSpeed()) return;
+                    GameSimulationTime.SelectSpeed(selectedSpeed);
+                    RefreshSpeedControls();
+                });
+                speedButtons[i] = button;
+                GameObject label = new GameObject("Label", typeof(RectTransform));
+                label.transform.SetParent(item.transform, false);
+                RectTransform labelRect = (RectTransform)label.transform;
+                labelRect.anchorMin = Vector2.zero;
+                labelRect.anchorMax = Vector2.one;
+                labelRect.offsetMin = new Vector2(6f, 4f);
+                labelRect.offsetMax = new Vector2(-6f, -4f);
+                Text text = label.AddComponent<Text>();
+                text.font = storeButtonText.font;
+                text.text = labels[i];
+                text.fontSize = 28;
+                text.fontStyle = FontStyle.Bold;
+                text.alignment = TextAnchor.MiddleCenter;
+                text.raycastTarget = false;
+                speedLabels[i] = text;
+            }
+            displayedSpeed = -1;
+            RefreshSpeedControls();
+        }
+
+        private static bool CanChangeSimulationSpeed()
+        {
+            return !GameSimulationTime.IsPaused && Time.timeScale > 0f &&
+                !ModalManager.IsModalOpen && !EKTPhoneManager.IsTabletOpen &&
+                !EndOfDayReportModalUI.IsReportModalOpen &&
+                !MainMenuUI.IsMenuVisible &&
+                !(PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen);
+        }
+
+        private void RefreshSpeedControls()
+        {
+            bool enabled = CanChangeSimulationSpeed();
+            if (displayedSpeed == GameSimulationTime.Speed && speedControlsEnabled == enabled) return;
+            displayedSpeed = GameSimulationTime.Speed;
+            speedControlsEnabled = enabled;
+            for (int i = 0; i < speedButtons.Length; i++)
+            {
+                if (speedButtons[i] == null) continue;
+                bool selected = i + 1 == displayedSpeed;
+                speedButtons[i].interactable = enabled;
+                speedButtons[i].image.color = selected ? new Color(1f, 0.80f, 0.20f) : new Color(0.10f, 0.15f, 0.18f, 0.97f);
+                speedLabels[i].color = selected ? new Color(0.12f, 0.13f, 0.10f) : new Color(1f, 0.90f, 0.55f);
+            }
         }
 
         private void CreateCalendarWidget(Transform parent)
@@ -553,7 +636,7 @@ namespace Farm2Shelf.UI
 
             ModalManager.ShowModal(
                 LocalizationManager.L("Midnight_Title", "🌙 Gece 12:00 (Günün Sonu)", "🌙 Midnight 12:00 (End of Day)"),
-                LocalizationManager.L("Midnight_Body", "Saat 24:00 (12:00 AM) oldu! Dükkan otomatik kapatıldı.\n\nİçerideki müşteriler alışverişini bitirip çıktıktan ve yoldaki kuryeler siparişi teslim edip motorunu park ettikten sonra Gün Sonu Z Raporu otomatik açılacaktır.", "It's 12:00 AM! Store has automatically closed.\n\nOnce remaining customers leave and couriers finish deliveries and park, the End of Day Z-Report will open automatically."),
+                LocalizationManager.L("Midnight_CourierCutoffBody", "Saat 24:00 oldu, dükkan kapandı. Yeni kurye siparişleri 22:00'de durduruldu.\n\nMüşteriler çıktıktan, devam eden paketleme tamamlandıktan ve yoldaki kuryeler park ettikten sonra Z raporu açılır. Yola çıkmamış siparişler ürünleriyle birlikte ertesi güne korunur.", "It's midnight and the store has closed. New courier orders stopped at 22:00.\n\nThe report opens after customers leave, active packing finishes and couriers on the road park. Orders that have not departed are kept with their goods for the next day."),
                 LocalizationManager.L("Btn_OK", "Tamam", "OK")
             );
         }
@@ -791,6 +874,7 @@ namespace Farm2Shelf.UI
 
         private void Update()
         {
+            RefreshSpeedControls();
             if (Time.time >= nextStockScanTime)
             {
                 nextStockScanTime = Time.time + 1.0f;
@@ -809,9 +893,21 @@ namespace Farm2Shelf.UI
             }
         }
 
+        public void HideLowStockWarningsForReport()
+        {
+            if (lowStockPanelRoot != null) lowStockPanelRoot.SetActive(false);
+            // Refresh from current stock when the report closes, even while game time is paused.
+            nextStockScanTime = 0f;
+        }
+
         private void ScanLowStockItems()
         {
             if (lowStockPanelRoot == null || lowStockListText == null) return;
+            if (EndOfDayReportModalUI.IsReportModalOpen)
+            {
+                HideLowStockWarningsForReport();
+                return;
+            }
 
             var furnitureList = PlacedFurnitureController.AllPlacedFurniture;
             if (furnitureList == null || furnitureList.Count == 0)

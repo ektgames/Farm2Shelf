@@ -15,7 +15,7 @@ namespace Farm2Shelf.UI
     public class CalendarPopupUI : MonoBehaviour
     {
         public static CalendarPopupUI Instance { get; private set; }
-        public static bool IsCalendarModalOpen => Instance != null && Instance.popupRoot != null && Instance.popupRoot.activeSelf;
+        public static bool IsCalendarModalOpen => Instance != null && Instance.popupRoot != null && Instance.popupRoot.activeInHierarchy;
 
         private GameObject popupCanvasObj;
         private GameObject popupRoot;

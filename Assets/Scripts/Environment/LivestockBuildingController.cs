@@ -1,3 +1,4 @@
+﻿using Farm2Shelf.Utils;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using Farm2Shelf.UI;
@@ -36,7 +37,7 @@ namespace Farm2Shelf.Environment
 
         public void OnBuildingClicked()
         {
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || Time.unscaledTime - ModalManager.LastModalCloseTime < 0.35f) return;
+            if (TouchInputHelper.IsWorldInteractionBlocked()) return;
 
             if (LivestockCoopModalUI.Instance == null)
             {

@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -316,6 +316,12 @@ namespace Farm2Shelf.Core
 
         public void EnsureTouchColliders()
         {
+            if (DetailedDecorationBuilder.Handles(FurnitureType))
+            {
+                DetailedDecorationBuilder.ConfigurePlacementColliders(gameObject, FurnitureType);
+                EnsureChildClickForwarders();
+                return;
+            }
             if (FurnitureDatabase.IsWallMountedDecoration(FurnitureType))
             {
                 BoxCollider wallCol = GetComponent<BoxCollider>();
@@ -433,15 +439,17 @@ namespace Farm2Shelf.Core
             }
         }
 
-        public bool RegisterCustomerUse()
+        public bool RegisterCustomerUse(bool completedInteraction = false)
         {
+            if (FurnitureType == FurnitureType.AtmMachine || FurnitureType == FurnitureType.AquariumGrand) return false;
+            if (FurnitureType == FurnitureType.MassageChair && !completedInteraction) return false;
             FurnitureItemDef def = FurnitureDatabase.GetDef(FurnitureType);
             if (def == null || def.category != FurnitureCategory.Decoration || def.passiveIncomePerUse <= 0)
             {
                 return false;
             }
 
-            if (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing)
+            if (!completedInteraction && FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing)
             {
                 return false;
             }
@@ -681,9 +689,11 @@ namespace Farm2Shelf.Core
             rowContainer.transform.SetParent(transform, false);
 
             GetShelfRowGridPlacement(FurnitureType, targetIndex, rData.currentStock, rData.maxCapacity, out List<Vector3> positions, out Quaternion rotation, out float scale);
+            ShelfProductLayout importedLayout = GetComponentInChildren<ShelfProductLayout>();
 
             for (int k = 0; k < positions.Count; k++)
             {
+                int childCountBefore = rowContainer.transform.childCount;
                 Farm2Shelf.Environment.Procedural3DProductBuilder.CreateProduct3DMesh(
                     rowContainer.transform,
                     rData.productId,
@@ -693,6 +703,8 @@ namespace Farm2Shelf.Core
                     scale,
                     FurnitureType == FurnitureType.StorageShelf
                 );
+                if (importedLayout != null && rowContainer.transform.childCount > childCountBefore)
+                    importedLayout.FitProduct(rowContainer.transform.GetChild(childCountBefore), targetIndex, positions[k]);
             }
 
             EnsureChildClickForwarders();
@@ -714,6 +726,8 @@ namespace Farm2Shelf.Core
             if (FurnitureType == FurnitureType.ProduceShelf) y = 0.50f + rowIndex * 0.42f;
             else if (FurnitureType == FurnitureType.Fridge || FurnitureType == FurnitureType.OrganicFridge) y = 0.45f + rowIndex * 0.40f;
             labelObj.transform.localPosition = new Vector3(0f, y, -0.42f);
+            ShelfProductLayout importedLayout = GetComponentInChildren<ShelfProductLayout>();
+            if (importedLayout != null) labelObj.transform.localPosition = importedLayout.GetLabelPosition(rowIndex);
 
             TextMesh tm = labelObj.AddComponent<TextMesh>();
             tm.text = tag;
@@ -738,6 +752,13 @@ namespace Farm2Shelf.Core
             positions = new List<Vector3>();
             rotation = Quaternion.identity;
             scale = 1.0f;
+
+            ShelfProductLayout importedLayout = GetComponentInChildren<ShelfProductLayout>();
+            if (importedLayout != null)
+            {
+                importedLayout.GetPositions(rowIndex, currentStock, maxCapacity, positions);
+                return;
+            }
 
             float fillRatio = Mathf.Clamp01((float)currentStock / Mathf.Max(1, maxCapacity));
 
@@ -1007,6 +1028,8 @@ namespace Farm2Shelf.Core
 
         public Vector3 GetFrontInteractionPosition(float offset = 0.75f)
         {
+            if (FurnitureType == FurnitureType.Cashier)
+                return FurnitureModelBuilder.GetCashierCustomerPosition(transform);
             return transform.position - transform.forward * offset;
         }
 

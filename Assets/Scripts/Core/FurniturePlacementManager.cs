@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -95,6 +95,7 @@ namespace Farm2Shelf.Core
 
         public void StartPlacement(FurnitureType type, DeliveryBoxController boxController)
         {
+            if (type == FurnitureType.DividerFence) return;
             if (EKTPhoneManager.Instance != null) EKTPhoneManager.Instance.ClosePhoneTabletInstant();
             PalletStorageInventoryModalUI.HideModal();
             ModalManager.CloseWorldBlockingOverlays();
@@ -259,7 +260,8 @@ namespace Farm2Shelf.Core
                 return;
             }
 
-            ModalManager.SetModalOpen(false);
+            // A dialog opened during placement owns input until it closes.
+            if (MainMenuUI.IsMenuVisible || ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen) return;
 
             if (ghostObj == null) return;
 
@@ -586,6 +588,7 @@ namespace Farm2Shelf.Core
         public void MoveGhostToScreenPoint(Vector2 screenPos)
         {
             if (!isPlacing || ghostObj == null) return;
+            if (MainMenuUI.IsMenuVisible || ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen) return;
 
             Camera mainCam = ResolvePlacementCamera();
             if (mainCam == null) return;
@@ -673,10 +676,11 @@ namespace Farm2Shelf.Core
             const float maxSnapDistance = 1.75f;
             if (best > maxSnapDistance) return false;
 
-            float alongMinZ = frontZ + 0.75f;
-            float alongMaxZ = backZ - 0.75f;
-            float alongMinX = leftX + 0.75f;
-            float alongMaxX = rightX - 0.75f;
+            float wallMargin = currentType == FurnitureType.NeonSign || currentType == FurnitureType.DigitalMenuBoard ? .95f : .75f;
+            float alongMinZ = frontZ + wallMargin;
+            float alongMaxZ = backZ - wallMargin;
+            float alongMinX = leftX + wallMargin;
+            float alongMaxX = rightX - wallMargin;
 
             if (best == dLeft || Mathf.Approximately(best, dLeft))
             {
@@ -794,6 +798,7 @@ namespace Farm2Shelf.Core
         public void ConfirmPlacement(Vector3 pos, Quaternion rot)
         {
             if (!isPlacing) return;
+            bool showStatueNote = currentType == FurnitureType.GoldenStatue && !isReinstalling;
 
             InstantiatePlacedFurniture(currentType, pos, rot, savedReplacementRows, savedReplacementMachineState);
 
@@ -824,6 +829,15 @@ namespace Farm2Shelf.Core
             }
 
             Debug.Log($"[FurniturePlacement] {currentType} başarıyla kuruldu! Konum: {pos}");
+            if (showStatueNote)
+            {
+                ModalManager.ShowModal(
+                    LocalizationManager.L("Statue_NoteTitle", "Başarınız altınla taçlandı!", "Your success deserves gold!"),
+                    LocalizationManager.L("Statue_NoteBody",
+                        "Bir zamanlar rafları dolduruyordunuz… Şimdi başarılarınız dükkana sığmıyor!\n\nBu heykel maaş istemez, vardiyaya geç kalmaz ve mola vermez. Ama kasaya da bakmaz; o kadar kusuru olsun!\n\nEmekleriniz için teşekkür ederiz. Bol kazançlar!\n\nEKT GAMES saygılarımızla",
+                        "You started by filling shelves… Now your success barely fits in the shop!\n\nThis statue never asks for a salary, arrives late or takes a break. It won't run the checkout either, but nobody's perfect!\n\nThank you for all your hard work. Here's to your success!\n\nWith our best regards, EKT GAMES"),
+                    LocalizationManager.L("Statue_NoteClose", "Başarıya devam!", "On to more success!"), largeNote: true);
+            }
         }
 
         public Vector2 GetFurnitureFootprintSize(FurnitureType type)
@@ -887,9 +901,12 @@ namespace Farm2Shelf.Core
                 case FurnitureType.WallClock:
                     return new Vector2(0.70f, 0.10f);
 
-                case FurnitureType.WelcomeMat:
-                case FurnitureType.RedCarpet:
-                    return new Vector2(1.5f, 1.0f);
+                case FurnitureType.WelcomeMat: return new Vector2(1.35f, 0.85f);
+                case FurnitureType.RedCarpet: return new Vector2(1.5f, 2.5f);
+                case FurnitureType.ChandelierCrystal: return new Vector2(1.4f, 1.4f);
+                case FurnitureType.FlowerArch: return new Vector2(2.85f, 0.7f);
+                case FurnitureType.NeonSign: return new Vector2(1.6f, 0.12f);
+                case FurnitureType.DigitalMenuBoard: return new Vector2(1.7f, 0.6f);
 
                 case FurnitureType.FountainSmall:
                     return new Vector2(1.8f, 1.8f);
@@ -911,10 +928,7 @@ namespace Farm2Shelf.Core
             float halfD = (depth / 2f);
             bool isWallMounted = FurnitureDatabase.IsWallMountedDecoration(type);
 
-            Bounds ghostBounds = new Bounds(
-                new Vector3(pos.x, isWallMounted ? 1.85f : 0.9f, pos.z),
-                new Vector3(Mathf.Max(0.1f, width - 0.10f), isWallMounted ? 0.7f : 1.8f, Mathf.Max(0.1f, depth - 0.10f))
-            );
+            Bounds ghostBounds = DetailedDecorationBuilder.GetPlacementBounds(type, pos, width, depth);
 
             // 1. DUVAR VE ODA SINIRLARI KONTROLÜ
             EnvironmentBuilder env = EnvironmentBuilder.Instance;
@@ -983,7 +997,7 @@ namespace Farm2Shelf.Core
                 }
 
                 // Ana Dış Giriş Kapısı Ağzı (Geçişi tıkamamak için: X: -5.8 .. -4.2, Z: <= -1.8)
-                if (!PlacedFurnitureController.IsWalkableFloorDecoration(type) &&
+                if (!PlacedFurnitureController.IsWalkableFloorDecoration(type) && !DetailedDecorationBuilder.IsCeiling(type) &&
                     pos.z <= -1.8f && pos.x >= -5.8f && pos.x <= -4.2f)
                 {
                     return true;
@@ -1042,10 +1056,8 @@ namespace Farm2Shelf.Core
                     float fW = fRotated ? fFootprint.y : fFootprint.x;
                     float fD = fRotated ? fFootprint.x : fFootprint.y;
 
-                    Bounds existingBounds = new Bounds(
-                        new Vector3(f.transform.position.x, 0.9f, f.transform.position.z),
-                        new Vector3(Mathf.Max(0.1f, fW - 0.10f), 1.8f, Mathf.Max(0.1f, fD - 0.10f))
-                    );
+                    Bounds existingBounds = DetailedDecorationBuilder.GetPlacementBounds(
+                        f.FurnitureType, f.transform.position, fW, fD);
 
                     if (ghostBounds.Intersects(existingBounds))
                     {
@@ -1081,6 +1093,8 @@ namespace Farm2Shelf.Core
             WorkshopMachineState machineState = null
         )
         {
+            // Keep the enum value for save compatibility; retired fences no longer spawn.
+            if (type == FurnitureType.DividerFence) return;
             if (FurnitureDatabase.IsWallMountedDecoration(type) &&
                 TryRemountWallDecorationByFacing(pos, rot.eulerAngles.y, out Vector3 wallPos, out float wallYaw))
             {
@@ -1586,13 +1600,20 @@ namespace Farm2Shelf.Core
             return btnObj;
         }
 
-        private sealed class PlacementPointerCatcher : MonoBehaviour, IPointerDownHandler, IDragHandler
+        private sealed class PlacementPointerCatcher : MonoBehaviour, IPointerDownHandler, IInitializePotentialDragHandler, IBeginDragHandler, IDragHandler
         {
             public FurniturePlacementManager owner;
 
+            public void OnInitializePotentialDrag(PointerEventData eventData)
+            {
+                eventData.useDragThreshold = false;
+            }
+
+            public void OnBeginDrag(PointerEventData eventData) { }
+
             public void OnPointerDown(PointerEventData eventData)
             {
-                if (owner != null)
+                if (owner != null && eventData.button == PointerEventData.InputButton.Left)
                 {
                     owner.MoveGhostToScreenPoint(eventData.position);
                 }
@@ -1600,7 +1621,7 @@ namespace Farm2Shelf.Core
 
             public void OnDrag(PointerEventData eventData)
             {
-                if (owner != null)
+                if (owner != null && eventData.button == PointerEventData.InputButton.Left)
                 {
                     owner.MoveGhostToScreenPoint(eventData.position);
                 }

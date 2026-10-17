@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Collections;
+using Farm2Shelf.Core;
 using UnityEngine;
 
 namespace Farm2Shelf.Environment
@@ -9,6 +11,9 @@ namespace Farm2Shelf.Environment
 
         private readonly List<GameObject> activeTrashItems = new List<GameObject>();
         private Transform trashParentGroup;
+        public const float BinInteractionOffset = 0.75f;
+        private const float BinRange = 6f;
+        private readonly RaycastHit[] binPathHits = new RaycastHit[32];
 
         private void Awake()
         {
@@ -54,11 +59,45 @@ namespace Farm2Shelf.Environment
             }
         }
 
-        public void TrySpawnCustomerTrash(Vector3 customerPosition)
+        public PlacedFurnitureController TrySpawnCustomerTrash(Vector3 customerPosition)
         {
             // %15 ihtimalle dükkan zeminine küçük çöp/leke düşer
-            if (Random.value > 0.15f) return;
-            if (activeTrashItems.Count >= 6) return; // Azami 6 çöp lekesi sınırı
+            if (Random.value > 0.15f) return null;
+            // Bins prevent a modest share of litter; extra bins improve coverage, not probability.
+            if (Random.value < 0.30f)
+            {
+                PlacedFurnitureController bin = FindReachableBin(customerPosition);
+                if (bin != null) return bin;
+            }
+            DropCustomerTrash(customerPosition);
+            return null;
+        }
+
+        private PlacedFurnitureController FindReachableBin(Vector3 position)
+        {
+            PlacedFurnitureController nearest = null;
+            float best = BinRange * BinRange;
+            foreach (var bin in PlacedFurnitureController.AllPlacedFurniture)
+            {
+                if (bin == null || !bin.isActiveAndEnabled || bin.FurnitureType != FurnitureType.TrashCan) continue;
+                Vector3 target = bin.GetFrontInteractionPosition(BinInteractionOffset);
+                Vector3 direction = target - position;
+                direction.y = 0f;
+                float sqrDistance = direction.sqrMagnitude;
+                if (sqrDistance > best) continue;
+                int count = Physics.SphereCastNonAlloc(position + Vector3.up * 0.6f, 0.18f,
+                    direction.normalized, binPathHits, Mathf.Sqrt(sqrDistance), Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+                bool blocked = count > 0;
+                if (blocked) continue;
+                best = sqrDistance;
+                nearest = bin;
+            }
+            return nearest;
+        }
+
+        public void DropCustomerTrash(Vector3 customerPosition)
+        {
+            if (ActiveTrashCount >= 6) return;
 
             Vector3 spawnPos = customerPosition + new Vector3(Random.Range(-0.4f, 0.4f), 0.02f, Random.Range(-0.4f, 0.4f));
 
@@ -80,6 +119,34 @@ namespace Farm2Shelf.Environment
             if (col != null) Destroy(col);
 
             activeTrashItems.Add(trashObj);
+        }
+
+        public void ShowBinDisposal(Vector3 customerPosition, PlacedFurnitureController bin)
+        {
+            if (bin != null) StartCoroutine(AnimateBinDisposal(customerPosition, bin));
+        }
+
+        private IEnumerator AnimateBinDisposal(Vector3 customerPosition, PlacedFurnitureController bin)
+        {
+            GameObject paper = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            paper.name = "Disposed_Trash";
+            paper.transform.SetParent(trashParentGroup, false);
+            paper.transform.localScale = Vector3.one * 0.07f;
+            Collider collider = paper.GetComponent<Collider>();
+            collider.enabled = false;
+            Destroy(collider);
+            paper.GetComponent<Renderer>().sharedMaterial = GetTrashMaterial();
+            Vector3 start = customerPosition + Vector3.up;
+            float elapsed = 0f;
+            while (elapsed < 0.45f && bin != null && paper != null)
+            {
+                float t = elapsed / 0.45f;
+                Vector3 end = bin.transform.TransformPoint(new Vector3(0f, 0.68f, 0f));
+                paper.transform.position = Vector3.Lerp(start, end, t) + Vector3.up * (Mathf.Sin(t * Mathf.PI) * 0.2f);
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+            if (paper != null) Destroy(paper);
         }
 
         public GameObject GetNearestTrashItem(Vector3 position, out float distance)
