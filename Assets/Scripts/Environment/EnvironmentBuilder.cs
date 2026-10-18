@@ -162,6 +162,9 @@ namespace Farm2Shelf.Environment
             CreateDenseTwoRowTreeBoundaryWall();
             BuildWorkshopBuilding();
 
+            CrosswalkVisualBuilder.CompleteMapConnections(environmentRoot);
+            CrosswalkVisualBuilder.ClearOverlappingLaneMarkings(environmentRoot);
+
             RefreshAll3DWorldLabels();
 
             Debug.Log($"[Farm2Shelf] Seviye {currentUpgradeLevel} Harita Mimarisi ve Dükkan Alanı Başarıyla Yeniden Oluşturuldu!");
@@ -608,8 +611,8 @@ namespace Farm2Shelf.Environment
             GameObject westOuterSidewalkTop = GameObject.CreatePrimitive(PrimitiveType.Cube);
             westOuterSidewalkTop.name = "West_Outer_Sidewalk_Top";
             westOuterSidewalkTop.transform.SetParent(sidewalkGroup);
-            westOuterSidewalkTop.transform.position = new Vector3(-79.5f, 0.05f, 85.0f);
-            westOuterSidewalkTop.transform.localScale = new Vector3(3f, 0.2f, 182.0f);
+            westOuterSidewalkTop.transform.position = new Vector3(-79.5f, 0.05f, 87.5f);
+            westOuterSidewalkTop.transform.localScale = new Vector3(3f, 0.2f, 187.0f);
             westOuterSidewalkTop.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
 
             GameObject westOuterSidewalkBottom = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -642,29 +645,8 @@ namespace Farm2Shelf.Environment
             eastOuterSidewalkBottom.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
 
             // DIŞ KALDIRIM YAYA GEÇİTLERİ (KASABA DIŞINA UZANAN ANA OTOYOL ÜZERİNDE YAYALAR İÇİN ZEBRA GEÇİTLER)
-            Transform westOuterCrosswalk = new GameObject("Pedestrian_Crosswalk_Outer_West").transform;
-            westOuterCrosswalk.SetParent(sidewalkGroup);
-            for (float z = -11.5f; z <= -6.5f; z += 0.75f)
-            {
-                GameObject stripe = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                stripe.name = "Outer_Zebra_Stripe_West";
-                stripe.transform.SetParent(westOuterCrosswalk);
-                stripe.transform.position = new Vector3(-79.5f, 0.02f, z);
-                stripe.transform.localScale = new Vector3(3.0f, 0.01f, 0.40f);
-                stripe.GetComponent<Renderer>().sharedMaterial = crosswalkMat;
-            }
-
-            Transform eastOuterCrosswalk = new GameObject("Pedestrian_Crosswalk_Outer_East").transform;
-            eastOuterCrosswalk.SetParent(sidewalkGroup);
-            for (float z = -11.5f; z <= -6.5f; z += 0.75f)
-            {
-                GameObject stripe = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                stripe.name = "Outer_Zebra_Stripe_East";
-                stripe.transform.SetParent(eastOuterCrosswalk);
-                stripe.transform.position = new Vector3(79.5f, 0.02f, z);
-                stripe.transform.localScale = new Vector3(3.0f, 0.01f, 0.40f);
-                stripe.GetComponent<Renderer>().sharedMaterial = crosswalkMat;
-            }
+            CrosswalkVisualBuilder.Create(sidewalkGroup, "Pedestrian_Crosswalk_Outer_West", new Vector3(-79.5f, 0, -9f), false);
+            CrosswalkVisualBuilder.Create(sidewalkGroup, "Pedestrian_Crosswalk_Outer_East", new Vector3(79.5f, 0, -9f), false);
 
             // ORTA OTOYOL DIŞ UZANTI KALDIRIMLARI (Batı Bölgesi kaldırımları ProceduralWestDistrictBuilder tarafından kavşaklara göre segmentli olarak inşa edilir)
 
@@ -781,18 +763,7 @@ namespace Farm2Shelf.Environment
             fountainToMainSidewalk.transform.localScale = new Vector3(4.5f, 0.2f, 5.0f);
             fountainToMainSidewalk.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
 
-            Transform centerCrosswalk = new GameObject("Center_Main_Crosswalk").transform;
-            centerCrosswalk.SetParent(sidewalkGroup);
-
-            for (float x = -2.5f; x <= 2.5f; x += 0.7f)
-            {
-                GameObject stripe = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                stripe.name = "Center_Zebra_Stripe";
-                stripe.transform.SetParent(centerCrosswalk);
-                stripe.transform.position = new Vector3(x, 0.02f, -9.0f);
-                stripe.transform.localScale = new Vector3(0.40f, 0.01f, 6.0f);
-                stripe.GetComponent<Renderer>().sharedMaterial = crosswalkMat;
-            }
+            CrosswalkVisualBuilder.Create(sidewalkGroup, "Center_Main_Crosswalk", new Vector3(0, 0, -9f), false);
 
             // Yaya Geçidinin Sağ Çaprazına 3D Otobüs Durağı Tabelası, Kabin ve Yol Çizgilerini Kur
             BuildBusStopSign(sidewalkGroup);
@@ -2006,18 +1977,7 @@ namespace Farm2Shelf.Environment
 
             CreateLabel("KAMYON YANAŞMA ALANI", "TRUCK DOCK AREA", deliveryGroup, new Vector3(13.0f, 0.05f, 2f), Color.yellow, 90f);
 
-            Transform crosswalkGroup = new GameObject("Pedestrian_Crosswalk_Right").transform;
-            crosswalkGroup.SetParent(deliveryGroup);
-
-            for (float x = 11.5f; x <= 14.5f; x += 0.6f)
-            {
-                GameObject stripe = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                stripe.name = "Zebra_Stripe";
-                stripe.transform.SetParent(crosswalkGroup);
-                stripe.transform.position = new Vector3(x, 0.02f, -4.5f);
-                stripe.transform.localScale = new Vector3(0.35f, 0.01f, 2.4f);
-                stripe.GetComponent<Renderer>().sharedMaterial = crosswalkMat;
-            }
+            CrosswalkVisualBuilder.Create(deliveryGroup, "Pedestrian_Crosswalk_Right", new Vector3(13f, 0, -4.5f), true, 3.8f);
 
             // DÜKKAN PALET RAFI YANINA 5 MOTOR KAPASİTELİ SARI MOTOR PARK YERİ ÇİZGİLERİ (7 ADET ÇİZGİ)
             CreateMotorcycleParkingBays(deliveryGroup);
@@ -2208,18 +2168,7 @@ namespace Farm2Shelf.Environment
             CreateWall("Parking_Exit_Turnstile_West_Barrier_Wall", parkingGroup, new Vector3(-23.0f, 1.0f, -3.0f), new Vector3(6.0f, 2.0f, 0.4f));
 
             // KUSURSUZ ÇİFT TURNİKE YAYA GEÇİDİ (KALDIRIM İLE TAM HİZALI Z: -6.0m ile -3.0m ARASI 3m DERİNLİK)
-            Transform turnstileCrosswalkGroup = new GameObject("Pedestrian_Crosswalk_Turnstile_Full").transform;
-            turnstileCrosswalkGroup.SetParent(parkingGroup);
-
-            for (float x = -19.5f; x <= -14.5f; x += 0.80f)
-            {
-                GameObject stripe = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                stripe.name = "Turnstile_Zebra_Stripe";
-                stripe.transform.SetParent(turnstileCrosswalkGroup);
-                stripe.transform.position = new Vector3(x, 0.02f, -4.5f);
-                stripe.transform.localScale = new Vector3(0.45f, 0.01f, 3.0f);
-                stripe.GetComponent<Renderer>().sharedMaterial = crosswalkMat;
-            }
+            CrosswalkVisualBuilder.Create(parkingGroup, "Pedestrian_Crosswalk_Turnstile_Full", new Vector3(-17f, 0, -4.5f), true);
         }
 
         private void CreateTownshipSystem()
@@ -2572,6 +2521,8 @@ namespace Farm2Shelf.Environment
                 // Sarı Kesikli Şerit Çizgisi
                 for (float z = roadStartZ + 4.0f; z <= roadEndZ - 4.0f; z += 3.0f)
                 {
+                    // Crossing half-width + dash half-length + a small gap.
+                    if (Mathf.Abs(z - 55f) < 2.2f || Mathf.Abs(z - 170f) < 2.2f) continue;
                     GameObject line = GameObject.CreatePrimitive(PrimitiveType.Cube);
                     line.name = "Road_Center_Line";
                     line.transform.SetParent(districtGroup);
@@ -2774,19 +2725,7 @@ namespace Farm2Shelf.Environment
 
         private void CreateAvenueCrosswalk(Transform parent, Vector3 centerPos, bool horizontalStripes)
         {
-            Transform crosswalkGroup = new GameObject("Avenue_Crosswalk").transform;
-            crosswalkGroup.SetParent(parent, false);
-
-            for (float offset = -2.2f; offset <= 2.2f; offset += 0.65f)
-            {
-                GameObject stripe = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                stripe.name = "Zebra_Stripe";
-                stripe.transform.SetParent(crosswalkGroup, false);
-                stripe.transform.position = centerPos + new Vector3(offset, 0f, 0f);
-                stripe.transform.localScale = new Vector3(0.35f, 0.01f, 2.4f);
-                stripe.GetComponent<Renderer>().sharedMaterial = crosswalkMat;
-                Destroy(stripe.GetComponent<Collider>());
-            }
+            CrosswalkVisualBuilder.Create(parent, "Avenue_Crosswalk", centerPos, horizontalStripes);
         }
 
         private void CreateDenseTwoRowTreeBoundaryWall()

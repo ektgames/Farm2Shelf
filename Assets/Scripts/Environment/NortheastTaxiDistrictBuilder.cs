@@ -115,6 +115,7 @@ namespace Farm2Shelf.Environment
             BuildApartmentGrid(root);
             BuildLowerGreenNeighborhood(root, roadMat, lineMat, walkMat, lotGrass);
             BuildCafeOppositeSoutheastRoads(root, roadMat, lineMat, walkMat, zebraMat);
+            GardenNeighborhoodBuilder.Build(root);
             BuildTaxiStand(root, asphaltLot, bayLine, wallMat, yellowMat, roofMat, glassMat, canopyMat, trimMat, fenceMat, woodMat);
         }
 
@@ -198,7 +199,8 @@ namespace Farm2Shelf.Environment
             se.SetParent(parent, false);
 
             float[] avenues = { AvenueA, AvenueB };
-            const float hwySouthZ = -15.0f;
+            // Main highway asphalt ends at Z=-12. Extend through the sidewalk opening.
+            const float hwySouthZ = -12.0f;
             const float bottomZ = CafeOppositeStreetZ;
             float lenZ = hwySouthZ - bottomZ;
             float centerZ = (hwySouthZ + bottomZ) * 0.5f;
@@ -376,18 +378,10 @@ namespace Farm2Shelf.Environment
         /// <summary>
         /// Yaya geçidi daima yataydır: kaldırımın Z hizasında, dikey asfaltı karşıdan karşıya bağlar.
         /// </summary>
-        private static void PlaceHorizontalSidewalkCrosswalk(
-            Transform parent,
-            float avenueX,
-            float sidewalkZ,
-            float sidewalkWidth,
-            Material mat)
+        private static void PlaceHorizontalSidewalkCrosswalk(Transform parent, float avenueX,
+            float sidewalkZ, float sidewalkWidth, Material mat)
         {
-            // Sadece asfalt genişliği (6m); kaldırımın üstüne binmez
-            for (float o = -2.70f; o <= 2.70f; o += 0.54f)
-            {
-                CreateBox(parent, "NE_SidewalkZebra", new Vector3(avenueX + o, 0.025f, sidewalkZ), new Vector3(0.32f, 0.02f, sidewalkWidth), mat);
-            }
+            CrosswalkVisualBuilder.Create(parent, "NE_SidewalkZebra", new Vector3(avenueX, 0, sidewalkZ), true);
         }
 
         private static void CreateRoadX(Transform parent, string name, float x, float z, float length, Material road, Material line, bool dashed, float[] skipX)
@@ -416,7 +410,7 @@ namespace Farm2Shelf.Environment
             CreateBox(parent, name, new Vector3(x, -0.05f, z), new Vector3(6.0f, 0.10f, length), road);
             for (float lz = lineStartZ + 4.0f; lz <= lineEndZ - 4.0f; lz += 3.0f)
             {
-                if (Mathf.Abs(lz - ConnectZ) < 3.2f || Mathf.Abs(lz - TopZ) < 3.2f || Mathf.Abs(lz - CafeOppositeStreetZ) < 3.2f || Mathf.Abs(lz + 9.0f) < 3.2f) continue;
+                if (Mathf.Abs(lz - ConnectZ) < 6.5f || Mathf.Abs(lz - TopZ) < 6.5f || Mathf.Abs(lz - CafeOppositeStreetZ) < 6.5f || Mathf.Abs(lz + 9.0f) < 6.8f) continue;
                 CreateBox(parent, name + "_Line", new Vector3(x, 0.01f, lz), new Vector3(0.25f, 0.02f, 1.8f), line);
             }
         }

@@ -22,7 +22,7 @@ namespace Farm2Shelf.Environment
     ///   * CineStar Sinema Salonu (Işıklı marquee kanopi, afiş panoları, gişe)
     ///   * Kasaba Stadyumu (Çim saha, kaleler, fileler, koltuklu tribünler, 4 dev projektör kulesi)
     /// </summary>
-    public static class ProceduralWestDistrictBuilder
+    public static partial class ProceduralWestDistrictBuilder
     {
         private static readonly Dictionary<string, Material> matCache = new Dictionary<string, Material>();
 
@@ -374,8 +374,10 @@ namespace Farm2Shelf.Environment
                 GameObject roadH = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 roadH.name = $"Clean_Road_Horizontal_{cz}";
                 roadH.transform.SetParent(roadGroup.transform, false);
-                roadH.transform.position = new Vector3(-168.0f, 0.01f, cz);
-                roadH.transform.localScale = new Vector3(124.0f, 0.02f, 6.0f);
+                bool bridgeApproach = Mathf.Abs(cz + 9f) < .1f;
+                float eastEdge = bridgeApproach ? -106f : -109f;
+                roadH.transform.position = new Vector3((-230f + eastEdge) * .5f, 0.01f, cz);
+                roadH.transform.localScale = new Vector3(eastEdge + 230f, 0.02f, 6.0f);
                 roadH.GetComponent<Renderer>().sharedMaterial = asphaltMat;
                 Object.Destroy(roadH.GetComponent<Collider>());
             }
@@ -400,7 +402,7 @@ namespace Farm2Shelf.Environment
                     bool inJunction = false;
                     foreach (float ax in vertAvenues)
                     {
-                        if (Mathf.Abs(x - ax) < 3.6f)
+                        if (Mathf.Abs(x - ax) < 6.5f)
                         {
                             inJunction = true;
                             break;
@@ -426,7 +428,7 @@ namespace Farm2Shelf.Environment
                     bool inJunction = false;
                     foreach (float cz in horizStreets)
                     {
-                        if (Mathf.Abs(z - cz) < 3.6f)
+                        if (Mathf.Abs(z - cz) < 6.5f)
                         {
                             inJunction = true;
                             break;
@@ -477,8 +479,8 @@ namespace Farm2Shelf.Environment
                 CreateSidewalkBlock(roadGroup.transform, new Vector3(-131.0f, 0.04f, cz + 3.65f), new Vector3(29.4f, 0.08f, 1.3f), sidewalkMat);
 
                 // Segment 4 (X: -112m ile -106m arası - Rıhtım Bağlantısı)
-                CreateSidewalkBlock(roadGroup.transform, new Vector3(-106.85f, 0.04f, cz - 3.65f), new Vector3(1.7f, 0.08f, 1.3f), sidewalkMat);
-                CreateSidewalkBlock(roadGroup.transform, new Vector3(-106.85f, 0.04f, cz + 3.65f), new Vector3(1.7f, 0.08f, 1.3f), sidewalkMat);
+                if (Mathf.Abs(cz + 9f) < .1f) CreateSidewalkBlock(roadGroup.transform, new Vector3(-106.85f, 0.04f, cz - 3.65f), new Vector3(1.7f, 0.08f, 1.3f), sidewalkMat);
+                if (Mathf.Abs(cz + 9f) < .1f) CreateSidewalkBlock(roadGroup.transform, new Vector3(-106.85f, 0.04f, cz + 3.65f), new Vector3(1.7f, 0.08f, 1.3f), sidewalkMat);
             }
 
             // 2.3.3 Kavşak Köşe Dönüş Kaldırımları
@@ -520,7 +522,7 @@ namespace Farm2Shelf.Environment
             {
                 if (Mathf.Abs(cz - (-9.0f)) > 1.0f)
                 {
-                    CreateSidewalkBlock(roadGroup.transform, new Vector3(-112.0f + 3.65f, 0.04f, cz), new Vector3(1.3f, 0.08f, 6.0f), sidewalkMat);
+                    CreateSidewalkBlock(roadGroup.transform, new Vector3(-107.75f, 0.04f, cz), new Vector3(2.5f, 0.08f, 8.6f), sidewalkMat);
                 }
             }
 
@@ -532,25 +534,25 @@ namespace Farm2Shelf.Environment
                     // Kuzey Kolu (Sadece kuzeye yol gidiyorsa, yani cz != 175m)
                     if (cz < 174.0f)
                     {
-                        BuildZebraCrosswalkUnit(roadGroup.transform, new Vector3(ax, 0.025f, cz + 3.6f), true, crosswalkWhiteMat);
+                        BuildZebraCrosswalkUnit(roadGroup.transform, new Vector3(ax, 0.025f, cz + 4.3f), true, crosswalkWhiteMat);
                     }
 
                     // Güney Kolu (Sadece güneye yol gidiyorsa, yani cz != -125m)
                     if (cz > -124.0f)
                     {
-                        BuildZebraCrosswalkUnit(roadGroup.transform, new Vector3(ax, 0.025f, cz - 3.6f), true, crosswalkWhiteMat);
+                        BuildZebraCrosswalkUnit(roadGroup.transform, new Vector3(ax, 0.025f, cz - 4.3f), true, crosswalkWhiteMat);
                     }
 
                     // Doğu Kolu (Sadece doğuya yol gidiyorsa: ax != -112m veya köprü cz == -9m)
                     if (ax < -113.0f || Mathf.Abs(cz - (-9.0f)) < 1.0f)
                     {
-                        BuildZebraCrosswalkUnit(roadGroup.transform, new Vector3(ax + 3.6f, 0.025f, cz), false, crosswalkWhiteMat);
+                        BuildZebraCrosswalkUnit(roadGroup.transform, new Vector3(ax + 4.3f, 0.025f, cz), false, crosswalkWhiteMat);
                     }
 
                     // Batı Kolu (Sadece batıya yol gidiyorsa: ax != -226m veya ana yol cz == -9m)
                     if (ax > -225.0f || Mathf.Abs(cz - (-9.0f)) < 1.0f)
                     {
-                        BuildZebraCrosswalkUnit(roadGroup.transform, new Vector3(ax - 3.6f, 0.025f, cz), false, crosswalkWhiteMat);
+                        BuildZebraCrosswalkUnit(roadGroup.transform, new Vector3(ax - 4.3f, 0.025f, cz), false, crosswalkWhiteMat);
                     }
                 }
             }
@@ -642,38 +644,7 @@ namespace Farm2Shelf.Environment
 
         private static void BuildZebraCrosswalkUnit(Transform parent, Vector3 pos, bool acrossVerticalAvenue, Material whiteMat)
         {
-            GameObject cw = new GameObject("Zebra_Crosswalk");
-            cw.transform.SetParent(parent, false);
-            cw.transform.position = pos;
-
-            if (acrossVerticalAvenue)
-            {
-                // Dikey yolu kesen yaya geçidi (X ekseninde sıralı beyaz çizgiler)
-                for (float offset = -2.2f; offset <= 2.2f; offset += 0.70f)
-                {
-                    GameObject stripe = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                    stripe.name = "Zebra_Stripe";
-                    stripe.transform.SetParent(cw.transform, false);
-                    stripe.transform.localPosition = new Vector3(offset, 0f, 0f);
-                    stripe.transform.localScale = new Vector3(0.35f, 0.01f, 1.8f);
-                    stripe.GetComponent<Renderer>().sharedMaterial = whiteMat;
-                    Object.Destroy(stripe.GetComponent<Collider>());
-                }
-            }
-            else
-            {
-                // Yatay yolu kesen yaya geçidi (Z ekseninde sıralı beyaz çizgiler)
-                for (float offset = -2.2f; offset <= 2.2f; offset += 0.70f)
-                {
-                    GameObject stripe = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                    stripe.name = "Zebra_Stripe";
-                    stripe.transform.SetParent(cw.transform, false);
-                    stripe.transform.localPosition = new Vector3(0f, 0f, offset);
-                    stripe.transform.localScale = new Vector3(1.8f, 0.01f, 0.35f);
-                    stripe.GetComponent<Renderer>().sharedMaterial = whiteMat;
-                    Object.Destroy(stripe.GetComponent<Collider>());
-                }
-            }
+            CrosswalkVisualBuilder.Create(parent, "Zebra_Crosswalk", pos, acrossVerticalAvenue);
         }
 
         private static void BuildCleanStreetLamp(Transform parent, Vector3 pos)
@@ -791,7 +762,7 @@ namespace Farm2Shelf.Environment
             Vector3 buildingLocalPos = new Vector3(-6.5f, 0f, 0f);
             Vector3 doorLocalPos;
             int floorCount;
-            BuildUniqueVillaStructure(villaParcel.transform, villaId, buildingLocalPos, out doorLocalPos, out floorCount);
+            BuildRenewedVillaStructure(villaParcel.transform, villaId, buildingLocalPos, out doorLocalPos, out floorCount);
 
             // 4. YOLA VE KALDIRIMA KADAR UZANAN TAŞ YÜRÜYÜŞ YOLU (Bahçe Işıkları ile Donatılmış)
             Material walkwayMat = GetMaterial("VillaWalkwayMat", new Color(0.82f, 0.80f, 0.76f), 0.1f, 0.3f);
@@ -811,7 +782,8 @@ namespace Farm2Shelf.Environment
             BuildVillaCustomTree(villaParcel.transform, villaId, treePos);
 
             // 7. ÖZEL OTOPARK VE PARK HALİNDE LÜKS ARABA
-            BuildVillaPrivateCarport(villaParcel.transform, new Vector3(-6.5f, 0f, -11.5f), villaId);
+            BuildVillaPrivateCarport(villaParcel.transform, new Vector3(-6.5f, 0f, -13.8f), villaId);
+            BuildVillaDriveway(villaParcel.transform);
         }
 
         #region Villa Private Carport & Parked Car
@@ -971,16 +943,16 @@ namespace Farm2Shelf.Environment
             BuildFenceSegment(fenceGroup.transform, new Vector3(0f, 0f, -halfD), parcelSize.x - 0.7f, true, fenceMat, pillarMat);
 
             // 4. Ön Çit (Doğu / +X - Caddeye Bakan Cephe | Giriş Kapısı Boşluklu)
-            float frontSpanZ = (parcelSize.y - gateWidth) / 2f - 0.35f;
-            float topCenterZ = (gateWidth / 2f) + (frontSpanZ / 2f) + 0.18f;
-            float btmCenterZ = -((gateWidth / 2f) + (frontSpanZ / 2f) + 0.18f);
-
-            if (frontSpanZ > 1.0f)
+            // Separate pedestrian and 4m vehicle gates; no fence crosses the driveway.
+            float[] edges = { -halfD + .35f, -15.8f, -11.8f, -gateWidth / 2f - .2f,
+                gateWidth / 2f + .2f, halfD - .35f };
+            for (int i = 0; i < edges.Length; i += 2)
             {
-                BuildFenceSegment(fenceGroup.transform, new Vector3(halfW, 0f, topCenterZ), frontSpanZ, false, fenceMat, pillarMat);
-                BuildFenceSegment(fenceGroup.transform, new Vector3(halfW, 0f, btmCenterZ), frontSpanZ, false, fenceMat, pillarMat);
+                float length = edges[i + 1] - edges[i];
+                if (length > .1f)
+                    BuildFenceSegment(fenceGroup.transform,
+                        new Vector3(halfW, 0, (edges[i] + edges[i + 1]) * .5f), length, false, fenceMat, pillarMat);
             }
-
             // 5. Giriş Kapısı İki Beyaz Sütunu ve Gece Yanan Fenerleri (Doğu Sınırında)
             float[] gatePillarZs = new float[] { gateZ - (gateWidth / 2f), gateZ + (gateWidth / 2f) };
             foreach (float gz in gatePillarZs)
@@ -1470,24 +1442,25 @@ namespace Farm2Shelf.Environment
             deck.GetComponent<Renderer>().sharedMaterial = (poolStyle % 2 == 0) ? deckMat : marbleMat;
             Object.Destroy(deck.GetComponent<Collider>());
 
-            // 2. Mermer Küpeşte
-            GameObject marble = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            marble.name = "Pool_Marble";
-            marble.transform.SetParent(poolGroup.transform, false);
-            marble.transform.localPosition = new Vector3(0f, 0.06f, 0f);
-            marble.transform.localScale = new Vector3(poolSize.x + 0.4f, 0.08f, poolSize.y + 0.4f);
-            marble.GetComponent<Renderer>().sharedMaterial = marbleMat;
-            Object.Destroy(marble.GetComponent<Collider>());
-
-            // 3. Turkuaz Havuz Suyu
-            GameObject water = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            water.name = "Pool_Water";
-            water.transform.SetParent(poolGroup.transform, false);
-            water.transform.localPosition = new Vector3(0f, 0.04f, 0f);
-            water.transform.localScale = new Vector3(poolSize.x, 0.04f, poolSize.y);
-            water.GetComponent<Renderer>().sharedMaterial = waterMat;
-            Object.Destroy(water.GetComponent<Collider>());
-
+            // Raised basin: the lawn is not excavated, so the liner must sit above it.
+            Material liner = GetMaterial("VillaPoolLiner", new Color(.045f,.30f,.40f), 0, .35f);
+            VillaDetail(poolGroup.transform, "Pool_Liner", new Vector3(0,.10f,0), new Vector3(5.5f,.12f,6.5f), liner);
+            foreach (float side in new[] { -1f, 1f })
+            {
+                VillaDetail(poolGroup.transform, "Pool_Coping_Side", new Vector3(side*2.95f,.32f,0), new Vector3(.4f,.42f,7.3f), marbleMat);
+                VillaDetail(poolGroup.transform, "Pool_Coping_End", new Vector3(0,.32f,side*3.45f), new Vector3(5.5f,.42f,.4f), marbleMat);
+            }
+            Material clearWater = GetMaterial("VillaPoolWaterRenewed", new Color(.035f,.48f,.64f), .05f, .86f);
+            VillaDetail(poolGroup.transform, "Pool_Water", new Vector3(0,.29f,0), new Vector3(5.5f,.025f,6.5f), clearWater);
+            // Subtle surface reflections and shallow entrance steps, no neon hotspot.
+            Material ripple = GetMaterial("VillaPoolRipple", new Color(.19f,.66f,.73f), 0, .65f);
+            for (int i = 0; i < 7; i++)
+                VillaDetail(poolGroup.transform, "Water_Reflection", new Vector3((i%2)*.25f,.307f,-2.7f+i*.85f), new Vector3(3.5f,.003f,.018f), ripple);
+            for (int i = 0; i < 3; i++)
+                VillaDetail(poolGroup.transform, "Pool_Entry_Step", new Vector3(0,.32f+i*.055f,2.3f+i*.3f), new Vector3(1.7f,.05f,.3f), marbleMat);
+            Material rail = GetMaterial("VillaPoolSteel", new Color(.65f,.7f,.73f), .8f,.7f);
+            foreach (float x in new[] { -1.0f, 1.0f })
+                VillaDetail(poolGroup.transform, "Pool_Handrail", new Vector3(x,.75f,2.85f), new Vector3(.055f,.7f,.65f), rail);
             // 4. Gece Su Altı Neon Aydınlatması
             GameObject pLightObj = new GameObject("Pool_Underwater_Light");
             pLightObj.transform.SetParent(poolGroup.transform, false);
@@ -1495,8 +1468,8 @@ namespace Farm2Shelf.Environment
             Light poolLight = pLightObj.AddComponent<Light>();
             poolLight.type = LightType.Point;
             poolLight.color = new Color(0.12f, 0.85f, 0.98f);
-            poolLight.intensity = 2.8f;
-            poolLight.range = 8.5f;
+            poolLight.intensity = 0.65f;
+            poolLight.range = 4.5f;
             poolLight.shadows = LightShadows.None;
             poolLight.enabled = (DayNightCycleManager.Instance != null && DayNightCycleManager.Instance.IsNight);
 

@@ -122,14 +122,15 @@ namespace Farm2Shelf.Environment
 
         #region Residential House Parcel Construction
 
-        private static void BuildResidentialHouseParcel(
+        public static GameObject BuildResidentialHouseParcel(
             Transform parent,
             Vector3 parcelCenter,
             Vector2 parcelSize,
             int floorCount,
             int colorIndex,
             int houseIndex,
-            bool faceNorth)
+            bool faceNorth,
+            float fenceSetback = 1.2f)
         {
             GameObject parcelObj = new GameObject($"Town_House_Parcel_{houseIndex}");
             parcelObj.transform.SetParent(parent, false);
@@ -269,7 +270,8 @@ namespace Farm2Shelf.Environment
             BuildHouseWalkway(parcelObj.transform, housePos, houseD, parcelSize.y, faceNorth, walkwayMat);
 
             // 4. Bahçe Çitleri (Yol çıkışında kapı boşluğu bırakır)
-            BuildHouseFences(parcelObj.transform, parcelSize, faceNorth, fenceMat, plinthMat);
+            // Keep the complete fence, including gate pillars, inside the parcel.
+            BuildHouseFences(parcelObj.transform, parcelSize - Vector2.one * (2f * fenceSetback), faceNorth, fenceMat, plinthMat);
 
             // 5. Bahçe Peyzajı (Ağaç, çiçek tarhı, bahçe lambası, bank)
             BuildHouseGardenLandscape(parcelObj.transform, housePos, houseW, houseD, parcelSize, faceNorth, houseIndex, frameMat);
@@ -285,6 +287,7 @@ namespace Farm2Shelf.Environment
             obstacle.size = col.size;
             obstacle.carving = true;
             obstacle.carveOnlyStationary = true;
+            return parcelObj;
         }
 
         private static void BuildHouseWindows(

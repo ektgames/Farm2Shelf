@@ -146,7 +146,7 @@ namespace Farm2Shelf.Core
         public string LastNoteEn => lastNoteEn;
         public bool LastWasCorrect => lastWasCorrect;
 
-        public static readonly TownContractPartner[] Catalog = new TownContractPartner[]
+        public static readonly TownContractPartner[] Catalog = GardenNeighborhoodBuilder.AppendContracts(new TownContractPartner[]
         {
             Make("apt_a", "Kuzey Apartmanları A Blok", "North Apartments Block A", "🏢", new Vector3(-37.5f, 0.05f, 68.0f), TownContractKind.Residential, 90, 3, FurnitureType.ProduceShelf, FurnitureType.Fridge, FurnitureType.Shelf),
             Make("apt_b", "Kuzey Apartmanları B Blok", "North Apartments Block B", "🏢", new Vector3(0.0f, 0.05f, 68.0f), TownContractKind.Residential, 90, 3, FurnitureType.ProduceShelf, FurnitureType.Fridge, FurnitureType.Shelf),
@@ -192,7 +192,7 @@ namespace Farm2Shelf.Core
             Make("gas", "Benzin İstasyonu Mini Market", "Gas Station Mini Market", "⛽", new Vector3(-150.0f, 0.05f, -110.0f), TownContractKind.Leisure, 110, 3, FurnitureType.Shelf, FurnitureType.Fridge, FurnitureType.BakeryCounter),
             Make("arcade", "Eğlence Merkezi", "Entertainment Center", "🎮", new Vector3(-112.0f, 0.05f, -71.0f), TownContractKind.Leisure, 120, 3, FurnitureType.Fridge, FurnitureType.Freezer, FurnitureType.BakeryCounter),
             Make("stadium", "Şehir Stadyumu", "City Stadium", "🏟️", new Vector3(-112.0f, 0.05f, -102.0f), TownContractKind.Leisure, 150, 5, FurnitureType.Fridge, FurnitureType.BakeryCounter, FurnitureType.ProduceShelf)
-        };
+        });
 
         private static TownContractPartner Make(string id, string tr, string en, string icon, Vector3 door, TownContractKind kind, int premium, int qty, params FurnitureType[] shelves)
         {

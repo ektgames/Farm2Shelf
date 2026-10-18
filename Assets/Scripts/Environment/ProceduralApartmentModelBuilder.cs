@@ -91,7 +91,8 @@ namespace Farm2Shelf.Environment
             int floorCount,     // 3, 4 veya 5 kat
             int colorVariant,
             int parcelIndex,
-            bool entranceFacesEast // true: Doğuya (+X), false: Batıya (-X) bakar
+            bool entranceFacesEast, // true: Doğuya (+X), false: Batıya (-X) bakar
+            float fenceSetback = 1.1f
         )
         {
             EnsureMaterials();
@@ -181,7 +182,7 @@ namespace Farm2Shelf.Environment
             BuildGardenWalkwayAndGate(parcelObj.transform, buildingLocalPos, buildingW, buildingD, parcelSize, entranceFacesEast);
 
             // 4. Çevre Bahçe Çitleri & Duvarları (Yol çıkışında kapı boşluğu bırakır)
-            BuildPerimeterFences(parcelObj.transform, parcelSize, entranceFacesEast);
+            BuildPerimeterFences(parcelObj.transform, parcelSize, entranceFacesEast, fenceSetback);
 
             // 5. Bahçe Peyzajı (Ağaçlar, çiçek tarhları, modern sokak lambası, bahçe bankı)
             BuildGardenLandscaping(parcelObj.transform, buildingLocalPos, buildingW, buildingD, parcelSize, entranceFacesEast, parcelIndex);
@@ -480,9 +481,8 @@ namespace Farm2Shelf.Environment
             Object.Destroy(path.GetComponent<Collider>());
         }
 
-        private static void BuildPerimeterFences(Transform parcelParent, Vector2 parcelSize, bool entranceEast)
+        private static void BuildPerimeterFences(Transform parcelParent, Vector2 parcelSize, bool entranceEast, float sidewalkClearance)
         {
-            const float sidewalkClearance = 0.55f;
             float halfX = parcelSize.x / 2f - sidewalkClearance;
             float halfZ = parcelSize.y / 2f - sidewalkClearance;
             float fenceSpanX = parcelSize.x - sidewalkClearance * 2f;

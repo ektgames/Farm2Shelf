@@ -107,7 +107,7 @@ namespace Farm2Shelf.Core
         };
 
         // Gerçek Bina ve Yol Kenarı Teslimat Noktaları (Kuzey Apartmanları, Batı Sahil Villaları, Kasaba Evleri, Belediye, Kamu Merkezleri)
-        private readonly (string nameTr, string nameEn, Vector3 doorstepPos)[] deliveryDestinations = new (string nameTr, string nameEn, Vector3 doorstepPos)[]
+        private readonly (string nameTr, string nameEn, Vector3 doorstepPos)[] deliveryDestinations = GardenNeighborhoodBuilder.AppendDeliveries(new (string nameTr, string nameEn, Vector3 doorstepPos)[]
         {
             // 1. KUZEY APARTMANLARI (4 Blok x 4 Sıra)
             ("Kuzey Apartmanları A Blok No:4", "North Apts Block A Apt:4", new Vector3(-37.5f, 0.05f, 68.0f)),
@@ -161,7 +161,7 @@ namespace Farm2Shelf.Core
             ("Güneydoğu Parsel No:3 (Kafe Karşısı)", "Southeast Lot #3 (Cafe Opposite)", new Vector3(116.5f, 0.05f, -114.0f)),
             ("Güneydoğu Parsel No:5 (Doğu Cadde)", "Southeast Lot #5 (East Avenue)", new Vector3(146.5f, 0.05f, -70.0f)),
             ("Güneydoğu Parsel No:7 (Doğu Cadde)", "Southeast Lot #7 (East Avenue)", new Vector3(146.5f, 0.05f, -91.5f))
-        };
+        });
 
         private void Awake()
         {

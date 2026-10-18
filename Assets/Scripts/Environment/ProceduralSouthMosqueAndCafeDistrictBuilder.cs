@@ -94,6 +94,8 @@ namespace Farm2Shelf.Environment
 
             for (float z = -58.0f; z >= -125.0f; z -= 3.0f)
             {
+                // Full dashes must clear both the junction and crossing.
+                if (Mathf.Abs(z + 55f) < 6.5f || Mathf.Abs(z + 128f) < 6.5f) continue;
                 GameObject line = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 line.name = "Road_Line";
                 line.transform.SetParent(roadGroup, false);
@@ -112,6 +114,8 @@ namespace Farm2Shelf.Environment
 
             for (float z = -58.0f; z >= -125.0f; z -= 3.0f)
             {
+                // Full dashes must clear both the junction and crossing.
+                if (Mathf.Abs(z + 55f) < 6.5f || Mathf.Abs(z + 128f) < 6.5f) continue;
                 GameObject line = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 line.name = "Road_Line";
                 line.transform.SetParent(roadGroup, false);
@@ -130,6 +134,8 @@ namespace Farm2Shelf.Environment
 
             for (float z = -58.0f; z >= -125.0f; z -= 3.0f)
             {
+                // Full dashes must clear both the junction and crossing.
+                if (Mathf.Abs(z + 55f) < 6.5f || Mathf.Abs(z + 128f) < 6.5f) continue;
                 GameObject line = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 line.name = "Road_Line";
                 line.transform.SetParent(roadGroup, false);
@@ -266,18 +272,8 @@ namespace Farm2Shelf.Environment
             // ==========================================
             // E) KAVŞAK YAYA GEÇİTLERİ (ZEBRA ÇİZGİLERİ)
             // ==========================================
-            // Orta Cadde Kuzey Girişi Yaya Geçidi (Z: -56.5m, X: -2.5m .. +2.5m)
-            Transform midNorthCrosswalk = new GameObject("Crosswalk_Mid_Avenue_North").transform;
-            midNorthCrosswalk.SetParent(roadGroup, false);
-            for (float x = -2.4f; x <= 2.4f; x += 0.8f)
-            {
-                GameObject stripe = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                stripe.name = "Zebra_Stripe";
-                stripe.transform.SetParent(midNorthCrosswalk, false);
-                stripe.transform.position = new Vector3(x, 0.02f, -56.5f);
-                stripe.transform.localScale = new Vector3(0.45f, 0.01f, 2.0f);
-                stripe.GetComponent<Renderer>().sharedMaterial = crosswalkMat;
-            }
+            // Crossing follows the north sidewalk outside the Z=-55 junction.
+            CrosswalkVisualBuilder.Create(roadGroup, "Crosswalk_Mid_Avenue_North", new Vector3(0, 0, -59.3f), true);
 
             // ==========================================
             // F) CADDE VE KALDIRIM SOKAK AYDINLATMALARI
@@ -1347,7 +1343,7 @@ namespace Farm2Shelf.Environment
             fenceGroup.SetParent(parent, false);
 
             Material fenceMat = GetMaterial($"FenceColorMat_{fenceColor.r:F2}", fenceColor, 0.1f, 0.35f);
-            float halfD = lotDepth / 2f;
+            float halfD = lotDepth / 2f - .3f;
 
             // Kuzey ve Güney Sınır Çitleri (X: -22m ile +23m arası)
             GameObject northFence = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -1367,7 +1363,7 @@ namespace Farm2Shelf.Environment
             Object.Destroy(southFence.GetComponent<Collider>());
 
             // Doğu Sınır Çiti (X = +23.0m) - Ortasında 3.5 Metrelik Kaldırıma Açılan Kapı Boşluğu Bırakılır!
-            float sideSegD = (lotDepth - 4.0f) / 2.0f;
+            float sideSegD = (2f * halfD - 4.0f) / 2.0f;
 
             GameObject eastFenceTop = GameObject.CreatePrimitive(PrimitiveType.Cube);
             eastFenceTop.name = "Fence_East_Top";
