@@ -288,7 +288,7 @@ namespace Farm2Shelf.Utils
                 return true;
             }
 
-            mgr.MoveGhostToScreenPoint(screenPos);
+            // Clean release taps are handled by FurniturePlacementManager.
             capturedPlacement = true;
             return true;
         }
@@ -297,15 +297,7 @@ namespace Farm2Shelf.Utils
         {
             if (!TryGetBestPointer(out Vector2 screenPos)) return;
 
-            if (capturedPlacement)
-            {
-                FurniturePlacementManager mgr = FurniturePlacementManager.Instance;
-                if (mgr != null && mgr.IsPlacing)
-                {
-                    mgr.MoveGhostToScreenPoint(screenPos);
-                }
-                return;
-            }
+            if (capturedPlacement) return;
 
             if (capturedSpinIcon)
             {

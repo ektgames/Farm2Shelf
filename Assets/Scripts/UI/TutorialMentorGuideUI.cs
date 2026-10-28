@@ -8,19 +8,20 @@ using Farm2Shelf.Environment;
 namespace Farm2Shelf.UI
 {
     /// <summary>
-    /// Rıfat Amca rehberi: hikâye, konuşma balonu, Geç butonu ve klasik spotlight.
+    /// Belediye Başkanı rehberi: hikâye, konuşma balonu, Geç butonu ve klasik spotlight.
     /// Mevcut 10 görev mantığına dokunmaz; yalnızca yönlendirir.
     /// </summary>
-    public class TutorialMentorGuideUI : MonoBehaviour
+    public partial class TutorialMentorGuideUI : MonoBehaviour
     {
-        public const string MentorNameTr = "Rıfat Amca";
-        public const string MentorNameEn = "Uncle Rifat";
+        public const string MentorNameTr = "Belediye Başkanı";
+        public const string MentorNameEn = "Mayor";
 
         private static TutorialMentorGuideUI instance;
         private GameObject root;
         private TutorialSpotlightOverlay spotlight;
         private Image portraitImg;
         private RectTransform portraitRect;
+        private RectTransform mentorCard;
         private Text nameText;
         private Text speechText;
         private Button skipBtn;
@@ -42,6 +43,17 @@ namespace Farm2Shelf.UI
         private readonly List<RectTransform> focusBuf = new List<RectTransform>();
 
         public static bool IsGuideOpen => instance != null && instance.root != null && instance.root.activeSelf;
+        public static RectTransform CompanionCard => IsGuideOpen ? instance.mentorCard : null;
+        public static Rect TutorialBodyArea
+        {
+            get
+            {
+                Rect safe = Screen.safeArea;
+                float gap = Mathf.Max(6f, safe.height * .015f);
+                return Rect.MinMaxRect(safe.xMin + gap, safe.yMin + gap,
+                    safe.xMax - gap, safe.yMax - safe.height * .25f - gap * 2f);
+            }
+        }
 
         public static void ShowGuide(bool playIntro = true)
         {
@@ -98,7 +110,7 @@ namespace Farm2Shelf.UI
         private void HandleLang(GameLanguage lang)
         {
             RefreshStaticLabels();
-            ShowCurrentLine(true);
+            SpeakForStep(true);
         }
 
         private void HandleStep(TutorialStep step)
@@ -159,11 +171,12 @@ namespace Farm2Shelf.UI
             GameObject card = new GameObject("MentorCard");
             card.transform.SetParent(talkRoot.transform, false);
             RectTransform cardRt = card.AddComponent<RectTransform>();
-            cardRt.anchorMin = new Vector2(1f, 0f);
-            cardRt.anchorMax = new Vector2(1f, 0f);
-            cardRt.pivot = new Vector2(1f, 0f);
-            cardRt.anchoredPosition = new Vector2(-36f, 228f);
-            cardRt.sizeDelta = new Vector2(620f, 268f);
+            mentorCard = cardRt;
+            cardRt.anchorMin = new Vector2(.5f, 1f);
+            cardRt.anchorMax = new Vector2(.5f, 1f);
+            cardRt.pivot = new Vector2(.5f, 1f);
+            cardRt.anchoredPosition = new Vector2(-36f, 190f);
+            cardRt.sizeDelta = new Vector2(680f, 330f);
 
             Image cardBg = card.AddComponent<Image>();
             cardBg.sprite = UIStyleUtility.CreateOutlinePillSprite(620, 268, 22, 3, new Color(0.95f, 0.78f, 0.32f), new Color(0.09f, 0.11f, 0.15f, 0.96f));
@@ -176,7 +189,7 @@ namespace Farm2Shelf.UI
             portraitRect.anchorMax = new Vector2(0f, 0.5f);
             portraitRect.pivot = new Vector2(0.5f, 0.5f);
             portraitRect.anchoredPosition = new Vector2(108f, 8f);
-            portraitRect.sizeDelta = new Vector2(188f, 236f);
+            portraitRect.sizeDelta = new Vector2(126f, 158f);
             portraitImg = portObj.AddComponent<Image>();
             portraitImg.preserveAspect = true;
             portraitImg.raycastTarget = false;
@@ -188,15 +201,15 @@ namespace Farm2Shelf.UI
             nRt.anchorMin = new Vector2(0f, 1f);
             nRt.anchorMax = new Vector2(1f, 1f);
             nRt.pivot = new Vector2(0.5f, 1f);
-            nRt.anchoredPosition = new Vector2(70f, -10f);
-            nRt.sizeDelta = new Vector2(-160f, 36f);
+            nRt.anchoredPosition = new Vector2(-12f, -10f);
+            nRt.sizeDelta = new Vector2(-320f, 36f);
             nameText = nameObj.AddComponent<Text>();
             nameText.font = font;
             nameText.fontStyle = FontStyle.Bold;
             nameText.alignment = TextAnchor.MiddleLeft;
             nameText.color = new Color(1f, 0.86f, 0.42f);
             nameText.raycastTarget = false;
-            Fit(nameText, 22, true);
+            Fit(nameText, 26, true);
 
             GameObject speechObj = new GameObject("Speech");
             speechObj.transform.SetParent(card.transform, false);
@@ -204,15 +217,16 @@ namespace Farm2Shelf.UI
             RectTransform sRt = speechObj.AddComponent<RectTransform>();
             sRt.anchorMin = Vector2.zero;
             sRt.anchorMax = Vector2.one;
-            sRt.offsetMin = new Vector2(210f, 58f);
-            sRt.offsetMax = new Vector2(-18f, -48f);
+            sRt.offsetMin = new Vector2(148f, 14f);
+            sRt.offsetMax = new Vector2(-192f, -48f);
             speechText = speechObj.AddComponent<Text>();
             speechText.font = font;
             speechText.alignment = TextAnchor.UpperLeft;
             speechText.color = new Color(0.94f, 0.96f, 0.98f);
             speechText.supportRichText = true;
             speechText.raycastTarget = false;
-            Fit(speechText, 18, true);
+            Fit(speechText, 24, true);
+            speechText.resizeTextMinSize = 20;
 
             GameObject skipObj = new GameObject("SkipSpeech");
             skipObj.transform.SetParent(card.transform, false);
@@ -247,7 +261,7 @@ namespace Farm2Shelf.UI
 
         private void ApplyPortrait()
         {
-            Texture2D tex = Resources.Load<Texture2D>("Tutorial/rifat_amca_portrait");
+            Texture2D tex = Resources.Load<Texture2D>("Tutorial/mayor_portrait");
             if (tex != null)
             {
                 portraitImg.sprite = Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
@@ -270,29 +284,17 @@ namespace Farm2Shelf.UI
         {
             if (nameText != null)
             {
-                nameText.text = LocalizationManager.L("Mentor_NameTitle", "Rıfat Amca  •  Mahallenin Eski Bakkalı", "Uncle Rifat  •  The old neighborhood grocer");
+                nameText.text = LocalizationManager.L("Mayor_NameTitle", "Belediye Başkanı", "Mayor");
             }
             if (skipBtnText != null)
             {
-                skipBtnText.text = LocalizationManager.L("Mentor_SkipLine", "Geç ▶", "Skip ▶");
+                skipBtnText.text = LocalizationManager.L("Mayor_ContinueLine", "Devam ▶", "Continue ▶");
             }
         }
 
         private void BeginIntro()
         {
-            introDone = false;
-            lastSpokenStep = TutorialStep.None;
-            lastSpeechKey = "";
-            queueTr.Clear();
-            queueEn.Clear();
-            queueTr.Add("Hoş geldin evlat. Ben Rıfat… kırk yıl bu sokağın bakkalını açıp kapattım. İlk tezgâhımı tarladan gelen kasayla kurdum; o yüzden buraya hâlâ ‘Çiftlikten Rafa’ derim.");
-            queueEn.Add("Welcome, kid. I'm Rifat… forty years I opened and closed this street's grocer. My first stall was a crate from the field; that's why I still call this place Farm-to-Shelf.");
-            queueTr.Add("Markan tabelada duruyor. Ben emekli oldum ama gözüm hâlâ reyonlarda. On kısa görevle seni yüzüstü bırakmam: kamera, tablet, kadro, raf, pasaport, tarla.");
-            queueEn.Add("Your brand sits on the sign. I retired, but my eyes are still on the shelves. Ten short quests — I won't leave you stranded: camera, tablet, staff, shelves, passports, fields.");
-            queueTr.Add("Ekran kararacak; yalnızca yapman gereken yer parlayacak. Başka yere dokunamazsın. Konuşmamı bitirmek istersen balondaki Geç'e bas. Sol alttaki görev listen yerinde duruyor.");
-            queueEn.Add("The screen will dim; only the next thing you must do stays bright. You can't tap the rest. To finish my line, tap Skip in the balloon. Your quest list stays bottom-left.");
-            lineIndex = 0;
-            StartLine();
+            introDone = true; SpeakForStep(true);
         }
 
         private void SpeakForStep(bool force)
@@ -363,7 +365,10 @@ namespace Farm2Shelf.UI
                 return;
             }
 
-            // Görev konuşmasını geç: bir sonraki alt hedef metnine zorla yenile
+            if (journeyPan != null) return;
+            if (TutorialManager.Instance != null && TutorialManager.Instance.JourneyStep == 9)
+                TutorialManager.Instance.AcknowledgeTourStop();
+            // Advance the current explanation without bypassing task requirements.
             lastSpeechKey = "";
             SpeakForStep(true);
         }
@@ -371,13 +376,26 @@ namespace Farm2Shelf.UI
         private void Update()
         {
             if (root == null || !root.activeSelf) return;
+            if (mentorCard != null)
+            {
+                mentorCard.localScale = Vector3.one;
+                Canvas canvas = mentorCard.GetComponentInParent<Canvas>();
+                float scale = canvas != null ? Mathf.Max(.01f, canvas.scaleFactor) : 1f;
+                Rect safe = Screen.safeArea;
+                float gap = Mathf.Max(6f, safe.height * .015f);
+                mentorCard.sizeDelta = new Vector2((safe.width - gap * 2f) / scale, safe.height * .25f / scale);
+                RectTransformUtility.ScreenPointToLocalPointInRectangle(mentorCard.parent as RectTransform,
+                    new Vector2(safe.center.x, safe.yMax - gap), null, out Vector2 local);
+                mentorCard.localPosition = new Vector3(local.x, local.y, 0f);
+                portraitRect.sizeDelta = new Vector2(126f, Mathf.Min(158f, mentorCard.rect.height - 20f));
+            }
 
             bobTime += Time.unscaledDeltaTime;
             if (portraitRect != null)
             {
                 float bob = Mathf.Sin(bobTime * 2.1f) * 5f;
                 float talk = typing ? Mathf.Sin(bobTime * 14f) * 2.2f : 0f;
-                portraitRect.anchoredPosition = new Vector2(108f, 8f + bob + talk);
+                portraitRect.anchoredPosition = new Vector2(74f, bob + talk);
                 portraitRect.localScale = Vector3.one * (1f + (typing ? 0.012f * Mathf.Sin(bobTime * 16f) : 0f));
             }
 
@@ -407,7 +425,8 @@ namespace Farm2Shelf.UI
             if (spotlight == null) return;
 
             TutorialManager tutorial = TutorialManager.Instance;
-            bool placingStep = tutorial != null && tutorial.CurrentStep == TutorialStep.Step6_UnpackAndPlaceFurniture;
+            bool placingStep = tutorial != null && tutorial.JourneyStep == 5 && tutorial.FurnitureBought && !tutorial.FurnitureInstalled;
+            if (TryJourneyWorldFocus()) return;
             if (!placingStep) palletCameraFocused = false;
             if (placingStep && !TabletOpen && !PalletStorageInventoryModalUI.IsModalOpen && !ModalManager.IsModalOpen &&
                 (FurniturePlacementManager.Instance == null || !FurniturePlacementManager.Instance.IsPlacing) &&
@@ -469,7 +488,7 @@ namespace Farm2Shelf.UI
                 // Keep an already visible pallet in place; recover off-screen targets once.
                 if ((center.z <= camera.nearClipPlane || !visible.Contains(new Vector2(center.x, center.y))) &&
                     Farm2Shelf.CameraSystem.IsometricCameraSetup.Instance != null)
-                    Farm2Shelf.CameraSystem.IsometricCameraSetup.Instance.FocusOn(bounds.center, true);
+                    Farm2Shelf.CameraSystem.IsometricCameraSetup.Instance.FocusOn(bounds.center, false);
             }
 
             Vector2 min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
@@ -488,7 +507,7 @@ namespace Farm2Shelf.UI
             Rect hole = Inflate(Rect.MinMaxRect(min.x, min.y, max.x, max.y), padding);
             if (!hole.Overlaps(new Rect(0, 0, Screen.width, Screen.height))) return false;
             spotlight.SetDimStrength(.86f);
-            spotlight.SetTarget(hole, true);
+            spotlight.SetTarget(hole, true, false);
             return true;
         }
 
@@ -499,72 +518,14 @@ namespace Farm2Shelf.UI
 
         private void CollectFocus(List<RectTransform> into, ref bool world)
         {
-            TutorialManager tm = TutorialManager.Instance;
-            EKTPhoneManager phone = EKTPhoneManager.Instance;
-            if (tm == null || !tm.IsTutorialActive)
-            {
-                world = true;
-                return;
-            }
-
-            switch (tm.CurrentStep)
-            {
-                case TutorialStep.Step1_CameraControls:
-                    world = true;
-                    break;
-
-                case TutorialStep.Step2_ExploreTabletApps:
-                    FocusTabletExplore(tm, phone, into);
-                    break;
-
-                case TutorialStep.Step3_HireStoreStaffAndCallEarly:
-                    FocusHireStore(tm, phone, into);
-                    break;
-
-                case TutorialStep.Step4_AssignStoreShifts:
-                    FocusStoreShifts(phone, into);
-                    break;
-
-                case TutorialStep.Step5_BuyInitialFurniture:
-                    FocusShopping(phone, into, 0);
-                    break;
-
-                case TutorialStep.Step6_UnpackAndPlaceFurniture:
-                    if (TabletOpen) Add(into, "tablet_close");
-                    else if (PalletStorageInventoryModalUI.IsModalOpen) Add(into, "delivery_pallet_inventory");
-                    else world = true; // Placement needs ground dragging, rotation and all HUD controls.
-                    break;
-
-                case TutorialStep.Step7_PlaceWholesaleBulkOrder:
-                    FocusWholesale(tm, phone, into, ref world);
-                    break;
-
-                case TutorialStep.Step8_HireFarmStaffAndShifts:
-                    FocusFarm(tm, phone, into);
-                    break;
-
-                case TutorialStep.Step9_BuyStartingSeeds:
-                    FocusShopping(phone, into, 3);
-                    break;
-
-                case TutorialStep.Step10_PlantSeedsAndOpenStore:
-                    if (tm.CropsPlantedInTutorial < 1 && (FieldPlotController.AllPlots == null || !FieldPlotController.AllPlots.Exists(p => p != null && p.State != PlotState.Empty)))
-                    {
-                        world = true;
-                    }
-                    else
-                    {
-                        Add(into, "hud_store_toggle");
-                    }
-                    break;
-            }
+            CollectJourneyFocus(into, ref world);
         }
 
         private static void Add(List<RectTransform> into, string id)
         {
             if (into.Count > 0) return;
-            RectTransform rt = TutorialFocusTarget.FindRect(id);
-            if (rt != null) into.Add(rt);
+            // Every guided control may be inside a scroll view, not only recruitment cards.
+            FocusRecruitment(into, id);
         }
 
         private static bool TabletOpen => EKTPhoneManager.IsTabletOpen;
@@ -574,7 +535,7 @@ namespace Farm2Shelf.UI
             RectTransform target = TutorialFocusTarget.FindRect(id);
             if (target == null) return;
             ScrollRect scroll = target.GetComponentInParent<ScrollRect>();
-            if (scroll != null && scroll.content != null && scroll.vertical)
+            if (scroll != null && scroll.content != null && scroll.vertical && target.IsChildOf(scroll.content))
             {
                 Canvas.ForceUpdateCanvases();
                 RectTransform viewport = scroll.viewport != null ? scroll.viewport : scroll.transform as RectTransform;
@@ -593,6 +554,13 @@ namespace Farm2Shelf.UI
                         scroll.StopMovement();
                         float destination = Mathf.Clamp01(scroll.verticalNormalizedPosition - delta / hidden);
                         scroll.verticalNormalizedPosition = Mathf.MoveTowards(scroll.verticalNormalizedPosition, destination, .24f);
+                    }
+                    // While the target is still clipped, allow dragging the visible list.
+                    bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(viewport, target);
+                    if (bounds.min.y < viewport.rect.yMin - .5f || bounds.max.y > viewport.rect.yMax + .5f)
+                    {
+                        into.Add(viewport);
+                        return;
                     }
                 }
             }
@@ -785,7 +753,7 @@ namespace Farm2Shelf.UI
                     return;
                 }
                 FocusRecruitment(into, farmers + phone.GetPendingRecruitmentCount(1, StaffRole.Çiftçi) < 2
-                    ? "hire_farmer" : "hire_confirm_1");
+                    ? "hire_role_Çiftçi" : "hire_confirm_1");
                 return;
             }
             if (phone.ActiveFarmTab != 3)
@@ -798,153 +766,10 @@ namespace Farm2Shelf.UI
 
         private void ResolveCoachLine(out string key, out string tr, out string en)
         {
-            TutorialManager tm = TutorialManager.Instance;
-            key = "idle";
-            tr = "İşte böyle evlat. Sol alttaki listeye bak, parlayan yere dokun.";
-            en = "That's it, kid. Watch the list on the bottom-left and tap the bright spot.";
-            if (tm == null) return;
-
-            switch (tm.CurrentStep)
-            {
-                case TutorialStep.Step1_CameraControls:
-                    key = "s1";
-                    tr = "Önce haritayı tanı. Kaydır, yakınlaştır, döndür. Tabeladaki sloganı okuyana kadar gez — başka bir şeye bakmana gerek yok.";
-                    en = "Learn the map first. Pan, zoom, rotate. Move until you can read the slogan on your sign — nothing else matters yet.";
-                    break;
-                case TutorialStep.Step2_ExploreTabletApps:
-                    if (!TabletOpen)
-                    {
-                        key = "s2_phone";
-                        tr = "Sağ alttaki parlayan EKT TABLET'e dokun. İşletmenin beyni orada.";
-                        en = "Tap the glowing EKT TABLET at the bottom-right. That's HQ.";
-                    }
-                    else if (tm.ExploredAppsCount < 7)
-                    {
-                        key = "s2_apps";
-                        tr = "Yedi uygulamayı tek tek aç: Mağaza, Çiftlik, Alışveriş, Finans, Sosyal, Atölye, Online Market. Yalnızca parlayan ikonlar açık.";
-                        en = "Open all seven apps: Store, Farm, Shopping, Finance, Social, Workshop, Online Market. Only the glowing icons work.";
-                    }
-                    else
-                    {
-                        key = "s2_ctr";
-                        tr = "Online Market'te Kontratlar sekmesine gir. Bir teklife Sıraya Al de. Motor yoksa bile sıraya almak yeter.";
-                        en = "In Online Market open Contracts. Tap Queue It on one offer. No bike yet is fine — queuing is the lesson.";
-                    }
-                    break;
-                case TutorialStep.Step3_HireStoreStaffAndCallEarly:
-                    EKTPhoneManager storePhone = EKTPhoneManager.Instance;
-                    int cashHired = tm.GetStoreRoleCount(StaffRole.Kasiyer);
-                    int restHired = tm.GetStoreRoleCount(StaffRole.Reyoncu);
-                    int cashPending = storePhone != null ? storePhone.GetPendingRecruitmentCount(0, StaffRole.Kasiyer) : 0;
-                    int restPending = storePhone != null ? storePhone.GetPendingRecruitmentCount(0, StaffRole.Reyoncu) : 0;
-                    if (cashHired + cashPending < 2)
-                    {
-                        key = "s3_cash_select_" + cashHired;
-                        tr = $"Mağaza → İşe Alım. Kasiyer kartındaki İşe Al butonuyla {Mathf.Max(0, 2 - cashHired)} kasiyer seç. Butondaki sayı seçtiğin adedi gösterir. Ardından reyoncuları seçeceğiz.";
-                        en = $"Store → Hire. Use Hire on the cashier card to select {Mathf.Max(0, 2 - cashHired)} cashiers. The number on the button shows your selection. Next, we will select restockers.";
-                    }
-                    else if (restHired + restPending < 2)
-                    {
-                        key = "s3_rest_select_" + restHired;
-                        tr = $"Şimdi reyoncu kartındaki İşe Al butonuyla {Mathf.Max(0, 2 - restHired)} reyoncu seç. Seçimleri bitirince aşağıdaki Onayla butonuna geçeceğiz.";
-                        en = $"Now use Hire on the restocker card to select {Mathf.Max(0, 2 - restHired)} restockers. Once selected, we will move down to Confirm.";
-                    }
-                    else if (cashHired < 2 || restHired < 2)
-                    {
-                        key = "s3_confirm_selection";
-                        tr = "Personel seçimlerin hazır. Ekran aşağı kayıyor. Parlayan Onayla butonuna bas; seçtiğin personeller o zaman işe alınacak.";
-                        en = "Your staff selection is ready. The list is scrolling down. Tap the highlighted Confirm button to hire the selected staff.";
-                    }
-                    else
-                    {
-                        key = "s3_early";
-                        tr = "Vardiyalar sekmesine geç. Sabah vardiyalı bir reyoncuya Erken Çağır de. Vardiya da burada ayarlanır.";
-                        en = "Open Shifts. Tap Call Early on a morning restocker. Shifts are set on this tab too.";
-                    }
-                    break;
-                case TutorialStep.Step4_AssignStoreShifts:
-                    key = "s4";
-                    tr = "Mağaza → Vardiyalar. Birini sabaha (08–16), birini akşama (16–24) koy. Gece defteri boş vardiyayı affetmez.";
-                    en = "Store → Shifts. Put someone on morning (08–16) and evening (16–24). The night ledger won't forgive empty shifts.";
-                    break;
-                case TutorialStep.Step5_BuyInitialFurniture:
-                    key = "s5";
-                    tr = "Alışveriş → Mobilyalar. 3 reyon, 1 sepet, 3 depo rafı, 1 kasa, 2 buzdolabı. Sepete koy, öde.";
-                    en = "Shopping → Furniture. 3 shelves, 1 cart stand, 3 storage racks, 1 register, 2 fridges. Add and checkout.";
-                    break;
-                case TutorialStep.Step6_UnpackAndPlaceFurniture:
-                    if (TabletOpen)
-                    {
-                        key = "s6_close_tablet";
-                        tr = "Şimdi mobilyaları kuracağız. Parlayan çarpıya basıp tableti kapat.";
-                        en = "Now we will place the furniture. Tap the highlighted X to close the tablet.";
-                    }
-                    else if (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing)
-                    {
-                        key = "s6_place_item";
-                        tr = "Önizlemeyi uygun zemine taşı. Alttaki oklarla hizala, gerekirse Döndür. Yeşil olduğunda Kur'a bas. Sonra kalan mobilyalar için palete döneceğiz.";
-                        en = "Move the preview onto suitable ground. Use the arrows below to adjust it and Rotate if needed. Tap Assemble when it is green. Then return to the pallet for the remaining furniture.";
-                    }
-                    else if (PalletStorageInventoryModalUI.IsModalOpen)
-                    {
-                        key = "s6_choose_item";
-                        tr = "Bu listede satın aldığın mobilyalar var. Kurmak istediğinin Kur butonuna bas. Diğer ürünler için listeyi kaydırabilirsin.";
-                        en = "This list contains your purchased furniture. Tap Assemble on the item you want to place. Scroll to see the other items.";
-                    }
-                    else
-                    {
-                        key = "s6_open_pallet";
-                        tr = "Mal kabul yanındaki aydınlık teslimat paletine dokun. Satın aldığın mobilyalar orada. En az 8 parçayı birlikte kuracağız.";
-                        en = "Tap the highlighted delivery pallet beside Goods Receipt. Your purchased furniture is there. We will place at least 8 pieces together.";
-                    }
-                    break;
-                case TutorialStep.Step7_PlaceWholesaleBulkOrder:
-                    if (!tm.DidPlaceBulkOrder)
-                    {
-                        key = "s7_bulk";
-                        tr = "Alışveriş'teki yeşil Toplu Sipariş'e bas. Mavi kamyon toptan getirir.";
-                        en = "Tap green Bulk Order in Shopping. The blue truck brings wholesale lots.";
-                    }
-                    else
-                    {
-                        key = "s7_rows";
-                        tr = "Bir reyonun ve bir buzdolabının 4 sırasına ürün ata. Rafta nereden geldiği yazar.";
-                        en = "Assign products to all 4 rows of one shelf and one fridge. The shelf shows where it came from.";
-                    }
-                    break;
-                case TutorialStep.Step8_HireFarmStaffAndShifts:
-                    int farmHired = tm.GetFarmRoleCount(StaffRole.Çiftçi);
-                    int farmPending = EKTPhoneManager.Instance != null ? EKTPhoneManager.Instance.GetPendingRecruitmentCount(1, StaffRole.Çiftçi) : 0;
-                    if (farmHired + farmPending < 2)
-                    {
-                        key = "s8_select_" + farmHired;
-                        tr = $"Çiftlik → İşe Alım. İşe Al butonuyla {Mathf.Max(0, 2 - farmHired)} çiftçi seç. Seçilen adet butonda görünür; ardından Onayla butonuna geçeceğiz.";
-                        en = $"Farm → Hire. Use Hire to select {Mathf.Max(0, 2 - farmHired)} farmers. The button shows the selected quantity; next, we will move to Confirm.";
-                    }
-                    else if (farmHired < 2)
-                    {
-                        key = "s8_confirm_selection";
-                        tr = "Çiftçi seçimlerin hazır. Parlayan Onayla butonuna basarak işe alımı tamamla. Sonra vardiyalarını ayarlayacağız.";
-                        en = "Your farmer selection is ready. Tap the highlighted Confirm button to hire them. Next, we will set their shifts.";
-                    }
-                    else
-                    {
-                        key = "s8_sh";
-                        tr = "Çiftlik → Vardiyalar. Birini sabaha, birini akşama koy.";
-                        en = "Farm → Shifts. Morning for one, evening for the other.";
-                    }
-                    break;
-                case TutorialStep.Step9_BuyStartingSeeds:
-                    key = "s9";
-                    tr = "Alışveriş → Tohumlar. Domates, salatalık, marul — birer paket. Mevsim dışı ekilmez.";
-                    en = "Shopping → Seeds. Tomato, cucumber, lettuce — one pack each. Out-of-season plots refuse them.";
-                    break;
-                case TutorialStep.Step10_PlantSeedsAndOpenStore:
-                    key = "s10";
-                    tr = "Sağdaki boş tarlaya dokun, ek. Sonra HUD'daki Dükkan Kapalı ile kapıyı aç. Markan hazır.";
-                    en = "Tap an empty plot on the right and plant. Then tap Store Closed on the HUD to open. Your brand is ready.";
-                    break;
-            }
+            var tm = TutorialManager.Instance;
+            key = tm != null ? "journey_" + tm.JourneyStep + "_" + tm.TourStop : "idle";
+            if (tm != null && tm.JourneyStep == 7 && tm.SeedsPlanted && !tm.PlantingFinished) key += "_finish_planting";
+            tr = en = tm != null ? (tm.JourneyStep == 9 ? TourSpeech(tm.TourStop) : tm.JourneyInstruction(tm.JourneyStep)) : "";
         }
     }
 }

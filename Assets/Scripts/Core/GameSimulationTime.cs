@@ -7,7 +7,7 @@ namespace Farm2Shelf.Core
     public static class GameSimulationTime
     {
         [Flags]
-        public enum PauseReason { Intro = 1, MainMenu = 2, PauseMenu = 4, GameOver = 8 }
+        public enum PauseReason { Intro = 1, MainMenu = 2, PauseMenu = 4, GameOver = 8, Welcome = 16 }
 
         private static PauseReason pauses;
         public static int Speed { get; private set; } = 1;

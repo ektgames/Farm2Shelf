@@ -97,6 +97,8 @@ namespace Farm2Shelf.Core
                 saveTimestamp = DateTime.Now.ToString("dd.MM.yyyy - HH:mm")
             };
 
+            saveData.railFreight = RailFreightSales.Capture();
+
             // 1. EKONOMİ VE BAKİYE
             if (EconomyManager.Instance != null)
             {
@@ -117,6 +119,11 @@ namespace Farm2Shelf.Core
                 saveData.wallColorG = wallC.g;
                 saveData.wallColorB = wallC.b;
                 saveData.wallColorA = wallC.a;
+                Color exteriorC = EnvironmentBuilder.Instance.CurrentExteriorWallColor;
+                saveData.hasExteriorWallColor = true;
+                saveData.exteriorWallR = exteriorC.r;
+                saveData.exteriorWallG = exteriorC.g;
+                saveData.exteriorWallB = exteriorC.b;
 
                 Color floorC = EnvironmentBuilder.Instance.CurrentFloorColor;
                 saveData.floorColorR = floorC.r;
@@ -506,6 +513,7 @@ namespace Farm2Shelf.Core
             if (TutorialManager.Instance != null)
             {
                 saveData.tutorialStep = TutorialManager.Instance.CurrentStep.ToString();
+                saveData.tutorialJourney = TutorialManager.Instance.CaptureJourney();
             }
 
             if (SeasonalInspectorManager.Instance != null)
@@ -568,6 +576,9 @@ namespace Farm2Shelf.Core
                 return false;
             }
 
+            RailwayFreightModalUI.Close();
+            RailFreightSales.Restore(saveData.railFreight);
+
             // 1. Zamanı Sıfırla ve Başlat
             GameSimulationTime.BeginSession();
 
@@ -592,6 +603,9 @@ namespace Farm2Shelf.Core
 
                 Color wallC = new Color(saveData.wallColorR, saveData.wallColorG, saveData.wallColorB, saveData.wallColorA);
                 EnvironmentBuilder.Instance.ApplyWallColor(wallC);
+                EnvironmentBuilder.Instance.ApplyExteriorWallColor(saveData.hasExteriorWallColor
+                    ? new Color(saveData.exteriorWallR, saveData.exteriorWallG, saveData.exteriorWallB)
+                    : wallC); // Legacy paint covered both sides; preserve that appearance.
 
                 Color floorC = new Color(saveData.floorColorR, saveData.floorColorG, saveData.floorColorB, saveData.floorColorA);
                 EnvironmentBuilder.Instance.ApplyFloorStyle(floorC);
@@ -983,6 +997,11 @@ namespace Farm2Shelf.Core
             {
                 if (Enum.TryParse<TutorialStep>(saveData.tutorialStep, out TutorialStep step))
                 {
+                    TutorialManager.Instance.RestoreJourney(saveData.tutorialJourney);
+                    // Old step numbers describe different quests. Resume legacy active
+                    // tutorials at the unchanged camera task, never at an unrelated quest.
+                    if (saveData.tutorialJourney == null && step != TutorialStep.None && step != TutorialStep.Completed)
+                        step = TutorialStep.Step1_CameraControls;
                     TutorialManager.Instance.RestoreTutorialStep(step);
                 }
             }
@@ -1055,6 +1074,8 @@ namespace Farm2Shelf.Core
             BeginNewUnsavedSession();
             GameSimulationTime.BeginSession();
 
+            RailwayFreightModalUI.Close();
+            RailFreightSales.Reset();
             StoreStatusManager.Instance?.RestoreStoreStatus(false);
             CustomerShoppingManager.Instance?.ClearAllCustomers();
             StaffVisualManager.Instance?.ClearAllStaffModels();
@@ -1111,6 +1132,7 @@ namespace Farm2Shelf.Core
             {
                 EnvironmentBuilder.Instance.UpgradeStoreToLevel(1);
                 EnvironmentBuilder.Instance.ApplyWallColor(new Color(0.12f, 0.14f, 0.17f, 1f));
+                EnvironmentBuilder.Instance.ApplyExteriorWallColor(new Color(.57f, .55f, .51f));
                 EnvironmentBuilder.Instance.ApplyFloorStyle(new Color(0.85f, 0.72f, 0.53f, 1f));
             }
             WorkshopManager.Instance?.SetWorkshopLevel(1);

@@ -500,13 +500,17 @@ namespace Farm2Shelf.Environment
         public static Vector3 GetCashierStaffPosition(Transform cashier)
         {
             Transform marker = cashier.Find("CashierVisual/StaffStand");
-            return marker != null ? marker.position : cashier.TransformPoint(new Vector3(0f, 0.05f, 0.85f));
+            Vector3 local = marker != null ? cashier.InverseTransformPoint(marker.position) : new Vector3(0f, 0.05f, 0.9f);
+            local.z = Mathf.Max(local.z, 0.9f);
+            return cashier.TransformPoint(local);
         }
 
         public static Vector3 GetCashierCustomerPosition(Transform cashier)
         {
             Transform marker = cashier.Find("CashierVisual/CustomerStand");
-            return marker != null ? marker.position : cashier.TransformPoint(new Vector3(0f, 0.05f, -0.75f));
+            Vector3 local = marker != null ? cashier.InverseTransformPoint(marker.position) : new Vector3(0f, 0.05f, -0.9f);
+            local.z = Mathf.Min(local.z, -0.9f);
+            return cashier.TransformPoint(local);
         }
 
         private static void BuildLegacyCashierCounter(GameObject parent, bool showArrow = true)

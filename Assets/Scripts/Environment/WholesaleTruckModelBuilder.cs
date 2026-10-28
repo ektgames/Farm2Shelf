@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 namespace Farm2Shelf.Environment
@@ -39,22 +39,47 @@ namespace Farm2Shelf.Environment
             // 1. ŞASİ & TABAN (Chassis Frame: 1.6m G x 0.22m Y x 4.6m D)
             CreatePrimitive(truckRoot, "Chassis", PrimitiveType.Cube, new Vector3(0f, 0.42f, 0f), new Vector3(1.6f, 0.22f, 4.6f), chassisMat);
 
-            // 2. KAPALI KASA (Cargo Box: 1.75m G x 1.8m Y x 3.4m D - 3.0m Yol şeridine tam ölçekli!)
-            CreatePrimitive(truckRoot, "CargoBox", PrimitiveType.Cube, new Vector3(0f, 1.45f, -0.5f), new Vector3(1.75f, 1.8f, 3.4f), boxMat);
-            
-            // Kasa Yan Dekoratif Turuncu Şeritleri (Kasa boyuyla hizada)
-            CreatePrimitive(truckRoot, "Stripe_L", PrimitiveType.Cube, new Vector3(-0.88f, 1.45f, -0.5f), new Vector3(0.03f, 0.28f, 3.35f), boxStripeMat);
-            CreatePrimitive(truckRoot, "Stripe_R", PrimitiveType.Cube, new Vector3(0.88f, 1.45f, -0.5f), new Vector3(0.03f, 0.28f, 3.35f), boxStripeMat);
-
-            // Arka Çift Kapı Grubu (Rear Doors)
-            GameObject rearDoorGroup = new GameObject("Rear_Door_Group");
+            // Hollow cargo body: both openings reveal the load instead of a solid cube.
+            CreatePrimitive(truckRoot, "Cargo_Floor", PrimitiveType.Cube, new Vector3(0f,.59f,-.5f), new Vector3(1.75f,.12f,3.4f), chassisMat);
+            CreatePrimitive(truckRoot, "Cargo_Roof", PrimitiveType.Cube, new Vector3(0f,2.32f,-.5f), new Vector3(1.75f,.08f,3.4f), boxMat);
+            CreatePrimitive(truckRoot, "Cargo_Front", PrimitiveType.Cube, new Vector3(0f,1.45f,1.16f), new Vector3(1.75f,1.8f,.08f), boxMat);
+            CreatePrimitive(truckRoot, "Cargo_Right", PrimitiveType.Cube, new Vector3(.84f,1.45f,-.5f), new Vector3(.07f,1.8f,3.4f), boxMat);
+            CreatePrimitive(truckRoot, "Stripe_R", PrimitiveType.Cube, new Vector3(.88f,1.45f,-.5f), new Vector3(.03f,.28f,3.35f), boxStripeMat);
+            // Left opening spans local Z -1.3 .. .3; its hatch lifts above the worker.
+            CreatePrimitive(truckRoot, "Cargo_Left_Rear", PrimitiveType.Cube, new Vector3(-.84f,1.45f,-1.75f), new Vector3(.07f,1.8f,.9f), boxMat);
+            CreatePrimitive(truckRoot, "Cargo_Left_Front", PrimitiveType.Cube, new Vector3(-.84f,1.45f,.75f), new Vector3(.07f,1.8f,.9f), boxMat);
+            GameObject rearDoorGroup = new GameObject("Cargo_Doors");
             rearDoorGroup.transform.SetParent(truckRoot.transform, false);
-            rearDoorGroup.transform.localPosition = new Vector3(0f, 1.45f, -2.21f);
             rearDoors = rearDoorGroup.transform;
-
-            CreatePrimitive(rearDoorGroup, "Door_L", PrimitiveType.Cube, new Vector3(-0.41f, 0f, 0f), new Vector3(0.80f, 1.68f, 0.04f), doorMetalMat);
-            CreatePrimitive(rearDoorGroup, "Door_R", PrimitiveType.Cube, new Vector3(0.41f, 0f, 0f), new Vector3(0.80f, 1.68f, 0.04f), doorMetalMat);
-            CreatePrimitive(rearDoorGroup, "LockHandle", PrimitiveType.Cube, new Vector3(0f, 0f, -0.03f), new Vector3(0.06f, 0.5f, 0.03f), chromeMat);
+            var doors = rearDoorGroup.AddComponent<DeliveryCargoDoors>();
+            Transform Hinge(string name, Vector3 position)
+            {
+                var hinge = new GameObject(name).transform;
+                hinge.SetParent(rearDoorGroup.transform, false);
+                hinge.localPosition = position;
+                return hinge;
+            }
+            doors.left = Hinge("Rear_Left_Hinge", new Vector3(-.84f,1.45f,-2.21f));
+            doors.right = Hinge("Rear_Right_Hinge", new Vector3(.84f,1.45f,-2.21f));
+            doors.side = Hinge("Left_Side_Hinge", new Vector3(-.88f,2.28f,-.5f));
+            foreach (var hinge in new[] { doors.left, doors.right })
+            {
+                float offset = hinge == doors.left ? .41f : -.41f;
+                CreatePrimitive(hinge.gameObject, "Rear_Panel", PrimitiveType.Cube, new Vector3(offset,0f,0f), new Vector3(.82f,1.66f,.06f), boxMat);
+                CreatePrimitive(hinge.gameObject, "Lock_Rod", PrimitiveType.Cube, new Vector3(offset,0f,-.05f), new Vector3(.035f,1.48f,.035f), chromeMat);
+                CreatePrimitive(hinge.gameObject, "Handle", PrimitiveType.Cube, new Vector3(offset,-.1f,-.08f), new Vector3(.18f,.045f,.045f), doorMetalMat);
+            }
+            CreatePrimitive(doors.side.gameObject, "Side_Hatch", PrimitiveType.Cube, new Vector3(0f,-.81f,0f), new Vector3(.07f,1.62f,1.6f), boxMat);
+            CreatePrimitive(doors.side.gameObject, "Side_Stripe", PrimitiveType.Cube, new Vector3(-.045f,-.83f,0f), new Vector3(.025f,.28f,1.58f), boxStripeMat);
+            CreatePrimitive(doors.side.gameObject, "Side_Handle", PrimitiveType.Cube, new Vector3(-.07f,-1.46f,0f), new Vector3(.05f,.05f,.28f), chromeMat);
+            CreatePrimitive(truckRoot, "Side_Sill", PrimitiveType.Cube, new Vector3(-.88f,.64f,-.5f), new Vector3(.12f,.08f,1.65f), chromeMat);
+            Material cargoMat = CreateMaterial("Cargo_Cardboard", new Color(.64f,.43f,.24f));
+            for (int i=0; i<4; i++)
+            {
+                Vector3 pos = new Vector3(.28f,.91f,-1.65f+i*.7f);
+                CreatePrimitive(truckRoot, "Cargo_Crate_"+i, PrimitiveType.Cube, pos, new Vector3(.75f,.5f,.6f), cargoMat);
+                CreatePrimitive(truckRoot, "Cargo_Tape_"+i, PrimitiveType.Cube, pos+Vector3.up*.255f, new Vector3(.1f,.015f,.6f), boxMat);
+            }
 
             // 3. LOW-POLY KABİN (Driver Cab: 1.65m G x 1.3m Y x 1.2m D)
             CreatePrimitive(truckRoot, "CabMain", PrimitiveType.Cube, new Vector3(0f, 1.25f, 1.6f), new Vector3(1.65f, 1.3f, 1.2f), cabMat);
@@ -203,4 +228,24 @@ namespace Farm2Shelf.Environment
             return mat;
         }
     }
+    // Shared by the wholesale and farm trucks. Visual hinges never obstruct pedestrians.
+    public sealed class DeliveryCargoDoors : MonoBehaviour
+    {
+        public Transform left, right, side;
+        public bool Open;
+        float amount;
+        void Update()
+        {
+            amount = Mathf.MoveTowards(amount, Open ? 1f : 0f, Time.deltaTime / .8f);
+            float t = Mathf.SmoothStep(0f, 1f, amount);
+            if (left != null) left.localRotation = Quaternion.Euler(0f, 110f*t, 0f);
+            if (right != null) right.localRotation = Quaternion.Euler(0f, -110f*t, 0f);
+            if (side != null) side.localRotation = Quaternion.Euler(0f, 0f, -100f*t);
+        }
+        public static void SetOpen(Transform group, bool open)
+        {
+            if (group != null && group.TryGetComponent<DeliveryCargoDoors>(out var doors)) doors.Open = open;
+        }
+    }
+
 }

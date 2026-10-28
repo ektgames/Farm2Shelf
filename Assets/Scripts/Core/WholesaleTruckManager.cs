@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Farm2Shelf.UI;
@@ -124,6 +124,19 @@ namespace Farm2Shelf.Core
 
             ProductPassportService.CapturePackageLots(data, remaining, originalDeliveryPackages);
             return data;
+        }
+
+        private void RecoverGridlockedTruck()
+        {
+            var saved=CreateSaveSnapshot();if(saved==null)return;
+            StopAllCoroutines();IsTruckAtDockWaitingForUnload=false;
+            if(activeTruck!=null){activeTruck.SetActive(false);Destroy(activeTruck);activeTruck=null;}
+            bool outbound=currentPhase>DeliveryTruckPhase.Unloading;
+            var point=outbound?new Vector3(-335f,.05f,-7.5f):DeliveryTruckVisuals.StartPos;
+            saved.phase=(outbound?DeliveryTruckPhase.Departing:DeliveryTruckPhase.Approaching).ToString();
+            saved.posX=point.x;saved.posY=point.y;saved.posZ=point.z;
+            saved.rotX=0;saved.rotY=270;saved.rotZ=0;
+            RestoreFromSave(saved);
         }
 
         public void RestoreFromSave(DeliveryTruckSaveData data)
@@ -348,6 +361,10 @@ namespace Farm2Shelf.Core
 
             truckObj.transform.position = spawnPos;
             truckObj.transform.rotation = spawnRot;
+            var roadAgent = Farm2Shelf.Environment.RoadTrafficAgent.Register(truckObj.transform);
+            roadAgent.OnGridlock=RecoverGridlockedTruck;
+            while (truckObj != null && roadAgent.Pending) yield return null;
+            if (truckObj == null) yield break;
 
             float driveSpeed = 10.5f;
             float turnSpeed = 8.5f;
@@ -369,11 +386,11 @@ namespace Farm2Shelf.Core
                         targetLimit = CityTrafficManager.Instance.GetSpeedLimitInFront(truckObj.transform.position, Vector3.left, 16.0f, driveSpeed);
                     }
                     truckCurrentSpeed = Mathf.MoveTowards(truckCurrentSpeed, targetLimit, 9.0f * Time.deltaTime);
-                    truckObj.transform.position = Vector3.MoveTowards(truckObj.transform.position, junctionPos, truckCurrentSpeed * Time.deltaTime);
+                    truckObj.transform.position = Farm2Shelf.Environment.RoadTrafficAgent.Move(truckObj.transform, Vector3.MoveTowards(truckObj.transform.position, junctionPos, truckCurrentSpeed * Time.deltaTime));
                     RotateWheels(wheels, (truckCurrentSpeed / driveSpeed) * wheelRotateSpeed * Time.deltaTime);
                     yield return null;
                 }
-                if (truckObj != null) truckObj.transform.position = junctionPos;
+                if (truckObj != null) truckObj.transform.position = Farm2Shelf.Environment.RoadTrafficAgent.Move(truckObj.transform, junctionPos);
                 phase = DeliveryTruckPhase.TurningToDock;
             }
 
@@ -383,7 +400,7 @@ namespace Farm2Shelf.Core
                 Quaternion targetRotNorth = DeliveryTruckVisuals.FacingNorth;
                 while (truckObj != null && Quaternion.Angle(truckObj.transform.rotation, targetRotNorth) > 2f)
                 {
-                    truckObj.transform.rotation = Quaternion.Slerp(truckObj.transform.rotation, targetRotNorth, 12f * Time.deltaTime);
+                    truckObj.transform.rotation = Farm2Shelf.Environment.RoadTrafficAgent.Rotate(truckObj.transform, Quaternion.Slerp(truckObj.transform.rotation, targetRotNorth, 12f * Time.deltaTime));
                     yield return null;
                 }
                 if (truckObj != null) truckObj.transform.rotation = targetRotNorth;
@@ -395,18 +412,18 @@ namespace Farm2Shelf.Core
                 currentPhase = DeliveryTruckPhase.EnteringDock;
                 while (truckObj != null && Vector3.Distance(truckObj.transform.position, dockPos) > 0.2f)
                 {
-                    truckObj.transform.position = Vector3.MoveTowards(truckObj.transform.position, dockPos, turnSpeed * Time.deltaTime);
+                    truckObj.transform.position = Farm2Shelf.Environment.RoadTrafficAgent.Move(truckObj.transform, Vector3.MoveTowards(truckObj.transform.position, dockPos, turnSpeed * Time.deltaTime));
                     RotateWheels(wheels, wheelRotateSpeed * Time.deltaTime);
                     yield return null;
                 }
-                if (truckObj != null) truckObj.transform.position = dockPos;
+                if (truckObj != null) truckObj.transform.position = Farm2Shelf.Environment.RoadTrafficAgent.Move(truckObj.transform, dockPos);
                 phase = DeliveryTruckPhase.Unloading;
             }
 
             if (phase <= DeliveryTruckPhase.Unloading)
             {
                 currentPhase = DeliveryTruckPhase.Unloading;
-                if (rearDoors != null) rearDoors.localRotation = Quaternion.Euler(0f, 35f, 0f);
+                DeliveryCargoDoors.SetOpen(rearDoors, true);
                 if (PendingTruckPackages == null || PendingTruckPackages.Count == 0)
                 {
                     PendingTruckPackages = remainingPackages != null
@@ -446,7 +463,7 @@ namespace Farm2Shelf.Core
                 yield return new WaitForSeconds(3.0f);
                 if (statusTextObj != null) Destroy(statusTextObj);
                 statusTextObj = null;
-                if (rearDoors != null) rearDoors.localRotation = Quaternion.identity;
+                DeliveryCargoDoors.SetOpen(rearDoors, false);
                 yield return new WaitForSeconds(1.2f);
                 phase = DeliveryTruckPhase.LeavingDock;
             }
@@ -454,15 +471,15 @@ namespace Farm2Shelf.Core
             if (phase <= DeliveryTruckPhase.LeavingDock)
             {
                 currentPhase = DeliveryTruckPhase.LeavingDock;
-                if (rearDoors != null) rearDoors.localRotation = Quaternion.identity;
+                DeliveryCargoDoors.SetOpen(rearDoors, false);
                 if (statusTextObj != null) Destroy(statusTextObj);
                 while (truckObj != null && Vector3.Distance(truckObj.transform.position, junctionPos) > 0.3f)
                 {
-                    truckObj.transform.position = Vector3.MoveTowards(truckObj.transform.position, junctionPos, (turnSpeed * 0.7f) * Time.deltaTime);
+                    truckObj.transform.position = Farm2Shelf.Environment.RoadTrafficAgent.Move(truckObj.transform, Vector3.MoveTowards(truckObj.transform.position, junctionPos, (turnSpeed * 0.7f) * Time.deltaTime));
                     RotateWheels(wheels, -wheelRotateSpeed * Time.deltaTime);
                     yield return null;
                 }
-                if (truckObj != null) truckObj.transform.position = junctionPos;
+                if (truckObj != null) truckObj.transform.position = Farm2Shelf.Environment.RoadTrafficAgent.Move(truckObj.transform, junctionPos);
                 phase = DeliveryTruckPhase.TurningToDepart;
             }
 
@@ -472,7 +489,7 @@ namespace Farm2Shelf.Core
                 Quaternion targetRotWest = DeliveryTruckVisuals.FacingWest;
                 while (truckObj != null && Quaternion.Angle(truckObj.transform.rotation, targetRotWest) > 2f)
                 {
-                    truckObj.transform.rotation = Quaternion.Slerp(truckObj.transform.rotation, targetRotWest, 12f * Time.deltaTime);
+                    truckObj.transform.rotation = Farm2Shelf.Environment.RoadTrafficAgent.Rotate(truckObj.transform, Quaternion.Slerp(truckObj.transform.rotation, targetRotWest, 12f * Time.deltaTime));
                     yield return null;
                 }
                 if (truckObj != null) truckObj.transform.rotation = targetRotWest;
@@ -500,8 +517,8 @@ namespace Farm2Shelf.Core
                     nextPos.y = bridgeY;
                     Vector3 tangentDir = new Vector3(-1f, slopeY * -1f, 0f).normalized;
                     Quaternion targetRot = Quaternion.LookRotation(tangentDir, Vector3.up);
-                    truckObj.transform.rotation = Quaternion.RotateTowards(truckObj.transform.rotation, targetRot, 360f * Time.deltaTime);
-                    truckObj.transform.position = nextPos;
+                    truckObj.transform.rotation = Farm2Shelf.Environment.RoadTrafficAgent.Rotate(truckObj.transform, Quaternion.RotateTowards(truckObj.transform.rotation, targetRot, 360f * Time.deltaTime));
+                    truckObj.transform.position = Farm2Shelf.Environment.RoadTrafficAgent.Move(truckObj.transform, nextPos);
                     RotateWheels(wheels, (truckCurrentSpeed / driveSpeed) * wheelRotateSpeed * Time.deltaTime);
                     yield return null;
                 }

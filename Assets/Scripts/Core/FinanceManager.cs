@@ -38,6 +38,7 @@ namespace Farm2Shelf.Core
         public const string Sales = "Satış";
         public const string Salary = "Maaş";
         public const string Farm = "Tohum/Çiftlik";
+        public const string RailSales = "Tren Satışı";
         public const string Wholesale = "Toptan/Alışveriş";
         public const string Furniture = "Mobilya";
         public const string Animals = "Hayvan";
@@ -65,6 +66,7 @@ namespace Farm2Shelf.Core
             {
                 case Sales: return LocalizationManager.L("TrxCat_Sales", "Satış", "Sales");
                 case Salary: return LocalizationManager.L("TrxCat_Salary", "Maaş", "Salary");
+                case RailSales: return LocalizationManager.L("TrxCat_RailSales", "Tren Satışı", "Train Sales");
                 case Farm: return LocalizationManager.L("TrxCat_Farm", "Tohum/Çiftlik", "Seeds/Farm");
                 case Wholesale: return LocalizationManager.L("TrxCat_Wholesale", "Toptan/Alışveriş", "Wholesale/Shopping");
                 case Furniture: return LocalizationManager.L("TrxCat_Furniture", "Mobilya", "Furniture");

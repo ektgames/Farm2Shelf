@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using Farm2Shelf.Core;
@@ -196,6 +196,7 @@ namespace Farm2Shelf.UI
 
             // --- 8. SAĞ ÜST PAUSE DURAKLATMA BUTONU ---
             CreatePauseButtonWidget(canvasObj.transform);
+            StoreWallViewButtons.Create(canvasObj.transform);
 
             // --- 8. SAĞ ALT EKT PHONE TABLET BUTONU ---
             EKTPhoneManager phoneMgr = GetComponent<EKTPhoneManager>() ?? EKTPhoneManager.Instance;
@@ -836,6 +837,7 @@ namespace Farm2Shelf.UI
         }
 
         private GameObject lowStockPanelRoot;
+        private Text contractReminderText;
         private Text lowStockListText;
         private float nextStockScanTime = 0f;
 
@@ -870,11 +872,47 @@ namespace Farm2Shelf.UI
             shadow.effectDistance = new Vector2(1.5f, -1.5f);
 
             lowStockPanelRoot.SetActive(false);
+            var reminder=new GameObject("HUD_Contract_Reminder",typeof(RectTransform));
+            reminder.transform.SetParent(canvasObj.transform,false);
+            contractReminderText=reminder.AddComponent<Text>();
+            contractReminderText.font=GetGlobalFont();contractReminderText.fontSize=17;
+            contractReminderText.fontStyle=FontStyle.Bold;contractReminderText.color=new Color(1f,.82f,.26f);
+            contractReminderText.raycastTarget=false;contractReminderText.alignment=TextAnchor.LowerLeft;
+            contractReminderText.horizontalOverflow=HorizontalWrapMode.Wrap;
+            contractReminderText.verticalOverflow=VerticalWrapMode.Truncate;
+            var reminderShadow=reminder.AddComponent<Shadow>();
+            reminderShadow.effectColor=new Color(0,0,0,.95f);reminderShadow.effectDistance=new Vector2(1.5f,-1.5f);
+        }
+
+        private void RefreshContractReminder()
+        {
+            if(contractReminderText==null || lowStockListText==null)return;
+            bool visible=TownContractManager.Instance!=null && TownContractManager.Instance.ShowDailyReminder &&
+                !EndOfDayReportModalUI.IsReportModalOpen && !MainMenuUI.IsMenuVisible;
+            if(contractReminderText.gameObject.activeSelf!=visible)contractReminderText.gameObject.SetActive(visible);
+            if(!visible)return;
+            string label=LocalizationManager.L("HUD_DailyContractReminder",
+                "Kontratları unutma! Online Market > Kontratlar bölümünden bir kontratı sıraya ekle.",
+                "Don't forget contracts! Open Online Market > Contracts and add a contract to the queue.");
+            if(contractReminderText.text!=label)contractReminderText.text=label;
+            var stockRect=lowStockListText.rectTransform;
+            var rect=contractReminderText.rectTransform;
+            rect.anchorMin=rect.anchorMax=new Vector2(0,.5f);rect.pivot=new Vector2(0,0);
+            float canvasWidth=((RectTransform)rect.parent).rect.width;
+            float width=Mathf.Max(120f,Mathf.Min(stockRect.rect.width,canvasWidth-stockRect.anchoredPosition.x-16f));
+            rect.sizeDelta=new Vector2(width,80f);
+            float height=contractReminderText.preferredHeight;
+            float stockHeight=lowStockPanelRoot.activeSelf?Mathf.Min(lowStockListText.preferredHeight,stockRect.rect.height):0;
+            float parentHeight=((RectTransform)rect.parent).rect.height;
+            float y=Mathf.Min(stockHeight*.5f+10f,parentHeight*.5f-height-90f);
+            rect.anchoredPosition=new Vector2(stockRect.anchoredPosition.x,y);
+            rect.sizeDelta=new Vector2(width,height+4f);
         }
 
         private void Update()
         {
             RefreshSpeedControls();
+            RefreshContractReminder();
             if (Time.time >= nextStockScanTime)
             {
                 nextStockScanTime = Time.time + 1.0f;

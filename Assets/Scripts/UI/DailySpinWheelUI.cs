@@ -45,6 +45,8 @@ namespace Farm2Shelf.UI
         private Image iconBg;
         private Text iconBadgeText;
         private bool iconPointerActive;
+        private int iconReleaseFrame=-1;
+        public bool IsIconInteractionActive => iconPointerActive || iconReleaseFrame==Time.frameCount;
         private bool iconDragged;
         private Vector2 iconPressScreen;
         private Vector2 iconLastScreen;
@@ -94,7 +96,7 @@ namespace Farm2Shelf.UI
         private void Update()
         {
             midnightCheckTimer += Time.unscaledDeltaTime;
-            if (midnightCheckTimer < 15f) return;
+            if (midnightCheckTimer < 1f) return;
             midnightCheckTimer = 0f;
             RefreshHudIcon();
             if (IsWheelOpen && !isSpinning)
@@ -105,7 +107,8 @@ namespace Farm2Shelf.UI
 
         private void OnApplicationFocus(bool hasFocus)
         {
-            if (hasFocus) RefreshHudIcon();
+            if(!hasFocus){iconPointerActive=false;iconDragged=false;}
+            else {RefreshHudIcon();if(IsWheelOpen && !isSpinning)RefreshModalState();}
         }
 
         public void AttachToHud(Canvas canvas)
@@ -157,6 +160,9 @@ namespace Farm2Shelf.UI
             Image hitArea = iconObj.AddComponent<Image>();
             hitArea.color = Color.clear;
             hitArea.raycastTarget = true;
+            var inputBlocker=iconObj.AddComponent<Button>();
+            inputBlocker.transition=Selectable.Transition.None;
+            inputBlocker.navigation=new Navigation{mode=Navigation.Mode.None};
 
             GameObject visualObj = new GameObject("WheelVisual");
             visualObj.transform.SetParent(iconObj.transform, false);
@@ -520,7 +526,7 @@ namespace Farm2Shelf.UI
             Image spinBg = spinButton.targetGraphic as Image;
             if (canSpin && !isSpinning)
             {
-                statusText.text = LocalizationManager.L("DailySpin_Ready", "Bugün 1 çevirme hakkın var. Ödül anında kasana eklenir.", "You have 1 spin today. The prize is added to your cash instantly.");
+                statusText.text = LocalizationManager.L("DailySpin_RealCalendarReady", "Her gerçek takvim gününde 1 hak. Yeni hak gece 00:00’da açılır.", "One spin per real calendar day. Resets at local midnight.");
                 spinButton.interactable = true;
                 spinButtonLabel.text = LocalizationManager.L("DailySpin_Spin", "<b>ÇEVİR</b>", "<b>SPIN</b>");
                 if (spinBg != null)
@@ -771,6 +777,7 @@ namespace Farm2Shelf.UI
         {
             if (!iconPointerActive) return;
             iconPointerActive = false;
+            iconReleaseFrame=Time.frameCount;
             ClampIconToCanvas();
             if (iconDragged && iconRect != null)
             {
@@ -787,81 +794,26 @@ namespace Farm2Shelf.UI
 
         private class DailySpinIconDrag : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IBeginDragHandler, IDragHandler, IEndDragHandler
         {
-            private const float DragThresholdPixels = 18f;
-
             private DailySpinWheelUI owner;
-            private RectTransform rect;
-            private Canvas canvas;
-            private bool dragged;
-            private bool pointerHeld;
-            private Vector2 pressScreenPos;
-
-            public void Initialize(DailySpinWheelUI ui, RectTransform target, Canvas hostCanvas)
+            private int pointerId=int.MinValue;
+            public void Initialize(DailySpinWheelUI ui,RectTransform target,Canvas hostCanvas){owner=ui;}
+            public void OnPointerDown(PointerEventData data)
             {
-                owner = ui;
-                rect = target;
-                canvas = hostCanvas;
+                if(owner==null || pointerId!=int.MinValue || data.button!=PointerEventData.InputButton.Left)return;
+                if(owner.TryBeginIconPointer(gameObject,data.position))pointerId=data.pointerId;
             }
-
-            public void OnPointerDown(PointerEventData eventData)
+            public void OnBeginDrag(PointerEventData data){OnDrag(data);}
+            public void OnDrag(PointerEventData data)
             {
-                if (owner != null && owner.iconPointerActive) return;
-                pointerHeld = true;
-                dragged = false;
-                pressScreenPos = eventData.position;
-                if (rect != null)
-                {
-                    rect.SetAsLastSibling();
-                }
+                if(owner!=null && data.pointerId==pointerId)owner.UpdateIconPointer(data.position);
             }
-
-            public void OnBeginDrag(PointerEventData eventData)
+            public void OnPointerUp(PointerEventData data)
             {
-                if (owner != null && owner.iconPointerActive) return;
-                pressScreenPos = eventData.position;
+                if(owner==null || data.pointerId!=pointerId)return;
+                pointerId=int.MinValue;owner.EndIconPointer();
             }
-
-            public void OnDrag(PointerEventData eventData)
-            {
-                if (owner != null && owner.iconPointerActive) return;
-                if (rect == null || canvas == null) return;
-
-                if (!dragged && Vector2.Distance(eventData.position, pressScreenPos) >= DragThresholdPixels)
-                {
-                    dragged = true;
-                }
-
-                if (!dragged) return;
-
-                float scale = canvas.scaleFactor <= 0.01f ? 1f : canvas.scaleFactor;
-                rect.anchoredPosition += eventData.delta / scale;
-                owner?.ClampIconToCanvas();
-            }
-
-            public void OnEndDrag(PointerEventData eventData)
-            {
-                if (owner != null && owner.iconPointerActive) return;
-                owner?.ClampIconToCanvas();
-                if (dragged && rect != null)
-                {
-                    owner?.OnIconPositionChanged(rect.anchoredPosition);
-                    TouchInputHelper.SuppressNextTap();
-                }
-            }
-
-            public void OnPointerUp(PointerEventData eventData)
-            {
-                if (owner != null && owner.iconPointerActive) return;
-                bool wasHeld = pointerHeld;
-                pointerHeld = false;
-                if (!wasHeld || dragged) return;
-                if (eventData.dragging && Vector2.Distance(eventData.position, pressScreenPos) >= DragThresholdPixels)
-                {
-                    return;
-                }
-
-                owner?.OnIconClicked();
-            }
+            public void OnEndDrag(PointerEventData data){OnPointerUp(data);}
+            private void OnDisable(){pointerId=int.MinValue;if(owner!=null){owner.iconPointerActive=false;owner.iconDragged=false;}}
         }
     }
 }

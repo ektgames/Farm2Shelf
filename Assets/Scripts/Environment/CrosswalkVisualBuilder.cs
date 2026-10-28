@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -23,7 +23,7 @@ namespace Farm2Shelf.Environment
             {
                 Create(root,"Ring_North_Approach",new Vector3(x,0,45.5f),true);
                 Create(root,"Ring_Highway_North",new Vector3(x,0,-4.5f),true);
-                Create(root,"Ring_Highway_South",new Vector3(x,0,-13.5f),true);
+                Create(root,"Ring_Highway_South",new Vector3(x,0,-22.5f),true);
                 Create(root,"Ring_South_North",new Vector3(x,0,-50.5f),true);
                 Create(root,"Ring_South_South",new Vector3(x,0,-59.3f),true);
                 Create(root,"South_End_Approach",new Vector3(x,0,-123.7f),true);

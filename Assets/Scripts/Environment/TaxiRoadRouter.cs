@@ -12,8 +12,8 @@ namespace Farm2Shelf.Environment
         private const float Y = 0.05f;
         public const float DriveX = 93.5f;
 
-        private const float HwyE = -10.5f;
-        private const float HwyW = -7.5f;
+        private const float HwyE = MainBoulevard.EastOuter;
+        private const float HwyW = MainBoulevard.WestOuter;
         private const float NorthE = 48.5f;
         private const float NorthW = 51.5f;
         private const float SouthE = -56.5f;
@@ -26,7 +26,7 @@ namespace Farm2Shelf.Environment
         private const float RiverMinX = -106.0f;
         private const float RiverMaxX = -84.0f;
         private const float Step = 4.0f;
-        private const int GraphGen = 8;
+        private const int GraphGen = 10;
 
         private static readonly List<Vector2> nodes = new List<Vector2>(128);
         private static readonly List<List<int>> edges = new List<List<int>>(128);
@@ -38,32 +38,22 @@ namespace Farm2Shelf.Environment
             public float x0, z0, x1, z1;
         }
 
-        public static List<Vector3> BuildRoute(Vector3 from, Vector3 to)
+        public static List<Vector3> BuildRoute(Vector3 from,Vector3 to)
         {
-            EnsureGraph();
-            List<Vector3> pts = new List<Vector3>();
-
-            if (InStandLot(from))
+            var result=new List<Vector3>();bool returning=InStandLot(to);
+            Vector3 destination=returning?new Vector3(92f,Y,38f):CourierRoadNetwork.PublicLaneStop(to);
+            if(InStandLot(from))
             {
-                Add(pts, Flat(from));
-                Add(pts, Flat(new Vector3(DriveX, Y, from.z)));
-                Add(pts, Flat(new Vector3(DriveX, Y, 38f)));
-                from = new Vector3(DriveX, Y, 50f);
+                Add(result,Flat(from));Add(result,new Vector3(from.x,Y,38f));
+                Add(result,new Vector3(95f,Y,38f));from=result[result.Count-1];
             }
-
-            if (InStandLot(to))
+            else from=CourierRoadNetwork.PublicLaneStop(from);
+            foreach(var point in CourierRoadNetwork.BuildRoute(from,destination,true))Add(result,point);
+            if(returning)
             {
-                AppendLanePath(pts, SnapToLane(from), Flat(new Vector3(DriveX, Y, 50f)));
-                Add(pts, Flat(new Vector3(DriveX, Y, 38f)));
-                Add(pts, Flat(new Vector3(to.x, Y, 38f)));
-                Add(pts, Flat(to));
-                return DensifyOnLanes(pts);
+                Add(result,new Vector3(to.x,Y,38f));Add(result,Flat(to));
             }
-
-            Vector3 a = SnapToLane(from);
-            Vector3 b = SnapToLane(to);
-            AppendLanePath(pts, a, b);
-            return DensifyOnLanes(pts);
+            return MainBoulevard.FitBridgeRoute(result);
         }
 
         public static void GetPickupSpots(Vector3 doorstep, out Vector3 sidewalkWait, out Vector3 taxiStop)
@@ -72,11 +62,11 @@ namespace Farm2Shelf.Environment
             if (InStandLot(doorstep))
             {
                 sidewalkWait = new Vector3(90.4f, 0.02f, 20.6f);
-                taxiStop = new Vector3(DriveX, Y, 32.0f);
+                taxiStop = new Vector3(95f,Y,42f);
                 return;
             }
 
-            taxiStop = SnapToLane(doorstep);
+            taxiStop = CourierRoadNetwork.PublicLaneStop(CourierRoadNetwork.RoadsideStop(doorstep));
             Vector3 toward = Flat(doorstep) - taxiStop;
             toward.y = 0f;
             if (toward.sqrMagnitude < 0.36f) toward = new Vector3(0f, 0f, 1f);
@@ -99,7 +89,7 @@ namespace Farm2Shelf.Environment
         public static Vector3 SnapToNearestLane(Vector3 p)
         {
             EnsureGraph();
-            return SnapToLane(p);
+            return CourierRoadNetwork.PublicLaneStop(p);
         }
 
         public static bool IsOnRoad(Vector3 p, float maxDist)
@@ -116,7 +106,7 @@ namespace Farm2Shelf.Environment
         public static bool IsCampusInterior(Vector3 p)
         {
             if (InStandLot(p)) return false;
-            if (p.x >= 11.0f && p.x <= 15.5f) return false;
+            if(p.x>=11f && p.x<=16f && p.z>-3f && p.z<46f)return true;
             if (p.x >= -78.0f && p.x <= -72.0f) return false;
             if (p.x >= 72.0f && p.x <= 78.0f) return false;
             if (Mathf.Abs(p.z - HwyE) <= 3.2f || Mathf.Abs(p.z - HwyW) <= 3.2f) return false;
@@ -161,7 +151,7 @@ namespace Farm2Shelf.Environment
 
         private static void BuildSegments()
         {
-            AddEW(-340f, 180f, -9f);
+            AddEW(-340f, 180f, MainBoulevard.Center);
             AddEW(-230f, -112f, 50f);
             AddEW(-75f, 160f, 50f);
             AddEW(-230f, -112f, 175f);
@@ -177,9 +167,8 @@ namespace Farm2Shelf.Environment
             AddNS(-112f, -128f, 175f);
             AddNS(-75f, -128f, 50f);
             AddNS(-37.5f, 50f, 175f);
-            AddNS(0f, -128f, -9f);
+            AddNS(0f, -128f, -55f);
             AddNS(0f, 50f, 175f);
-            AddNS(13f, -9f, 50f);
             AddNS(37.5f, 50f, 175f);
             AddNS(75f, -128f, 50f);
             AddNS(DriveX, 18f, 50f);
@@ -348,8 +337,8 @@ namespace Farm2Shelf.Environment
             int nTo = NearestNode(to);
             bool fromWest = from.x < -95f;
             bool toWest = to.x < -95f;
-            int westHwy = FindNode(-112f, -9f);
-            int eastHwy = FindNode(-75f, -9f);
+            int westHwy = FindNode(-112f, MainBoulevard.Center);
+            int eastHwy = FindNode(-75f, MainBoulevard.Center);
             List<int> all = new List<int>();
             if (fromWest != toWest && westHwy >= 0 && eastHwy >= 0)
             {
@@ -369,8 +358,8 @@ namespace Farm2Shelf.Environment
                 return all;
             }
 
-            int mid = FindNode(75f, -9f);
-            if (mid < 0) mid = FindNode(0f, -9f);
+            int mid = FindNode(75f, MainBoulevard.Center);
+            if (mid < 0) mid = FindNode(0f, MainBoulevard.Center);
             if (mid >= 0)
             {
                 ConcatPath(all, FindPath(nFrom, mid));
@@ -408,7 +397,7 @@ namespace Farm2Shelf.Environment
 
         private static float RoadGroupZ(float z)
         {
-            if (Mathf.Abs(z - HwyE) < 2.2f || Mathf.Abs(z - HwyW) < 2.2f || Mathf.Abs(z - (-9f)) < 2.2f) return -9f;
+            if (Mathf.Abs(z - HwyE) < 2.2f || Mathf.Abs(z - HwyW) < 2.2f || Mathf.Abs(z - (MainBoulevard.Center)) < 2.2f) return MainBoulevard.Center;
             if (Mathf.Abs(z - NorthE) < 2.2f || Mathf.Abs(z - NorthW) < 2.2f || Mathf.Abs(z - 50f) < 2.2f) return 50f;
             if (Mathf.Abs(z - SouthE) < 2.2f || Mathf.Abs(z - SouthW) < 2.2f || Mathf.Abs(z - (-55f)) < 2.2f) return -55f;
             if (Mathf.Abs(z - OuterE) < 2.2f || Mathf.Abs(z - OuterW) < 2.2f || Mathf.Abs(z - (-128f)) < 2.2f) return -128f;
@@ -450,7 +439,7 @@ namespace Farm2Shelf.Environment
 
         private static float EastboundZ(float roadZ)
         {
-            if (Approximately(roadZ, -9f)) return HwyE;
+            if (Approximately(roadZ, MainBoulevard.Center)) return HwyE;
             if (Approximately(roadZ, -55f)) return SouthE;
             if (Approximately(roadZ, -128f)) return OuterE;
             if (Approximately(roadZ, 50f)) return NorthE;
@@ -460,7 +449,7 @@ namespace Farm2Shelf.Environment
 
         private static float WestboundZ(float roadZ)
         {
-            if (Approximately(roadZ, -9f)) return HwyW;
+            if (Approximately(roadZ, MainBoulevard.Center)) return HwyW;
             if (Approximately(roadZ, -55f)) return SouthW;
             if (Approximately(roadZ, -128f)) return OuterW;
             if (Approximately(roadZ, 50f)) return NorthW;
@@ -568,6 +557,10 @@ namespace Farm2Shelf.Environment
 
         private static bool SegmentLeavesRoad(Vector3 a, Vector3 b)
         {
+            // Explicit bay-to-aisle manoeuvres are already on the stand's paved lot.
+            // Snapping these legs to the road graph cuts across occupied parking bays.
+            if(InStandLot(a) && InStandLot(b) &&
+                (Mathf.Abs(a.x-b.x)<.01f || Mathf.Abs(a.z-b.z)<.01f))return false;
             if (IsCampusInterior(a) || IsCampusInterior(b)) return true;
             if (IsIllegalRiverPoint(a) || IsIllegalRiverPoint(b)) return true;
             if (CrossesRiverOffBridge(a, b)) return true;
@@ -608,7 +601,7 @@ namespace Farm2Shelf.Environment
         private static bool CrossesRiverOffBridge(Vector3 a, Vector3 b)
         {
             bool hwy = OnHighwayBridge(a) && OnHighwayBridge(b)
-                || (Mathf.Abs(RoadGroupZ(a.z) - (-9f)) < 0.2f && Mathf.Abs(RoadGroupZ(b.z) - (-9f)) < 0.2f);
+                || (Mathf.Abs(RoadGroupZ(a.z) - (MainBoulevard.Center)) < 0.2f && Mathf.Abs(RoadGroupZ(b.z) - (MainBoulevard.Center)) < 0.2f);
             if (hwy) return false;
             float minX = Mathf.Min(a.x, b.x);
             float maxX = Mathf.Max(a.x, b.x);
@@ -622,7 +615,7 @@ namespace Farm2Shelf.Environment
 
         private static bool OnHighwayBridge(Vector3 p)
         {
-            return InRiverBand(p) && Mathf.Abs(p.z - (-9f)) <= 8f;
+            return InRiverBand(p) && MainBoulevard.OnRoad(p.z);
         }
 
         private static Vector3 SnapToLane(Vector3 p)
@@ -648,7 +641,10 @@ namespace Farm2Shelf.Environment
                 best = Flat(new Vector3(nodes[n].x, Y, nodes[n].y));
             }
 
-            return ApplyLaneOffset(best);
+            Vector3 lane = ApplyLaneOffset(best);
+            if (Mathf.Abs(best.z-MainBoulevard.Center)<.1f)
+                lane.z = p.z>MainBoulevard.Center ? MainBoulevard.WestOuter : MainBoulevard.EastOuter;
+            return lane;
         }
 
         private static Vector3 ApplyLaneOffset(Vector3 p)
@@ -818,9 +814,9 @@ namespace Farm2Shelf.Environment
             edges.Add(new List<int>(8));
         }
 
-        private static bool InStandLot(Vector3 p)
+        public static bool InStandLot(Vector3 p)
         {
-            return p.x >= 80.0f && p.x <= 110.0f && p.z >= 18.0f && p.z <= 46.0f;
+            return p.x >= 80.0f && p.x <= 110.0f && p.z >= 18.0f && p.z <= 39.0f;
         }
 
         private static Vector3 Flat(Vector3 p)

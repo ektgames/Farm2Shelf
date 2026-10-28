@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using Farm2Shelf.Core;
@@ -125,6 +125,7 @@ namespace Farm2Shelf.UI
             ModalManager.SetModalOpen(true);
             BuildUI();
             RefreshList();
+            TutorialManager.Instance?.NotifyBuildingVisited("Farm_Barn");
         }
 
         public void HideModal()
@@ -400,8 +401,8 @@ namespace Farm2Shelf.UI
             wbTxt.color = Color.white;
             wbTxt.raycastTarget = false;
 
-            // Alt SAĞ Buton: "⚡ HIZLI SAT (%20 KÂR)"
-            GameObject quickSellBtnObj = new GameObject("QuickSellBtn");
+            // Alt sağ: günlük yük trenine satış sevkiyatı.
+            GameObject quickSellBtnObj = new GameObject("SendToStationBtn");
             quickSellBtnObj.transform.SetParent(panelObj.transform, false);
             RectTransform qsRect = quickSellBtnObj.AddComponent<RectTransform>();
             qsRect.anchoredPosition = new Vector2(290f, -288f);
@@ -413,7 +414,7 @@ namespace Farm2Shelf.UI
 
             Button qsBtn = quickSellBtnObj.AddComponent<Button>();
             qsBtn.targetGraphic = qsBg;
-            qsBtn.onClick.AddListener(OnQuickSellClicked);
+            qsBtn.onClick.AddListener(OnSendToStationClicked);
 
             GameObject qsTxtObj = new GameObject("Label");
             qsTxtObj.transform.SetParent(quickSellBtnObj.transform, false);
@@ -425,7 +426,7 @@ namespace Farm2Shelf.UI
 
             Text qsTxt = qsTxtObj.AddComponent<Text>();
             qsTxt.font = font;
-            qsTxt.text = LocalizationManager.L("Barn_QuickSell", "⚡ TÜMÜNÜ HIZLI SAT\n(%20 KÂR)", "⚡ INSTANT SELL ALL\n(+20% PROFIT)");
+            qsTxt.text = LocalizationManager.L("Barn_RailSell", "TÜMÜNÜ TREN İSTASYONUNA\nSATIŞ İÇİN GÖNDER", "SEND ALL TO TRAIN STATION\nFOR SALE");
             FitBarnText(qsTxt, 16, true);
             qsTxt.fontStyle = FontStyle.Bold;
             qsTxt.alignment = TextAnchor.MiddleCenter;
@@ -601,7 +602,7 @@ namespace Farm2Shelf.UI
 
                 int rawCost = (sDef != null) ? Mathf.Max(1, Mathf.RoundToInt(sDef.unitSalePrice / 1.40f)) : (wRecipe != null ? Mathf.Max(1, Mathf.RoundToInt(wRecipe.unitSalePrice / 1.80f)) : liveDef.wholesaleUnitPrice);
                 int salePrice = (sDef != null) ? sDef.unitSalePrice : (wRecipe != null ? wRecipe.unitSalePrice : liveDef.SalePricePerUnit);
-                int quickSellUnitPrice = (liveDef != null) ? LivestockProductDatabase.GetQuickSellUnitPrice(liveDef.id) : Mathf.Max(1, Mathf.RoundToInt(rawCost * 1.20f));
+                int quickSellUnitPrice = RailFreightSales.UnitPrice(seedId);
                 string unitLabel = (sDef != null) ? "KG" : LocalizationManager.L("Unit_Pieces", "Adet", "Pcs");
                 string itemShortName = (sDef != null) ? sDef.LocalizedName.Replace(" Tohumu", "").Replace(" Seeds", "").Replace(" Seed", "") : (wRecipe != null ? wRecipe.LocalizedName : liveDef.LocalizedName);
 
@@ -629,13 +630,13 @@ namespace Farm2Shelf.UI
 
                 if (wRecipe != null)
                 {
-                    string gourmetDetailFmt = LocalizationManager.L("Barn_GourmetRowDetailFmt", "Market: <b>{0}C</b> (%80 Kâr) | Hızlı Satış: <b>{1}C</b> (%20 Kâr)", "Store: <b>{0}C</b> (+80%) | Quick Sell: <b>{1}C</b> (+20%)");
+                    string gourmetDetailFmt = LocalizationManager.L("Barn_GourmetRailRowDetailFmt", "Market: <b>{0}C</b> (%80 Kâr) | Tren Satışı: <b>{1}C</b> (%20 Kâr)", "Store: <b>{0}C</b> (+80%) | Rail Sale: <b>{1}C</b> (+20%)");
                     string gourmetTag = LocalizationManager.L("Barn_GourmetTag", "(🌟 Lüks Gurme Ürün)", "(🌟 Premium Gourmet Product)");
                     txt.text = $"{itemEmoji}  <b><size=19>{itemShortName}</size></b> <color=#FFD700><size=15>{gourmetTag}</size></color>\n<color=#80D8FF><size=15>{string.Format(gourmetDetailFmt, salePrice, quickSellUnitPrice)}</size></color>\n<color=#B2FF59><size=14>{GardenSeedInventoryManager.Instance.GetBarnPassportSummary(seedId)}</size></color>";
                 }
                 else
                 {
-                    string rowDetailFmt = LocalizationManager.L("Barn_RowDetailFmt", "Market: <b>{0}C</b> (%40 Kâr) | Hızlı Satış: <b>{1}C</b> (%20 Kâr)", "Store: <b>{0}C</b> (+40%) | Quick Sell: <b>{1}C</b> (+20%)");
+                    string rowDetailFmt = LocalizationManager.L("Barn_RailRowDetailFmt", "Market: <b>{0}C</b> (%40 Kâr) | Tren Satışı: <b>{1}C</b> (%20 Kâr)", "Store: <b>{0}C</b> (+40%) | Rail Sale: <b>{1}C</b> (+20%)");
                     txt.text = $"{itemEmoji}  <b><size=19>{itemShortName}</size></b>\n<color=#80D8FF><size=15>{string.Format(rowDetailFmt, salePrice, quickSellUnitPrice)}</size></color>\n<color=#B2FF59><size=14>{GardenSeedInventoryManager.Instance.GetBarnPassportSummary(seedId)}</size></color>";
                 }
                 FitBarnText(txt, 17, true);
@@ -938,11 +939,9 @@ namespace Farm2Shelf.UI
                 );
             }
 
-            // 3. HIZLI SAT
+            // 3. TREN İSTASYONUNA GÖNDER
             float qsPosY = (sDef != null) ? -145f : -80f;
-            string qsLabel = (wRecipe != null)
-                ? LocalizationManager.L("Dist_Btn_QuickSellGourmet", "⚡ ANINDA HIZLI SAT (YÜKSEK KÂRLA NAKİT AL)", "⚡ INSTANT QUICK SELL (HIGH PROFIT CASH)")
-                : LocalizationManager.L("Dist_Btn_QuickSell", "⚡ ANINDA HIZLI SAT (%20 KÂRLA NAKİT AL)", "⚡ INSTANT QUICK SELL (+20% INSTANT CASH)");
+            string qsLabel = LocalizationManager.L("Dist_RailSell", "TREN İSTASYONUNA SATIŞ İÇİN GÖNDER", "SEND TO TRAIN STATION FOR SALE");
 
             CreateDestinationButton(
                 dPanel.transform, font,
@@ -951,7 +950,7 @@ namespace Farm2Shelf.UI
                 new Color(0.92f, 0.72f, 0.18f),
                 qsLabel,
                 () => {
-                    ExecuteSingleCropQuickSell(seedId, selectedAmount);
+                    SendSingleCropToStation(seedId, selectedAmount);
                     if (distributionModalObj != null) Destroy(distributionModalObj);
                 }
             );
@@ -1180,49 +1179,21 @@ namespace Farm2Shelf.UI
             ModalManager.ShowModal(sucTitle, sucBody, LocalizationManager.L("Btn_Great", "Harika!", "Awesome!"));
         }
 
-        private void ExecuteSingleCropQuickSell(string seedId, int amount)
+        private void SendSingleCropToStation(string seedId, int amount)
         {
-            GardenSeedDef sDef = GardenSeedDatabase.GetSeedById(seedId);
-            WorkshopRecipeDef wRecipe = (sDef == null) ? WorkshopMachineDatabase.GetRecipeByOutputId(seedId) : null;
-            WholesaleProductDef liveDef = (sDef == null && wRecipe == null) ? LivestockProductDatabase.GetById(seedId) : null;
-            if ((sDef == null && wRecipe == null && liveDef == null) || amount <= 0) return;
-
-            int rawCost = (sDef != null) ? Mathf.Max(1, Mathf.RoundToInt(sDef.unitSalePrice / 1.40f)) : (wRecipe != null ? Mathf.Max(1, Mathf.RoundToInt(wRecipe.unitSalePrice / 1.80f)) : liveDef.wholesaleUnitPrice);
-            int quickSellUnitPrice = (liveDef != null) ? LivestockProductDatabase.GetQuickSellUnitPrice(liveDef.id) : Mathf.Max(1, Mathf.RoundToInt(rawCost * 1.20f));
-
-            int totalEarnings = quickSellUnitPrice * amount;
-
-            GardenSeedInventoryManager.Instance.ConsumeBarnCrop(seedId, amount);
-
-            if (EconomyManager.Instance != null)
+            if (RailFreightSales.SendFromBarn(seedId, amount))
             {
-                EconomyManager.Instance.AddCredits(totalEarnings);
+                RefreshList();
+                ShowRailDispatchNotice();
             }
+        }
 
-            RefreshList();
-            string cropShortName = (sDef != null) ? sDef.LocalizedName.Replace(" Tohumu", "").Replace(" Seeds", "").Replace(" Seed", "") : (wRecipe != null ? wRecipe.LocalizedName : liveDef.LocalizedName);
-            if (FinanceManager.Instance != null)
-            {
-                FinanceManager.Instance.RecordIncome(
-                    FinanceCategories.Farm,
-                    string.Format(LocalizationManager.L("FinDesc_BarnQuickSellFmt", "Ahır hızlı satışı ({0})", "Barn quick sell ({0})"), cropShortName),
-                    totalEarnings);
-            }
-            string unitLabel = (sDef != null) ? "KG" : "Adet";
-            string qsTitle = LocalizationManager.L("Modal_QuickSell_Title", "⚡ Hızlı Satış Yapıldı! 💰", "⚡ Quick Sell Completed! 💰");
-            string qsBody = string.Format(
-                LocalizationManager.L(
-                    "Modal_SingleCrop_QuickSell_Body",
-                    "<b>{0} {1} {2}</b> anında satıldı!\n\n<b>Kazanılan Bakiye:</b> <color=#00E676>+{3:N0}C</color> (Birim Fiyat: {4}C)",
-                    "<b>{0} {1} {2}</b> instantly sold!\n\n<b>Earned Credits:</b> <color=#00E676>+{3:N0}C</color> (Unit Price: {4}C)"
-                ),
-                amount,
-                unitLabel,
-                cropShortName,
-                totalEarnings,
-                quickSellUnitPrice
-            );
-            ModalManager.ShowModal(qsTitle, qsBody, LocalizationManager.L("Btn_Great", "Harika!", "Great!"));
+        private void ShowRailDispatchNotice()
+        {
+            ModalManager.ShowModal(LocalizationManager.L("RailSent", "İstasyona gönderildi", "Sent to station"),
+                LocalizationManager.L("RailSentBody", "Ürünler istasyonda bekliyor. Tren her gün 12:30'da yükü alır; ödeme tren haritadan çıktığında yapılır.\n12:30'dan sonra gönderilenler ertesi gün alınır.",
+                    "Products are waiting at the station. The train collects cargo daily at 12:30; payment arrives when it leaves the map.\nShipments sent after 12:30 are collected the next day."),
+                LocalizationManager.L("Btn_OK", "Tamam", "OK"));
         }
 
         private void OnSendToMarketClicked()
@@ -1324,75 +1295,19 @@ namespace Farm2Shelf.UI
             }
         }
 
-        private void OnQuickSellClicked()
+        private void OnSendToStationClicked()
         {
-            Dictionary<string, int> crops = GardenSeedInventoryManager.Instance.GetBarnCropInventory();
-            string emptyTitle = LocalizationManager.L("Modal_BarnEmpty_Title", "Ahır Boş! ⚠️", "Barn Empty! ⚠️");
-            string btnOk = LocalizationManager.L("Btn_Ok", "Tamam", "OK");
-            string btnGreat = LocalizationManager.L("Btn_Great", "Harika!", "Great!");
-
-            if (crops == null || crops.Count == 0)
-            {
-                string emptySellBody = LocalizationManager.L("Modal_BarnEmpty_SellBody", "Hızlı satış yapmak için ahırınızda en az 1 adet mahsul veya atölye ürünü bulunmalıdır!", "There must be at least 1 harvested crop or crafted product in your barn to instant sell!");
-                ModalManager.ShowModal(emptyTitle, emptySellBody, btnOk);
-                return;
-            }
-
-            int totalEarnings = 0;
-            int totalItemsSold = 0;
-            List<string> seedKeys = new List<string>(crops.Keys);
-            List<string> summaryDetails = new List<string>();
-
-            foreach (string seedId in seedKeys)
-            {
-                int count = crops[seedId];
-                if (count <= 0) continue;
-
-                GardenSeedDef sDef = GardenSeedDatabase.GetSeedById(seedId);
-                WorkshopRecipeDef wRecipe = (sDef == null) ? WorkshopMachineDatabase.GetRecipeByOutputId(seedId) : null;
-                if (sDef == null && wRecipe == null) continue;
-
-                int rawCost = (sDef != null) ? Mathf.Max(1, Mathf.RoundToInt(sDef.unitSalePrice / 1.40f)) : Mathf.Max(1, Mathf.RoundToInt(wRecipe.unitSalePrice / 1.80f));
-                int quickSellUnitPrice = Mathf.Max(1, Mathf.RoundToInt(rawCost * 1.20f));
-
-                int earnedForCrop = quickSellUnitPrice * count;
-                totalEarnings += earnedForCrop;
-                totalItemsSold += count;
-
-                string cropName = (sDef != null) ? sDef.LocalizedName.Replace(" Tohumu", "").Replace(" Seeds", "").Replace(" Seed", "") : wRecipe.LocalizedName;
-                string emoji = (sDef != null) ? sDef.iconEmoji : wRecipe.iconEmoji;
-                string unitLabel = (sDef != null) ? "KG" : LocalizationManager.L("Unit_Pieces", "Adet", "Pcs");
-
-                summaryDetails.Add($"• {emoji} {cropName}: {count} {unitLabel} x {quickSellUnitPrice}C = {earnedForCrop:N0}C");
-
-                GardenSeedInventoryManager.Instance.ConsumeBarnCrop(seedId, count);
-            }
-
-            if (totalEarnings > 0)
-            {
-                if (EconomyManager.Instance != null)
-                {
-                    EconomyManager.Instance.AddCredits(totalEarnings);
-                }
-                if (FinanceManager.Instance != null)
-                {
-                    FinanceManager.Instance.RecordIncome(
-                        FinanceCategories.Farm,
-                        LocalizationManager.L("FinDesc_BarnQuickSellAll", "Ahır toplu hızlı satışı", "Barn bulk quick sell"),
-                        totalEarnings);
-                }
-
-                RefreshList();
-
-                string detailsText = string.Join("\n", summaryDetails);
-                string qsTitle = LocalizationManager.L("Modal_QuickSell_Title", "⚡ Hızlı Satış Yapıldı! 💰", "⚡ Quick Sell Completed! 💰");
-                string qsBodyFmt = LocalizationManager.L(
-                    "Modal_QuickSell_Body",
-                    "Ahırdaki tüm ürünler %20 kâr marjıyla anında tüccarlara satıldı!\n\n<b>Kazanılan Bakiye:</b> <color=#00E676>+{0:N0}C</color>\n<b>Toplam Satılan:</b> {1} Adet/KG\n\n<b>Satış Detayları:</b>\n{2}",
-                    "All products in the barn were instantly sold to merchants at a 20% profit margin!\n\n<b>Earned Credits:</b> <color=#00E676>+{0:N0}C</color>\n<b>Total Sold:</b> {1} Units/KG\n\n<b>Sales Details:</b>\n{2}"
-                );
-                ModalManager.ShowModal(qsTitle, string.Format(qsBodyFmt, totalEarnings, totalItemsSold, detailsText), btnGreat);
-            }
+            var barn = GardenSeedInventoryManager.Instance;
+            if (barn == null) return;
+            var crops = new Dictionary<string, int>(barn.GetBarnCropInventory());
+            bool sent = false;
+            foreach (var crop in crops)
+                if (RailFreightSales.SendFromBarn(crop.Key, crop.Value)) sent = true;
+            RefreshList();
+            if (sent) ShowRailDispatchNotice();
+            else ModalManager.ShowModal(LocalizationManager.L("RailEmpty", "Ahır boş", "Barn empty"),
+                LocalizationManager.L("RailEmptyBody", "Gönderilebilecek ürün bulunmuyor.", "There are no products to ship."),
+                LocalizationManager.L("Btn_OK", "Tamam", "OK"));
         }
 
         private void OnSendToWorkshopClicked()

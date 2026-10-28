@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 using Farm2Shelf.Core;
@@ -48,7 +48,7 @@ namespace Farm2Shelf.Environment
 
             // 1. BATI BLOĞU: 4 ADET MÜSTAKİL EV (2 Sütun x 2 Sıra | X: -70m ile -18m)
             float[] westColX = new float[] { -58.0f, -32.0f };
-            float rowNorthZ = -25.5f;
+            float rowNorthZ = -28.8f;
             float rowSouthZ = -41.5f;
             Vector2 parcelSize = new Vector2(24.0f, 14.5f);
 
@@ -65,11 +65,11 @@ namespace Farm2Shelf.Environment
                 BuildResidentialHouseParcel(
                     districtGroup,
                     new Vector3(px, 0f, rowNorthZ),
-                    parcelSize,
+                    new Vector2(parcelSize.x, 9.0f),
                     westFloors[col, 0],
                     westColors[col, 0],
                     parcelCounter++,
-                    true // Kuzeye bakar
+                    true, .2f // Kuzeye bakar
                 );
 
                 // Güney Sıra (Güneydeki kasaba yolu kaldırımına bakar)
@@ -85,7 +85,7 @@ namespace Farm2Shelf.Environment
             }
 
             // 2. MERKEZ BLOĞU: BELEDİYE BİNASI VE BELEDİYE MEYDANI (X: -17m ile +17m)
-            BuildTownHallAndSquare(districtGroup, new Vector3(0f, 0f, -33.5f), new Vector2(34.0f, 31.0f));
+            BuildTownHallAndSquare(districtGroup, new Vector3(0f, 0f, -36.5f), new Vector2(34.0f, 25.0f));
 
             // 3. DOĞU BLOĞU: 4 ADET MÜSTAKİL EV (2 Sütun x 2 Sıra | X: +18m ile +70m)
             float[] eastColX = new float[] { 32.0f, 58.0f };
@@ -100,11 +100,11 @@ namespace Farm2Shelf.Environment
                 BuildResidentialHouseParcel(
                     districtGroup,
                     new Vector3(px, 0f, rowNorthZ),
-                    parcelSize,
+                    new Vector2(parcelSize.x, 9.0f),
                     eastFloors[col, 0],
                     eastColors[col, 0],
                     parcelCounter++,
-                    true // Kuzeye bakar
+                    true, .2f // Kuzeye bakar
                 );
 
                 // Güney Sıra (Güneydeki kasaba yolu kaldırımına bakar)
@@ -183,7 +183,7 @@ namespace Farm2Shelf.Environment
             float houseH = floorCount * floorH;
 
             // Evin parsel içindeki konumu (Yolun ters tarafına doğru yaslanır, önü bahçe kalır)
-            float houseOffsetZ = faceNorth ? -2.2f : 2.2f;
+            float houseOffsetZ = faceNorth ? -.4f : 2.2f;
             Vector3 housePos = new Vector3(0f, 0f, houseOffsetZ);
 
             GameObject houseRoot = new GameObject("House_Building_Structure");
@@ -656,7 +656,7 @@ namespace Farm2Shelf.Environment
             float hallW = 22.0f;
             float hallD = 10.5f;
             float hallH = 8.5f;
-            Vector3 hallLocalPos = new Vector3(0f, 0f, -7.5f);
+            Vector3 hallLocalPos = new Vector3(0f, 0f, -4.5f);
 
             GameObject hallRoot = new GameObject("Town_Hall_Building");
             hallRoot.transform.SetParent(squareGroup.transform, false);

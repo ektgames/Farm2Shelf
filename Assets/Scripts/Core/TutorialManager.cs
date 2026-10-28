@@ -29,7 +29,7 @@ namespace Farm2Shelf.Core
     /// mobilya kurulumunu, toptancı toplu siparişini ve reyon ürün dizimini,
     /// çiftlik yönetimini, tohum ekimini ve dükkan açılışını adım adım öğreten %100 çift dilli tam entegre sistem.
     /// </summary>
-    public class TutorialManager : MonoBehaviour
+    public partial class TutorialManager : MonoBehaviour
     {
         public static TutorialManager Instance { get; private set; }
 
@@ -115,6 +115,7 @@ namespace Farm2Shelf.Core
             if (checkTimer >= 0.35f)
             {
                 checkTimer = 0f;
+                TutorialQuestTrackerUI.RefreshDisplay();
 
                 if (IsCurrentStepComplete())
                 {
@@ -137,12 +138,15 @@ namespace Farm2Shelf.Core
 
         public void PromptTutorialOnNewGame()
         {
+            ResetProgress();
+            SetStep(TutorialStep.None);
+            TutorialMentorGuideUI.HideGuide();
             ShowTutorialPromptModal();
         }
 
         public void ShowTutorialPromptModal()
         {
-            TutorialPromptModalUI.ShowModal(
+            MayorWelcomeUI.Show(
                 onAccept: () => {
                     StartTutorial();
                 },
@@ -157,7 +161,7 @@ namespace Farm2Shelf.Core
             ResetProgress();
             SetStep(TutorialStep.Step1_CameraControls);
             TutorialQuestTrackerUI.ShowTracker();
-            TutorialMentorGuideUI.ShowGuide();
+            TutorialMentorGuideUI.ShowGuide(false);
             Debug.Log("[TutorialManager] Eğitim Bölümü Başlatıldı! Adım: Step 1 (Kamera Kontrolleri)");
         }
 
@@ -233,6 +237,9 @@ namespace Farm2Shelf.Core
             DidZoomCamera = false;
             DidRotateCamera = false;
             exploredApps.Clear();
+            journeyPurchases.Clear(); journeyPlants.Clear(); earlyStaffIds.Clear();
+            PlantingFinished = false;
+            ChickenVisited = CowVisited = BarnVisited = false; TourStop = 0;
             DidCallRestockerEarly = false;
             boughtShelves = 0;
             boughtCartStands = 0;
@@ -261,66 +268,7 @@ namespace Farm2Shelf.Core
 
         public bool IsStepComplete(TutorialStep step)
         {
-            switch (step)
-            {
-                case TutorialStep.Step1_CameraControls:
-                    return DidPanCamera && DidZoomCamera && DidRotateCamera;
-
-                case TutorialStep.Step2_ExploreTabletApps:
-                    return ExploredAppsCount >= 7 && HasAcceptedTownContract();
-
-                case TutorialStep.Step3_HireStoreStaffAndCallEarly:
-                    return GetStoreRoleCount(StaffRole.Kasiyer) >= 2 &&
-                           GetStoreRoleCount(StaffRole.Reyoncu) >= 2 &&
-                           DidCallRestockerEarly;
-
-                case TutorialStep.Step4_AssignStoreShifts:
-                    bool shMorn = HasStoreShift("Sabah") || HasStoreShift("08:00") || HasStoreShift("Gündüz") || HasStoreShift("Morning");
-                    bool shEve = HasStoreShift("Akşam") || HasStoreShift("16:00 - 24:00") || HasStoreShift("24:00") || HasStoreShift("Gece") || HasStoreShift("Evening");
-                    return shMorn && shEve;
-
-                case TutorialStep.Step5_BuyInitialFurniture:
-                    int sh = GetBoughtCount(FurnitureType.Shelf);
-                    int cs = GetBoughtCount(FurnitureType.ShoppingCart);
-                    int st = GetBoughtCount(FurnitureType.StorageShelf);
-                    int ca = GetBoughtCount(FurnitureType.Cashier);
-                    int fr = GetBoughtCount(FurnitureType.Fridge);
-                    bool targetBought = (sh >= 3 && cs >= 1 && st >= 3 && ca >= 1 && fr >= 2);
-                    bool hasPlacedOrCheckedOut = DidCheckoutFurniture || (PlacedFurnitureController.AllPlacedFurniture != null && PlacedFurnitureController.AllPlacedFurniture.Count >= 8);
-                    return targetBought || hasPlacedOrCheckedOut;
-
-                case TutorialStep.Step6_UnpackAndPlaceFurniture:
-                    return TotalFurniturePlacedInTutorial >= 8 ||
-                           (PlacedFurnitureController.AllPlacedFurniture != null && PlacedFurnitureController.AllPlacedFurniture.Count >= 8);
-
-                case TutorialStep.Step7_PlaceWholesaleBulkOrder:
-                    return DidPlaceBulkOrder &&
-                           GetMaxAssignedRowsOnAnyShelf() >= 4 &&
-                           GetMaxAssignedRowsOnAnyFridge() >= 4;
-
-                case TutorialStep.Step8_HireFarmStaffAndShifts:
-                    int farmers = GetFarmRoleCount(StaffRole.Çiftçi);
-                    bool fMorn = HasFarmShift("Sabah") || HasFarmShift("08:00") || HasFarmShift("Gündüz") || HasFarmShift("Morning");
-                    bool fEve = HasFarmShift("Akşam") || HasFarmShift("16:00 - 24:00") || HasFarmShift("24:00") || HasFarmShift("Gece") || HasFarmShift("Evening");
-                    return farmers >= 2 && fMorn && fEve;
-
-                case TutorialStep.Step9_BuyStartingSeeds:
-                    bool hasTomato = DidBuyTomatoSeed || (GardenSeedInventoryManager.Instance != null && GardenSeedInventoryManager.Instance.GetSeedCount("spring_tomato") > 0);
-                    bool hasCucumber = DidBuyCucumberSeed || (GardenSeedInventoryManager.Instance != null && GardenSeedInventoryManager.Instance.GetSeedCount("spring_cucumber") > 0);
-                    bool hasLettuce = DidBuyLettuceSeed || (GardenSeedInventoryManager.Instance != null && GardenSeedInventoryManager.Instance.GetSeedCount("spring_lettuce") > 0);
-                    return hasTomato && hasCucumber && hasLettuce;
-
-                case TutorialStep.Step10_PlantSeedsAndOpenStore:
-                    bool hasPlanted = CropsPlantedInTutorial >= 1 || (FieldPlotController.AllPlots != null && FieldPlotController.AllPlots.Exists(p => p != null && p.State != PlotState.Empty));
-                    bool isStoreOpen = DidOpenStoreInTutorial || (StoreStatusManager.Instance != null && StoreStatusManager.Instance.IsOpen);
-                    return hasPlanted && isStoreOpen;
-
-                case TutorialStep.Completed:
-                    return true;
-
-                default:
-                    return false;
-            }
+            return JourneyComplete((int)step);
         }
 
         public void CheckCurrentStepCompletion(bool allowImmediateAdvance = true)
@@ -371,7 +319,7 @@ namespace Farm2Shelf.Core
 
         public void NotifyStaffHired(StaffRole role)
         {
-            if (CurrentStep != TutorialStep.Step3_HireStoreStaffAndCallEarly && CurrentStep != TutorialStep.Step8_HireFarmStaffAndShifts) return;
+            if (JourneyStep != 3 && JourneyStep != 4 && JourneyStep != 7) return;
             CheckCurrentStepCompletion(false);
         }
 
@@ -386,30 +334,21 @@ namespace Farm2Shelf.Core
 
         public void NotifyStaffShiftChanged()
         {
-            if (CurrentStep != TutorialStep.Step4_AssignStoreShifts && CurrentStep != TutorialStep.Step8_HireFarmStaffAndShifts) return;
+            if (JourneyStep != 3 && JourneyStep != 4 && JourneyStep != 7) return;
             CheckCurrentStepCompletion(false);
         }
 
         public void NotifyFurnitureItemPurchased(FurnitureType type, int count)
         {
-            if (CurrentStep != TutorialStep.Step5_BuyInitialFurniture) return;
-
-            switch (type)
-            {
-                case FurnitureType.Shelf: boughtShelves += count; break;
-                case FurnitureType.ShoppingCart: boughtCartStands += count; break;
-                case FurnitureType.StorageShelf: boughtStorageShelves += count; break;
-                case FurnitureType.Cashier: boughtCashiers += count; break;
-                case FurnitureType.Fridge: boughtFridges += count; break;
-            }
-
+            if (JourneyStep != 5 || count <= 0 || System.Array.IndexOf(RequiredFurniture, type) < 0) return;
+            journeyPurchases[type] = Purchased(type) + count;
             DidCheckoutFurniture = true;
             CheckCurrentStepCompletion(false);
         }
 
         public void NotifyFurniturePlaced(FurnitureType type)
         {
-            if (CurrentStep != TutorialStep.Step6_UnpackAndPlaceFurniture) return;
+            if (JourneyStep != 5) return;
 
             TotalFurniturePlacedInTutorial++;
             CheckCurrentStepCompletion(false);
@@ -417,7 +356,7 @@ namespace Farm2Shelf.Core
 
         public void NotifyBulkOrderPlaced()
         {
-            if (CurrentStep != TutorialStep.Step7_PlaceWholesaleBulkOrder) return;
+            if (JourneyStep != 6) return;
 
             DidPlaceBulkOrder = true;
             CheckCurrentStepCompletion(false);
@@ -425,14 +364,14 @@ namespace Farm2Shelf.Core
 
         public void NotifyProductAssignedToShelf()
         {
-            if (CurrentStep != TutorialStep.Step7_PlaceWholesaleBulkOrder) return;
+            if (JourneyStep != 6) return;
 
             CheckCurrentStepCompletion(false);
         }
 
         public void NotifyTownContractQueued()
         {
-            if (CurrentStep != TutorialStep.Step2_ExploreTabletApps) return;
+            if (JourneyStep != 3) return;
             DidAcceptTownContract = true;
             CheckCurrentStepCompletion(false);
         }
@@ -504,7 +443,7 @@ namespace Farm2Shelf.Core
 
         public void NotifySeedPurchased(string seedId, int count)
         {
-            if (CurrentStep != TutorialStep.Step9_BuyStartingSeeds) return;
+            if (JourneyStep != 7 || count <= 0) return;
 
             if (seedId.Contains("tomato")) DidBuyTomatoSeed = true;
             if (seedId.Contains("cucumber")) DidBuyCucumberSeed = true;
@@ -515,8 +454,9 @@ namespace Farm2Shelf.Core
 
         public void NotifyCropPlanted(string seedId)
         {
-            if (CurrentStep != TutorialStep.Step10_PlantSeedsAndOpenStore) return;
+            if (JourneyStep != 7) return;
 
+            journeyPlants[seedId] = Planted(seedId) + 1;
             CropsPlantedInTutorial++;
             CheckCurrentStepCompletion(false);
         }
@@ -566,42 +506,18 @@ namespace Farm2Shelf.Core
 
         public int GetBoughtCount(FurnitureType type)
         {
-            switch (type)
-            {
-                case FurnitureType.Shelf: return boughtShelves;
-                case FurnitureType.ShoppingCart: return boughtCartStands;
-                case FurnitureType.StorageShelf: return boughtStorageShelves;
-                case FurnitureType.Cashier: return boughtCashiers;
-                case FurnitureType.Fridge: return boughtFridges;
-                default: return 0;
-            }
+            return Purchased(type);
         }
 
         private void ShowCompletionModal()
         {
             TutorialQuestTrackerUI.HideTracker();
-
-            string title = LocalizationManager.L("Tutorial_End_Title", "🎉 TEBRİKLER! EĞİTİM BİTTİ", "🎉 CONGRATULATIONS! TUTORIAL COMPLETED");
-            string body = LocalizationManager.L(
-                "Tutorial_End_Body",
-                "<b>Harika bir iş çıkardın! 🚀</b>\n\n" +
-                "• Kamerayı ve EKT tabletin 7 uygulamasını öğrendin,\n" +
-                "• İlk kasaba kontratını sıraya aldın,\n" +
-                "• Personel, vardiya, reyon ve toptan döngüsünü kurdun,\n" +
-                "• Pasaportlu taze ürün ve gece Z raporunun ne işe yaradığını gördün,\n" +
-                "• Tarlaya ektin ve dükkanı açtın.\n\n" +
-                "Bundan sonra markan, kontratların ve gün sonu defterin senin hikâyen. Bol kazançlar!",
-                "<b>Awesome job! 🚀</b>\n\n" +
-                "• Learned the camera and all 7 EKT tablet apps,\n" +
-                "• Queued your first town contract,\n" +
-                "• Set up staff, shifts, shelves, and wholesale,\n" +
-                "• Saw how product passports and the night ledger work,\n" +
-                "• Planted fields and opened the store.\n\n" +
-                "From here your brand, contracts, and end-of-day story are yours. Have fun!"
-            );
-            string btnText = LocalizationManager.L("Tutorial_End_Btn", "🚀 Harika! Oyuna Başla", "🚀 Awesome! Start Playing");
-
-            ModalManager.ShowModal(title, body, btnText);
+            ModalManager.ShowModal(
+                LocalizationManager.L("Mayor_Complete_Title", "Tebrikler! Eğitim tamamlandı", "Congratulations! Tutorial completed"),
+                LocalizationManager.L("Mayor_Complete_Body",
+                    "Tableti keşfettin; kontratını, kurye ve mağaza ekiplerini hazırladın. Mobilyalarını kurdun, raflarını ürünlerle eşleştirdin, çiftçilerini görevlendirdin ve 30 tohum ektin. Hayvan çiftliklerini ve kasabanın üretim ağını tanıdın. Mağazan artık açık. Bundan sonra kararlar senin!",
+                    "You explored the tablet, arranged a contract and staffed your courier and store teams. You installed furniture, assigned shelf products, scheduled farmers and planted 30 seeds. You visited the animal farms and the town production network. Your store is now open. The next decisions are yours!"),
+                LocalizationManager.L("Mayor_Complete_Button", "Oyuna devam et", "Continue playing"));
         }
 
         public void RestoreTutorialStep(TutorialStep step)

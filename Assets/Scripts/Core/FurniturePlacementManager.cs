@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -26,6 +26,98 @@ namespace Farm2Shelf.Core
         private DeliveryBoxController sourceBox;
         private GameObject ghostObj;
         private float currentYRotation = 0f;
+        private RectTransform previewDragTarget;
+        private readonly List<Renderer> previewRenderers=new List<Renderer>();
+        private bool previewGesture;
+        private int previewPointerId=int.MinValue,previewReleaseFrame=-1;
+        private Vector3 previewGrabOffset;
+
+        public bool ProcessPreviewDrag() => isPlacing && (previewGesture || previewReleaseFrame==Time.frameCount);
+
+        private void LateUpdate()
+        {
+            UpdatePreviewDragTarget();
+        }
+
+        private void UpdatePreviewDragTarget()
+        {
+            if(!isPlacing || ghostObj==null || placementHUDCanvas==null)return;
+            Camera camera=ResolvePlacementCamera();if(camera==null)return;
+            if(previewDragTarget==null)
+            {
+                var go=new GameObject("Preview_Drag_Target",typeof(RectTransform),typeof(Image),typeof(Button),typeof(PreviewDragInput));
+                previewDragTarget=go.GetComponent<RectTransform>();
+                previewDragTarget.SetParent(placementHUDCanvas.transform,false);
+                previewDragTarget.SetSiblingIndex(1); // Above floor input, below placement controls.
+                var image=go.GetComponent<Image>();image.color=Color.clear;image.raycastTarget=true;
+                var button=go.GetComponent<Button>();button.transition=Selectable.Transition.None;
+                button.navigation=new Navigation{mode=Navigation.Mode.None};
+                go.GetComponent<PreviewDragInput>().owner=this;
+            }
+            Bounds envelope=default;bool found=false;
+            ghostObj.GetComponentsInChildren<Renderer>(false,previewRenderers);
+            foreach(var renderer in previewRenderers)
+            {
+                if(!renderer.enabled || !renderer.gameObject.activeInHierarchy || renderer is LineRenderer || renderer.GetComponent<TextMesh>()!=null)continue;
+                if(!found){envelope=renderer.bounds;found=true;}else envelope.Encapsulate(renderer.bounds);
+            }
+            if(!found){previewDragTarget.gameObject.SetActive(false);return;}
+            Vector2 low=new Vector2(float.PositiveInfinity,float.PositiveInfinity),high=-new Vector2(float.PositiveInfinity,float.PositiveInfinity);
+            for(int i=0;i<8;i++)
+            {
+                Vector3 corner=envelope.center+Vector3.Scale(envelope.extents,new Vector3((i&1)==0?-1:1,(i&2)==0?-1:1,(i&4)==0?-1:1));
+                Vector3 screen=camera.WorldToScreenPoint(corner);
+                if(screen.z<=0){previewDragTarget.gameObject.SetActive(false);return;}
+                low=Vector2.Min(low,new Vector2(screen.x,screen.y));high=Vector2.Max(high,new Vector2(screen.x,screen.y));
+            }
+            Vector2 center=(low+high)*.5f,size=Vector2.Max(high-low+Vector2.one*12f,Vector2.one*44f);
+            var root=(RectTransform)placementHUDCanvas.transform;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(root,center-size*.5f,null,out Vector2 min);
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(root,center+size*.5f,null,out Vector2 max);
+            previewDragTarget.anchorMin=previewDragTarget.anchorMax=new Vector2(.5f,.5f);
+            previewDragTarget.pivot=new Vector2(.5f,.5f);
+            previewDragTarget.anchoredPosition=(min+max)*.5f;previewDragTarget.sizeDelta=max-min;
+            previewDragTarget.gameObject.SetActive(true);
+        }
+
+        private void BeginPreviewDrag(PointerEventData data)
+        {
+            if(!isPlacing || ghostObj==null || previewGesture || data.button!=PointerEventData.InputButton.Left ||
+                MainMenuUI.IsMenuVisible || ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen)return;
+            if(!TryScreenPointOnGround(ResolvePlacementCamera(),data.position,out Vector3 ground))return;
+            previewPointerId=data.pointerId;previewGesture=true;
+            previewGrabOffset=ghostObj.transform.position-ground;previewGrabOffset.y=0;
+        }
+        private void DragPreview(PointerEventData data)
+        {
+            if(!previewGesture || data.pointerId!=previewPointerId || !isPlacing || ghostObj==null)return;
+            if(TryScreenPointOnGround(ResolvePlacementCamera(),data.position,out Vector3 ground))MovePreviewOnGround(ground+previewGrabOffset);
+        }
+        private void EndPreviewDrag(PointerEventData data)
+        {
+            if(data.pointerId!=previewPointerId)return;
+            previewGesture=false;previewPointerId=int.MinValue;previewReleaseFrame=Time.frameCount;
+        }
+        public sealed class PreviewDragInput : MonoBehaviour,IPointerDownHandler,IBeginDragHandler,IDragHandler,IEndDragHandler,IPointerUpHandler
+        {
+            public FurniturePlacementManager owner;
+            public void OnPointerDown(PointerEventData data)=>owner.BeginPreviewDrag(data);
+            public void OnBeginDrag(PointerEventData data)=>owner.BeginPreviewDrag(data);
+            public void OnDrag(PointerEventData data)=>owner.DragPreview(data);
+            public void OnPointerUp(PointerEventData data)=>owner.EndPreviewDrag(data);
+            public void OnEndDrag(PointerEventData data)=>owner.EndPreviewDrag(data);
+            private void OnDisable(){if(owner!=null){owner.previewGesture=false;owner.previewPointerId=int.MinValue;}}
+        }
+
+        private void MovePreviewOnGround(Vector3 point)
+        {
+            if(float.IsNaN(point.x) || float.IsNaN(point.z) || float.IsInfinity(point.x) || float.IsInfinity(point.z))return;
+            point.x=Mathf.Round(point.x*4f)/4f;point.z=Mathf.Round(point.z*4f)/4f;point.y=.01f;
+            var definition=FurnitureDatabase.GetDef(currentType);
+            if(definition!=null && !IsValidPlacementZone(point,definition.zone))return;
+            ghostObj.transform.position=point;
+        }
+
 
         private Transform placedFurnitureContainer;
         private Plane groundPlane = new Plane(Vector3.up, Vector3.zero);
@@ -111,6 +203,7 @@ namespace Farm2Shelf.Core
             this.currentType = type;
             this.sourceBox = boxController;
             this.isPlacing = true;
+            previewGesture=false;previewPointerId=int.MinValue;previewReleaseFrame=-1;
             this.isReinstalling = false;
             this.savedReplacementRows = null;
             this.savedReplacementMachineState = null;
@@ -143,23 +236,7 @@ namespace Farm2Shelf.Core
             ghostObj.transform.position = startPos + Vector3.up * 0.04f;
             ghostObj.transform.rotation = Quaternion.Euler(0f, currentYRotation, 0f);
 
-            // Kamerayı otomatik olarak ilgili binaya odakla
-            if (IsometricCameraSetup.Instance != null && def != null)
-            {
-                if (def.zone == FurnitureZone.WorkshopOnly)
-                {
-                    IsometricCameraSetup.Instance.FocusOn(new Vector3(-55.0f, 0f, 6.0f), true);
-                }
-                else if (def.zone == FurnitureZone.StorageOnly)
-                {
-                    IsometricCameraSetup.Instance.FocusOn(new Vector3(7.0f, 0f, 5.0f), true);
-                }
-                else
-                {
-                    IsometricCameraSetup.Instance.FocusOn(new Vector3(-5.0f, 0f, 5.0f), true);
-                }
-            }
-
+            // Preserve the player camera while choosing a placement.
             SetFloorGridVisible(true);
             if (placementHUDCanvas != null) placementHUDCanvas.SetActive(true);
 
@@ -167,8 +244,8 @@ namespace Farm2Shelf.Core
             {
                 string infoFmt = LocalizationManager.L(
                     "HUD_PlacingInfo",
-                    "{0} Yerleştiriliyor\nEkrana dokunarak taşıyın | Paneldeki [Kur] butonuna basın",
-                    "Placing {0}\nDrag on screen to move | Tap [Assemble] to place"
+                    "{0} Yerleştiriliyor\nÖnizlemeyi sürükle: taşı | Boşluğu sürükle: kamera | Dokun: konum | [Kur]",
+                    "Placing {0}\nDrag preview to move; drag elsewhere to pan | Tap location | [Assemble]"
                 );
                 infoStatusText.text = string.Format(infoFmt, def.LocalizedName);
             }
@@ -192,6 +269,7 @@ namespace Farm2Shelf.Core
             this.currentType = type;
             this.sourceBox = null;
             this.isPlacing = true;
+            previewGesture=false;previewPointerId=int.MinValue;previewReleaseFrame=-1;
             this.isReinstalling = true;
             this.originalReplacementPos = origPos;
             this.originalReplacementRot = origRot;
@@ -220,7 +298,7 @@ namespace Farm2Shelf.Core
                 string moveFmt = LocalizationManager.L(
                     "HUD_MovingInfoFmt",
                     "{0}{1} Taşınıyor\nEkrana dokunarak taşıyın | Paneldeki [Kur] butonuna basarak kurun",
-                    "Moving {0}{1}\nDrag on screen to move | Tap [Assemble] to place"
+                    "Moving {0}{1}\nDrag preview to move; drag elsewhere to pan | Tap location | [Assemble]"
                 );
                 infoStatusText.text = string.Format(moveFmt, def.LocalizedName, stateNote);
             }
@@ -350,8 +428,8 @@ namespace Farm2Shelf.Core
                 {
                     string okMsg = LocalizationManager.L(
                         "HUD_PosOK",
-                        $"{def.LocalizedName} (Konum UYGUN)\nEkrana dokunarak taşıyın | Paneldeki [Kur] butonuna basın",
-                        $"{def.LocalizedName} (Position VALID)\nDrag on screen | Tap [Assemble] to place"
+                        $"{def.LocalizedName} (Konum UYGUN)\nÖnizlemeyi sürükle: taşı | Boşluğu sürükle: kamera | Dokun: konum | [Kur]",
+                        $"{def.LocalizedName} (Position VALID)\nDrag preview to move; drag elsewhere to pan | Tap location | [Assemble]"
                     );
                     infoStatusText.text = okMsg;
                     infoStatusText.color = Color.white;
@@ -401,8 +479,8 @@ namespace Farm2Shelf.Core
                 {
                     string overlapMsg = LocalizationManager.L(
                         "HUD_OverlapErr",
-                        "⚠️ GEÇERSİZ KONUM! (Nesne veya duvarla çakışma var!)\n[🔄 Döndür] ile yön değiştirin veya boş alana taşıyın",
-                        "⚠️ INVALID POSITION! (Overlapping with object or wall!)\nTap [🔄 Rotate] or drag to clear space"
+                        "⚠️ GEÇİŞ ALANINI BOŞ BIRAK! Mobilyaların önünde 1,5 m boşluk bırakın.\n[🔄 Döndür] ile yön değiştirin veya boş alana taşıyın",
+                        "⚠️ KEEP ACCESS CLEAR! Leave 1.5 m in front of furniture.\nTap [🔄 Rotate] or tap a clear location"
                     );
                     infoStatusText.text = overlapMsg;
                     infoStatusText.color = new Color(1.0f, 0.45f, 0.45f);
@@ -621,16 +699,7 @@ namespace Farm2Shelf.Core
             Camera mainCam = ResolvePlacementCamera();
             if (mainCam == null) return;
             if (!TryScreenPointOnGround(mainCam, screenPos, out Vector3 hitPoint)) return;
-            if (float.IsNaN(hitPoint.x) || float.IsNaN(hitPoint.z) ||
-                float.IsInfinity(hitPoint.x) || float.IsInfinity(hitPoint.z))
-            {
-                return;
-            }
-
-            hitPoint.x = Mathf.Round(hitPoint.x * 4f) / 4f;
-            hitPoint.z = Mathf.Round(hitPoint.z * 4f) / 4f;
-            hitPoint.y = 0.01f;
-            ghostObj.transform.position = hitPoint;
+            MovePreviewOnGround(hitPoint);
         }
 
         public bool IsPlacementHudButton(GameObject go)
@@ -946,6 +1015,7 @@ namespace Farm2Shelf.Core
 
         public bool IsOverlappingAnyObject(Vector3 pos, float rotationY, FurnitureType type)
         {
+            if (IsFrontOrDoorwayBlocked(pos, rotationY, type) || BlocksInteractionAccess(pos,rotationY,type)) return true;
             Vector2 size = GetFurnitureFootprintSize(type);
             float angleRad = rotationY * Mathf.Deg2Rad;
             bool isRotated = (Mathf.Abs(Mathf.Sin(angleRad)) > 0.5f);
@@ -1097,9 +1167,65 @@ namespace Farm2Shelf.Core
             return false;
         }
 
+        private static bool NeedsAccess(FurnitureType type)
+        {
+            if(PlacedFurnitureController.IsWalkableFloorDecoration(type) || DetailedDecorationBuilder.IsCeiling(type) || FurnitureDatabase.IsWallMountedDecoration(type))return false;
+            return type!=FurnitureType.PlantPot && type!=FurnitureType.PottedPalm && type!=FurnitureType.FlowerArch && type!=FurnitureType.FountainSmall;
+        }
+        public static Bounds AccessRectangle(Vector3 position,Vector2 footprint,float yaw,bool front)
+        {
+            const float aisle=1.5f;
+            float a=yaw*Mathf.Deg2Rad;
+            var forward=new Vector3(Mathf.Sin(a),0,Mathf.Cos(a));
+            Vector3 center=position;
+            Vector2 dimensions=footprint;
+            if(front){center-=forward*(footprint.y*.5f+aisle*.5f);dimensions=new Vector2(Mathf.Max(.65f,footprint.x-.08f),aisle);}
+            return new Bounds(new Vector3(center.x,0,center.z),new Vector3(Mathf.Abs(Mathf.Cos(a))*dimensions.x+Mathf.Abs(Mathf.Sin(a))*dimensions.y,2,Mathf.Abs(Mathf.Sin(a))*dimensions.x+Mathf.Abs(Mathf.Cos(a))*dimensions.y));
+        }
+        public bool BlocksInteractionAccess(Vector3 position,float yaw,FurnitureType type)
+        {
+            if(PlacedFurnitureController.IsWalkableFloorDecoration(type) || DetailedDecorationBuilder.IsCeiling(type) || FurnitureDatabase.IsWallMountedDecoration(type))return false;
+            var body=AccessRectangle(position,GetFurnitureFootprintSize(type),yaw,false);
+            var access=AccessRectangle(position,GetFurnitureFootprintSize(type),yaw,true);
+            if(NeedsAccess(type))
+            {
+                var definition=FurnitureDatabase.GetDef(type);
+                if(definition!=null)
+                {
+                    GetPlacementZoneRect(definition.zone,out float minX,out float maxX,out float minZ,out float maxZ);
+                    // The full front aisle, not just the furniture centre, must fit indoors.
+                    if(access.min.x<minX || access.max.x>maxX || access.min.z<minZ || access.max.z>maxZ)return true;
+                }
+            }
+            foreach(var existing in PlacedFurnitureController.AllPlacedFurniture)
+            {
+                if(existing==null || !existing.isActiveAndEnabled || (isReinstalling && Vector3.Distance(existing.transform.position,originalReplacementPos)<.2f))continue;
+                var otherType=existing.FurnitureType;
+                if(PlacedFurnitureController.IsWalkableFloorDecoration(otherType) || DetailedDecorationBuilder.IsCeiling(otherType) || FurnitureDatabase.IsWallMountedDecoration(otherType))continue;
+                var size=GetFurnitureFootprintSize(otherType);
+                var other=AccessRectangle(existing.transform.position,size,existing.transform.eulerAngles.y,false);
+                if(NeedsAccess(type) && access.Intersects(other))return true;
+                if(NeedsAccess(otherType) && body.Intersects(AccessRectangle(existing.transform.position,size,existing.transform.eulerAngles.y,true)))return true;
+            }
+            return false;
+        }
+
         public bool IsFrontOrDoorwayBlocked(Vector3 pos, float rotationY, FurnitureType type)
         {
-            return false;
+            if (PlacedFurnitureController.IsWalkableFloorDecoration(type) || DetailedDecorationBuilder.IsCeiling(type)) return false;
+            Vector2 size = GetFurnitureFootprintSize(type);
+            float radians = rotationY * Mathf.Deg2Rad;
+            float width = Mathf.Abs(Mathf.Cos(radians)) * size.x + Mathf.Abs(Mathf.Sin(radians)) * size.y;
+            float depth = Mathf.Abs(Mathf.Sin(radians)) * size.x + Mathf.Abs(Mathf.Cos(radians)) * size.y;
+            Bounds footprint = new Bounds(new Vector3(pos.x, 0, pos.z), new Vector3(width, 2, depth));
+            int level = EnvironmentBuilder.Instance != null ? EnvironmentBuilder.Instance.CurrentUpgradeLevel : 1;
+            float staffDoorZ = -3f + (level == 1 ? 9.5f : level == 2 ? 14.5f : 19.5f);
+            // Protect only the door mouths and their immediate approaches, not an entire front aisle.
+            return footprint.Intersects(new Bounds(new Vector3(-5, 0, -3), new Vector3(3, 2, 2.4f))) ||
+                footprint.Intersects(new Bounds(new Vector3(-55, 0, -3), new Vector3(3, 2, 2.4f))) ||
+                footprint.Intersects(new Bounds(new Vector3(3, 0, 2), new Vector3(2.4f, 2, 4))) ||
+                footprint.Intersects(new Bounds(new Vector3(11, 0, 2), new Vector3(2.4f, 2, 3))) ||
+                footprint.Intersects(new Bounds(new Vector3(7, 0, staffDoorZ), new Vector3(3, 2, 2.4f)));
         }
 
         public void SpawnRestoredFurniture(
@@ -1657,32 +1783,47 @@ namespace Farm2Shelf.Core
             return btnObj;
         }
 
-        private sealed class PlacementPointerCatcher : MonoBehaviour, IPointerDownHandler, IInitializePotentialDragHandler, IBeginDragHandler, IDragHandler
+        // Native pointer events supply the same screen coordinates as preview dragging.
+        // This graphic is not Selectable, so empty-floor gestures still reach camera pan.
+        private sealed class PlacementPointerCatcher : MonoBehaviour, IPointerDownHandler, IPointerUpHandler,
+            IInitializePotentialDragHandler, IBeginDragHandler, IDragHandler, ICanvasRaycastFilter
         {
             public FurniturePlacementManager owner;
-
-            public void OnInitializePotentialDrag(PointerEventData eventData)
+            private int pointerId=int.MinValue;
+            private Vector2 pressPosition;
+            private float pressTime;
+            private bool cancelled;
+            public bool IsRaycastLocationValid(Vector2 screen,Camera eventCamera)
             {
-                eventData.useDragThreshold = false;
+                if(owner==null || !owner.IsPlacing)return false;
+                var def=FurnitureDatabase.GetDef(owner.currentType);
+                return def!=null && TryScreenPointOnGround(ResolvePlacementCamera(),screen,out Vector3 ground) &&
+                    owner.IsValidPlacementZone(ground,def.zone);
             }
-
-            public void OnBeginDrag(PointerEventData eventData) { }
-
-            public void OnPointerDown(PointerEventData eventData)
+            public void OnInitializePotentialDrag(PointerEventData data){data.useDragThreshold=true;}
+            public void OnPointerDown(PointerEventData data)
             {
-                if (owner != null && eventData.button == PointerEventData.InputButton.Left)
-                {
-                    owner.MoveGhostToScreenPoint(eventData.position);
-                }
+                if(data.button!=PointerEventData.InputButton.Left)return;
+                if(pointerId!=int.MinValue){cancelled=true;return;}
+                pointerId=data.pointerId;pressPosition=data.position;pressTime=Time.unscaledTime;
+                cancelled=TouchInputHelper.GetTouchCount()>1;
             }
-
-            public void OnDrag(PointerEventData eventData)
+            private void Update()
             {
-                if (owner != null && eventData.button == PointerEventData.InputButton.Left)
-                {
-                    owner.MoveGhostToScreenPoint(eventData.position);
-                }
+                if(pointerId!=int.MinValue && TouchInputHelper.GetTouchCount()>1)cancelled=true;
             }
+            public void OnBeginDrag(PointerEventData data){if(data.pointerId==pointerId)cancelled=true;}
+            public void OnDrag(PointerEventData data){if(data.pointerId==pointerId)cancelled=true;}
+            public void OnPointerUp(PointerEventData data)
+            {
+                if(data.pointerId!=pointerId)return;
+                bool tap=!cancelled && !data.dragging && (data.position-pressPosition).sqrMagnitude<=144f &&
+                    Time.unscaledTime-pressTime<=TouchInputHelper.MaxTapDuration;
+                pointerId=int.MinValue;
+                if(tap && owner!=null && !owner.ProcessPreviewDrag() && IsRaycastLocationValid(data.position,null))
+                    owner.MoveGhostToScreenPoint(data.position);
+            }
+            private void OnDisable(){pointerId=int.MinValue;cancelled=true;}
         }
     }
 }

@@ -61,6 +61,9 @@ namespace Farm2Shelf.Environment
             currentBusObj.transform.position = spawnPos;
             currentBusObj.transform.rotation = Quaternion.Euler(0f, 270f, 0f); // Batı yönü
 
+            var roadAgent = RoadTrafficAgent.Register(currentBusObj.transform);
+            while (currentBusObj != null && roadAgent.Pending) yield return null;
+            if (currentBusObj == null) { isBusActive = false; yield break; }
             float driveSpeed = 10.0f;
             float currentSpeed = driveSpeed;
 
@@ -70,13 +73,14 @@ namespace Farm2Shelf.Environment
                 float distToStop = currentBusObj.transform.position.x - busStopPos.x;
                 currentSpeed = Mathf.Clamp(distToStop * 2.5f, 1.2f, driveSpeed);
 
-                currentBusObj.transform.position = Vector3.MoveTowards(currentBusObj.transform.position, busStopPos, currentSpeed * Time.deltaTime);
+                currentBusObj.transform.position = Farm2Shelf.Environment.RoadTrafficAgent.Move(currentBusObj.transform, Vector3.MoveTowards(currentBusObj.transform.position, busStopPos, currentSpeed * Time.deltaTime));
                 AnimateBusWheels(currentSpeed);
 
                 yield return null;
             }
 
-            if (currentBusObj != null) currentBusObj.transform.position = busStopPos;
+            if(currentBusObj==null){isBusActive=false;yield break;}
+            currentBusObj.transform.position = busStopPos;
 
             // 3. Durağa Yanaşıldı: Kapıları Aç ve Yolcuları İndir!
             if (frontDoor != null) frontDoor.transform.localPosition = new Vector3(1.16f, 1.3f, 3.2f);
@@ -113,7 +117,7 @@ namespace Farm2Shelf.Environment
                 float distFromStop = busStopPos.x - currentBusObj.transform.position.x;
                 currentSpeed = Mathf.Clamp(distFromStop * 3.0f, 1.5f, driveSpeed);
 
-                currentBusObj.transform.position = Vector3.MoveTowards(currentBusObj.transform.position, despawnPos, currentSpeed * Time.deltaTime);
+                currentBusObj.transform.position = Farm2Shelf.Environment.RoadTrafficAgent.Move(currentBusObj.transform, Vector3.MoveTowards(currentBusObj.transform.position, despawnPos, currentSpeed * Time.deltaTime));
                 AnimateBusWheels(currentSpeed);
 
                 yield return null;

@@ -10,6 +10,8 @@ namespace Farm2Shelf.UI
         public static LivestockCoopModalUI Instance { get; private set; }
 
         private GameObject canvasObj;
+        private RectTransform panelRect;
+        private Canvas modalCanvas;
         public bool IsModalOpen => canvasObj != null && canvasObj.activeInHierarchy;
         private LivestockBuildingKind currentKind;
         private int selectedCrates = 1;
@@ -33,6 +35,7 @@ namespace Farm2Shelf.UI
             selectedCrates = 1;
             ModalManager.SetModalOpen(true);
             BuildUI();
+            TutorialManager.Instance?.NotifyBuildingVisited(kind == LivestockBuildingKind.ChickenCoop ? "Chicken_Coop" : "Cow_Barn");
         }
 
         public void HideModal()
@@ -49,6 +52,7 @@ namespace Farm2Shelf.UI
         {
             if (canvasObj != null && canvasObj.activeInHierarchy)
             {
+                FitPanelToSafeArea();
                 try
                 {
                     if (Input.GetKeyDown(KeyCode.Escape)) HideModal();
@@ -67,6 +71,7 @@ namespace Farm2Shelf.UI
 
             canvasObj = new GameObject("Global_Livestock_Building_Canvas");
             Canvas canvas = canvasObj.AddComponent<Canvas>();
+            modalCanvas = canvas;
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 955;
             CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
@@ -84,17 +89,18 @@ namespace Farm2Shelf.UI
             GameObject panel = new GameObject("Panel");
             panel.transform.SetParent(backdrop.transform, false);
             RectTransform pRect = panel.AddComponent<RectTransform>();
-            pRect.sizeDelta = new Vector2(720f, 620f);
+            panelRect = pRect;
+            pRect.sizeDelta = new Vector2(860f, 720f);
             Image pBg = panel.AddComponent<Image>();
-            pBg.sprite = UIStyleUtility.CreateOutlinePillSprite(720, 620, 18, 3, new Color(0.95f, 0.72f, 0.20f), new Color(0.10f, 0.14f, 0.18f, 0.98f));
+            pBg.sprite = UIStyleUtility.CreateOutlinePillSprite(860, 720, 18, 3, new Color(0.95f, 0.72f, 0.20f), new Color(0.10f, 0.14f, 0.18f, 0.98f));
             pBg.raycastTarget = true;
 
-            UIStyleUtility.CreateCornerCloseButton(panel.transform, HideModal, 52f);
+            UIStyleUtility.CreateCornerCloseButton(panel.transform, HideModal, 64f);
 
             string title = IsChicken
                 ? LocalizationManager.L("Coop_Title", "🐔 TAVUK ÇİFTLİĞİ", "🐔 CHICKEN COOP")
                 : LocalizationManager.L("CowBarn_Title", "🐄 İNEK AHIRI", "🐄 COW BARN");
-            CreateLabel(panel.transform, font, new Vector2(0f, 265f), new Vector2(640f, 40f), title, 24, Color.white, TextAnchor.MiddleCenter);
+            CreateLabel(panel.transform, font, new Vector2(0f, 300f), new Vector2(700f, 48f), title, 32, Color.white, TextAnchor.MiddleCenter);
 
             int white = lm != null ? lm.GetOwned(LivestockType.WhiteChicken) : 0;
             int black = lm != null ? lm.GetOwned(LivestockType.BlackChicken) : 0;
@@ -104,7 +110,7 @@ namespace Farm2Shelf.UI
             string herdText = IsChicken
                 ? string.Format(LocalizationManager.L("Coop_HerdFmt", "Beyaz tavuk: {0}   •   Siyah tavuk: {1}   •   Toplam: {2}/{3}", "White chickens: {0}   •   Black chickens: {1}   •   Total: {2}/{3}"), white, black, white + black, LivestockProductDatabase.MaxChickens)
                 : string.Format(LocalizationManager.L("CowBarn_HerdFmt", "Siyah-beyaz inek: {0}   •   Kahverengi inek: {1}   •   Toplam: {2}/{3}", "Holstein cows: {0}   •   Brown cows: {1}   •   Total: {2}/{3}"), holstein, brown, holstein + brown, LivestockProductDatabase.MaxCows);
-            CreateLabel(panel.transform, font, new Vector2(0f, 215f), new Vector2(640f, 36f), herdText, 16, new Color(0.85f, 0.90f, 0.75f), TextAnchor.MiddleCenter);
+            CreateLabel(panel.transform, font, new Vector2(0f, 235f), new Vector2(760f, 64f), herdText, 24, new Color(0.85f, 0.90f, 0.75f), TextAnchor.MiddleCenter);
 
             WholesaleProductDef product = LivestockProductDatabase.GetById(ProductId);
             int pack = LivestockProductDatabase.PackSize;
@@ -116,34 +122,43 @@ namespace Farm2Shelf.UI
             string crateFmt = IsChicken
                 ? LocalizationManager.L("Coop_EggsCrateFmt", "{0}  Hazır koli: {1}   •   {2}/{3} yumurta", "{0}  Ready crates: {1}   •   {2}/{3} eggs")
                 : LocalizationManager.L("CowBarn_MilkCrateFmt", "{0}  Hazır koli: {1}   •   {2}/{3} litre", "{0}  Ready crates: {1}   •   {2}/{3} litres");
-            CreateLabel(panel.transform, font, new Vector2(0f, 168f), new Vector2(640f, 32f), string.Format(crateFmt, product != null ? product.iconEmoji : "", crates, toward, pack), 17, new Color(1f, 0.92f, 0.55f), TextAnchor.MiddleCenter);
+            CreateLabel(panel.transform, font, new Vector2(0f, 167f), new Vector2(760f, 44f), string.Format(crateFmt, product != null ? product.iconEmoji : "", crates, toward, pack), 27, new Color(1f, 0.92f, 0.55f), TextAnchor.MiddleCenter);
 
             string rateFmt = LocalizationManager.L(
                 "Coop_ProdRateFmt",
                 "1 koli = {0} adet  •  Gündüz 07–18  •  Hayvan başına ~2,5 günde 1 koli\n{1} hayvan → sonraki koli: {2}",
                 "1 crate = {0} pcs  •  Daytime 07–18  •  ~1 crate per animal every 2.5 days\n{1} animals → next crate: {2}");
-            CreateLabel(panel.transform, font, new Vector2(0f, 118f), new Vector2(660f, 44f), string.Format(rateFmt, pack, animals, FormatHoursUntilCrate(hoursLeft, animals)), 14, new Color(0.78f, 0.86f, 0.92f), TextAnchor.MiddleCenter);
+            CreateLabel(panel.transform, font, new Vector2(0f, 93f), new Vector2(760f, 88f), string.Format(rateFmt, pack, animals, FormatHoursUntilCrate(hoursLeft, animals)), 22, new Color(0.78f, 0.86f, 0.92f), TextAnchor.MiddleCenter);
 
             selectedCrates = Mathf.Clamp(selectedCrates, crates > 0 ? 1 : 0, Mathf.Max(0, crates));
-            Text amountTxt = CreateLabel(panel.transform, font, new Vector2(0f, 58f), new Vector2(240f, 44f), FormatCrateAmount(selectedCrates), 22, Color.white, TextAnchor.MiddleCenter);
+            Text amountTxt = CreateLabel(panel.transform, font, new Vector2(0f, 0f), new Vector2(260f, 64f), FormatCrateAmount(selectedCrates), 30, Color.white, TextAnchor.MiddleCenter);
             amountTxt.name = "CrateAmountLabel";
 
-            CreateBtn(panel.transform, font, new Vector2(-180f, 58f), new Vector2(90f, 44f), "-1 koli", new Color(0.80f, 0.28f, 0.28f), () => { selectedCrates = Mathf.Max(0, selectedCrates - 1); RefreshAmount(amountTxt); });
-            CreateBtn(panel.transform, font, new Vector2(180f, 58f), new Vector2(90f, 44f), "+1 koli", new Color(0.22f, 0.70f, 0.32f), () => { selectedCrates = Mathf.Min(Mathf.Max(0, crates), selectedCrates + 1); RefreshAmount(amountTxt); });
-            CreateBtn(panel.transform, font, new Vector2(0f, 8f), new Vector2(200f, 36f), LocalizationManager.L("Dist_All", "TÜMÜ", "ALL"), new Color(0.25f, 0.45f, 0.70f), () => { selectedCrates = Mathf.Max(0, crates); RefreshAmount(amountTxt); });
+            CreateBtn(panel.transform, font, new Vector2(-255f, 0f), new Vector2(190f, 68f), LocalizationManager.L("Livestock_LessCrate", "−1 koli", "−1 crate"), new Color(0.80f, 0.28f, 0.28f), () => { selectedCrates = Mathf.Max(0, selectedCrates - 1); RefreshAmount(amountTxt); });
+            CreateBtn(panel.transform, font, new Vector2(255f, 0f), new Vector2(190f, 68f), LocalizationManager.L("Livestock_MoreCrate", "+1 koli", "+1 crate"), new Color(0.22f, 0.70f, 0.32f), () => { selectedCrates = Mathf.Min(Mathf.Max(0, crates), selectedCrates + 1); RefreshAmount(amountTxt); });
+            CreateBtn(panel.transform, font, new Vector2(0f, -73f), new Vector2(280f, 58f), LocalizationManager.L("Dist_All", "TÜMÜ", "ALL"), new Color(0.25f, 0.45f, 0.70f), () => { selectedCrates = Mathf.Max(0, crates); RefreshAmount(amountTxt); });
 
-            int qsCrate = LivestockProductDatabase.GetQuickSellCratePrice(ProductId);
-            string qsLabel = string.Format(LocalizationManager.L("Coop_BtnQuickSellCrate", "⚡ ANINDA SAT (%20 KÂR)\n{0} koli ({1} adet) → {2:N0}C", "⚡ INSTANT SELL (+20%)\n{0} crates ({1} pcs) → {2:N0}C"), selectedCrates, selectedCrates * pack, qsCrate * selectedCrates);
-            string mktLabel = string.Format(LocalizationManager.L("Coop_BtnMarketCrate", "🚛 DÜKKANA GÖNDER (%40 KÂR)\n{0} koli ({1} adet) → ahır + yeşil kamyon", "🚛 SEND TO STORE (+40%)\n{0} crates ({1} pcs) → barn + green truck"), selectedCrates, selectedCrates * pack);
-
-            Button qsBtn = CreateBtn(panel.transform, font, new Vector2(0f, -70f), new Vector2(560f, 70f), qsLabel, new Color(0.20f, 0.68f, 0.38f), OnQuickSell);
-            Button barnBtn = CreateBtn(panel.transform, font, new Vector2(0f, -155f), new Vector2(560f, 70f), mktLabel, new Color(0.18f, 0.55f, 0.85f), OnSendToBarn);
-            qsBtn.name = "QuickSellBtn";
+            string barnLabel = FormatBarnLabel(selectedCrates);
+            Button barnBtn = CreateBtn(panel.transform, font, new Vector2(0f, -162f), new Vector2(740f, 100f), barnLabel, new Color(0.18f, 0.55f, 0.85f), OnSendToBarn);
             barnBtn.name = "SendBarnBtn";
 
-            CreateBtn(panel.transform, font, new Vector2(0f, -230f), new Vector2(200f, 42f), LocalizationManager.L("Btn_Close", "Kapat", "Close"), new Color(0.45f, 0.22f, 0.22f), HideModal);
+            CreateBtn(panel.transform, font, new Vector2(0f, -285f), new Vector2(280f, 64f), LocalizationManager.L("Btn_Close", "Kapat", "Close"), new Color(0.45f, 0.22f, 0.22f), HideModal);
 
             RefreshAmount(amountTxt);
+            Canvas.ForceUpdateCanvases();
+            FitPanelToSafeArea();
+        }
+
+        private void FitPanelToSafeArea()
+        {
+            if (panelRect == null || modalCanvas == null) return;
+            Rect safe = Screen.safeArea;
+            float scale = Mathf.Max(.001f, modalCanvas.scaleFactor);
+            float fit = Mathf.Min(1f, Mathf.Min(
+                Mathf.Max(1f, safe.width / scale - 32f) / 860f,
+                Mathf.Max(1f, safe.height / scale - 32f) / 720f));
+            panelRect.localScale = Vector3.one * fit;
+            panelRect.anchoredPosition = (safe.center - new Vector2(Screen.width, Screen.height) * .5f) / scale;
         }
 
         private static string FormatCrateAmount(int crates)
@@ -166,29 +181,14 @@ namespace Farm2Shelf.UI
             if (amountTxt != null) amountTxt.text = FormatCrateAmount(selectedCrates);
 
             if (canvasObj == null) return;
-            int pack = LivestockProductDatabase.PackSize;
-            int qsCrate = LivestockProductDatabase.GetQuickSellCratePrice(ProductId);
-            Transform qs = canvasObj.transform.Find("Backdrop/Panel/QuickSellBtn/Label");
             Transform barn = canvasObj.transform.Find("Backdrop/Panel/SendBarnBtn/Label");
-            if (qs != null)
-            {
-                Text t = qs.GetComponent<Text>();
-                if (t != null) t.text = string.Format(LocalizationManager.L("Coop_BtnQuickSellCrate", "⚡ ANINDA SAT (%20 KÂR)\n{0} koli ({1} adet) → {2:N0}C", "⚡ INSTANT SELL (+20%)\n{0} crates ({1} pcs) → {2:N0}C"), selectedCrates, selectedCrates * pack, qsCrate * Mathf.Max(0, selectedCrates));
-            }
             if (barn != null)
             {
                 Text t = barn.GetComponent<Text>();
-                if (t != null) t.text = string.Format(LocalizationManager.L("Coop_BtnMarketCrate", "🚛 DÜKKANA GÖNDER (%40 KÂR)\n{0} koli ({1} adet) → ahır + yeşil kamyon", "🚛 SEND TO STORE (+40%)\n{0} crates ({1} pcs) → barn + green truck"), selectedCrates, selectedCrates * pack);
+                if (t != null) t.text = FormatBarnLabel(selectedCrates);
             }
-
-            Transform qsBtnT = canvasObj.transform.Find("Backdrop/Panel/QuickSellBtn");
             Transform barnBtnT = canvasObj.transform.Find("Backdrop/Panel/SendBarnBtn");
             bool ready = crates > 0 && selectedCrates > 0;
-            if (qsBtnT != null)
-            {
-                Button b = qsBtnT.GetComponent<Button>();
-                if (b != null) b.interactable = ready;
-            }
             if (barnBtnT != null)
             {
                 Button b = barnBtnT.GetComponent<Button>();
@@ -196,38 +196,9 @@ namespace Farm2Shelf.UI
             }
         }
 
-        private void OnQuickSell()
+        private static string FormatBarnLabel(int crates)
         {
-            int crates = selectedCrates;
-            int amount = crates * LivestockProductDatabase.PackSize;
-            if (crates <= 0 || amount <= 0 || LivestockManager.Instance == null)
-            {
-                ModalManager.ShowModal(
-                    LocalizationManager.L("Coop_NeedCrateTitle", "Koli henüz dolmadı", "Crate not ready"),
-                    string.Format(LocalizationManager.L("Coop_NeedCrateBody", "Dükkana göndermek veya satmak için 1 koli ({0} adet) dolmalı.\nHayvan sayısı arttıkça koli daha hızlı dolar.", "You need 1 full crate ({0} pcs) before selling or shipping.\nMore animals fill crates faster."), LivestockProductDatabase.PackSize),
-                    LocalizationManager.L("Btn_Ok", "Tamam", "OK"));
-                return;
-            }
-
-            if (!LivestockManager.Instance.ConsumeCrates(IsChicken, crates)) return;
-
-            int unit = LivestockProductDatabase.GetQuickSellUnitPrice(ProductId);
-            int total = unit * amount;
-            EconomyManager.Instance?.AddCredits(total);
-            if (FinanceManager.Instance != null)
-            {
-                FinanceManager.Instance.RecordIncome(
-                    FinanceCategories.Farm,
-                    LocalizationManager.L("TrxDesc_LivestockQuickSell", "Kümes hızlı satışı", "Coop quick sell"),
-                    total);
-            }
-
-            WholesaleProductDef def = LivestockProductDatabase.GetById(ProductId);
-            HideModal();
-            ModalManager.ShowModal(
-                LocalizationManager.L("Modal_QuickSell_Title", "⚡ Hızlı Satış Yapıldı! 💰", "⚡ Quick Sell Completed! 💰"),
-                string.Format(LocalizationManager.L("Coop_QuickSellBodyCrate", "<b>{0} koli ({1} adet) {2}</b> %20 kârla satıldı.\n<color=#00E676>+{3:N0}C</color>", "<b>{0} crates ({1} pcs) {2}</b> sold at +20% profit.\n<color=#00E676>+{3:N0}C</color>"), crates, amount, def != null ? def.LocalizedName : ProductId, total),
-                LocalizationManager.L("Btn_Great", "Harika!", "Great!"));
+            return string.Format(LocalizationManager.L("Livestock_SendBarnOnly", "AHIRA GÖNDER\n{0} koli ({1} adet)", "SEND TO BARN\n{0} crates ({1} units)"), crates, crates * LivestockProductDatabase.PackSize);
         }
 
         private void OnSendToBarn()
@@ -238,7 +209,7 @@ namespace Farm2Shelf.UI
             {
                 ModalManager.ShowModal(
                     LocalizationManager.L("Coop_NeedCrateTitle", "Koli henüz dolmadı", "Crate not ready"),
-                    string.Format(LocalizationManager.L("Coop_NeedCrateBody", "Dükkana göndermek veya satmak için 1 koli ({0} adet) dolmalı.\nHayvan sayısı arttıkça koli daha hızlı dolar.", "You need 1 full crate ({0} pcs) before selling or shipping.\nMore animals fill crates faster."), LivestockProductDatabase.PackSize),
+                    string.Format(LocalizationManager.L("Livestock_NeedBarnCrate", "Ahıra göndermek için 1 koli ({0} adet) dolmalı.\nHayvan sayısı arttıkça koli daha hızlı dolar.", "You need 1 full crate ({0} units) to send to the barn.\nMore animals fill crates faster."), LivestockProductDatabase.PackSize),
                     LocalizationManager.L("Btn_Ok", "Tamam", "OK"));
                 return;
             }
@@ -298,7 +269,10 @@ namespace Farm2Shelf.UI
             t.fontStyle = FontStyle.Bold;
             t.raycastTarget = false;
             t.horizontalOverflow = HorizontalWrapMode.Wrap;
-            t.verticalOverflow = VerticalWrapMode.Overflow;
+            t.verticalOverflow = VerticalWrapMode.Truncate;
+            t.resizeTextForBestFit = true;
+            t.resizeTextMinSize = Mathf.Max(18, fontSize - 4);
+            t.resizeTextMaxSize = fontSize;
             return t;
         }
 
@@ -321,11 +295,17 @@ namespace Farm2Shelf.UI
             RectTransform tr = txtObj.AddComponent<RectTransform>();
             tr.anchorMin = Vector2.zero;
             tr.anchorMax = Vector2.one;
-            tr.sizeDelta = Vector2.zero;
+            tr.offsetMin = new Vector2(16f, 8f);
+            tr.offsetMax = new Vector2(-16f, -8f);
             Text t = txtObj.AddComponent<Text>();
             t.font = font;
             t.text = label;
-            t.fontSize = 16;
+            t.fontSize = 26;
+            t.resizeTextForBestFit = true;
+            t.resizeTextMinSize = 22;
+            t.resizeTextMaxSize = 26;
+            t.horizontalOverflow = HorizontalWrapMode.Wrap;
+            t.verticalOverflow = VerticalWrapMode.Truncate;
             t.alignment = TextAnchor.MiddleCenter;
             t.color = Color.white;
             t.fontStyle = FontStyle.Bold;

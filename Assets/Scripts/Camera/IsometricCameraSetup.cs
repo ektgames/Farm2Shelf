@@ -188,7 +188,7 @@ namespace Farm2Shelf.CameraSystem
         {
             // Ekranda Modal/Pencere/Tablet/Duraklatma açıkken harita hareketini engelle
             bool isPauseOpen = (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen);
-            if (MainMenuUI.IsMenuVisible || ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || isPauseOpen)
+            if (MainMenuUI.IsMenuVisible || (ModalManager.IsModalOpen && !FurnitureInfoModalUI.IsFurnitureModalOpen) || EKTPhoneManager.IsTabletOpen || isPauseOpen)
             {
                 queuedScrollY = 0f;
                 isMousePanning = false;
@@ -205,6 +205,18 @@ namespace Farm2Shelf.CameraSystem
 
             bool isPlacing = (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing);
 
+            if((isPlacing && FurniturePlacementManager.Instance.ProcessPreviewDrag()) || (DailySpinWheelUI.Instance!=null && DailySpinWheelUI.Instance.IsIconInteractionActive))
+            {
+                // Stop residual smoothing too: the grabbed object must stay under the finger.
+                targetPosition=currentPosition;orthographicSize=currentOrthographicSize;
+                distance=currentDistance;yawAngle=currentYawAngle;
+                positionVelocity=Vector3.zero;zoomVelocity=distanceVelocity=yawVelocity=0f;
+                queuedScrollY=0f;isMousePanning=isMousePanningAllowed=false;
+                isMouseRotating=isMouseRotatingAllowed=false;isMiddleZooming=isMiddleZoomAllowed=false;
+                lastPinchDistance=lastPinchAngle=0f;isTouchOverUI=false;
+                return;
+            }
+
             HandleTouchInputs(isPlacing);
             HandleMouseScrollZoom();
             HandleMiddleMouseZoom(isPlacing);
@@ -215,21 +227,20 @@ namespace Farm2Shelf.CameraSystem
 
         private void LateUpdate()
         {
+            // Native pointer-down may run after camera Update. Stop its smoothing
+            // in the same frame before rendering a captured preview drag.
+            if((FurniturePlacementManager.Instance!=null && FurniturePlacementManager.Instance.ProcessPreviewDrag()) || (DailySpinWheelUI.Instance!=null && DailySpinWheelUI.Instance.IsIconInteractionActive))
+            {
+                targetPosition=currentPosition;orthographicSize=currentOrthographicSize;
+                distance=currentDistance;yawAngle=currentYawAngle;
+                positionVelocity=Vector3.zero;zoomVelocity=distanceVelocity=yawVelocity=0f;
+            }
             // LateUpdate: Tüm fizik ve girdi hesaplamaları bittikten sonra kamerayı pürüzsüz taşı
             SmoothUpdateCameraTransform();
         }
 
         private void HandleTouchInputs(bool isPlacing)
         {
-            // Yerleştirme modundayken kamera jestlerini tamamen devre dışı bırak
-            if (isPlacing)
-            {
-                isTouchOverUI = false;
-                lastPinchDistance = 0f;
-                lastPinchAngle = 0f;
-                return;
-            }
-
             // SADECE mobil platformlarda veya gerçek dokunmatik ekranda dokunma hareketlerini işle!
             // PC'de fare sol tıkının yanlışlıkla pinch-zoom tetiklemesini kesin olarak önler.
             if (TouchInputHelper.GetTouchCount() == 0)
@@ -478,7 +489,7 @@ namespace Farm2Shelf.CameraSystem
 
         private void HandleMousePan(bool isPlacing)
         {
-            if (isPlacing || !TouchInputHelper.PreferDesktopMouse())
+            if (!TouchInputHelper.PreferDesktopMouse())
             {
                 isMousePanning = false;
                 isMousePanningAllowed = false;
@@ -616,7 +627,7 @@ namespace Farm2Shelf.CameraSystem
 
         private void HandleMiddleMouseZoom(bool isPlacing)
         {
-            if (isPlacing || !TouchInputHelper.PreferDesktopMouse())
+            if (!TouchInputHelper.PreferDesktopMouse())
             {
                 isMiddleZooming = false;
                 isMiddleZoomAllowed = false;
@@ -705,7 +716,7 @@ namespace Farm2Shelf.CameraSystem
 
         private void HandleMouseScrollZoom()
         {
-            if (ModalManager.IsModalOpen || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen))
+            if ((ModalManager.IsModalOpen && !FurnitureInfoModalUI.IsFurnitureModalOpen) || EKTPhoneManager.IsTabletOpen || (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPauseMenuOpen))
             {
                 queuedScrollY = 0f;
                 return;

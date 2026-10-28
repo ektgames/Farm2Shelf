@@ -1,0 +1,20 @@
+# Ordered performance and world fixes — 2026-10-27
+
+Implemented in the user's requested order in the original project. No project copies, save changes, or unattended gameplay automation.
+
+1. Performance: pedestrian searches retain incremental state, with a shared approximate 2 ms render-frame budget checked every 32 expansions, at most 256 expansions per grant. Existing fair request queue retained. Retry/stall clocks and staff job searches use real time. Environment lookup and seat approaches cached. Cleaner candidates sorted nearest first to avoid repeated successful route searches. Traffic uses conservative distance rejection before SAT, plus same-frame caching of failed junction-space queries. Positive entry decisions and swept checks remain live. Fixed the vehicle boarding loop described below.
+2. Parking: shared CustomerParkingLayout drives geometry and reservation coordinates. Right entry x=-23, left exit x=-31; southern apron kept empty. Wider 3.6 m row pitch and 1.65 m driver-door offset. Capacity is now 6 / 10 / 16 cars at levels 1 / 2 / 3 within the existing lot bounds. Bay IDs and positions remain stable during upgrades. Corrected final boarding waypoint tolerance: previously walking finished at 0.85 m but boarding required <0.45 m, repeatedly triggering route-end/social updates; final approach now requires <0.20 m.
+3. Staff room: shared bevelled mesh/material finishes, rebuilt chairs with legs and backs, coffee table with legs/lower shelf/unit-scale collision root, VIP table support legs, corrected sofa cushions buried in bodies. Seats come from model surface anchors instead of unrelated hard-coded positions. Root height accounts for thigh/hip offset; all staff legs have articulated knees. Unreachable seats temporarily skipped. Seating geometry has not been visually reviewed in Play Mode.
+4. Announcements: regular slots 12/16/20; opening 08, closing warning 22 and closing 24 retained. Eligible clips rotate in catalog order. English playback suppressed, including language changes while a clip is active/loading.
+5. Walls: separated coplanar coping/body top faces; texture tiling follows rendered physical wall height so cutaway animation does not squash the masonry pattern. Visual confirmation pending.
+6. Traffic: common 3.5 m/s tight-turn cap; ten real seconds without 0.2 m progress triggers removal/recovery only while motion is requested. Pauses, signal queues and railway closures excluded; courier motorcycles always excluded. Ambient/customer cars removed, taxi owner cleans its reservation/passenger and respawns its purchased slot, delivery truck snapshots preserve remaining cargo and restart arrival (or finish departure). Bus coroutine exits cleanly if its visual is removed. These recovery flows compile but have not had live gameplay verification.
+7. Courier: all 73 catalog addresses projected to street-side stops outside junction clearances; curved final approach and forward curb merge. Ten real-second handoff pauses with the game. Per-order riding state reset; store departure retains northern access. No motorcycle destruction added.
+
+Validation:
+- Runtime C# assembly compiles, no errors (existing warnings remain).
+- Compiled-code randomized check: 200,000 rotated/offset vehicle pairs; all 5,906 reference SAT contacts retained; 171,662 distant pairs safely rejected.
+- Compiled-code route check: 73 stable street stops, 219 outward/return/multi-stop routes, 32 bay configurations over three levels passed.
+- git diff --check: no whitespace errors, existing LF/CRLF notices only.
+- No Unity Play Mode FPS/GPU profiling, animation/visual inspection or live recovery test was performed. Do not claim zero lag or completely verified gameplay. Synchronous staff reachability and GPU/physics cost remain profiling candidates.
+
+Temporary LivePlaytestSession / LivePlaytestActions controller files from the previous session remain removed. User previously elected to do gameplay tests personally. Restart Play to rebuild procedural geometry before testing.

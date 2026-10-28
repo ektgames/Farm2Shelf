@@ -161,9 +161,12 @@ namespace Farm2Shelf.Environment
             CreateLightingAndDecorations();
             CreateDenseTwoRowTreeBoundaryWall();
             BuildWorkshopBuilding();
+            RailwayStationBuilder.Build(environmentRoot);
+            MainRoadSignals.Build(environmentRoot);
 
             CrosswalkVisualBuilder.CompleteMapConnections(environmentRoot);
             CrosswalkVisualBuilder.ClearOverlappingLaneMarkings(environmentRoot);
+            MainBoulevard.Build(environmentRoot);
 
             RefreshAll3DWorldLabels();
 
@@ -370,7 +373,7 @@ namespace Farm2Shelf.Environment
             // Çevre & Yol
             grassMat = CreateSolidMaterial("GrassMat", new Color(0.28f, 0.62f, 0.28f));
             darkWallMat = CreateSolidMaterial("DarkWallMat", new Color(0.12f, 0.14f, 0.17f));
-            storeFloorMat = CreateSolidMaterial("StoreFloorMat", new Color(0.85f, 0.72f, 0.53f));
+            storeFloorMat = CreateSolidMaterial("StoreFloorMat", CurrentFloorColor);
             storageFloorMat = CreateSolidMaterial("StorageFloorMat", new Color(0.45f, 0.50f, 0.55f));
             staffRoomFloorMat = CreateSolidMaterial("StaffRoomFloorMat", new Color(0.35f, 0.45f, 0.58f));
             sidewalkMat = CreateSolidMaterial("SidewalkMat", new Color(0.70f, 0.72f, 0.75f));
@@ -475,8 +478,8 @@ namespace Farm2Shelf.Environment
             GameObject grassFarEast = GameObject.CreatePrimitive(PrimitiveType.Cube);
             grassFarEast.name = "Grass_Terrain_Ground_FarEast";
             grassFarEast.transform.SetParent(environmentRoot);
-            grassFarEast.transform.position = new Vector3(207.5f, -0.15f, 22.5f);
-            grassFarEast.transform.localScale = new Vector3(235.0f, 0.1f, 335.0f);
+            grassFarEast.transform.position = new Vector3((90f+MainBoulevard.EastRoadEnd+5f)*.5f, -0.15f, 22.5f);
+            grassFarEast.transform.localScale = new Vector3(MainBoulevard.EastRoadEnd+5f-90f, 0.1f, 335.0f);
             grassFarEast.GetComponent<Renderer>().sharedMaterial = grassMat;
 
             // Batı Çim Tabanı (Batı Alanı: X = -106.5m ile -245m arası | Z: -145m ile +190m)
@@ -661,17 +664,19 @@ namespace Farm2Shelf.Environment
             GameObject eastBridgeApproachSouth = GameObject.CreatePrimitive(PrimitiveType.Cube);
             eastBridgeApproachSouth.name = "East_Bridge_Approach_South_Sidewalk";
             eastBridgeApproachSouth.transform.SetParent(sidewalkGroup);
-            eastBridgeApproachSouth.transform.position = new Vector3(-79.5f, 0.05f, -13.5f);
+            eastBridgeApproachSouth.transform.position = new Vector3(-79.5f, 0.05f, -22.5f);
             eastBridgeApproachSouth.transform.localScale = new Vector3(3.0f, 0.2f, 3.0f);
             eastBridgeApproachSouth.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
 
             CreateEastHighwayNorthSidewalkSegment(sidewalkGroup, 81.0f, 109.5f);
             CreateEastHighwayNorthSidewalkSegment(sidewalkGroup, 115.5f, 147.0f);
-            CreateEastHighwayNorthSidewalkSegment(sidewalkGroup, 153.0f, 320.0f);
+            CreateEastHighwayNorthSidewalkSegment(sidewalkGroup, 153.0f, 175.0f);
+            CreateEastHighwayNorthSidewalkSegment(sidewalkGroup, 186.0f, MainBoulevard.EastRoadEnd);
 
             CreateEastHighwaySouthSidewalkSegment(sidewalkGroup, 81.0f, 109.5f);
             CreateEastHighwaySouthSidewalkSegment(sidewalkGroup, 115.5f, 147.0f);
-            CreateEastHighwaySouthSidewalkSegment(sidewalkGroup, 153.0f, 320.0f);
+            CreateEastHighwaySouthSidewalkSegment(sidewalkGroup, 153.0f, 175.0f);
+            CreateEastHighwaySouthSidewalkSegment(sidewalkGroup, 186.0f, MainBoulevard.EastRoadEnd);
 
             // İÇ KALDIRIMLAR (KASABA HALKASI & KUZEY HALKASI)
             // KUZEY HALKA İÇ KALDIRIMI (Teslimat yolu bağlantısında X: 11.0f ile 15.0f arası kesilerek asfalt açıldı)
@@ -717,7 +722,7 @@ namespace Farm2Shelf.Environment
             GameObject northInnerSidewalk = GameObject.CreatePrimitive(PrimitiveType.Cube);
             northInnerSidewalk.name = "North_Inner_Sidewalk_TownSide";
             northInnerSidewalk.transform.SetParent(sidewalkGroup);
-            northInnerSidewalk.transform.position = new Vector3(0f, 0.05f, -13.5f);
+            northInnerSidewalk.transform.position = new Vector3(0f, 0.05f, -22.5f);
             northInnerSidewalk.transform.localScale = new Vector3(144f, 0.2f, 3f);
             northInnerSidewalk.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
 
@@ -790,7 +795,7 @@ namespace Farm2Shelf.Environment
             GameObject sw = GameObject.CreatePrimitive(PrimitiveType.Cube);
             sw.name = "East_Highway_South_Sidewalk";
             sw.transform.SetParent(parent);
-            sw.transform.position = new Vector3((xStart + xEnd) * 0.5f, 0.05f, -13.5f);
+            sw.transform.position = new Vector3((xStart + xEnd) * 0.5f, 0.05f, -22.5f);
             sw.transform.localScale = new Vector3(len, 0.2f, 3.0f);
             sw.GetComponent<Renderer>().sharedMaterial = sidewalkMat;
         }
@@ -1029,6 +1034,7 @@ namespace Farm2Shelf.Environment
 
         private void BuildStaffRoomFurnishings(Transform parent, int level, float storageBackZ, float backWallZ, float staffDepth)
         {
+            StaffRoomVisuals.BeginRoom();
             Transform roomGroup = new GameObject($"StaffRoom_Furnishings_Level_{level}").transform;
             roomGroup.SetParent(parent, false);
 
@@ -1161,6 +1167,7 @@ namespace Farm2Shelf.Environment
                 CreateNoticeBoard(roomGroup, new Vector3(3.15f, 1.8f, startZ + 3.8f), darkWoodMat);
                 CreateWallClock(roomGroup, new Vector3(7.0f, 2.3f, backWallZ - 0.2f), metalMat);
             }
+            StaffRoomVisuals.Finish(roomGroup);
         }
 
         private void AddPhysicalObstacleAndCollider(GameObject obj, Vector3 center, Vector3 size)
@@ -1219,21 +1226,7 @@ namespace Farm2Shelf.Environment
             };
             for (int i = 0; i < Mathf.Min(chairCount, 4); i++)
             {
-                GameObject chair = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                chair.name = "Chair_" + i;
-                chair.transform.SetParent(group.transform, false);
-                chair.transform.localPosition = chairPositions[i] + new Vector3(0f, 0.22f, 0f);
-                chair.transform.localScale = new Vector3(0.42f, 0.44f, 0.42f);
-                chair.GetComponent<Renderer>().sharedMaterial = tableMat;
-                Destroy(chair.GetComponent<Collider>());
-
-                // Sandalye Sırtlığı
-                GameObject backrest = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                backrest.transform.SetParent(chair.transform, false);
-                backrest.transform.localPosition = new Vector3(0f, 0.55f, -0.4f);
-                backrest.transform.localScale = new Vector3(0.9f, 0.9f, 0.15f);
-                backrest.GetComponent<Renderer>().sharedMaterial = tableMat;
-                Destroy(backrest.GetComponent<Collider>());
+                StaffRoomVisuals.Chair(group.transform,chairPositions[i],tableMat,chairMat);
             }
 
             // Fiziksel Çarpışma ve NavMesh Engel Oyma
@@ -1250,8 +1243,8 @@ namespace Farm2Shelf.Environment
             // Koltuk Gövdesi
             GameObject body = GameObject.CreatePrimitive(PrimitiveType.Cube);
             body.transform.SetParent(group.transform, false);
-            body.transform.localPosition = new Vector3(0f, 0.35f, 0f);
-            body.transform.localScale = new Vector3(2.4f, 0.50f, 0.85f);
+            body.transform.localPosition = new Vector3(0f,.25f,0f);
+            body.transform.localScale = new Vector3(2.4f, .30f, .85f);
             body.GetComponent<Renderer>().sharedMaterial = sofaMat;
             Destroy(body.GetComponent<Collider>());
 
@@ -1288,6 +1281,7 @@ namespace Farm2Shelf.Environment
                 cushion.transform.localScale = new Vector3(0.66f, 0.16f, 0.65f);
                 cushion.GetComponent<Renderer>().sharedMaterial = cushionMat;
                 Destroy(cushion.GetComponent<Collider>());
+                StaffRoomVisuals.Seat(group.transform,cushion.transform.localPosition+Vector3.up*.08f,Vector3.back);
             }
 
             // Fiziksel Çarpışma ve NavMesh Engel Oyma
@@ -1304,8 +1298,8 @@ namespace Farm2Shelf.Environment
             // Koltuk Gövdesi
             GameObject body = GameObject.CreatePrimitive(PrimitiveType.Cube);
             body.transform.SetParent(group.transform, false);
-            body.transform.localPosition = new Vector3(0f, 0.35f, 0f);
-            body.transform.localScale = new Vector3(1.8f, 0.50f, 0.85f);
+            body.transform.localPosition = new Vector3(0f,.25f,0f);
+            body.transform.localScale = new Vector3(1.8f, .30f, .85f);
             body.GetComponent<Renderer>().sharedMaterial = sofaMat;
             Destroy(body.GetComponent<Collider>());
 
@@ -1342,6 +1336,7 @@ namespace Farm2Shelf.Environment
                 cushion.transform.localScale = new Vector3(0.78f, 0.16f, 0.65f);
                 cushion.GetComponent<Renderer>().sharedMaterial = cushionMat;
                 Destroy(cushion.GetComponent<Collider>());
+                StaffRoomVisuals.Seat(group.transform,cushion.transform.localPosition+Vector3.up*.08f,Vector3.back);
             }
 
             // Fiziksel Çarpışma ve NavMesh Engel Oyma
@@ -1358,8 +1353,8 @@ namespace Farm2Shelf.Environment
             // Koltuk Gövdesi
             GameObject body = GameObject.CreatePrimitive(PrimitiveType.Cube);
             body.transform.SetParent(group.transform, false);
-            body.transform.localPosition = new Vector3(0f, 0.35f, 0f);
-            body.transform.localScale = new Vector3(0.95f, 0.50f, 0.85f);
+            body.transform.localPosition = new Vector3(0f,.25f,0f);
+            body.transform.localScale = new Vector3(0.95f, .30f, .85f);
             body.GetComponent<Renderer>().sharedMaterial = sofaMat;
             Destroy(body.GetComponent<Collider>());
 
@@ -1393,23 +1388,17 @@ namespace Farm2Shelf.Environment
             cushion.transform.localScale = new Vector3(0.78f, 0.16f, 0.65f);
             cushion.GetComponent<Renderer>().sharedMaterial = cushionMat;
             Destroy(cushion.GetComponent<Collider>());
+                StaffRoomVisuals.Seat(group.transform,cushion.transform.localPosition+Vector3.up*.08f,Vector3.back);
 
             // Fiziksel Çarpışma ve NavMesh Engel Oyma
             AddPhysicalObstacleAndCollider(group, new Vector3(0f, 0.50f, 0.10f), new Vector3(1.1f, 1.0f, 1.0f));
         }
 
-        private void CreateCoffeeTable(Transform parent, Vector3 pos, Material tableMat)
+        private void CreateCoffeeTable(Transform parent,Vector3 pos,Material tableMat)
         {
-            GameObject table = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            table.name = "Staff_Coffee_Table";
-            table.transform.SetParent(parent, false);
-            table.transform.position = pos + new Vector3(0f, 0.22f, 0f);
-            table.transform.localScale = new Vector3(1.4f, 0.44f, 0.75f);
-            table.GetComponent<Renderer>().sharedMaterial = tableMat;
-            Destroy(table.GetComponent<Collider>());
-
-            // Fiziksel Çarpışma ve NavMesh Engel Oyma
-            AddPhysicalObstacleAndCollider(table, Vector3.zero, new Vector3(1.5f, 0.50f, 0.8f));
+            var table=StaffRoomVisuals.CoffeeTable(parent,pos,tableMat);
+            // Unit-scale root avoids multiplying the obstacle dimensions by the tabletop scale.
+            AddPhysicalObstacleAndCollider(table,new Vector3(0,.25f,0),new Vector3(1.5f,.5f,.8f));
         }
 
         private void CreateMetalLockerCabinet(Transform parent, Vector3 centerPos, int doorCount, Material cabinetMat, Material detailMat, float rotationY = 0f)
@@ -1790,6 +1779,8 @@ namespace Farm2Shelf.Environment
             top.GetComponent<Renderer>().sharedMaterial = tableMat;
             Destroy(top.GetComponent<Collider>());
 
+            StaffRoomVisuals.TableLegs(group.transform,1.8f,1.2f,.72f,tableMat);
+
             // 6 Sandalye
             Vector3[] chairPositions = new Vector3[] {
                 new Vector3(-1.1f, 0f, -0.35f), new Vector3(-1.1f, 0f, 0.35f),
@@ -1798,12 +1789,7 @@ namespace Farm2Shelf.Environment
             };
             for (int i = 0; i < 6; i++)
             {
-                GameObject chair = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                chair.transform.SetParent(group.transform, false);
-                chair.transform.localPosition = chairPositions[i] + new Vector3(0f, 0.22f, 0f);
-                chair.transform.localScale = new Vector3(0.42f, 0.44f, 0.42f);
-                chair.GetComponent<Renderer>().sharedMaterial = tableMat;
-                Destroy(chair.GetComponent<Collider>());
+                StaffRoomVisuals.Chair(group.transform,chairPositions[i],tableMat,tableMat);
             }
 
             // Fiziksel Çarpışma ve NavMesh Engel Oyma
@@ -1940,6 +1926,17 @@ namespace Farm2Shelf.Environment
             rightBody.GetComponent<Renderer>().sharedMaterial = leafMat;
             DestroyImmediate(rightBody.GetComponent<Collider>());
 
+            if (doorName == "Main_Entrance_DoubleDoor" || doorName == "Storage_DoubleDoor" ||
+                doorName == "Goods_Receipt_DoubleDoor_RightWall")
+            {
+                Mesh doorMesh = leftBody.GetComponent<MeshFilter>().sharedMesh;
+                DestroyImmediate(leftBody);
+                DestroyImmediate(rightBody);
+                doorRoot.AddComponent<StoreEntranceModel>().Build(doorMesh, leafMat,
+                    leftLeaf.transform, rightLeaf.transform, slideAlongX, doorwayWidth,
+                    doorName == "Main_Entrance_DoubleDoor");
+            }
+
             InteractiveDoubleDoor doorScript = doorRoot.AddComponent<InteractiveDoubleDoor>();
             doorScript.SetupDoors(leftLeaf.transform, rightLeaf.transform, slideAlongX, openDistance);
 
@@ -1948,6 +1945,15 @@ namespace Farm2Shelf.Environment
                 Vector3 labelPos = slideAlongX ? new Vector3(0f, 2.85f, -0.3f) : new Vector3(-0.3f, 2.85f, 0f);
                 CreateLabel(labelTextTr, labelTextEn, doorRoot.transform, labelPos, labelColor, labelRotation);
             }
+
+            // Bind every doorway to its actual wall, including internal room partitions.
+            string wallName = doorName == "Main_Entrance_DoubleDoor" ? "Front_Wall_Left_Expanded"
+                : doorName == "Storage_DoubleDoor" ? "Partition_Store_Storage_Front"
+                : doorName == "Goods_Receipt_DoubleDoor_RightWall" ? "Storage_Wall_Right_Front"
+                : doorName == "StaffRoom_DoubleDoor" ? "Staff_Partition_Left" : null;
+            Transform connectedWall = wallName != null ? parent.Find(wallName) : null;
+            if (connectedWall != null && connectedWall.TryGetComponent<StoreWallVisual>(out var wallVisual))
+                doorRoot.AddComponent<StoreDoorVisual>().Initialize(wallVisual);
         }
 
         private void CreateSingleLaneDeliveryRoad()
@@ -2059,27 +2065,26 @@ namespace Farm2Shelf.Environment
 
             CreateOutlineBox(parkingGroup, new Vector3(-27.0f, 0.01f, parkingCenterZ), 26f, totalZLength);
 
-            int totalSlotsCount = (currentUpgradeLevel == 1) ? 10 : ((currentUpgradeLevel == 2) ? 16 : 22);
+            int totalSlotsCount = CustomerParkingLayout.Rows(currentUpgradeLevel)*2;
             int slotsPerRow = totalSlotsCount / 2;
 
             CreateLabel($"MÜŞTERİ OTOPARKI ({totalSlotsCount} ARAÇ KAPASİTESİ)", $"CUSTOMER PARKING ({totalSlotsCount} VEHICLES CAPACITY)", parkingGroup, new Vector3(-27.0f, 3.5f, -3.0f + totalZLength - 1.5f), Color.white);
 
             float slotWidthX = 5.2f;
-            float slotDepthZ = 2.6f;
-            float zPitch = 2.8f;
+            float slotDepthZ = CustomerParkingLayout.BayDepth;
+            float zPitch = CustomerParkingLayout.RowPitch;
 
             // Sol sütun (Sol alt köşeden sınırlanır)
             for (int i = 0; i < slotsPerRow; i++)
             {
-                float pz = 1.0f + (i * zPitch);
+                float pz = CustomerParkingLayout.FirstRowZ + (i * zPitch);
                 CreateAttachedParkingSlot(parkingGroup, new Vector3(-39.0f + (slotWidthX / 2f), 0.01f, pz), slotWidthX, slotDepthZ, "P" + (i + 1), true);
             }
 
             // Sağ sütun (Yukarıdaki sınır çizgisinden aşağı doğru sınırlanır, turnike girişinde geniş manevra alanı bırakır)
-            float topPZ = (-3.0f + totalZLength) - 2.8f;
             for (int i = 0; i < slotsPerRow; i++)
             {
-                float pz = topPZ - ((slotsPerRow - 1 - i) * zPitch);
+                float pz = CustomerParkingLayout.FirstRowZ + (i * zPitch);
                 CreateAttachedParkingSlot(parkingGroup, new Vector3(-15.0f - (slotWidthX / 2f), 0.01f, pz), slotWidthX, slotDepthZ, "P" + (i + 1 + slotsPerRow), false);
             }
 
@@ -2088,27 +2093,25 @@ namespace Farm2Shelf.Environment
                 CreateLabel("▲", "▲", parkingGroup, new Vector3(-27.0f, 0.02f, pz), new Color(1.0f, 0.90f, 0.30f, 0.85f));
             }
 
-            GameObject driveway = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            driveway.name = "Parking_Driveway_TwoWay";
-            driveway.transform.SetParent(parkingGroup);
-            driveway.transform.position = new Vector3(-17.0f, -0.04f, -6f);
-            driveway.transform.localScale = new Vector3(6f, 0.08f, 6f);
-            driveway.GetComponent<Renderer>().sharedMaterial = mainRoadMat;
-
-            for (float z = -8.5f; z <= -3.5f; z += 1.8f)
+            foreach(float gateX in new[]{CustomerParkingLayout.EntryX,CustomerParkingLayout.ExitX})
             {
-                GameObject line = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                line.name = "Driveway_Divider_Line";
-                line.transform.SetParent(parkingGroup);
-                line.transform.position = new Vector3(-17.0f, 0.01f, z);
-                line.transform.localScale = new Vector3(0.2f, 0.02f, 1.0f);
-                line.GetComponent<Renderer>().sharedMaterial = roadLineMat;
+                GameObject driveway=GameObject.CreatePrimitive(PrimitiveType.Cube);
+                driveway.name=gateX==CustomerParkingLayout.EntryX?"Parking_Entry_Driveway":"Parking_Exit_Driveway";
+                driveway.transform.SetParent(parkingGroup);
+                driveway.transform.position=new Vector3(gateX,-.04f,-4.5f);
+                driveway.transform.localScale=new Vector3(4.5f,.08f,3f);
+                driveway.GetComponent<Renderer>().sharedMaterial=mainRoadMat;
+                CreateLabel(gateX==CustomerParkingLayout.EntryX?"GİRİŞ ↑":"ÇIKIŞ ↓",gateX==CustomerParkingLayout.EntryX?"ENTRY ↑":"EXIT ↓",parkingGroup,new Vector3(gateX,.04f,-1f),Color.yellow);
             }
+            // The entire southern apron is a manoeuvring zone, never a parking bay.
+            for(float z=4f;z<totalZLength-4f;z+=8f)
+                foreach(float x in new[]{-39.6f,-14.4f})
+                    CustomerParkingLayout.CreateLamp(parkingGroup,new Vector3(x,0,z),barrierHousingMat,barrierArmMat);
 
             // DİFT TURNİKE KAPISI (SAĞDA GİRİŞ TURNİKESİ OTOPARK İÇ KÖŞESİNDE X=-14.0m, SOLDA ÇIKIŞ TURNİKESİ X=-20.0m)
             GameObject turnstileRightRoot = new GameObject("Parking_Barrier_Turnstile_Entrance");
             turnstileRightRoot.transform.SetParent(parkingGroup);
-            turnstileRightRoot.transform.position = new Vector3(-14.0f, 0.0f, -3.0f);
+            turnstileRightRoot.transform.position = new Vector3(CustomerParkingLayout.EntryX+1.75f,0f,-3f);
 
             ParkingBarrierTurnstile turnstileRightScript = turnstileRightRoot.AddComponent<ParkingBarrierTurnstile>();
 
@@ -2126,8 +2129,8 @@ namespace Farm2Shelf.Environment
             GameObject armRight = GameObject.CreatePrimitive(PrimitiveType.Cube);
             armRight.name = "Turnstile_Barrier_Arm_Right";
             armRight.transform.SetParent(armPivotRight.transform);
-            armRight.transform.localPosition = new Vector3(-1.5f, 0f, 0f);
-            armRight.transform.localScale = new Vector3(3.0f, 0.12f, 0.12f);
+            armRight.transform.localPosition = new Vector3(-1.75f,0f,0f);
+            armRight.transform.localScale = new Vector3(3.5f,.12f,.12f);
             armRight.GetComponent<Renderer>().sharedMaterial = barrierArmMat;
 
             turnstileRightScript.SetupTurnstile(armPivotRight.transform);
@@ -2137,7 +2140,7 @@ namespace Farm2Shelf.Environment
             // ÇIKIŞ TURNİKESİ (TAM KARŞISINDA / SOL KANATTA X=-20.0m)
             GameObject turnstileLeftRoot = new GameObject("Parking_Barrier_Turnstile_Exit");
             turnstileLeftRoot.transform.SetParent(parkingGroup);
-            turnstileLeftRoot.transform.position = new Vector3(-20.0f, 0.0f, -3.0f);
+            turnstileLeftRoot.transform.position = new Vector3(CustomerParkingLayout.ExitX-1.75f,0f,-3f);
 
             ParkingBarrierTurnstile turnstileLeftScript = turnstileLeftRoot.AddComponent<ParkingBarrierTurnstile>();
 
@@ -2155,8 +2158,8 @@ namespace Farm2Shelf.Environment
             GameObject armLeft = GameObject.CreatePrimitive(PrimitiveType.Cube);
             armLeft.name = "Turnstile_Barrier_Arm_Left";
             armLeft.transform.SetParent(armPivotLeft.transform);
-            armLeft.transform.localPosition = new Vector3(1.5f, 0f, 0f);
-            armLeft.transform.localScale = new Vector3(3.0f, 0.12f, 0.12f);
+            armLeft.transform.localPosition = new Vector3(1.75f,0f,0f);
+            armLeft.transform.localScale = new Vector3(3.5f,.12f,.12f);
             armLeft.GetComponent<Renderer>().sharedMaterial = barrierArmMat;
 
             turnstileLeftScript.SetupTurnstile(armPivotLeft.transform);
@@ -2165,10 +2168,10 @@ namespace Farm2Shelf.Environment
 
             // Turnike Yanı Güvenlik Duvarları (Karakterlerin/Müşterilerin dükkan sol duvarı ile turnikeler arasındaki çıkmaz ara boşluğa sapmasını %100 önler)
             CreateWall("Store_Turnstile_Barrier_Wall", parkingGroup, new Vector3(-13.5f, 1.0f, -3.0f), new Vector3(1.1f, 2.0f, 0.4f));
-            CreateWall("Parking_Exit_Turnstile_West_Barrier_Wall", parkingGroup, new Vector3(-23.0f, 1.0f, -3.0f), new Vector3(6.0f, 2.0f, 0.4f));
+            CreateWall("Parking_Exit_Turnstile_West_Barrier_Wall", parkingGroup, new Vector3(-27f,.3f,-3f), new Vector3(2.5f,.6f,.4f));
 
             // KUSURSUZ ÇİFT TURNİKE YAYA GEÇİDİ (KALDIRIM İLE TAM HİZALI Z: -6.0m ile -3.0m ARASI 3m DERİNLİK)
-            CrosswalkVisualBuilder.Create(parkingGroup, "Pedestrian_Crosswalk_Turnstile_Full", new Vector3(-17f, 0, -4.5f), true);
+            // Gate crossings are owned by MainBoulevard, after old pavement cleanup.
         }
 
         private void CreateTownshipSystem()
@@ -2212,7 +2215,10 @@ namespace Farm2Shelf.Environment
             CreateLineSegment(boxObj.transform, new Vector3(-halfW, 0.01f, 0f), new Vector3(lineT, 0.01f, depth));
             CreateLineSegment(boxObj.transform, new Vector3(halfW, 0.01f, 0f), new Vector3(lineT, 0.01f, depth));
             CreateLineSegment(boxObj.transform, new Vector3(0f, 0.01f, halfD), new Vector3(width, 0.01f, lineT));
-            CreateLineSegment(boxObj.transform, new Vector3(0f, 0.01f, -halfD), new Vector3(width, 0.01f, lineT));
+            // Do not paint an unbroken boundary across the two vehicle gates.
+            CreateLineSegment(boxObj.transform,new Vector3(-9.625f,.01f,-halfD),new Vector3(6.75f,.01f,lineT));
+            CreateLineSegment(boxObj.transform,new Vector3(0,.01f,-halfD),new Vector3(3.5f,.01f,lineT));
+            CreateLineSegment(boxObj.transform,new Vector3(9.625f,.01f,-halfD),new Vector3(6.75f,.01f,lineT));
         }
 
         private void CreateAttachedParkingSlot(Transform parent, Vector3 center, float sizeX, float sizeZ, string slotName, bool isLeftEdge)
@@ -2373,6 +2379,13 @@ namespace Farm2Shelf.Environment
             wall.transform.position = pos;
             wall.transform.localScale = scale;
             wall.GetComponent<Renderer>().sharedMaterial = darkWallMat;
+            if (parent.name == "Building_Complex")
+            {
+                var visual = wall.AddComponent<StoreWallVisual>();
+                visual.Initialize(darkWallMat);
+                visual.SetInteriorColor(CurrentWallColor);
+                visual.SetExteriorColor(CurrentExteriorWallColor);
+            }
         }
 
         private class World3DLabelInfo
@@ -2431,7 +2444,7 @@ namespace Farm2Shelf.Environment
                 new Vector3( 22.0f, 0.05f, -5.8f),
 
                 // Otopark Çevresi Lambaları
-                new Vector3(-20.0f, 0.05f, -18.5f),
+                new Vector3(-20.0f, 0.05f, -23.5f),
                 new Vector3( -5.0f, 0.05f, -18.5f),
                 new Vector3( 10.0f, 0.05f, -18.5f)
             };
@@ -2739,39 +2752,41 @@ namespace Farm2Shelf.Environment
             // 1. DOĞU SINIRI — yeni kuzeydoğu mahallenin SAĞINA alındı (X = 147.5 / 151.0)
             for (float z = -138.0f; z <= 186.0f; z += treePitch)
             {
-                if (z >= -14.5f && z <= -3.5f)
+                if (!MainBoulevard.BoundaryTreeClearsRoad(z))
                 {
                     continue;
                 }
 
-                CreateBoundaryTree(borderGroup, new Vector3(162.0f, 0f, z));
-                CreateBoundaryTree(borderGroup, new Vector3(165.5f, 0f, z + (treePitch / 2f)));
+                CreateBoundaryTree(borderGroup, new Vector3(195.0f, 0f, z));
+                CreateBoundaryTree(borderGroup, new Vector3(198.5f, 0f, z + (treePitch / 2f)));
             }
 
             // 2. EN BATI DIŞ SINIR (Row 1 at X = -242m, Row 2 at X = -246m | Z: -138m ile +186m arası)
             for (float z = -138.0f; z <= 186.0f; z += treePitch)
             {
-                if (z >= -14.5f && z <= -3.5f) continue;
+                if (!MainBoulevard.BoundaryTreeClearsRoad(z)) continue;
 
                 CreateBoundaryTree(borderGroup, new Vector3(-242.0f, 0f, z));
                 CreateBoundaryTree(borderGroup, new Vector3(-246.0f, 0f, z + (treePitch / 2f)));
             }
 
             // 3. EN KUZEY DIŞ SINIR (Z = 186.0m | X: -245m ile +151m arası, Nehir alanı X: -110m..-80m atlanır)
-            for (float x = -245.0f; x <= 165.0f; x += treePitch)
+            for (float x = -245.0f; x <= 198.0f; x += treePitch)
             {
                 // NEHİR VE KIYI KORDONUNU ATLA (Nehir içine ağaç dikilmez!)
                 if (x >= -110.0f && x <= -80.0f) continue;
+                if (x >= 174.0f && x <= 189.0f) continue;
 
                 CreateBoundaryTree(borderGroup, new Vector3(x, 0f, 186.0f));
                 CreateBoundaryTree(borderGroup, new Vector3(x + (treePitch / 2f), 0f, 189.5f));
             }
 
             // 4. EN GÜNEY DIŞ SINIR (Z = -138.0m & -141.5m | Yol ve kaldırımların arkasında, Nehir alanı X: -110m..-80m atlanır)
-            for (float x = -245.0f; x <= 165.0f; x += treePitch)
+            for (float x = -245.0f; x <= 198.0f; x += treePitch)
             {
                 // NEHİR VE KIYI KORDONUNU ATLA (Nehir içine ağaç dikilmez!)
                 if (x >= -110.0f && x <= -80.0f) continue;
+                if (x >= 174.0f && x <= 189.0f) continue;
 
                 // Güney yolu (Z = -128m) ve kaldırımlarının (Z = -132.5m) tamamen arkasında güvenli sınır
                 CreateBoundaryTree(borderGroup, new Vector3(x, 0f, -138.0f));
@@ -2779,31 +2794,33 @@ namespace Farm2Shelf.Environment
             }
 
             // 5. DOĞU OTOYOL AĞAÇLARI — taksi durağı arkası (X 78..165) AÇIK kaldırım; yol ucu perdelenir
-            for (float x = 165.0f; x <= 312.0f; x += treePitch)
+            for (float x = 198.0f; x <= MainBoulevard.EastRoadEnd-4f; x += treePitch)
             {
-                CreateBoundaryTree(borderGroup, new Vector3(x, 0f, -1.5f));
-                CreateBoundaryTree(borderGroup, new Vector3(x + (treePitch / 2f), 0f, 2.0f));
+                CreateBoundaryTree(borderGroup, new Vector3(x, 0f, MainBoulevard.NorthEdge+5.5f));
+                CreateBoundaryTree(borderGroup, new Vector3(x + (treePitch / 2f), 0f, MainBoulevard.NorthEdge+9f));
 
-                CreateBoundaryTree(borderGroup, new Vector3(x, 0f, -16.5f));
-                CreateBoundaryTree(borderGroup, new Vector3(x + (treePitch / 2f), 0f, -20.0f));
+                CreateBoundaryTree(borderGroup, new Vector3(x, 0f, MainBoulevard.SouthEdge-5.5f));
+                CreateBoundaryTree(borderGroup, new Vector3(x + (treePitch / 2f), 0f, MainBoulevard.SouthEdge-9f));
             }
 
-            for (float z = -28.0f; z <= 12.0f; z += treePitch)
-            {
-                CreateBoundaryTree(borderGroup, new Vector3(308.0f, 0f, z));
-                CreateBoundaryTree(borderGroup, new Vector3(312.0f, 0f, z + (treePitch / 2f)));
-                CreateBoundaryTree(borderGroup, new Vector3(316.0f, 0f, z));
-            }
+            // Keep the far end open: no tree curtain across traffic spawn/despawn.
 
             // FİZİK ENGELLERİ (GÖRÜNMEZ DUVARLAR)
-            CreateWorldPhysicsBoundaryCollider(borderGroup, "Boundary_Physics_Wall_East", new Vector3(164.0f, 2.5f, 24.0f), new Vector3(1.0f, 6.0f, 330.0f));
-            CreateWorldPhysicsBoundaryCollider(borderGroup, "Boundary_Physics_Wall_West_Outer", new Vector3(-245.0f, 2.5f, 24.0f), new Vector3(1.0f, 6.0f, 330.0f));
+            // Keep the highway opening clear, including the relocated traffic spawn corridor.
+            foreach(float boundaryX in new[]{202f,-245f})
+            {
+                float northStart=MainBoulevard.NorthEdge+5f,southEnd=MainBoulevard.SouthEdge-5f;
+                CreateWorldPhysicsBoundaryCollider(borderGroup,"Boundary_Physics_Split_North",new Vector3(boundaryX,2.5f,(northStart+189f)*.5f),new Vector3(1,6,189f-northStart));
+                CreateWorldPhysicsBoundaryCollider(borderGroup,"Boundary_Physics_Split_South",new Vector3(boundaryX,2.5f,(-142f+southEnd)*.5f),new Vector3(1,6,southEnd+142f));
+            }
             CreateWorldPhysicsBoundaryCollider(borderGroup, "Boundary_Physics_Wall_North_Outer", new Vector3(-80.0f, 2.5f, 188.0f), new Vector3(340.0f, 6.0f, 1.0f));
             CreateWorldPhysicsBoundaryCollider(borderGroup, "Boundary_Physics_Wall_South_Outer", new Vector3(-80.0f, 2.5f, -142.0f), new Vector3(340.0f, 6.0f, 1.0f));
         }
 
         private void CreateBoundaryTree(Transform parent, Vector3 pos)
         {
+            // Validate each staggered row separately: its offset can enter the road gap.
+            if(!MainBoulevard.BoundaryTreeClearsRoad(pos.z))return;
             GameObject tree = new GameObject("Map_Boundary_Tree");
             tree.transform.SetParent(parent);
             tree.transform.position = pos;
@@ -3687,34 +3704,25 @@ namespace Farm2Shelf.Environment
         }
 
         public Color CurrentWallColor { get; private set; } = new Color(0.12f, 0.14f, 0.17f);
+        public Color CurrentExteriorWallColor { get; private set; } = new Color(.57f, .55f, .51f);
         public Color CurrentFloorColor { get; private set; } = new Color(0.85f, 0.72f, 0.53f);
 
         public void ApplyWallColor(Color c)
         {
             CurrentWallColor = c;
-            if (darkWallMat != null)
-            {
-                darkWallMat.color = c;
-                if (darkWallMat.HasProperty("_BaseColor")) darkWallMat.SetColor("_BaseColor", c);
-            }
             GameObject bObj = GameObject.Find("Building_Complex");
             if (bObj != null)
-            {
-                Renderer[] renderers = bObj.GetComponentsInChildren<Renderer>(true);
-                foreach (var r in renderers)
-                {
-                    if (r == null || r.gameObject == null) continue;
-                    string n = r.gameObject.name;
-                    if (n.Contains("Wall") || n.Contains("Partition"))
-                    {
-                        if (r.material != null)
-                        {
-                            r.material.color = c;
-                            if (r.material.HasProperty("_BaseColor")) r.material.SetColor("_BaseColor", c);
-                        }
-                    }
-                }
-            }
+                foreach (var wall in bObj.GetComponentsInChildren<StoreWallVisual>(true))
+                    wall.SetInteriorColor(c);
+        }
+
+        public void ApplyExteriorWallColor(Color c)
+        {
+            CurrentExteriorWallColor = c;
+            GameObject bObj = GameObject.Find("Building_Complex");
+            if (bObj != null)
+                foreach (var wall in bObj.GetComponentsInChildren<StoreWallVisual>(true))
+                    wall.SetExteriorColor(c);
         }
 
         public void ApplyFloorStyle(Color c)

@@ -69,13 +69,19 @@ namespace Farm2Shelf.Core
 
         public static string TodayKey()
         {
-            return DateTime.Now.ToString("yyyy-MM-dd");
+            return DateTime.Now.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
         }
 
         public bool CanSpinToday()
         {
-            if (string.IsNullOrEmpty(lastDailySpinDate)) return true;
-            return !string.Equals(lastDailySpinDate, TodayKey(), StringComparison.Ordinal);
+            return IsAvailableOnDate(lastDailySpinDate,DateTime.Now);
+        }
+
+        public static bool IsAvailableOnDate(string lastUsed,DateTime localNow)
+        {
+            if(!DateTime.TryParseExact(lastUsed,"yyyy-MM-dd",System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None,out DateTime used))return true;
+            return localNow.Date>used.Date;
         }
 
         public int PickWeightedPrizeIndex()

@@ -27,7 +27,7 @@ namespace Farm2Shelf.UI
         public void OnPointerClick(PointerEventData eventData)
         {
             if (eventData == null || eventData.dragging || eventData.button != PointerEventData.InputButton.Left) return;
-            TouchInputHelper.Dispatch3DClick(eventData.position);
+            TouchInputHelper.DispatchPalletClick(eventData.position, false);
         }
 
         public void TriggerPlacement()

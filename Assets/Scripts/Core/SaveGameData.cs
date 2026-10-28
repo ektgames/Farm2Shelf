@@ -133,6 +133,7 @@ namespace Farm2Shelf.Core
         public string orderId;
         public string customerName;
         public string customerHandle;
+        public string destinationId;
         public string destinationNameTr;
         public string destinationNameEn;
         public float targetX, targetY, targetZ;
@@ -190,6 +191,8 @@ namespace Farm2Shelf.Core
         public int storeQualityScore;       // Yıldız Kalite Puanı
         public int storeQualityLevel;       // Kalite Seviyesi
         public float wallColorR = 0.12f, wallColorG = 0.14f, wallColorB = 0.17f, wallColorA = 1.0f; // Duvar Boyası
+        public bool hasExteriorWallColor;
+        public float exteriorWallR, exteriorWallG, exteriorWallB;
         public float floorColorR = 0.85f, floorColorG = 0.72f, floorColorB = 0.53f, floorColorA = 1.0f; // Zemin
 
         // Borsa & Yatırımlar
@@ -215,6 +218,7 @@ namespace Farm2Shelf.Core
         public List<SocialTweetData> socialFeed = new List<SocialTweetData>();
 
         // Tohum Envanteri & Ahır Deposu
+        public RailFreightSaveData railFreight = new RailFreightSaveData();
         public int barnUpgradeLevel = 1;
         public int barnCropKg;
         public List<OwnedSeedSaveData> ownedSeeds = new List<OwnedSeedSaveData>();
@@ -251,6 +255,7 @@ namespace Farm2Shelf.Core
 
         // Eğitim & Başlangıç Görevleri
         public string tutorialStep = "None";
+        public TutorialJourneySave tutorialJourney;
 
         // Günlük Şans Çarkı (gerçek takvim günü, oyun içi günden bağımsız)
         public string lastDailySpinDate = "";

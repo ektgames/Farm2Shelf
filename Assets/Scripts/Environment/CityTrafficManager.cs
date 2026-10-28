@@ -12,8 +12,8 @@ namespace Farm2Shelf.Environment
         private const float SAFE_DISTANCE = 16.0f; // Emniyet takip mesafesi
 
         // Şerit Hizalama Offsetleri (6m Genişlikteki Yolların 1.5m Tam Şerit Merkezleri)
-        private const float MAIN_ROAD_EASTBOUND_Z = -10.5f;
-        private const float MAIN_ROAD_WESTBOUND_Z = -7.5f;
+        private const float MAIN_ROAD_EASTBOUND_Z = MainBoulevard.EastOuter;
+        private const float MAIN_ROAD_WESTBOUND_Z = MainBoulevard.WestOuter;
 
         private const float WEST_ROAD_NORTHBOUND_X = -73.5f;
         private const float WEST_ROAD_SOUTHBOUND_X = -76.5f;
@@ -79,30 +79,8 @@ namespace Farm2Shelf.Environment
 
         public float GetSpeedLimitInFront(Vector3 currentPos, Vector3 moveDir, float maxDist, float defaultSpeed)
         {
-            float targetSpeed = defaultSpeed;
-            for (int i = 0; i < activeVehicles.Count; i++)
-            {
-                var v = activeVehicles[i];
-                if (v.vehicleObj == null) continue;
-
-                Vector3 vPos = v.vehicleObj.transform.position;
-                Vector3 diff = vPos - currentPos;
-                float dist = diff.magnitude;
-
-                if (dist < maxDist)
-                {
-                    float forwardDot = Vector3.Dot(moveDir.normalized, diff.normalized);
-                    if (forwardDot > 0.5f)
-                    {
-                        float safeSpeedAhead = v.currentSpeed * 0.85f;
-                        if (safeSpeedAhead < targetSpeed)
-                        {
-                            targetSpeed = safeSpeedAhead;
-                        }
-                    }
-                }
-            }
-            return Mathf.Max(0.5f, targetSpeed);
+            // Shared swept movement handles all vehicle kinds; retain this API for delivery controllers.
+            return RailwayCrossingController.RoadSpeed(currentPos, moveDir, defaultSpeed);
         }
 
         private void Update()
@@ -228,6 +206,7 @@ namespace Farm2Shelf.Environment
         {
             if (route == null || route.Count < 2) return;
 
+            route = MainBoulevard.FitBridgeRoute(MainBoulevard.RoundJunctionTurns(route));
             VehicleType selectedType = GetNextUniqueVehicleType();
 
             GameObject carObj = ProceduralCarModelBuilder.CreateVehicleModel(selectedType, out List<Transform> wheels);
@@ -243,6 +222,7 @@ namespace Farm2Shelf.Environment
                 carObj.transform.rotation = Quaternion.LookRotation(startDir);
             }
 
+            RoadTrafficAgent.Register(carObj.transform);
             float speed = BASE_SPEED + Random.Range(-1.2f, 1.2f);
 
             ActiveVehicleData vData = new ActiveVehicleData
@@ -276,10 +256,11 @@ namespace Farm2Shelf.Environment
                 Vector3 currentPos = vData.vehicleObj.transform.position;
                 Vector3 targetWaypoint = vData.waypoints[vData.currentWaypointIndex];
                 Vector3 toTarget = targetWaypoint - currentPos;
+                toTarget.y = 0f;
                 float distToTarget = toTarget.magnitude;
 
                 // Hedef Noktaya Ulaşıldı mı? (Şeritten sapmaması için hassas mesafe)
-                if (distToTarget < 0.9f)
+                if (distToTarget < 0.02f)
                 {
                     vData.currentWaypointIndex++;
                     if (vData.currentWaypointIndex >= vData.waypoints.Count)
@@ -290,38 +271,18 @@ namespace Farm2Shelf.Environment
                     }
                     targetWaypoint = vData.waypoints[vData.currentWaypointIndex];
                     toTarget = targetWaypoint - currentPos;
+                    toTarget.y = 0f;
                 }
 
                 float targetSpeed = vData.speed;
-                Vector3 moveDir = toTarget.normalized;
-
-                // 1. SADECE AYNI YÖNDE İLERLEYEN ÖNDEKİ ARAÇ İÇİN TAKİP MESAFESİ KONTROLÜ
-                foreach (var other in activeVehicles)
+                if (MainBoulevard.OnRoad(currentPos.z) && MainBoulevard.Opening(currentPos.x, 4f))
                 {
-                    if (other == vData || other.vehicleObj == null) continue;
-
-                    Vector3 otherPos = other.vehicleObj.transform.position;
-                    Vector3 diff = otherPos - currentPos;
-                    float dist = diff.magnitude;
-
-                    if (dist < SAFE_DISTANCE)
-                    {
-                        Vector3 otherMoveDir = Vector3.forward;
-                        if (other.waypoints != null && other.currentWaypointIndex < other.waypoints.Count)
-                        {
-                            Vector3 otherTarget = other.waypoints[other.currentWaypointIndex];
-                            otherMoveDir = (otherTarget - otherPos).normalized;
-                        }
-
-                        float sameDirDot = Vector3.Dot(moveDir, otherMoveDir);
-                        float forwardDot = Vector3.Dot(moveDir, diff.normalized);
-
-                        if (sameDirDot > 0.5f && forwardDot > 0.5f)
-                        {
-                            targetSpeed = Mathf.Min(targetSpeed, other.currentSpeed * 0.8f);
-                        }
-                    }
+                    Vector3 forward=vData.vehicleObj.transform.forward;forward.y=0;
+                    if(Mathf.Abs(toTarget.normalized.z)>.15f || Vector3.Angle(forward,toTarget)>8f)
+                        targetSpeed=Mathf.Min(targetSpeed,3.5f);
                 }
+                RoadTrafficAgent.SetRoute(vData.vehicleObj.transform, vData.waypoints, vData.currentWaypointIndex);
+                Vector3 moveDir = toTarget.normalized;
 
                 // Hız İvmelenmesi
                 vData.currentSpeed = Mathf.MoveTowards(vData.currentSpeed, targetSpeed, 10.0f * deltaTime);
@@ -343,27 +304,14 @@ namespace Farm2Shelf.Environment
                         tangentDir = new Vector3(moveDir.x, slopeY * Mathf.Sign(moveDir.x), moveDir.z).normalized;
                     }
                     Quaternion targetRot = Quaternion.LookRotation(tangentDir, Vector3.up);
-                    vData.vehicleObj.transform.rotation = Quaternion.RotateTowards(vData.vehicleObj.transform.rotation, targetRot, 360f * deltaTime);
+                    vData.vehicleObj.transform.rotation = Farm2Shelf.Environment.RoadTrafficAgent.Rotate(vData.vehicleObj.transform, Quaternion.RotateTowards(vData.vehicleObj.transform.rotation, targetRot, 360f * deltaTime));
                 }
 
+                nextPos = RoadTrafficAgent.Move(vData.vehicleObj.transform, nextPos);
                 vData.vehicleObj.transform.position = nextPos;
 
-                // 2. TAKILMA / SIKIŞMA OTOMATİK KURTARMA
-                if (Vector3.Distance(currentPos, vData.lastCheckPos) < 0.2f)
-                {
-                    vData.stuckTimer += deltaTime;
-                    if (vData.stuckTimer > 3.5f)
-                    {
-                        Destroy(vData.vehicleObj);
-                        activeVehicles.RemoveAt(i);
-                        continue;
-                    }
-                }
-                else
-                {
-                    vData.lastCheckPos = currentPos;
-                    vData.stuckTimer = 0f;
-                }
+                // A queue or a red signal is a valid stop, never a reason to delete the vehicle.
+                vData.currentSpeed = deltaTime > 0f ? Vector3.Distance(currentPos, nextPos) / deltaTime : 0f;
 
                 // Tekerlekleri Sürüş Hızına Göre Döndür
                 if (vData.wheels != null && vData.wheels.Count > 0)
@@ -391,11 +339,11 @@ namespace Farm2Shelf.Environment
                 route.Add(new Vector3(-95f, 1.65f, MAIN_ROAD_EASTBOUND_Z)); // Köprü Zirvesi
                 route.Add(new Vector3(-88f, 0.95f, MAIN_ROAD_EASTBOUND_Z));
                 route.Add(new Vector3(-82f, 0.05f, MAIN_ROAD_EASTBOUND_Z));
-                route.Add(new Vector3(180f, 0.05f, MAIN_ROAD_EASTBOUND_Z));
+                route.Add(new Vector3(MainBoulevard.EastTrafficPortal, 0.05f, MAIN_ROAD_EASTBOUND_Z));
             }
             else
             {
-                route.Add(new Vector3(180f, 0.05f, MAIN_ROAD_WESTBOUND_Z));
+                route.Add(new Vector3(MainBoulevard.EastTrafficPortal, 0.05f, MAIN_ROAD_WESTBOUND_Z));
                 route.Add(new Vector3(-82f, 0.05f, MAIN_ROAD_WESTBOUND_Z));
                 route.Add(new Vector3(-88f, 0.95f, MAIN_ROAD_WESTBOUND_Z));
                 route.Add(new Vector3(-95f, 1.65f, MAIN_ROAD_WESTBOUND_Z)); // Köprü Zirvesi
@@ -403,6 +351,12 @@ namespace Farm2Shelf.Environment
                 route.Add(new Vector3(-108f, 0.05f, MAIN_ROAD_WESTBOUND_Z));
                 route.Add(new Vector3(-340f, 0.05f, MAIN_ROAD_WESTBOUND_Z));
             }
+            // Through traffic uses both lanes; turns keep the outside lane.
+            if (Random.value < .5f)
+                for (int i=0;i<route.Count;i++)
+                {
+                    Vector3 p=route[i];p.z=isEastbound?MainBoulevard.EastInner:MainBoulevard.WestInner;route[i]=p;
+                }
             return route;
         }
 
@@ -425,11 +379,11 @@ namespace Farm2Shelf.Environment
                 route.Add(new Vector3(148.5f, 0f, NORTH_ROAD_EASTBOUND_Z));
                 route.Add(new Vector3(148.5f, 0f, -6.0f));
                 route.Add(new Vector3(151.5f, 0f, MAIN_ROAD_EASTBOUND_Z));
-                route.Add(new Vector3(180f, 0f, MAIN_ROAD_EASTBOUND_Z));
+                route.Add(new Vector3(MainBoulevard.EastTrafficPortal, 0f, MAIN_ROAD_EASTBOUND_Z));
             }
             else
             {
-                route.Add(new Vector3(180f, 0f, MAIN_ROAD_WESTBOUND_Z));
+                route.Add(new Vector3(MainBoulevard.EastTrafficPortal, 0f, MAIN_ROAD_WESTBOUND_Z));
                 route.Add(new Vector3(151.5f, 0f, MAIN_ROAD_WESTBOUND_Z));
                 route.Add(new Vector3(151.5f, 0f, -6.0f));
                 route.Add(new Vector3(151.5f, 0f, 51.5f));
@@ -459,14 +413,14 @@ namespace Farm2Shelf.Environment
             route.Add(new Vector3(-88f, 0.95f, MAIN_ROAD_EASTBOUND_Z));
             route.Add(new Vector3(-82f, 0.05f, MAIN_ROAD_EASTBOUND_Z));
             route.Add(new Vector3(-76.5f, 0f, MAIN_ROAD_EASTBOUND_Z));
-            route.Add(new Vector3(WEST_ROAD_SOUTHBOUND_X, 0f, -12.0f));
+            route.Add(new Vector3(WEST_ROAD_SOUTHBOUND_X, 0f, MainBoulevard.SouthEdge));
             route.Add(new Vector3(WEST_ROAD_SOUTHBOUND_X, 0f, -54.0f));
             route.Add(new Vector3(-73.5f, 0f, SOUTH_ROAD_EASTBOUND_Z));
             route.Add(new Vector3(73.5f, 0f, SOUTH_ROAD_EASTBOUND_Z));
             route.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0f, -54.0f));
-            route.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0f, -12.0f));
+            route.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0f, MainBoulevard.SouthEdge));
             route.Add(new Vector3(76.5f, 0f, MAIN_ROAD_EASTBOUND_Z));
-            route.Add(new Vector3(180f, 0f, MAIN_ROAD_EASTBOUND_Z));
+            route.Add(new Vector3(MainBoulevard.EastTrafficPortal, 0f, MAIN_ROAD_EASTBOUND_Z));
             return route;
         }
 
@@ -509,12 +463,12 @@ namespace Farm2Shelf.Environment
                 route.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0f, 45.0f));
                 route.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0f, -7.5f));
                 route.Add(new Vector3(76.5f, 0f, MAIN_ROAD_EASTBOUND_Z));
-                route.Add(new Vector3(180f, 0f, MAIN_ROAD_EASTBOUND_Z));
+                route.Add(new Vector3(MainBoulevard.EastTrafficPortal, 0f, MAIN_ROAD_EASTBOUND_Z));
             }
             else if (pattern == 1)
             {
                 // Doğudan gel -> Doğu Yolu -> 2. Cadde Kuzey Şeridi (X: 39.0) -> Üst Çevre Yolu Batı Şeridi (Z: 176.5) -> 1. Cadde Güney Şeridi (X: -39.0) -> Batı Yolu -> Otoyol
-                route.Add(new Vector3(180f, 0f, MAIN_ROAD_WESTBOUND_Z));
+                route.Add(new Vector3(MainBoulevard.EastTrafficPortal, 0f, MAIN_ROAD_WESTBOUND_Z));
                 route.Add(new Vector3(76.5f, 0f, MAIN_ROAD_WESTBOUND_Z));
                 route.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0f, -4.5f));
                 route.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0f, 48.5f));
@@ -573,7 +527,7 @@ namespace Farm2Shelf.Environment
                 route.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0f, 45.0f));
                 route.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0f, -7.5f));
                 route.Add(new Vector3(76.5f, 0f, MAIN_ROAD_EASTBOUND_Z));
-                route.Add(new Vector3(180f, 0f, MAIN_ROAD_EASTBOUND_Z));
+                route.Add(new Vector3(MainBoulevard.EastTrafficPortal, 0f, MAIN_ROAD_EASTBOUND_Z));
             }
 
             return route;
@@ -604,12 +558,12 @@ namespace Farm2Shelf.Environment
                 route.Add(new Vector3(-95.0f, 1.65f, MAIN_ROAD_EASTBOUND_Z)); // Köprü Zirvesi
                 route.Add(new Vector3(-88.0f, 0.95f, MAIN_ROAD_EASTBOUND_Z));
                 route.Add(new Vector3(-82.0f, 0.05f, MAIN_ROAD_EASTBOUND_Z));
-                route.Add(new Vector3(180f, 0.05f, MAIN_ROAD_EASTBOUND_Z));
+                route.Add(new Vector3(MainBoulevard.EastTrafficPortal, 0.05f, MAIN_ROAD_EASTBOUND_Z));
             }
             else if (pattern == 1)
             {
                 // Doğu Otoyolundan gel (180f) -> Köprüyü Geç -> 2. Cadde Güney Şeridi (X: -151.5) -> Alt Çevre (Z: -126.5) -> 4. Cadde -> Batı Uçta Yok Ol (-340f)
-                route.Add(new Vector3(180f, 0.05f, MAIN_ROAD_WESTBOUND_Z));
+                route.Add(new Vector3(MainBoulevard.EastTrafficPortal, 0.05f, MAIN_ROAD_WESTBOUND_Z));
                 route.Add(new Vector3(-82f, 0.05f, MAIN_ROAD_WESTBOUND_Z));
                 route.Add(new Vector3(-88f, 0.95f, MAIN_ROAD_WESTBOUND_Z));
                 route.Add(new Vector3(-95f, 1.65f, MAIN_ROAD_WESTBOUND_Z)); // Köprü Zirvesi
@@ -617,7 +571,7 @@ namespace Farm2Shelf.Environment
                 route.Add(new Vector3(-108f, 0.05f, MAIN_ROAD_WESTBOUND_Z));
                 route.Add(new Vector3(-148.0f, 0.05f, MAIN_ROAD_WESTBOUND_Z));
                 // 2. Cadde Güney Şeridi (X: -151.5m - Banka / Arcade / Stadyum Yanı)
-                route.Add(new Vector3(-151.5f, 0.05f, -12.0f));
+                route.Add(new Vector3(-151.5f, 0.05f, MainBoulevard.SouthEdge));
                 route.Add(new Vector3(-151.5f, 0.05f, -50.0f));
                 route.Add(new Vector3(-151.5f, 0.05f, -122.0f));
                 // Alt Çevre Yolu Batı Şeridi (Z: -123.5m)
@@ -625,7 +579,7 @@ namespace Farm2Shelf.Environment
                 route.Add(new Vector3(-224.5f, 0.05f, -123.5f));
                 // 4. Cadde Kuzey Şeridi (X: -224.5m)
                 route.Add(new Vector3(-224.5f, 0.05f, -120.0f));
-                route.Add(new Vector3(-224.5f, 0.05f, -12.0f));
+                route.Add(new Vector3(-224.5f, 0.05f, MainBoulevard.SouthEdge));
                 // Batı Otoyoluna Çıkış ve Batı Uçta Yok Olma (-340f)
                 route.Add(new Vector3(-228.0f, 0.05f, MAIN_ROAD_WESTBOUND_Z));
                 route.Add(new Vector3(-340.0f, 0.05f, MAIN_ROAD_WESTBOUND_Z));
@@ -653,7 +607,7 @@ namespace Farm2Shelf.Environment
             {
                 // Tam Batı Çevre Turu:
                 // Köprü -> 1. Cadde (X: -110.5) -> Kuzey Çevre (Z: 176.5) -> 4. Cadde (X: -227.5) -> Güney Çevre (Z: -126.5) -> 1. Cadde (X: -110.5) -> Köprü
-                route.Add(new Vector3(180f, 0.05f, MAIN_ROAD_WESTBOUND_Z));
+                route.Add(new Vector3(MainBoulevard.EastTrafficPortal, 0.05f, MAIN_ROAD_WESTBOUND_Z));
                 route.Add(new Vector3(-82f, 0.05f, MAIN_ROAD_WESTBOUND_Z));
                 route.Add(new Vector3(-88f, 0.95f, MAIN_ROAD_WESTBOUND_Z));
                 route.Add(new Vector3(-95f, 1.65f, MAIN_ROAD_WESTBOUND_Z));
@@ -673,14 +627,14 @@ namespace Farm2Shelf.Environment
                 route.Add(new Vector3(-113.5f, 0.05f, -126.5f));
                 // 1. Cadde Kuzey Şeridi (X: -110.5m)
                 route.Add(new Vector3(-110.5f, 0.05f, -122.0f));
-                route.Add(new Vector3(-110.5f, 0.05f, -12.0f));
+                route.Add(new Vector3(-110.5f, 0.05f, MainBoulevard.SouthEdge));
                 // Otoyol Çıkış (Doğu Şeridi Z: -10.5m)
                 route.Add(new Vector3(-108.0f, 0.05f, MAIN_ROAD_EASTBOUND_Z));
                 route.Add(new Vector3(-102.0f, 0.95f, MAIN_ROAD_EASTBOUND_Z));
                 route.Add(new Vector3(-95.0f, 1.65f, MAIN_ROAD_EASTBOUND_Z));
                 route.Add(new Vector3(-88.0f, 0.95f, MAIN_ROAD_EASTBOUND_Z));
                 route.Add(new Vector3(-82.0f, 0.05f, MAIN_ROAD_EASTBOUND_Z));
-                route.Add(new Vector3(180f, 0.05f, MAIN_ROAD_EASTBOUND_Z));
+                route.Add(new Vector3(MainBoulevard.EastTrafficPortal, 0.05f, MAIN_ROAD_EASTBOUND_Z));
             }
 
             return route;
@@ -702,7 +656,7 @@ namespace Farm2Shelf.Environment
                 route.Add(new Vector3(-82f, 0.05f, MAIN_ROAD_EASTBOUND_Z));
                 route.Add(new Vector3(-76.5f, 0.05f, MAIN_ROAD_EASTBOUND_Z));
                 // Batı Yolu Güney Şeridi (X: -76.5m)
-                route.Add(new Vector3(WEST_ROAD_SOUTHBOUND_X, 0.05f, -12.0f));
+                route.Add(new Vector3(WEST_ROAD_SOUTHBOUND_X, 0.05f, MainBoulevard.SouthEdge));
                 route.Add(new Vector3(WEST_ROAD_SOUTHBOUND_X, 0.05f, -54.0f));
                 // Kasaba Alt Yolu Doğu Şeridi (Z: -56.5m)
                 route.Add(new Vector3(-73.5f, 0.05f, SOUTH_ROAD_EASTBOUND_Z));
@@ -716,18 +670,18 @@ namespace Farm2Shelf.Environment
                 // Doğu Caddesi Kuzey Şeridi (X: 76.5m - 3 Kafenin Önünden Geçiş)
                 route.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0.05f, -125.0f));
                 route.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0.05f, -59.0f));
-                route.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0.05f, -12.0f));
+                route.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0.05f, MainBoulevard.SouthEdge));
                 // Doğu Otoyoluna Çıkış (Z: -10.5m)
                 route.Add(new Vector3(78.5f, 0.05f, MAIN_ROAD_EASTBOUND_Z));
-                route.Add(new Vector3(180f, 0.05f, MAIN_ROAD_EASTBOUND_Z));
+                route.Add(new Vector3(MainBoulevard.EastTrafficPortal, 0.05f, MAIN_ROAD_EASTBOUND_Z));
             }
             else if (pattern == 1)
             {
                 // Pattern 1: Doğudan Gel -> Doğu Caddesi (Kafelerin Önünden Güneye İniş) -> Güney Dış Yol -> Batı Caddesi (Cami Batısından Çıkış) -> Köprü -> Batı Otoyolu
-                route.Add(new Vector3(180f, 0.05f, MAIN_ROAD_WESTBOUND_Z));
+                route.Add(new Vector3(MainBoulevard.EastTrafficPortal, 0.05f, MAIN_ROAD_WESTBOUND_Z));
                 route.Add(new Vector3(76.5f, 0.05f, MAIN_ROAD_WESTBOUND_Z));
                 // Doğu Caddesi Güney Şeridi (X: 73.5m - Kafelerin Önünden Geçiş)
-                route.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0.05f, -12.0f));
+                route.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0.05f, MainBoulevard.SouthEdge));
                 route.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0.05f, -59.0f));
                 route.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0.05f, -125.0f));
                 // Güney Dış Çevre Yolu Batı Şeridi (Z: -126.5m - Caminin Güney Sınırı)
@@ -736,7 +690,7 @@ namespace Farm2Shelf.Environment
                 // Batı Caddesi Kuzey Şeridi (X: -73.5m - Cami Batısından Kuzeye Çıkış)
                 route.Add(new Vector3(WEST_ROAD_NORTHBOUND_X, 0.05f, -125.0f));
                 route.Add(new Vector3(WEST_ROAD_NORTHBOUND_X, 0.05f, -59.0f));
-                route.Add(new Vector3(WEST_ROAD_NORTHBOUND_X, 0.05f, -12.0f));
+                route.Add(new Vector3(WEST_ROAD_NORTHBOUND_X, 0.05f, MainBoulevard.SouthEdge));
                 // Ana Otoyol Batı Şeridine Çıkış (Z: -7.5m - Köprü Tırmanışı)
                 route.Add(new Vector3(-79.5f, 0.05f, MAIN_ROAD_WESTBOUND_Z));
                 route.Add(new Vector3(-82f, 0.05f, MAIN_ROAD_WESTBOUND_Z));
@@ -749,9 +703,9 @@ namespace Farm2Shelf.Environment
             else if (pattern == 2)
             {
                 // Pattern 2: Doğudan Gel -> Kasaba Yolu -> Batı Caddesi (Güneye İniş) -> Güney Dış Yol -> Orta Bulvar (Kuzeye Çıkış) -> Kasaba Yolu -> Doğu Otoyolu
-                route.Add(new Vector3(180f, 0.05f, MAIN_ROAD_WESTBOUND_Z));
+                route.Add(new Vector3(MainBoulevard.EastTrafficPortal, 0.05f, MAIN_ROAD_WESTBOUND_Z));
                 route.Add(new Vector3(76.5f, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                route.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0.05f, -12.0f));
+                route.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0.05f, MainBoulevard.SouthEdge));
                 route.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0.05f, -54.0f));
                 // Kasaba Alt Yolu Batı Şeridi (Z: -53.5m)
                 route.Add(new Vector3(70.5f, 0.05f, SOUTH_ROAD_WESTBOUND_Z));
@@ -770,9 +724,9 @@ namespace Farm2Shelf.Environment
                 route.Add(new Vector3(73.5f, 0.05f, SOUTH_ROAD_EASTBOUND_Z));
                 // Doğu Yolu Kuzey Şeridi (X: 76.5m)
                 route.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0.05f, -54.0f));
-                route.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0.05f, -12.0f));
+                route.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0.05f, MainBoulevard.SouthEdge));
                 route.Add(new Vector3(78.5f, 0.05f, MAIN_ROAD_EASTBOUND_Z));
-                route.Add(new Vector3(180f, 0.05f, MAIN_ROAD_EASTBOUND_Z));
+                route.Add(new Vector3(MainBoulevard.EastTrafficPortal, 0.05f, MAIN_ROAD_EASTBOUND_Z));
             }
             else
             {
@@ -803,7 +757,7 @@ namespace Farm2Shelf.Environment
                 route.Add(new Vector3(70.5f, 0.05f, NORTH_ROAD_EASTBOUND_Z));
                 // Doğu Caddesi Güney Şeridi (X: 73.5m - Kasaba Yanından Güneye İniş)
                 route.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0.05f, 45.0f));
-                route.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0.05f, -12.0f));
+                route.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0.05f, MainBoulevard.SouthEdge));
                 route.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0.05f, -54.0f));
                 // Kasaba Alt Yolu Batı Şeridi (Z: -53.5m) ile Güney Orta Bulvarına Giriş
                 route.Add(new Vector3(70.5f, 0.05f, SOUTH_ROAD_WESTBOUND_Z));
@@ -816,10 +770,10 @@ namespace Farm2Shelf.Environment
                 route.Add(new Vector3(72.0f, 0.05f, SOUTH_OUTER_ROAD_EASTBOUND_Z));
                 // Doğu Caddesi Kuzey Şeridi (X: 76.5m - 3 Kafenin Önünden Çıkış)
                 route.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0.05f, -125.0f));
-                route.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0.05f, -12.0f));
+                route.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0.05f, MainBoulevard.SouthEdge));
                 // Doğu Otoyolu Çıkışı
                 route.Add(new Vector3(78.5f, 0.05f, MAIN_ROAD_EASTBOUND_Z));
-                route.Add(new Vector3(180f, 0.05f, MAIN_ROAD_EASTBOUND_Z));
+                route.Add(new Vector3(MainBoulevard.EastTrafficPortal, 0.05f, MAIN_ROAD_EASTBOUND_Z));
             }
 
             return route;
@@ -852,11 +806,11 @@ namespace Farm2Shelf.Environment
                 route.Add(new Vector3(148.5f, 0f, NORTH_ROAD_EASTBOUND_Z));
                 route.Add(new Vector3(aveBSouth, 0f, -6.0f));
                 route.Add(new Vector3(151.5f, 0f, MAIN_ROAD_EASTBOUND_Z));
-                route.Add(new Vector3(180f, 0f, MAIN_ROAD_EASTBOUND_Z));
+                route.Add(new Vector3(MainBoulevard.EastTrafficPortal, 0f, MAIN_ROAD_EASTBOUND_Z));
             }
             else
             {
-                route.Add(new Vector3(180f, 0f, MAIN_ROAD_WESTBOUND_Z));
+                route.Add(new Vector3(MainBoulevard.EastTrafficPortal, 0f, MAIN_ROAD_WESTBOUND_Z));
                 route.Add(new Vector3(151.5f, 0f, MAIN_ROAD_WESTBOUND_Z));
                 route.Add(new Vector3(aveBNorth, 0f, -6.0f));
                 route.Add(new Vector3(aveBNorth, 0f, 51.5f));
@@ -886,7 +840,7 @@ namespace Farm2Shelf.Environment
 
             if (pattern == 0)
             {
-                route.Add(new Vector3(180f, 0f, MAIN_ROAD_WESTBOUND_Z));
+                route.Add(new Vector3(MainBoulevard.EastTrafficPortal, 0f, MAIN_ROAD_WESTBOUND_Z));
                 route.Add(new Vector3(151.5f, 0f, MAIN_ROAD_WESTBOUND_Z));
                 route.Add(new Vector3(aveBSouth, 0f, -16.0f));
                 route.Add(new Vector3(aveBSouth, 0f, -125.0f));
@@ -895,7 +849,7 @@ namespace Farm2Shelf.Environment
                 route.Add(new Vector3(aveANorth, 0f, -125.0f));
                 route.Add(new Vector3(aveANorth, 0f, -16.0f));
                 route.Add(new Vector3(114.0f, 0f, MAIN_ROAD_EASTBOUND_Z));
-                route.Add(new Vector3(180f, 0f, MAIN_ROAD_EASTBOUND_Z));
+                route.Add(new Vector3(MainBoulevard.EastTrafficPortal, 0f, MAIN_ROAD_EASTBOUND_Z));
             }
             else
             {
@@ -927,34 +881,12 @@ namespace Farm2Shelf.Environment
         public static float GetBridgeElevation(float x, float z, out float slopeY)
         {
             slopeY = 0f;
-            if (x >= -110.0f && x <= -80.0f && Mathf.Abs(z - (-9.0f)) <= 4.5f)
-            {
-                float t = Mathf.Clamp01((x - (-109.0f)) / 28.0f);
-                float archHeight = 1.65f;
-                // Parabolik köprü tabliyesi yüksekliği (Deck surface = midY + 0.15f)
-                float archY = 0.05f + (4f * archHeight * t * (1f - t)) + 0.15f;
-
-                // Eğim türevi (dy/dx)
-                slopeY = (4f * archHeight * (1f - 2f * t)) / 28.0f;
-
-                // Köprü giriş ve çıkışında yer seviyesine (0.05f) yumuşak geçiş
-                if (x < -107.0f)
-                {
-                    float blend = Mathf.Clamp01((x - (-110.0f)) / 3.0f);
-                    archY = Mathf.Lerp(0.05f, archY, blend);
-                    slopeY *= blend;
-                }
-                else if (x > -83.0f)
-                {
-                    float blend = Mathf.Clamp01((-80.0f - x) / 3.0f);
-                    archY = Mathf.Lerp(0.05f, archY, blend);
-                    slopeY *= blend;
-                }
-
-                return archY;
-            }
-
-            return 0.05f;
+            if (x < -109f || x > -81f || !MainBoulevard.OnRoad(z)) return .05f;
+            float t=(x+109f)/28f;
+            float angle=Mathf.PI*t;
+            // Zero slope at both ends: the mesh and wheel contact use this same profile.
+            slopeY=1.8f*Mathf.PI/28f*Mathf.Sin(2f*angle);
+            return .05f+1.8f*Mathf.Sin(angle)*Mathf.Sin(angle);
         }
 
         #endregion

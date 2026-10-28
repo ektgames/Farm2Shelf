@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -70,7 +70,10 @@ namespace Farm2Shelf.Core
         private readonly Quaternion parkRotation = Quaternion.Euler(0f, 90f, 0f); // Yola dönük duruş
 
         // Dükkanın diğer personelleriyle BİREBİR AYNI spawn ve ayrılış noktası: Sağ Kaldırım (X: 15.0, Z: -4.5)
-        public static readonly Vector3 StaffSpawnAndExitPoint = new Vector3(15.0f, 0.05f, -4.5f);
+        private const float CourierWalkX = 14.30f; // Clear of the farm fence at X=15.
+        public static readonly Vector3 StaffSpawnAndExitPoint = new Vector3(CourierWalkX, 0.05f, -4.5f);
+        private static Vector3 CourierArrivalPoint(int slot) => StaffSpawnAndExitPoint + Vector3.forward * (.55f * slot);
+        private static Vector3 CourierBayApproach(Vector3 bay) => new Vector3(13.90f, .05f, bay.z);
 
         [Header("Aktif Motorsikletler")]
         private readonly List<CourierMotorcycleController> spawnedMotorcycles = new List<CourierMotorcycleController>();
@@ -326,7 +329,7 @@ namespace Farm2Shelf.Core
             // Sahnede aynı isimde eski bir nesne kalmışsa temizle
             string motoName = $"Courier_Motorcycle_Slot_{slotIndex + 1}";
             GameObject existing = GameObject.Find(motoName);
-            if (existing != null) Destroy(existing);
+            if (existing != null) { existing.SetActive(false); Destroy(existing); }
 
             Transform[] wheels;
             Light headlight;
@@ -518,7 +521,7 @@ namespace Farm2Shelf.Core
                         continue;
                     }
 
-                    bool walkerIsWrongPerson = !sameAssigned && state.characterObj != null &&
+                    bool walkerIsWrongPerson = !sameAssigned && !sameIncoming && state.characterObj != null &&
                         (state.dutyState == CourierDutyState.WalkingToBay || state.dutyState == CourierDutyState.WaitingAtBay);
 
                     if ((!sameAssigned && moto.CourierRiderObj != null) || walkerIsWrongPerson)
@@ -635,7 +638,7 @@ namespace Farm2Shelf.Core
             clickTarget.courierMoto = moto;
 
             state.dutyState = CourierDutyState.WalkingToBay;
-            character.transform.position = StaffSpawnAndExitPoint;
+            character.transform.position = CourierArrivalPoint(moto.SlotIndex);
             character.transform.rotation = Quaternion.identity;
 
             if (state.activeRoutine != null) StopCoroutine(state.activeRoutine);
@@ -687,7 +690,7 @@ namespace Farm2Shelf.Core
                 }
                 else
                 {
-                    character.transform.position = moto.HomeParkPosition + new Vector3(0.5f, 0f, 0f);
+                    character.transform.position = CourierBayApproach(moto.HomeParkPosition);
                     character.transform.rotation = Quaternion.Euler(0f, -90f, 0f);
                     state.dutyState = CourierDutyState.WaitingAtBay;
                 }
@@ -695,7 +698,7 @@ namespace Farm2Shelf.Core
             else
             {
                 state.dutyState = CourierDutyState.WalkingToBay;
-                character.transform.position = StaffSpawnAndExitPoint;
+                character.transform.position = CourierArrivalPoint(moto.SlotIndex);
                 character.transform.rotation = Quaternion.identity;
 
                 if (state.activeRoutine != null) StopCoroutine(state.activeRoutine);
@@ -715,9 +718,9 @@ namespace Farm2Shelf.Core
             // 2. Adım: Sola dönüp sarı park yuvasına, motorun yanına gir (X: targetBayPos.x + 0.5, Z: targetBayPos.z)
             List<Vector3> waypoints = new List<Vector3>
             {
-                new Vector3(15.0f, 0.05f, StaffSpawnAndExitPoint.z),
-                new Vector3(15.0f, 0.05f, targetBayPos.z),
-                new Vector3(targetBayPos.x + 0.5f, 0.05f, targetBayPos.z)
+                character.transform.position,
+                new Vector3(CourierWalkX, 0.05f, targetBayPos.z),
+                CourierBayApproach(targetBayPos)
             };
 
             for (int w = 1; w < waypoints.Count; w++)
@@ -726,15 +729,17 @@ namespace Farm2Shelf.Core
 
                 while (character != null && Vector3.Distance(character.transform.position, wpTarget) > 0.20f)
                 {
-                    Vector3 dir = (wpTarget - character.transform.position).normalized;
-                    character.transform.position = Vector3.MoveTowards(character.transform.position, wpTarget, walkSpeed * Time.deltaTime);
+                    Vector3 before = character.transform.position;
+                    character.transform.position = PedestrianNavigation.Move(character, wpTarget, walkSpeed * Time.deltaTime);
+                    Vector3 motion = character.transform.position - before;
+                    Vector3 dir = motion.normalized;
                     if (dir != Vector3.zero)
                     {
                         character.transform.rotation = Quaternion.Slerp(character.transform.rotation, Quaternion.LookRotation(dir, Vector3.up), 12f * Time.deltaTime);
                     }
 
-                    walkCycleTimer += Time.deltaTime * 8.5f * 1.15f;
-                    float legAngle = Mathf.Sin(walkCycleTimer) * 26.0f;
+                    walkCycleTimer += motion.magnitude / walkSpeed * 8.5f * 1.15f;
+                    float legAngle = motion.sqrMagnitude > .00000001f ? Mathf.Sin(walkCycleTimer) * 26.0f : 0f;
 
                     if (state != null && state.leftLimbs != null)
                     {
@@ -757,7 +762,7 @@ namespace Farm2Shelf.Core
             {
                 if (!IsMotorcycleDrivingOnRoad(moto) && moto.CourierRiderObj == null)
                 {
-                    StaffMember courierToMount = (state.assignedCourier != null) ? state.assignedCourier : state.incomingCourier;
+                    StaffMember courierToMount = (state.incomingCourier != null) ? state.incomingCourier : state.assignedCourier;
                     if (courierToMount != null) state.assignedCourier = courierToMount;
                     state.incomingCourier = null;
 
@@ -769,7 +774,7 @@ namespace Farm2Shelf.Core
                 }
                 else
                 {
-                    character.transform.position = targetBayPos + new Vector3(0.5f, 0f, 0f);
+                    character.transform.position = CourierBayApproach(targetBayPos);
                     character.transform.rotation = Quaternion.Euler(0f, -90f, 0f);
                     state.dutyState = CourierDutyState.WaitingAtBay;
                 }
@@ -788,7 +793,7 @@ namespace Farm2Shelf.Core
                 state.activeRoutine = null;
             }
 
-            StaffMember courierToMount = (state.assignedCourier != null) ? state.assignedCourier : state.incomingCourier;
+            StaffMember courierToMount = (state.incomingCourier != null) ? state.incomingCourier : state.assignedCourier;
             if (courierToMount != null) state.assignedCourier = courierToMount;
             state.incomingCourier = null;
 
@@ -835,6 +840,8 @@ namespace Farm2Shelf.Core
             if (moto == null) return;
 
             GameObject leavingChar = null;
+            bool wasMounted = moto.CourierRiderObj != null;
+            bool preserveIncoming = wasMounted && state != null && state.characterObj != null && state.incomingCourier != null;
             if (moto.CourierRiderObj != null)
             {
                 leavingChar = moto.CourierRiderObj;
@@ -842,7 +849,7 @@ namespace Farm2Shelf.Core
                 moto.ClearCourier();
             }
 
-            if (state != null)
+            if (state != null && !preserveIncoming)
             {
                 if (leavingChar == null && state.characterObj != null &&
                     (state.dutyState == CourierDutyState.WaitingAtBay || state.dutyState == CourierDutyState.WalkingToBay))
@@ -863,7 +870,8 @@ namespace Farm2Shelf.Core
             if (leavingChar != null)
             {
                 leavingChar.transform.SetParent(null);
-                leavingChar.transform.position = moto.HomeParkPosition + new Vector3(0.5f, 0f, 0f);
+                // Walkers already on the way home retain their actual position.
+                if (wasMounted) leavingChar.transform.position = CourierBayApproach(moto.HomeParkPosition) + Vector3.back * .45f;
                 leavingChar.transform.rotation = Quaternion.Euler(0f, -90f, 0f);
 
                 StartCoroutine(IndependentCourierWalkToExitRoutine(leavingChar, leavingChar.transform.position));
@@ -894,7 +902,7 @@ namespace Farm2Shelf.Core
             List<Vector3> exitWaypoints = new List<Vector3>
             {
                 startPos,
-                new Vector3(15.0f, 0.05f, startPos.z),
+                new Vector3(CourierWalkX, 0.05f, startPos.z),
                 StaffSpawnAndExitPoint
             };
 
@@ -904,15 +912,17 @@ namespace Farm2Shelf.Core
 
                 while (character != null && Vector3.Distance(character.transform.position, wpTarget) > 0.20f)
                 {
-                    Vector3 dir = (wpTarget - character.transform.position).normalized;
-                    character.transform.position = Vector3.MoveTowards(character.transform.position, wpTarget, walkSpeed * Time.deltaTime);
+                    Vector3 before = character.transform.position;
+                    character.transform.position = PedestrianNavigation.Move(character, wpTarget, walkSpeed * Time.deltaTime);
+                    Vector3 motion = character.transform.position - before;
+                    Vector3 dir = motion.normalized;
                     if (dir != Vector3.zero)
                     {
                         character.transform.rotation = Quaternion.Slerp(character.transform.rotation, Quaternion.LookRotation(dir, Vector3.up), 12f * Time.deltaTime);
                     }
 
-                    walkCycleTimer += Time.deltaTime * 8.5f * 1.15f;
-                    float legAngle = Mathf.Sin(walkCycleTimer) * 26.0f;
+                    walkCycleTimer += motion.magnitude / walkSpeed * 8.5f * 1.15f;
+                    float legAngle = motion.sqrMagnitude > .00000001f ? Mathf.Sin(walkCycleTimer) * 26.0f : 0f;
 
                     foreach (var l in leftLimbs) if (l != null) l.localRotation = Quaternion.Euler(legAngle, 0f, 0f);
                     foreach (var r in rightLimbs) if (r != null) r.localRotation = Quaternion.Euler(-legAngle, 0f, 0f);
@@ -957,7 +967,7 @@ namespace Farm2Shelf.Core
                     {
                         MountWaitingCourierOnMotorcycle(state, moto);
                     }
-                    else
+                    else if (state.dutyState != CourierDutyState.WalkingToBay || state.characterObj == null)
                     {
                         state.dutyState = CourierDutyState.OffDuty;
                         StartCourierArrival(state, scheduledCourier, moto, false);

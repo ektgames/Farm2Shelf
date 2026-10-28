@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 using Farm2Shelf.Core;
 
@@ -15,6 +15,8 @@ namespace Farm2Shelf.UI
         private static bool modalState = false;
         private static GameObject currentGlobalPopupCanvas;
         public static bool IsGlobalPopupOpen => currentGlobalPopupCanvas != null && currentGlobalPopupCanvas.activeInHierarchy;
+        public static RectTransform GlobalPopupRect => currentGlobalPopupCanvas != null
+            ? currentGlobalPopupCanvas.transform.Find("Modal_Backdrop/Modal_Box") as RectTransform : null;
 
         public static float LastModalCloseTime { get; private set; } = -1f;
 
@@ -53,8 +55,10 @@ namespace Farm2Shelf.UI
         {
             if (currentGlobalPopupCanvas != null && currentGlobalPopupCanvas.activeInHierarchy) return true;
             if (EKTPhoneManager.IsTabletOpen) return true;
+            if (EKTPhoneManager.IsCartOpen) return true;
             if (Farm2Shelf.Environment.FieldPlotController.IsRadialMenuOpen) return true;
             if (BarnInventoryModalUI.IsBarnModalOpen) return true;
+            if (RailwayFreightModalUI.IsOpen) return true;
             if (PalletStorageInventoryModalUI.IsModalOpen) return true;
             if (EndOfDayReportModalUI.IsReportModalOpen) return true;
             if (FurnitureInfoModalUI.IsFurnitureModalOpen) return true;

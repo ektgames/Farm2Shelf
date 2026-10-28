@@ -17,6 +17,13 @@ namespace Farm2Shelf.UI
         private float refreshAt;
         private bool harvesting;
         private int harvestedPlots;
+        public static void EnsureTutorialFinish()
+        {
+            if (instance != null) return;
+            instance = new GameObject("Held_Seed_Tool", typeof(RectTransform)).AddComponent<SeedPlantingModeUI>();
+            instance.Build();
+            Refresh();
+        }
 
         public static void BeginHarvest(FieldPlotController plot)
         {
@@ -104,6 +111,14 @@ namespace Farm2Shelf.UI
             instance.changeLabel.transform.parent.gameObject.SetActive(!instance.harvesting);
             ((RectTransform)instance.finishLabel.transform.parent).anchoredPosition = new Vector2(230f, instance.harvesting ? 0f : -29f);
             instance.finishLabel.text = LocalizationManager.L("PlantTool_Finish", "Bitir", "Done");
+            var tutorial = TutorialManager.Instance;
+            if (!instance.harvesting && tutorial != null && tutorial.JourneyStep == 7 && tutorial.SeedsPlanted && !tutorial.PlantingFinished)
+            {
+                instance.changeLabel.transform.parent.gameObject.SetActive(false);
+                instance.title.text = LocalizationManager.L("PlantTutorialComplete", "30 / 30 tohum ekildi", "30 / 30 seeds planted");
+                instance.hint.text = LocalizationManager.L("PlantTutorialDone", "Devam etmek için Bitir'e bas.", "Press Done to continue.");
+                return;
+            }
             if (instance.harvesting)
             {
                 instance.title.text = "🌾 " + LocalizationManager.L("Btn_HarvestToBarn", "Biç ve Ahıra Koy", "Harvest to Barn");
@@ -147,7 +162,11 @@ namespace Farm2Shelf.UI
                 if (lastPlot == null && FieldPlotController.AllPlots.Count > 0) lastPlot = FieldPlotController.AllPlots[0];
                 if (lastPlot != null) lastPlot.OpenRadialPlantingMenuDirect();
             });
-            finishLabel = MakeButton(new Vector2(230, -29), new Color(0.3f, 0.34f, 0.38f), Cancel);
+            finishLabel = MakeButton(new Vector2(230, -29), new Color(0.3f, 0.34f, 0.38f), () => {
+                if (!harvesting) TutorialManager.Instance?.NotifyPlantingFinished();
+                Cancel();
+            });
+            TutorialFocusTarget.Tag(finishLabel.transform.parent.gameObject, "plant_finish");
         }
 
         private Text MakeButton(Vector2 position, Color color, UnityEngine.Events.UnityAction action)

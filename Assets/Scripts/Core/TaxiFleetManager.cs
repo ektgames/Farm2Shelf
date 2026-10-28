@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -28,6 +28,7 @@ namespace Farm2Shelf.Core
         public event Action OnTaxiFleetChanged;
 
         private readonly List<TaxiVehicleController> taxis = new List<TaxiVehicleController>();
+        private readonly Dictionary<int,GameObject> jobWaiters=new Dictionary<int,GameObject>();
         private readonly List<GameObject> waitingPassengers = new List<GameObject>();
         private readonly Dictionary<int, int> taxiPickupStop = new Dictionary<int, int>();
         private readonly HashSet<int> reservedPickupStops = new HashSet<int>();
@@ -344,6 +345,7 @@ namespace Farm2Shelf.Core
 
             GameObject waiter = SpawnWaitingPassenger(pickWait, pickStop);
             waitingPassengers.Add(waiter);
+            jobWaiters[taxi.SlotIndex]=waiter;
             ReservePickup(taxi, a);
 
             List<Vector3> toPick = TaxiRoadRouter.BuildRoute(taxi.transform.position, pickStop);
@@ -607,6 +609,16 @@ namespace Farm2Shelf.Core
                 SpawnParkedTaxi(i);
         }
 
+        private void RecoverGridlockedTaxi(TaxiVehicleController taxi)
+        {
+            if(taxi==null)return;
+            int slot=taxi.SlotIndex;ReleasePickup(taxi);
+            if(jobWaiters.TryGetValue(slot,out var waiter))
+            {waitingPassengers.Remove(waiter);if(waiter!=null)Destroy(waiter);jobWaiters.Remove(slot);}
+            taxis.Remove(taxi);taxi.gameObject.SetActive(false);Destroy(taxi.gameObject);
+            SpawnParkedTaxi(slot);OnTaxiFleetChanged?.Invoke();
+        }
+
         private void SpawnParkedTaxi(int slot)
         {
             EnsureRoot();
@@ -623,6 +635,7 @@ namespace Farm2Shelf.Core
             TaxiVehicleController ctrl = taxiObj.AddComponent<TaxiVehicleController>();
             ctrl.Setup(slot, slots[slot], Quaternion.Euler(0f, 0f, 0f), wheels);
             taxis.Add(ctrl);
+            RoadTrafficAgent.Register(ctrl.transform).OnGridlock=()=>RecoverGridlockedTaxi(ctrl);
         }
 
         private void ClearWaiting()

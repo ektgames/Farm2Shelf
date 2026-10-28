@@ -43,8 +43,10 @@ namespace Farm2Shelf.Core
 
         public void OnClockMinute(int hour, int minute)
         {
-            if (MainMenuUI.IsMenuVisible || minute != 0 || hour < 8 || hour > 24 || hour % 2 != 0)
+            if (MainMenuUI.IsMenuVisible || minute != 0 || hour < 8 || hour > 24 || (hour % 4 != 0 && hour != 22))
                 return;
+            if(LocalizationManager.Instance!=null && LocalizationManager.Instance.CurrentLanguage==GameLanguage.English)
+            {StopPlayback();return;}
             var clock = TimeManager.Instance;
             if (clock == null) return;
             if (hour < 24 && (StoreStatusManager.Instance == null || !StoreStatusManager.Instance.IsOpen)) return;
@@ -56,8 +58,7 @@ namespace Farm2Shelf.Core
             int entry = hour == 8 ? 0 : hour == 22 ? 1 : hour == 24 ? 2 : SelectEntry(hour);
             if (entry < 0) return;
             StopPlayback();
-            bool english = LocalizationManager.Instance != null && LocalizationManager.Instance.CurrentLanguage == GameLanguage.English;
-            string path = "Audio/Announcements/" + (english ? "en/" : "tr/") + StoreAnnouncementCatalog.Entries[entry].Id;
+            string path = "Audio/Announcements/tr/" + StoreAnnouncementCatalog.Entries[entry].Id;
             loading = StartCoroutine(LoadAndPlay(path));
         }
 
@@ -71,7 +72,8 @@ namespace Farm2Shelf.Core
             {
                 int index = 3 + ((Mathf.Max(3, state.nextEntry) - 3 + i) % (entries.Length - 3));
                 if (hour < entries[index].FromHour || hour >= entries[index].UntilHour) continue;
-                if (selected < 0 || state.playCounts[index] < state.playCounts[selected]) selected = index;
+                selected = index;
+                break; // Advance in catalog order, skipping entries outside their time window.
             }
             if (selected >= 0)
             {
@@ -110,6 +112,8 @@ namespace Farm2Shelf.Core
         private void Update()
         {
             if (voice == null) return;
+            if(LocalizationManager.Instance!=null && LocalizationManager.Instance.CurrentLanguage==GameLanguage.English)
+            {StopPlayback();return;}
             if (MainMenuUI.IsMenuVisible || (TimeManager.Instance != null && TimeManager.Instance.Hour < 8))
             { StopPlayback(); return; }
             if (TimeManager.Instance != null && TimeManager.Instance.Hour < 24 &&

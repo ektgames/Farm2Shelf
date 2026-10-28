@@ -103,7 +103,9 @@ namespace Farm2Shelf.UI
                     if (StaffManager.Instance != null) salary += counts[i] * StaffManager.Instance.GetRoleDailySalary(RecruitmentRole(group, i));
                     if (labels[i] != null) labels[i].text = RecruitText("+ İŞE AL", "+ HIRE") + " (" + counts[i] + ")";
                     if (minusButtons[i] != null) minusButtons[i].interactable = counts[i] > 0;
-                    if (plusButtons[i] != null) plusButtons[i].interactable = counts[i] < 99 && StaffManager.Instance != null;
+                    if (plusButtons[i] != null) plusButtons[i].interactable = counts[i] < 99 && StaffManager.Instance != null &&
+                        (TutorialManager.Instance == null || GetPendingRecruitmentCount(group, RecruitmentRole(group, i)) <
+                        TutorialManager.Instance.RecruitmentRemaining(group, RecruitmentRole(group, i)));
                 }
                 if (summary != null) summary.text = RecruitText($"Seçilen: {total} personel\nGünlük maaş: {salary:N0} C\nİşe alım ücretsiz", $"Selected: {total} staff\nDaily wages: {salary:N0} C\nNo hiring fee");
                 if (summary != null && lastRecruitmentResult[group] > 0)
@@ -122,6 +124,7 @@ namespace Farm2Shelf.UI
                 if (role == StaffRole.Kasiyer) TutorialFocusTarget.Tag(card.gameObject, "hire_cashier");
                 if (role == StaffRole.Reyoncu) TutorialFocusTarget.Tag(card.gameObject, "hire_restocker");
                 if (role == StaffRole.Çiftçi) TutorialFocusTarget.Tag(card.gameObject, "hire_farmer");
+                TutorialFocusTarget.Tag(card.gameObject, "hire_role_" + role);
                 string title = group == 0 ? GetRoleCategoryName(i) : group == 1 ? RecruitText("Çiftlik İşçisi", "Farm Worker") :
                     i == 0 ? RecruitText("Kadın Kurye", "Female Courier") : RecruitText("Erkek Kurye", "Male Courier");
                 string description = group == 0 ? RecruitText(trDescriptions[i], enDescriptions[i]) : group == 1 ?
@@ -133,7 +136,12 @@ namespace Farm2Shelf.UI
                 minusButtons[i] = RecruitmentButton(card, "Decrease", new Vector2(.05f,.08f), new Vector2(.23f,.31f), "−", () =>
                 { if (counts[index] > 0) counts[index]--; lastRecruitmentResult[group] = 0; update(); }, out _);
                 plusButtons[i] = RecruitmentButton(card, "HireBtn", new Vector2(.27f,.08f), new Vector2(.95f,.31f), "", () =>
-                { if (counts[index] < 99) counts[index]++; lastRecruitmentResult[group] = 0; update(); }, out labels[i]);
+                {
+                    if (counts[index] < 99 && (TutorialManager.Instance == null ||
+                        GetPendingRecruitmentCount(group, role) < TutorialManager.Instance.RecruitmentRemaining(group, role)))
+                        counts[index]++;
+                    lastRecruitmentResult[group] = 0; update();
+                }, out labels[i]);
             }
 
             var footer = RecruitmentCard(content, "RecruitmentConfirmation", new Color(.95f,.72f,.18f));

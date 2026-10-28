@@ -59,6 +59,13 @@ namespace Farm2Shelf.Environment
             rb.isKinematic = true;
             rb.useGravity = false;
 
+            if(role==StaffRole.Maskot)
+            {
+                BuildPlushMascot(tRoot,isFemale,leftLimbs,rightLimbs);
+                col.height=isFemale?2.65f:2.25f;col.center=Vector3.up*(col.height*.5f);col.radius=.44f;
+                return root;
+            }
+
             // Ten & Saç Materyalleri
             Material skinMat = isFemale ? GetMaterial("Mat_StaffSkinF", new Color(0.95f, 0.80f, 0.68f)) : GetMaterial("Mat_StaffSkinM", new Color(0.88f, 0.72f, 0.58f));
             Material hairMat = isFemale ? GetMaterial("Mat_StaffHairF", new Color(0.35f, 0.22f, 0.14f)) : GetMaterial("Mat_StaffHairM", new Color(0.12f, 0.12f, 0.14f));
@@ -83,12 +90,8 @@ namespace Farm2Shelf.Environment
 
             // Sol & Sağ Bacak
             float legX = isFemale ? 0.13f : 0.15f;
-            GameObject lLeg = role == StaffRole.MüşteriHizmetlisi
-                ? CreateSeatedServiceLeg(tRoot, "Leg_L", -legX, pantsMat, shoeMat)
-                : CreateLimb(tRoot, "Leg_L", new Vector3(-legX, 0.75f, 0f), new Vector3(0.18f, 0.70f, 0.20f), pantsMat, shoeMat);
-            GameObject rLeg = role == StaffRole.MüşteriHizmetlisi
-                ? CreateSeatedServiceLeg(tRoot, "Leg_R", legX, pantsMat, shoeMat)
-                : CreateLimb(tRoot, "Leg_R", new Vector3(legX, 0.75f, 0f), new Vector3(0.18f, 0.70f, 0.20f), pantsMat, shoeMat);
+            GameObject lLeg = CreateSeatedServiceLeg(tRoot,"Leg_L",-legX,pantsMat,shoeMat);
+            GameObject rLeg = CreateSeatedServiceLeg(tRoot,"Leg_R",legX,pantsMat,shoeMat);
             leftLimbs.Add(lLeg.transform);
             rightLimbs.Add(rLeg.transform);
 
@@ -150,6 +153,67 @@ namespace Farm2Shelf.Environment
             BuildRoleUniformAccessories(tRoot, role, isFemale, skinMat);
 
             return root;
+        }
+
+        private static GameObject PlushPart(Transform parent,string name,Vector3 position,Vector3 scale,Material material)
+        {
+            var part=GameObject.CreatePrimitive(PrimitiveType.Sphere);part.name=name;
+            part.transform.SetParent(parent,false);part.transform.localPosition=position;part.transform.localScale=scale;
+            part.GetComponent<Renderer>().sharedMaterial=material;
+            var collider=part.GetComponent<Collider>();collider.enabled=false;Object.Destroy(collider);return part;
+        }
+        private static Transform PlushJoint(Transform parent,string name,Vector3 position)
+        {
+            var joint=new GameObject(name).transform;joint.SetParent(parent,false);joint.localPosition=position;return joint;
+        }
+        private static void BuildPlushMascot(Transform root,bool bunny,List<Transform> left,List<Transform> right)
+        {
+            var fur=GetMaterial(bunny?"Mascot_Rose_Plush":"Mascot_Honey_Plush",bunny?new Color(.92f,.58f,.66f):new Color(.65f,.39f,.17f),0,.15f);
+            var cream=GetMaterial("Mascot_Vanilla_Plush",new Color(1f,.9f,.72f),0,.12f);
+            var ink=GetMaterial("Mascot_Embroidered_Eyes",new Color(.035f,.045f,.055f),0,.32f);
+            var white=GetMaterial("Mascot_Eye_Glint",Color.white,0,.5f);
+            var green=GetMaterial("Mascot_Farm_Apron",new Color(.045f,.36f,.25f),0,.18f);
+            var coral=GetMaterial("Mascot_Coral_Details",new Color(.86f,.23f,.3f),0,.2f);
+            var gold=GetMaterial("Mascot_Harvest_Gold",new Color(1f,.68f,.13f),0,.25f);
+            PlushPart(root,"Plush_Torso",new Vector3(0,1.04f,0),new Vector3(.68f,.87f,.49f),fur);
+            PlushPart(root,"Belly_Patch",new Vector3(0,1.04f,.218f),new Vector3(.47f,.59f,.10f),cream);
+            PlushPart(root,"Tail",new Vector3(0,.88f,-.27f),Vector3.one*(bunny?.22f:.16f),bunny?cream:fur);
+            var head=PlushJoint(root,"Mascot_Head",new Vector3(0,1.75f,.015f));
+            PlushPart(head,"Head_Shell",Vector3.zero,new Vector3(.72f,.67f,.62f),fur);
+            for(int side=-1;side<=1;side+=2)
+            {
+                var ear=PlushJoint(head,"Ear_"+side,new Vector3(side*(bunny?.22f:.29f),bunny?.39f:.28f,-.035f));
+                ear.localRotation=Quaternion.Euler(0,0,-side*(bunny?10f:15f));
+                PlushPart(ear,"Outer",Vector3.zero,bunny?new Vector3(.18f,.69f,.17f):new Vector3(.27f,.29f,.15f),fur);
+                PlushPart(ear,"Inner",new Vector3(0,0,.072f),bunny?new Vector3(.105f,.51f,.045f):new Vector3(.16f,.17f,.045f),cream);
+                PlushPart(head,"Muzzle_"+side,new Vector3(side*.10f,-.12f,.30f),new Vector3(.25f,.20f,.17f),cream);
+                PlushPart(head,"Eye_"+side,new Vector3(side*.155f,.065f,.295f),new Vector3(.10f,.13f,.055f),ink);
+                PlushPart(head,"Glint_"+side,new Vector3(side*.155f-.018f,.09f,.322f),new Vector3(.03f,.035f,.013f),white);
+                var eyebrow=PlushPart(head,"Brow_"+side,new Vector3(side*.16f,.16f,.27f),new Vector3(.12f,.028f,.025f),ink);
+                eyebrow.transform.localRotation=Quaternion.Euler(0,0,-side*10f);
+                PlushPart(head,"Cheek_"+side,new Vector3(side*.25f,-.075f,.25f),new Vector3(.09f,.055f,.025f),coral);
+                var hip=PlushJoint(root,side<0?"Leg_L":"Leg_R",new Vector3(side*.18f,.8f,0));
+                PlushPart(hip,"Thigh",new Vector3(0,-.18f,0),new Vector3(.27f,.40f,.28f),fur);
+                var knee=PlushJoint(hip,"ServiceKnee",new Vector3(0,-.36f,0));
+                PlushPart(knee,"Shin",new Vector3(0,-.14f,0),new Vector3(.26f,.34f,.27f),fur);
+                PlushPart(knee,"Paw_Boot",new Vector3(0,-.33f,.085f),new Vector3(.32f,.22f,.43f),cream);
+                for(int toe=-1;toe<=1;toe++)PlushPart(knee,"Toe_Stitch",new Vector3(toe*.065f,-.30f,.28f),new Vector3(.014f,.045f,.014f),fur);
+                var arm=PlushJoint(root,side<0?"Arm_L":"Arm_R",new Vector3(side*.39f,1.36f,0));
+                PlushPart(arm,"Sleeve",new Vector3(side*.025f,-.21f,0),new Vector3(.24f,.48f,.25f),fur);
+                PlushPart(arm,"Mitten",new Vector3(side*.04f,-.47f,.035f),new Vector3(.27f,.27f,.26f),cream);
+                PlushPart(arm,"Thumb",new Vector3(-side*.085f,-.43f,.07f),new Vector3(.12f,.15f,.15f),cream);
+                (side<0?left:right).Add(hip);(side<0?left:right).Add(arm);
+                var bow=PlushPart(root,"Bow_Loop_"+side,new Vector3(side*.09f,1.40f,.25f),new Vector3(.18f,.13f,.10f),bunny?coral:green);
+                bow.transform.localRotation=Quaternion.Euler(0,0,side*20f);
+            }
+            PlushPart(head,"Nose",new Vector3(0,-.055f,.397f),new Vector3(.105f,.075f,.07f),bunny?coral:ink);
+            PlushPart(head,"Smile",new Vector3(0,-.22f,.325f),new Vector3(.13f,.035f,.035f),ink);
+            PlushPart(root,"Bow_Knot",new Vector3(0,1.40f,.28f),new Vector3(.09f,.10f,.08f),gold);
+            PlushPart(root,"Apron_Bib",new Vector3(0,1.08f,.274f),new Vector3(.34f,.40f,.05f),green);
+            PlushPart(root,"Harvest_Badge",new Vector3(0,1.14f,.307f),new Vector3(.13f,.13f,.025f),gold);
+            var leaf=PlushPart(root,"Badge_Leaf",new Vector3(.035f,1.22f,.31f),new Vector3(.08f,.035f,.022f),cream);
+            leaf.transform.localRotation=Quaternion.Euler(0,0,25);
+            PlushPart(root,"Apron_Pocket",new Vector3(0,.98f,.305f),new Vector3(.23f,.105f,.025f),cream);
         }
 
         private static Color GetRolePrimaryColor(StaffRole role)
@@ -275,72 +339,6 @@ namespace Farm2Shelf.Environment
                     // Şık Danışma Kulaklığı & Mikrofonu
                     GameObject custHeadset = CreateBlock(parent, "HeadsetCS", new Vector3(0f, 1.66f, 0f), new Vector3(0.34f, 0.04f, 0.20f), blackAcc);
                     CreateBlock(custHeadset.transform, "MicCS", new Vector3(-0.16f, -0.10f, 0.12f), new Vector3(0.04f, 0.04f, 0.15f), blackAcc);
-                    break;
-
-                case StaffRole.Maskot:
-                    if (isFemale)
-                    {
-                        // 🐰 KADIN: SEVİMLİ PEMBE TAVŞAN MASKOT KOSTÜMÜ
-                        Material rabbitBodyMat = GetMaterial("Mat_MascotRabbitPink", new Color(0.98f, 0.68f, 0.78f));
-                        Material rabbitWhiteMat = GetMaterial("Mat_MascotRabbitWhite", Color.white);
-                        Material rabbitInnerEarMat = GetMaterial("Mat_MascotRabbitInnerEar", new Color(0.98f, 0.85f, 0.90f));
-                        Material redBowTieMat = GetMaterial("Mat_MascotRabbitBow", new Color(0.85f, 0.18f, 0.25f));
-                        Material blackEyesMat = GetMaterial("Mat_MascotBlackEyes", new Color(0.10f, 0.10f, 0.12f));
-
-                        // 1. Tavşan Maskot Kafası (Kocaman Sevimli Peluş Kafa)
-                        GameObject rHead = CreateBlock(parent, "Rabbit_Head_Mascot", new Vector3(0f, 1.52f, 0.02f), new Vector3(0.44f, 0.42f, 0.42f), rabbitBodyMat);
-
-                        // 2. Dik Duran Sevimli Tavşan Kulakları (Sol ve Sağ)
-                        GameObject earL = CreateBlock(rHead.transform, "Rabbit_Ear_L", new Vector3(-0.14f, 0.32f, 0f), new Vector3(0.10f, 0.50f, 0.08f), rabbitBodyMat);
-                        earL.transform.localRotation = Quaternion.Euler(0f, 0f, 10f);
-                        CreateBlock(earL.transform, "Inner_L", new Vector3(0f, 0f, 0.03f), new Vector3(0.06f, 0.42f, 0.03f), rabbitInnerEarMat);
-
-                        GameObject earR = CreateBlock(rHead.transform, "Rabbit_Ear_R", new Vector3(0.14f, 0.32f, 0f), new Vector3(0.10f, 0.50f, 0.08f), rabbitBodyMat);
-                        earR.transform.localRotation = Quaternion.Euler(0f, 0f, -10f);
-                        CreateBlock(earR.transform, "Inner_R", new Vector3(0f, 0f, 0.03f), new Vector3(0.06f, 0.42f, 0.03f), rabbitInnerEarMat);
-
-                        // 3. Ağız, Burun ve Gözler
-                        CreateBlock(rHead.transform, "Rabbit_Snout", new Vector3(0f, -0.06f, 0.20f), new Vector3(0.20f, 0.14f, 0.10f), rabbitWhiteMat);
-                        CreateBlock(rHead.transform, "Rabbit_Nose", new Vector3(0f, -0.02f, 0.24f), new Vector3(0.06f, 0.05f, 0.04f), rabbitInnerEarMat);
-                        CreateBlock(rHead.transform, "Eye_L", new Vector3(-0.12f, 0.06f, 0.20f), new Vector3(0.06f, 0.08f, 0.04f), blackEyesMat);
-                        CreateBlock(rHead.transform, "Eye_R", new Vector3(0.12f, 0.06f, 0.20f), new Vector3(0.06f, 0.08f, 0.04f), blackEyesMat);
-
-                        // 4. Göğüs Beyaz Göbek Yaması & Kırmızı Fiyonk Kravat
-                        CreateBlock(parent, "Rabbit_Belly", new Vector3(0f, 1.05f, 0.16f), new Vector3(0.34f, 0.42f, 0.03f), rabbitWhiteMat);
-                        CreateBlock(parent, "Rabbit_Bow", new Vector3(0f, 1.28f, 0.18f), new Vector3(0.20f, 0.10f, 0.04f), redBowTieMat);
-
-                        // 5. Arka Pofuduk Tavşan Kuyruğu
-                        CreateBlock(parent, "Rabbit_Tail", new Vector3(0f, 0.78f, -0.18f), new Vector3(0.18f, 0.18f, 0.18f), rabbitWhiteMat);
-                    }
-                    else
-                    {
-                        // 🐻 ERKEK: SEVİMLİ KAHVERENGİ AYI MASKOT KOSTÜMÜ
-                        Material bearBodyMat = GetMaterial("Mat_MascotBearBrown", new Color(0.58f, 0.36f, 0.18f));
-                        Material bearSnoutMat = GetMaterial("Mat_MascotBearCream", new Color(0.95f, 0.85f, 0.68f));
-                        Material blackNoseMat = GetMaterial("Mat_MascotBlackNose", new Color(0.10f, 0.10f, 0.12f));
-
-                        // 1. Ayı Maskot Kafası (Büyük Sevimli Peluş Kafa)
-                        GameObject bHead = CreateBlock(parent, "Bear_Head_Mascot", new Vector3(0f, 1.52f, 0.02f), new Vector3(0.48f, 0.44f, 0.44f), bearBodyMat);
-
-                        // 2. Yuvarlak Pofuduk Ayı Kulakları (Sol ve Sağ)
-                        GameObject bEarL = CreateBlock(bHead.transform, "Bear_Ear_L", new Vector3(-0.20f, 0.22f, 0f), new Vector3(0.14f, 0.14f, 0.08f), bearBodyMat);
-                        CreateBlock(bEarL.transform, "Inner_L", new Vector3(0f, 0f, 0.03f), new Vector3(0.08f, 0.08f, 0.03f), bearSnoutMat);
-
-                        GameObject bEarR = CreateBlock(bHead.transform, "Bear_Ear_R", new Vector3(0.20f, 0.22f, 0f), new Vector3(0.14f, 0.14f, 0.08f), bearBodyMat);
-                        CreateBlock(bEarR.transform, "Inner_R", new Vector3(0f, 0f, 0.03f), new Vector3(0.08f, 0.08f, 0.03f), bearSnoutMat);
-
-                        // 3. Çıkıntılı Ayı Ağız Ağızlığı & Siyah Burun & Siyah Gözler
-                        CreateBlock(bHead.transform, "Bear_Snout", new Vector3(0f, -0.06f, 0.22f), new Vector3(0.24f, 0.16f, 0.12f), bearSnoutMat);
-                        CreateBlock(bHead.transform, "Bear_Nose", new Vector3(0f, -0.01f, 0.27f), new Vector3(0.08f, 0.06f, 0.05f), blackNoseMat);
-                        CreateBlock(bHead.transform, "Eye_L", new Vector3(-0.14f, 0.08f, 0.21f), new Vector3(0.07f, 0.07f, 0.04f), blackNoseMat);
-                        CreateBlock(bHead.transform, "Eye_R", new Vector3(0.14f, 0.08f, 0.21f), new Vector3(0.07f, 0.07f, 0.04f), blackNoseMat);
-
-                        // 4. Krem Rengi Ayı Göbek Yaması
-                        CreateBlock(parent, "Bear_Belly", new Vector3(0f, 1.05f, 0.16f), new Vector3(0.38f, 0.44f, 0.03f), bearSnoutMat);
-
-                        // 5. Arka Yuvarlak Ayı Kuyruğu
-                        CreateBlock(parent, "Bear_Tail", new Vector3(0f, 0.78f, -0.18f), new Vector3(0.16f, 0.16f, 0.16f), bearBodyMat);
-                    }
                     break;
 
                 case StaffRole.Kurye:

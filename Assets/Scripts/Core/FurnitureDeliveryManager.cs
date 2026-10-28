@@ -18,7 +18,71 @@ namespace Farm2Shelf.Core
         public void OnPointerClick(PointerEventData eventData)
         {
             if (eventData == null || eventData.dragging || eventData.button != PointerEventData.InputButton.Left) return;
-            TouchInputHelper.Dispatch3DClick(eventData.position);
+            TouchInputHelper.DispatchPalletClick(eventData.position, false);
+        }
+    }
+
+    // Native UI pointer events also work when the Simulator does not expose a
+    // matching raw mouse release. This target follows the wood, never the boxes.
+    public class DeliveryPalletTouchTarget : MonoBehaviour, IPointerDownHandler, IPointerClickHandler, IDragHandler
+    {
+        private RectTransform target;
+        private Image graphic;
+        private Vector2 pressPosition;
+        private bool cancelled;
+
+        public static void Create(Transform owner)
+        {
+            var root = new GameObject("DeliveryPallet_Input", typeof(RectTransform), typeof(Canvas), typeof(GraphicRaycaster));
+            root.transform.SetParent(owner, false);
+            var canvas = root.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = -100; // All tablet, tutorial and HUD controls stay above it.
+            var hit = new GameObject("WoodTouchTarget", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            hit.transform.SetParent(root.transform, false);
+            var handler = hit.AddComponent<DeliveryPalletTouchTarget>();
+            handler.target = hit.GetComponent<RectTransform>();
+            handler.target.anchorMin = handler.target.anchorMax = Vector2.zero;
+            handler.graphic = hit.GetComponent<Image>();
+            handler.graphic.color = Color.clear;
+        }
+
+        private void LateUpdate()
+        {
+            var manager = FurnitureDeliveryManager.Instance;
+            var camera = Camera.main;
+            graphic.raycastTarget = false;
+            if (camera == null || manager == null || MainMenuUI.IsMenuVisible ||
+                EKTPhoneManager.IsTabletOpen || ModalManager.IsModalOpen ||
+                (FurniturePlacementManager.Instance != null && FurniturePlacementManager.Instance.IsPlacing) ||
+                !manager.TryGetPalletBaseBounds(out Bounds bounds)) return;
+            Vector2 min = Vector2.positiveInfinity, max = Vector2.negativeInfinity;
+            for (int i = 0; i < 8; i++)
+            {
+                Vector3 point = camera.WorldToScreenPoint(bounds.center + Vector3.Scale(bounds.extents,
+                    new Vector3((i & 1) == 0 ? -1 : 1, (i & 2) == 0 ? -1 : 1, (i & 4) == 0 ? -1 : 1)));
+                if (point.z <= camera.nearClipPlane) return;
+                min = Vector2.Min(min, point);
+                max = Vector2.Max(max, point);
+            }
+            target.anchoredPosition = (min + max) * .5f;
+            target.sizeDelta = Vector2.Max(max - min + Vector2.one * 16f, Vector2.one * 48f);
+            graphic.raycastTarget = true;
+            if (TouchInputHelper.GetTouchCount() > 1) cancelled = true;
+        }
+
+        public void OnPointerDown(PointerEventData data)
+        {
+            pressPosition = data.position;
+            cancelled = data.button != PointerEventData.InputButton.Left || TouchInputHelper.GetTouchCount() > 1;
+        }
+
+        public void OnDrag(PointerEventData data) { cancelled = true; }
+
+        public void OnPointerClick(PointerEventData data)
+        {
+            if (cancelled || data.dragging || (data.position - pressPosition).sqrMagnitude > 144f) return;
+            TouchInputHelper.DispatchPalletClick(data.position, false);
         }
     }
 
@@ -39,18 +103,31 @@ namespace Farm2Shelf.Core
         private Transform boxContainer;
         private readonly List<DeliveryBoxController> activeBoxes = new List<DeliveryBoxController>();
 
-        public bool TryGetTutorialPalletBounds(out Bounds bounds)
+        // The wooden base is a permanent click target, independent of cargo and
+        // of the physics update (which may be paused during the tutorial).
+        public bool TryGetPalletBaseBounds(out Bounds bounds)
         {
             bounds = default;
             if (palletObj == null || !palletObj.activeInHierarchy) return false;
-            Collider pallet = palletObj.GetComponent<Collider>();
+            BoxCollider pallet = palletObj.GetComponent<BoxCollider>();
             if (pallet == null || !pallet.enabled) return false;
-            bounds = pallet.bounds;
+            Transform root = pallet.transform;
+            bounds = new Bounds(root.TransformPoint(pallet.center), Vector3.zero);
+            Vector3 half = pallet.size * .5f;
+            for (int i = 0; i < 8; i++)
+                bounds.Encapsulate(root.TransformPoint(pallet.center + Vector3.Scale(half,
+                    new Vector3((i & 1) == 0 ? -1f : 1f, (i & 2) == 0 ? -1f : 1f, (i & 4) == 0 ? -1f : 1f))));
+            return true;
+        }
+
+        public bool TryGetTutorialPalletBounds(out Bounds bounds)
+        {
+            if (!TryGetPalletBaseBounds(out bounds)) return false;
             foreach (DeliveryBoxController box in activeBoxes)
             {
                 if (box == null || !box.gameObject.activeInHierarchy) continue;
-                Collider boxCollider = box.GetComponent<Collider>();
-                if (boxCollider != null && boxCollider.enabled) bounds.Encapsulate(boxCollider.bounds);
+                foreach (var renderer in box.GetComponentsInChildren<MeshRenderer>())
+                    if (renderer.enabled) bounds.Encapsulate(renderer.bounds);
             }
             return true;
         }
@@ -111,6 +188,7 @@ namespace Farm2Shelf.Core
         {
             InitMaterials();
             CreateDeliveryPallet();
+            DeliveryPalletTouchTarget.Create(transform);
         }
 
         private void InitMaterials()

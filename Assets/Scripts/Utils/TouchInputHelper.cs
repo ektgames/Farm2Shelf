@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -113,6 +113,26 @@ namespace Farm2Shelf.Utils
             finally { dispatchingWorldTap = false; }
         }
 
+        // A pointer event already identifies its pallet. Do not raycast again:
+        // cargo/camera motion between press and release can change the second hit.
+        public static bool DispatchPalletClick(Vector2 screenPos, bool workshop)
+        {
+            if (dispatchingWorldTap || lastDispatchedFrame == Time.frameCount ||
+                !IsValidScreenPoint(screenPos) || IsWorldInteractionBlocked(screenPos)) return false;
+            dispatchingWorldTap = true;
+            dispatchScreenPosition = screenPos;
+            try
+            {
+                CloseAnyOpenProfileCard();
+                PalletStorageInventoryModalUI.ShowModal(workshop);
+                if (!PalletStorageInventoryModalUI.IsModalOpen) return false;
+                lastDispatchedFrame = Time.frameCount;
+                lastGlobalDispatchTime = Time.unscaledTime;
+                return true;
+            }
+            finally { dispatchingWorldTap = false; }
+        }
+
         private static bool DispatchWorldTap(Vector2 screenPos)
         {
             if (IsWorldInteractionBlocked(screenPos)) return false;
@@ -126,6 +146,8 @@ namespace Farm2Shelf.Utils
 
             if (!IsValidScreenPoint(screenPos)) return false;
 
+            if (TryDispatchPalletScreenHit(cam, screenPos)) return true;
+
             Ray ray = cam.ScreenPointToRay(screenPos);
             // Runtime-built colliders must be queryable even before the next physics
             // step (menus/tutorials can pause Time.timeScale at startup).
@@ -137,6 +159,10 @@ namespace Farm2Shelf.Utils
             {
                 return true;
             }
+            // Small finger-sized tolerance; only pallets/cargo are accepted from these hits.
+            float tolerance = cam.orthographic ? cam.orthographicSize * 2f * 12f / Mathf.Max(1, Screen.height) : .20f;
+            if (TryDispatchPalletOrBox(Physics.SphereCastAll(ray, Mathf.Clamp(tolerance, .12f, .45f), 250f)))
+                return true;
 
             // ÖNCELİK 1: Karakterler (Personel & Müşteri) - Doğrudan Raycast ve Mobil Dokunmatik Toleransı (SphereCast)
             // 1.a Doğrudan Raycast ile Karakter Kontrolü
@@ -231,6 +257,15 @@ namespace Farm2Shelf.Utils
                     }
 
                     // Ahır (Barn)
+                    var station = go.GetComponentInParent<RailwayStationClickable>();
+                    if (station != null)
+                    {
+                        lastGlobalDispatchTime = Time.unscaledTime;
+                        CloseAnyOpenProfileCard();
+                        station.OpenManifest();
+                        return true;
+                    }
+
                     BarnController barn = go.GetComponentInParent<BarnController>() ?? go.GetComponent<BarnController>();
                     if (barn != null)
                     {
@@ -280,6 +315,15 @@ namespace Farm2Shelf.Utils
                     }
 
                     // Ahır
+                    var station = sGo.GetComponentInParent<RailwayStationClickable>();
+                    if (station != null)
+                    {
+                        lastGlobalDispatchTime = Time.unscaledTime;
+                        CloseAnyOpenProfileCard();
+                        station.OpenManifest();
+                        return true;
+                    }
+
                     BarnController barn = sGo.GetComponentInParent<BarnController>() ?? sGo.GetComponent<BarnController>();
                     if (barn != null)
                     {
@@ -303,6 +347,57 @@ namespace Farm2Shelf.Utils
             // Boş dünyaya (zemin, kaldırım vb.) tıklandığında açık olan profil kartını pürüzsüzce kapat
             CloseAnyOpenProfileCard();
             return false;
+        }
+
+        private static bool TryDispatchPalletScreenHit(Camera camera, Vector2 point)
+        {
+            bool found = false, workshop = false;
+            float nearest = float.PositiveInfinity;
+            void Consider(Bounds bounds, bool isWorkshop)
+            {
+                Vector2 min = Vector2.positiveInfinity, max = Vector2.negativeInfinity;
+                for (int i = 0; i < 8; i++)
+                {
+                    Vector3 p = camera.WorldToScreenPoint(bounds.center + Vector3.Scale(bounds.extents,
+                        new Vector3((i & 1) == 0 ? -1 : 1, (i & 2) == 0 ? -1 : 1, (i & 4) == 0 ? -1 : 1)));
+                    if (p.z <= camera.nearClipPlane) return;
+                    min = Vector2.Min(min, p); max = Vector2.Max(max, p);
+                }
+                Vector2 center = (min + max) * .5f;
+                Vector2 size = Vector2.Max(max - min + Vector2.one * 16f, Vector2.one * 48f);
+                if (!new Rect(center - size * .5f, size).Contains(point)) return;
+                float distance = (center - point).sqrMagnitude;
+                if (distance < nearest) { nearest = distance; workshop = isWorkshop; found = true; }
+            }
+            var delivery = FurnitureDeliveryManager.Instance;
+            // Test the base separately: stacking/removing boxes must never move
+            // its minimum touch area up to the cargo's projected centre.
+            if (delivery != null && delivery.TryGetPalletBaseBounds(out Bounds baseBounds))
+            {
+                Consider(baseBounds, false);
+                if (found)
+                {
+                    lastGlobalDispatchTime = Time.unscaledTime;
+                    CloseAnyOpenProfileCard();
+                    PalletStorageInventoryModalUI.ShowModal(isWorkshopMode: false);
+                    return true;
+                }
+            }
+            if (delivery != null && delivery.TryGetTutorialPalletBounds(out Bounds shopBounds))
+                Consider(shopBounds, false);
+            foreach (var rack in Object.FindObjectsByType<WorkshopPalletClickable>(FindObjectsSortMode.None))
+            {
+                if (!rack.isActiveAndEnabled) continue;
+                // Include the rack and all cargo, including boxes without colliders.
+                foreach (var renderer in rack.GetComponentsInChildren<MeshRenderer>())
+                    if (renderer.enabled && renderer.GetComponent<TextMesh>() == null)
+                        Consider(renderer.bounds, true);
+            }
+            if (!found) return false;
+            lastGlobalDispatchTime = Time.unscaledTime;
+            CloseAnyOpenProfileCard();
+            PalletStorageInventoryModalUI.ShowModal(isWorkshopMode: workshop);
+            return true;
         }
 
         private static bool TryDispatchPalletOrBox(RaycastHit[] hits)

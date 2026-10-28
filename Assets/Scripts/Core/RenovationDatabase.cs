@@ -7,7 +7,8 @@ namespace Farm2Shelf.Core
     public enum RenovationType
     {
         WallPaint,
-        FloorStyle
+        FloorStyle,
+        ExteriorWall
     }
 
     public class RenovationItemDef
@@ -40,6 +41,16 @@ namespace Farm2Shelf.Core
     {
         private static readonly List<RenovationItemDef> wallPaints = new List<RenovationItemDef>();
         private static readonly List<RenovationItemDef> floorStyles = new List<RenovationItemDef>();
+        private static readonly List<RenovationItemDef> exteriorWalls = new List<RenovationItemDef>
+        {
+            new RenovationItemDef("Exterior_Limestone", "Krem Kireç Taşı Cephe", "Cream Limestone Facade", RenovationType.ExteriorWall, 1, 350, "", new Color(.86f, .81f, .69f)),
+            new RenovationItemDef("Exterior_Sandstone", "Sıcak Kum Taşı Cephe", "Warm Sandstone Facade", RenovationType.ExteriorWall, 1, 450, "", new Color(.72f, .58f, .42f)),
+            new RenovationItemDef("Exterior_Silver", "Gümüş Gri Taş Cephe", "Silver Grey Stone Facade", RenovationType.ExteriorWall, 2, 700, "", new Color(.62f, .65f, .68f)),
+            new RenovationItemDef("Exterior_Terracotta", "Kızıl Taş Cephe", "Red Stone Facade", RenovationType.ExteriorWall, 2, 850, "", new Color(.65f, .34f, .25f)),
+            new RenovationItemDef("Exterior_Ivory", "Fildişi Taş Cephe", "Ivory Stone Facade", RenovationType.ExteriorWall, 3, 1200, "", new Color(.94f, .91f, .82f)),
+            new RenovationItemDef("Exterior_Anthracite", "Antrasit Taş Cephe", "Anthracite Stone Facade", RenovationType.ExteriorWall, 3, 1500, "", new Color(.24f, .27f, .30f))
+        };
+        public static List<RenovationItemDef> GetExteriorWalls() => exteriorWalls;
 
         static RenovationDatabase()
         {

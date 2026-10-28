@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -78,6 +78,15 @@ namespace Farm2Shelf.Environment
 
             // Temizlikçi Özel Çöp Verisi
             public GameObject targetTrashObj;
+            public Vector3 cleaningStand;
+            public float nextCleaningSearch;
+            public float cleaningUnreachableSince=-1f;
+            public GameObject cleaningTool;
+            public bool cleaningJobActive;
+            public PlacedFurnitureController serviceDesk;
+            public Vector3 serviceApproach;
+            public Vector3 serviceApproachLocal;
+            public float nextServiceSearch;
 
             // Güvenlik Özel Volta Devriye Yönü
             public bool securityPatrolForward;
@@ -214,7 +223,7 @@ namespace Farm2Shelf.Environment
                 {
                     if (task.currentState == StaffAIState.WorkingOnTask)
                     {
-                        if (Vector3.Distance(task.staffObj.transform.position, cashierStaffSpot) < 1.8f)
+                        if (Vector3.Distance(task.staffObj.transform.position, cashierStaffSpot) < 0.3f && PedestrianNavigation.Clear(task.staffObj.transform.position, cashierStaffSpot))
                         {
                             return true;
                         }
@@ -401,84 +410,23 @@ namespace Farm2Shelf.Environment
             public Vector3 seatPosition;
             public Vector3 facingDirection;
             public StaffTaskData currentOccupant;
+            public float unavailableUntil;
+            public int approachRevision=-1;
+            public Vector3 cachedApproach;
         }
 
         private readonly List<SofaSeatSlot> activeSofaSeats = new List<SofaSeatSlot>();
 
+        private int roomSeatRevision=-1;
         private void RefreshSofaSeatsForCurrentLevel()
         {
-            int level = (EnvironmentBuilder.Instance != null) ? EnvironmentBuilder.Instance.CurrentUpgradeLevel : 1;
-
-            float storeDepth = (level == 1) ? 18.0f : ((level == 2) ? 27.0f : 36.0f);
-            float backWallZ = -3.0f + storeDepth;
-
-            float storageDepth = (level == 1) ? 9.5f : ((level == 2) ? 14.5f : 19.5f);
-            float startZ = -3.0f + storageDepth;
-
-            int expectedSeats = (level == 1) ? 5 : ((level == 2) ? 7 : 8);
-            if (activeSofaSeats.Count == expectedSeats) return;
-
-            // Mevcut oturanları koruyarak listeyi yenile
-            List<StaffTaskData> existingOccupants = new List<StaffTaskData>();
-            foreach (var s in activeSofaSeats)
-            {
-                if (s.currentOccupant != null) existingOccupants.Add(s.currentOccupant);
-            }
-
-            activeSofaSeats.Clear();
-
-            if (level == 1)
-            {
-                // LEVEL 1: 3'lü Koltuk (Arka Duvara Yaslı, Yüzü Odaya Dönük)
-                activeSofaSeats.Add(new SofaSeatSlot { seatIndex = 0, seatPosition = new Vector3(6.30f, 0.35f, backWallZ - 0.70f), facingDirection = new Vector3(0f, 0f, -1f) });
-                activeSofaSeats.Add(new SofaSeatSlot { seatIndex = 1, seatPosition = new Vector3(7.00f, 0.35f, backWallZ - 0.70f), facingDirection = new Vector3(0f, 0f, -1f) });
-                activeSofaSeats.Add(new SofaSeatSlot { seatIndex = 2, seatPosition = new Vector3(7.70f, 0.35f, backWallZ - 0.70f), facingDirection = new Vector3(0f, 0f, -1f) });
-
-                // Mola Masası Sandalyeleri (startZ + 2.5f)
-                activeSofaSeats.Add(new SofaSeatSlot { seatIndex = 3, seatPosition = new Vector3(4.10f, 0.35f, startZ + 2.5f), facingDirection = new Vector3(1f, 0f, 0f) });
-                activeSofaSeats.Add(new SofaSeatSlot { seatIndex = 4, seatPosition = new Vector3(5.50f, 0.35f, startZ + 2.5f), facingDirection = new Vector3(-1f, 0f, 0f) });
-            }
-            else if (level == 2)
-            {
-                // LEVEL 2: 3'lü Koltuk (backWallZ - 0.70f) & 2'li Koltuk (backWallZ - 4.90f)
-                activeSofaSeats.Add(new SofaSeatSlot { seatIndex = 0, seatPosition = new Vector3(4.30f, 0.35f, backWallZ - 0.70f), facingDirection = new Vector3(0f, 0f, -1f) });
-                activeSofaSeats.Add(new SofaSeatSlot { seatIndex = 1, seatPosition = new Vector3(5.00f, 0.35f, backWallZ - 0.70f), facingDirection = new Vector3(0f, 0f, -1f) });
-                activeSofaSeats.Add(new SofaSeatSlot { seatIndex = 2, seatPosition = new Vector3(5.70f, 0.35f, backWallZ - 0.70f), facingDirection = new Vector3(0f, 0f, -1f) });
-
-                activeSofaSeats.Add(new SofaSeatSlot { seatIndex = 3, seatPosition = new Vector3(4.55f, 0.35f, backWallZ - 4.90f), facingDirection = new Vector3(0f, 0f, 1f) });
-                activeSofaSeats.Add(new SofaSeatSlot { seatIndex = 4, seatPosition = new Vector3(5.45f, 0.35f, backWallZ - 4.90f), facingDirection = new Vector3(0f, 0f, 1f) });
-
-                // Masa Sandalyeleri
-                activeSofaSeats.Add(new SofaSeatSlot { seatIndex = 5, seatPosition = new Vector3(4.10f, 0.35f, startZ + 2.5f), facingDirection = new Vector3(1f, 0f, 0f) });
-                activeSofaSeats.Add(new SofaSeatSlot { seatIndex = 6, seatPosition = new Vector3(5.50f, 0.35f, startZ + 2.5f), facingDirection = new Vector3(-1f, 0f, 0f) });
-            }
-            else
-            {
-                // LEVEL 3: 3'lü VIP Koltuk + 2'li VIP Koltuk + 1'li VIP Tekli Koltuk
-                activeSofaSeats.Add(new SofaSeatSlot { seatIndex = 0, seatPosition = new Vector3(4.30f, 0.35f, backWallZ - 0.70f), facingDirection = new Vector3(0f, 0f, -1f) });
-                activeSofaSeats.Add(new SofaSeatSlot { seatIndex = 1, seatPosition = new Vector3(5.00f, 0.35f, backWallZ - 0.70f), facingDirection = new Vector3(0f, 0f, -1f) });
-                activeSofaSeats.Add(new SofaSeatSlot { seatIndex = 2, seatPosition = new Vector3(5.70f, 0.35f, backWallZ - 0.70f), facingDirection = new Vector3(0f, 0f, -1f) });
-
-                activeSofaSeats.Add(new SofaSeatSlot { seatIndex = 3, seatPosition = new Vector3(4.55f, 0.35f, backWallZ - 4.90f), facingDirection = new Vector3(0f, 0f, 1f) });
-                activeSofaSeats.Add(new SofaSeatSlot { seatIndex = 4, seatPosition = new Vector3(5.45f, 0.35f, backWallZ - 4.90f), facingDirection = new Vector3(0f, 0f, 1f) });
-
-                activeSofaSeats.Add(new SofaSeatSlot { seatIndex = 5, seatPosition = new Vector3(3.80f, 0.35f, backWallZ - 2.80f), facingDirection = new Vector3(1f, 0f, 0f) });
-
-                // Masa Sandalyeleri
-                activeSofaSeats.Add(new SofaSeatSlot { seatIndex = 6, seatPosition = new Vector3(4.10f, 0.35f, startZ + 3.8f), facingDirection = new Vector3(1f, 0f, 0f) });
-                activeSofaSeats.Add(new SofaSeatSlot { seatIndex = 7, seatPosition = new Vector3(5.50f, 0.35f, startZ + 3.8f), facingDirection = new Vector3(-1f, 0f, 0f) });
-            }
-
-            // Oturanları yeniden eşle
-            for (int i = 0; i < existingOccupants.Count && i < activeSofaSeats.Count; i++)
-            {
-                var occ = existingOccupants[i];
-                if (occ != null && occ.staffObj != null && staffTaskList.Contains(occ) && !occ.isLeavingShift)
-                {
-                    activeSofaSeats[i].currentOccupant = occ;
-                    occ.assignedSofaSeatIndex = i;
-                }
-            }
+            if(roomSeatRevision==StaffRoomVisuals.Revision)return;
+            foreach(var old in activeSofaSeats)
+                if(old.currentOccupant!=null){var person=old.currentOccupant;if(person.isSitting && person.staffObj!=null){var p=person.staffObj.transform.position;p.y=.05f;person.staffObj.transform.position=p;}person.assignedSofaSeatIndex=-1;person.isSitting=false;ResetLimbsToRest(person);}
+            activeSofaSeats.Clear();roomSeatRevision=StaffRoomVisuals.Revision;
+            foreach(var anchor in StaffRoomVisuals.Seats)
+                if(anchor!=null && anchor.gameObject.activeInHierarchy)
+                    activeSofaSeats.Add(new SofaSeatSlot{seatIndex=activeSofaSeats.Count,seatPosition=anchor.position,facingDirection=anchor.forward});
         }
 
         private void CleanupStaleSofaOccupants()
@@ -494,10 +442,7 @@ namespace Farm2Shelf.Environment
                         occ.isLeavingShift ||
                         occ.currentState == StaffAIState.WalkingToLeftExit ||
                         occ.currentState == StaffAIState.Despawned ||
-                        occ.assignedSofaSeatIndex != seat.seatIndex ||
-                        (occ.currentState != StaffAIState.WaitingInBreakRoom &&
-                         occ.currentState != StaffAIState.WaitingAtLocker &&
-                         !occ.isSitting))
+                        occ.assignedSofaSeatIndex != seat.seatIndex)
                     {
                         if (occ.assignedSofaSeatIndex == seat.seatIndex)
                         {
@@ -527,7 +472,7 @@ namespace Farm2Shelf.Environment
             for (int i = 0; i < activeSofaSeats.Count; i++)
             {
                 var seat = activeSofaSeats[i];
-                if (seat.currentOccupant == null)
+                if (seat.currentOccupant == null && Time.unscaledTime>=seat.unavailableUntil && !PedestrianNavigation.IsBlocked(GetSeatApproach(seat)))
                 {
                     seat.currentOccupant = data;
                     data.assignedSofaSeatIndex = seat.seatIndex;
@@ -540,9 +485,38 @@ namespace Farm2Shelf.Environment
             return false;
         }
 
+        private static readonly float[] SeatApproachRadii={1f,1.35f,1.7f};
+        private static readonly float[] SeatApproachAngles={0f,90f,-90f,180f};
+        private static Vector3 GetSeatApproach(SofaSeatSlot seat)
+        {
+            int revision=PedestrianNavigation.Version;
+            if(seat.approachRevision==revision)return seat.cachedApproach;
+            seat.approachRevision=revision;
+            Vector3 center = seat.seatPosition;
+            center.y = 0.05f;
+            // Chairs can face a table: select an accessible side rather than the tabletop.
+            foreach (float radius in SeatApproachRadii)
+                foreach (float angle in SeatApproachAngles)
+                {
+                    Vector3 point = center + Quaternion.Euler(0, angle, 0) * seat.facingDirection.normalized * radius;
+                    if (!PedestrianNavigation.IsBlocked(point) && PedestrianNavigation.Clear(center, point, true))return seat.cachedApproach=point;
+                }
+            return seat.cachedApproach=center+seat.facingDirection.normalized;
+        }
+
         private void FreeSofaSeat(StaffTaskData data)
         {
             if (data == null) return;
+
+            if (data.isSitting && data.staffObj != null && data.assignedSofaSeatIndex >= 0 && data.assignedSofaSeatIndex < activeSofaSeats.Count)
+            {
+                var actor = data.staffObj;
+                Vector3 floor = actor.transform.position;
+                floor.y = 0.05f;
+                actor.transform.position = floor;
+                var navigator = actor.GetComponent<PedestrianNavigator>() ?? actor.AddComponent<PedestrianNavigator>();
+                navigator.BeginSeatExit(GetSeatApproach(activeSofaSeats[data.assignedSofaSeatIndex]));
+            }
 
             if (data.assignedSofaSeatIndex >= 0 && data.assignedSofaSeatIndex < activeSofaSeats.Count)
             {
@@ -569,7 +543,7 @@ namespace Farm2Shelf.Environment
             foreach (var waitingStaff in staffTaskList)
             {
                 if (waitingStaff != null && waitingStaff != data && waitingStaff.staffObj != null &&
-                    (waitingStaff.currentState == StaffAIState.WaitingInBreakRoom || waitingStaff.assignedSofaSeatIndex < 0))
+                    waitingStaff.currentState == StaffAIState.WaitingInBreakRoom)
                 {
                     if (waitingStaff.assignedSofaSeatIndex < 0 && TryAssignSofaSeat(waitingStaff))
                     {
@@ -590,13 +564,20 @@ namespace Farm2Shelf.Environment
             {
                 var seat = activeSofaSeats[data.assignedSofaSeatIndex];
                 Vector3 targetSitPos = seat.seatPosition;
+                // The root is at the feet; align the thigh underside, not the feet, to the cushion.
+                float hip=data.leftLimbs!=null && data.leftLimbs.Count>0 ? data.leftLimbs[0].localPosition.y : .75f;
+                targetSitPos.y-=(hip-.10f)*data.staffObj.transform.lossyScale.y;
 
-                float distToSeat = Vector3.Distance(data.staffObj.transform.position, targetSitPos);
-                if (distToSeat > 0.35f)
+                Vector3 approach = GetSeatApproach(seat);
+                float distToSeat = data.isSitting ? 0f : Vector3.Distance(data.staffObj.transform.position, approach);
+                if (!data.isSitting && (distToSeat > 0.15f || !PedestrianNavigation.Clear(data.staffObj.transform.position, approach)))
                 {
                     // Koltuğa doğru yürü
                     data.isSitting = false;
-                    data.staffObj.transform.position = Vector3.MoveTowards(data.staffObj.transform.position, targetSitPos, 2.5f * 1.15f * deltaTime);
+                    data.staffObj.transform.position = PedestrianNavigation.Move(data.staffObj, approach, 2.5f * 1.15f * deltaTime);
+                    var navigation=data.staffObj.GetComponent<PedestrianNavigator>();
+                    if(navigation!=null && navigation.Unreachable)
+                    {seat.unavailableUntil=Time.unscaledTime+3f;FreeSofaSeat(data);return;}
 
                     Vector3 moveDir = (targetSitPos - data.staffObj.transform.position).normalized;
                     if (moveDir != Vector3.zero)
@@ -630,7 +611,7 @@ namespace Farm2Shelf.Environment
                 float distToStand = Vector3.Distance(data.staffObj.transform.position, standPos);
                 if (distToStand > 0.30f)
                 {
-                    data.staffObj.transform.position = Vector3.MoveTowards(data.staffObj.transform.position, standPos, 2.5f * 1.15f * deltaTime);
+                    data.staffObj.transform.position = PedestrianNavigation.Move(data.staffObj, standPos, 2.5f * 1.15f * deltaTime);
                     Vector3 moveDir = (standPos - data.staffObj.transform.position).normalized;
                     if (moveDir != Vector3.zero)
                     {
@@ -641,7 +622,7 @@ namespace Farm2Shelf.Environment
                 }
                 else
                 {
-                    data.staffObj.transform.position = standPos;
+                    data.staffObj.transform.position = PedestrianNavigation.Move(data.staffObj, standPos, WALK_SPEED * deltaTime);
                     data.staffObj.transform.rotation = Quaternion.RotateTowards(data.staffObj.transform.rotation, Quaternion.Euler(0f, 180f, 0f), 360f * deltaTime);
                 }
             }
@@ -671,28 +652,39 @@ namespace Farm2Shelf.Environment
             rArm.localRotation = Quaternion.Euler(-25f, 0f, -15f);
         }
 
+        private readonly List<Vector3> breakRoomStandingSlots = new List<Vector3>();
+        private int standingSlotsRevision = -1;
+        private int standingSlotsLevel = -1;
+
         private Vector3 GetBreakRoomStandingPosition(int staffIndex)
         {
-            int level = (EnvironmentBuilder.Instance != null) ? EnvironmentBuilder.Instance.CurrentUpgradeLevel : 1;
-            float storeDepth = (level == 1) ? 18.0f : ((level == 2) ? 27.0f : 36.0f);
-            float backWallZ = -3.0f + storeDepth;
-
-            float storageDepth = (level == 1) ? 9.5f : ((level == 2) ? 14.5f : 19.5f);
-            float storageBackZ = -3.0f + storageDepth;
-            float staffDepth = backWallZ - storageBackZ;
-
-            float centerZ = storageBackZ + (staffDepth * 0.45f);
-
-            float offsetX = ((staffIndex % 3) - 1) * 0.70f;
-            float offsetZ = (staffIndex / 3) * 0.70f;
-            return new Vector3(7.0f + offsetX, 0.05f, centerZ + offsetZ);
+            int level = EnvironmentBuilder.Instance != null ? EnvironmentBuilder.Instance.CurrentUpgradeLevel : 1;
+            int revision = PedestrianNavigation.Version;
+            if (standingSlotsRevision != revision || standingSlotsLevel != level)
+            {
+                breakRoomStandingSlots.Clear();
+                float back = -3f + (level == 1 ? 18f : level == 2 ? 27f : 36f);
+                float front = -3f + (level == 1 ? 9.5f : level == 2 ? 14.5f : 19.5f);
+                // Keep the central door/locker aisle clear; never extend waiting slots through the back wall.
+                for (float z = front + 1.5f; z <= back - 1.2f; z += .8f)
+                    foreach (float x in new[] { 8.2f, 9f, 6f, 5.2f })
+                    {
+                        Vector3 slot = new Vector3(x, .05f, z);
+                        if (!PedestrianNavigation.IsBlocked(slot)) breakRoomStandingSlots.Add(slot);
+                    }
+                standingSlotsRevision = revision;
+                standingSlotsLevel = level;
+            }
+            if (breakRoomStandingSlots.Count > 0)
+                return breakRoomStandingSlots[Mathf.Max(0, staffIndex) % breakRoomStandingSlots.Count];
+            return new Vector3(7f, .05f, -3f + (level == 1 ? 9.5f : level == 2 ? 14.5f : 19.5f) + .8f);
         }
 
         private Vector3 GetBreakRoomTargetPosition(StaffTaskData data)
         {
             if (data != null && TryAssignSofaSeat(data) && data.assignedSofaSeatIndex >= 0 && data.assignedSofaSeatIndex < activeSofaSeats.Count)
             {
-                return activeSofaSeats[data.assignedSofaSeatIndex].seatPosition;
+                return GetSeatApproach(activeSofaSeats[data.assignedSofaSeatIndex]);
             }
             int staffIdx = (data != null) ? staffTaskList.IndexOf(data) : 0;
             return GetBreakRoomStandingPosition(staffIdx >= 0 ? staffIdx : 0);
@@ -829,7 +821,7 @@ namespace Farm2Shelf.Environment
                     if (staffIdx >= 0 && data.staffObj != null)
                     {
                         GetStaffLockerPosition(staffIdx, out Vector3 lockerStandPos, out float lockerFacingY);
-                        data.staffObj.transform.position = Vector3.MoveTowards(data.staffObj.transform.position, lockerStandPos, 3.0f * 1.15f * deltaTime);
+                        data.staffObj.transform.position = PedestrianNavigation.Move(data.staffObj, lockerStandPos, 3.0f * 1.15f * deltaTime);
                         data.staffObj.transform.rotation = Quaternion.RotateTowards(data.staffObj.transform.rotation, Quaternion.Euler(0f, lockerFacingY, 0f), 360f * deltaTime);
                     }
 
@@ -868,6 +860,8 @@ namespace Farm2Shelf.Environment
                     break;
 
                 case StaffAIState.ProceedingToTask:
+                    if(data.staffMember.role==StaffRole.Temizlikçi && !data.isLeavingShift)
+                    {data.currentState=StaffAIState.WorkingOnTask;ExecuteCleanerTask(data,deltaTime);break;}
                     FollowWaypoints(data, deltaTime, onComplete: () => {
                         data.currentState = StaffAIState.WorkingOnTask;
                     });
@@ -898,7 +892,7 @@ namespace Farm2Shelf.Environment
                     if (targetDesk != null)
                     {
                         Vector3 sideHandoverPos = FurnitureModelBuilder.GetCashierStaffPosition(targetDesk.transform) + targetDesk.transform.right * 0.65f;
-                        data.staffObj.transform.position = Vector3.MoveTowards(data.staffObj.transform.position, sideHandoverPos, 3.0f * 1.15f * deltaTime);
+                        data.staffObj.transform.position = PedestrianNavigation.Move(data.staffObj, sideHandoverPos, 3.0f * 1.15f * deltaTime);
                         data.staffObj.transform.rotation = Quaternion.RotateTowards(data.staffObj.transform.rotation, Quaternion.LookRotation(-targetDesk.transform.right), 360f * deltaTime);
                     }
 
@@ -921,6 +915,29 @@ namespace Farm2Shelf.Environment
 
         public static List<Vector3> BuildStructuredStaffWaypoints(Vector3 startPos, Vector3 endPos)
         {
+            // Goods are handed over on the building-facing side, never inside
+            // the truck or via the driveway on its opposite side.
+            Vector3 pickup = DeliveryTruckVisuals.UnloadPosition;
+            Vector3 goodsInside = new Vector3(9.2f, 0.05f, 2f);
+            Vector3 goodsThreshold = new Vector3(11.2f, 0.05f, 2f);
+            Vector3 sideApproach = new Vector3(pickup.x, 0.05f, 2f);
+            bool toPickup = Vector3.Distance(endPos, pickup) < .1f;
+            bool fromPickup = Vector3.Distance(startPos, pickup) < .65f;
+            if (toPickup || fromPickup)
+            {
+                if (toPickup && fromPickup) return new List<Vector3> { startPos, pickup };
+                if (toPickup)
+                {
+                    var pickupRoute = BuildStructuredStaffWaypoints(startPos, goodsInside);
+                    pickupRoute.Add(goodsThreshold);
+                    pickupRoute.Add(sideApproach);
+                    pickupRoute.Add(pickup);
+                    return pickupRoute;
+                }
+                var outgoing = new List<Vector3> { startPos, sideApproach, goodsThreshold };
+                outgoing.AddRange(BuildStructuredStaffWaypoints(goodsInside, endPos));
+                return outgoing;
+            }
             List<Vector3> rawRoute = new List<Vector3>();
             rawRoute.Add(startPos);
 
@@ -1176,6 +1193,11 @@ namespace Farm2Shelf.Environment
         private void AssignStaffToTaskPosition(StaffTaskData data)
         {
             FreeSofaSeat(data);
+            if(data.staffMember!=null && data.staffMember.role==StaffRole.Temizlikçi)
+            {
+                data.waypoints=null;data.currentWaypointIndex=0;data.currentState=StaffAIState.WorkingOnTask;
+                data.nextCleaningSearch=0;return;
+            }
             Vector3 taskPos = GetTaskPositionForStaff(data);
 
             // Eğer Kasiyer ise ve dükkanda atanacak boş kasa yoksa (tüm kasalar doluysa), doğrudan WaitingInBreakRoom durumuna geçip dinlenme odasında beklesin:
@@ -1259,23 +1281,11 @@ namespace Farm2Shelf.Environment
                     return new Vector3(-18.8f, 0.05f, -4.5f);
 
                 case StaffRole.MüşteriHizmetlisi:
-                    foreach (var f in furnitureList)
-                    {
-                        if (f != null && f.FurnitureType == FurnitureType.CustomerServiceDesk)
-                        {
-                            Transform seat = f.transform.Find("CustomerServiceVisual/StaffSeat");
-                            Vector3 destination = seat != null ? seat.position : f.transform.TransformPoint(new Vector3(0f, 0f, 0.45f));
-                            destination.y = f.transform.position.y + 0.05f;
-                            return destination;
-                        }
-                    }
-                    return new Vector3(-8.0f, 0.05f, 2.0f);
+                    if (TryAssignServiceDesk(data)) return data.serviceApproach;
+                    return GetBreakRoomTargetPosition(data);
 
                 case StaffRole.Maskot:
-                    int mascotIdx = staffTaskList.FindIndex(s => s != null && s.staffMember != null && s.staffMember.role == StaffRole.Maskot);
-                    if (mascotIdx < 0) mascotIdx = 0;
-                    // Dükkan Giriş Kapısı Önündeki DIŞ KALDIRIM Noktası (Z = -4.5f Dış Yaya Yolu)
-                    return new Vector3(1.5f + (mascotIdx * 1.8f), 0.05f, -4.5f);
+                    return GetMascotPosition(data);
 
                 case StaffRole.Çiftçi:
                 case StaffRole.DeneyimliÇiftçi:
@@ -1329,19 +1339,36 @@ namespace Farm2Shelf.Environment
             }
         }
 
+        private Vector3 GetMascotPosition(StaffTaskData data)
+        {
+            int rank=0;
+            foreach(var other in staffTaskList)
+            {
+                if(other==data)break;
+                if(other!=null && other.staffObj!=null && other.staffMember!=null && other.staffMember.role==StaffRole.Maskot && !other.isLeavingShift)rank++;
+            }
+            // Shop front-right corner, inside the 3 m pavement and west of the loading lane.
+            return new Vector3(9.6f-Mathf.Min(rank,5)*1.1f,.17f,-4.1f);
+        }
+
         private void ExecuteMascotDanceTask(StaffTaskData data, float deltaTime)
         {
             if (data == null || data.staffObj == null) return;
 
-            // Kapı önündeki yaya kaldırımında YOLA (Asfalt Ana Yola Doğru 0°) dönük durur
-            Quaternion targetRot = Quaternion.Euler(0f, 0f, 0f);
+            Vector3 station=GetMascotPosition(data),delta=station-data.staffObj.transform.position;delta.y=0;
+            if(delta.sqrMagnitude>.04f)
+            {
+                data.waypoints=new List<Vector3>{data.staffObj.transform.position,station};data.currentWaypointIndex=1;
+                FollowWaypoints(data,deltaTime,null);return;
+            }
+            Quaternion targetRot = Quaternion.Euler(0f, 180f, 0f);
             data.staffObj.transform.rotation = Quaternion.RotateTowards(data.staffObj.transform.rotation, targetRot, 360f * deltaTime);
 
             // Prosedürel Maskot Dans Animasyonu:
             // Ayaklar tam olarak kaldırım zeminine (Y = 0.05f) temas eder, tatlı ritmik bir esneme yapar
             float bounceY = Mathf.Abs(Mathf.Sin(Time.time * 5.0f)) * 0.025f;
             Vector3 curPos = data.staffObj.transform.position;
-            curPos.y = 0.05f + bounceY;
+            curPos.y = station.y + bounceY;
             data.staffObj.transform.position = curPos;
 
             // 2. Kollar Yukarıda Neşeli El Sallama & Dans
@@ -1531,7 +1558,7 @@ namespace Farm2Shelf.Environment
             Vector3 toTarget = targetPos - currentPos;
             float dist = toTarget.magnitude;
 
-            if (dist < 0.65f)
+            if (dist < 0.25f && PedestrianNavigation.Clear(currentPos, targetPos))
             {
                 // Tarlanın başına ulaşıldı: 5 ile 10 saniye arası sürecek çalışma/sulama/kontrol sürecini başlat
                 data.isFarmerWorkingOnPlot = true;
@@ -1543,28 +1570,59 @@ namespace Farm2Shelf.Environment
 
             Vector3 moveDir = toTarget.normalized;
             float stepDist = 2.4f * 1.15f * deltaTime;
-            Vector3 avoidanceDir = CalculateAvoidanceDirection(data.staffObj, currentPos, moveDir, stepDist);
+            Vector3 navigatedPosition = PedestrianNavigation.Move(data.staffObj, targetPos, stepDist);
+            Vector3 avoidanceDir = navigatedPosition - currentPos;
 
             if (avoidanceDir != Vector3.zero)
             {
                 data.staffObj.transform.rotation = Quaternion.RotateTowards(data.staffObj.transform.rotation, Quaternion.LookRotation(avoidanceDir), 360f * deltaTime);
             }
-            data.staffObj.transform.position = Vector3.MoveTowards(currentPos, currentPos + avoidanceDir, stepDist);
+            data.staffObj.transform.position = navigatedPosition;
 
             data.walkCycleTimer += deltaTime * 8.5f * 1.15f;
             AnimateLimbs(data, Mathf.Sin(data.walkCycleTimer) * 26.0f);
+        }
+
+        private bool TryAssignServiceDesk(StaffTaskData data)
+        {
+            if (data.serviceDesk != null)
+                data.serviceApproach = data.serviceDesk.transform.TransformPoint(data.serviceApproachLocal);
+            if (data.serviceDesk != null && data.serviceDesk.isActiveAndEnabled &&
+                !PedestrianNavigation.IsBlocked(data.serviceApproach)) return true;
+            ReleaseServiceDeskSeat(data);
+            data.serviceDesk = null;
+            if (Time.unscaledTime < data.nextServiceSearch) return false;
+            data.nextServiceSearch = Time.unscaledTime + 1f;
+            foreach (var desk in PlacedFurnitureController.AllPlacedFurniture)
+            {
+                if (desk == null || !desk.isActiveAndEnabled || desk.FurnitureType != FurnitureType.CustomerServiceDesk) continue;
+                bool occupied = false;
+                foreach (var other in staffTaskList)
+                    if (other != null && other != data && other.staffObj != null && other.serviceDesk == desk &&
+                        (other.currentState == StaffAIState.ProceedingToTask || other.currentState == StaffAIState.WorkingOnTask))
+                    { occupied = true; break; }
+                if (occupied) continue;
+                Vector2 size = PedestrianNavigation.Footprint(desk.FurnitureType);
+                for (int slot=0;slot<3;slot++)
+                {
+                    float side=slot==0?0f:(slot==1?1f:-1f)*size.x*.35f;
+                    Vector3 point=desk.transform.TransformPoint(new Vector3(side,0,size.y*.5f+.35f));
+                    point.y=desk.transform.position.y+.05f;
+                    if (PedestrianNavigation.IsBlocked(point) || PedestrianNavigation.Route(data.staffObj.transform.position,point)==null) continue;
+                    data.serviceDesk=desk;data.serviceApproach=point;
+                    data.serviceApproachLocal=desk.transform.InverseTransformPoint(point);return true;
+                }
+            }
+            return false;
         }
 
         private void ExecuteCustomerServiceDeskTask(StaffTaskData data, float deltaTime)
         {
             if (!data.isSeatedAtServiceDesk) ResetLimbsToRest(data);
 
-            var furnitureList = PlacedFurnitureController.AllPlacedFurniture;
-            int count = furnitureList.Count;
-            for (int i = 0; i < count; i++)
+            if (!TryAssignServiceDesk(data)) { ResetLimbsToRest(data); return; }
             {
-                var f = furnitureList[i];
-                if (f != null && f.FurnitureType == FurnitureType.CustomerServiceDesk)
+                var f = data.serviceDesk;
                 {
                     Transform seat = f.transform.Find("CustomerServiceVisual/StaffSeat");
                     Transform facing = f.transform.Find("CustomerServiceVisual/StaffFacing");
@@ -1573,6 +1631,16 @@ namespace Farm2Shelf.Environment
                     forward.y = 0f;
                     if (forward.sqrMagnitude > 0.001f) data.staffObj.transform.rotation = Quaternion.LookRotation(forward);
 
+                    if (!data.isSeatedAtServiceDesk)
+                    {
+                        Vector3 approach = data.serviceApproach;
+                        approach.y = data.staffObj.transform.position.y;
+                        if (Vector3.Distance(data.staffObj.transform.position, approach) > .15f || !PedestrianNavigation.Clear(data.staffObj.transform.position, approach))
+                        {
+                            data.staffObj.transform.position = PedestrianNavigation.Move(data.staffObj, approach, WALK_SPEED * deltaTime);
+                            return;
+                        }
+                    }
                     // Align the actual hip pivots with the cushion, allowing for thigh thickness.
                     float hipHeight = 0.80f;
                     if (data.leftLimbs != null && data.leftLimbs.Count > 0 && data.leftLimbs[0] != null)
@@ -1618,7 +1686,16 @@ namespace Farm2Shelf.Environment
                 Vector3 myCashierPos = FurnitureModelBuilder.GetCashierStaffPosition(myCashier.transform);
                 Quaternion myCashierRot = Quaternion.LookRotation(-myCashier.transform.forward);
 
-                data.staffObj.transform.position = myCashierPos;
+                if (Vector3.Distance(data.staffObj.transform.position, myCashierPos) > 0.08f ||
+                    !PedestrianNavigation.Clear(data.staffObj.transform.position, myCashierPos))
+                {
+                    Vector3 previous = data.staffObj.transform.position;
+                    data.staffObj.transform.position = PedestrianNavigation.Move(data.staffObj, myCashierPos, WALK_SPEED * deltaTime);
+                    Vector3 walking = data.staffObj.transform.position - previous;
+                    if (walking.sqrMagnitude > 0.000001f)
+                        data.staffObj.transform.rotation = Quaternion.RotateTowards(data.staffObj.transform.rotation, Quaternion.LookRotation(walking), 360f * deltaTime);
+                    return;
+                }
                 data.staffObj.transform.rotation = myCashierRot;
 
                 // KASA BAŞINDA KESİNTİSİZ DEVİR TESLİM KONTROLÜ:
@@ -2039,7 +2116,7 @@ namespace Farm2Shelf.Environment
                 bool hasDestination = destination != null || (data.isUnloadingTruck && data.isFetchingFromTruck);
                 if (hasDestination)
                 {
-                    Vector3 point = destination != null ? destination.GetFrontInteractionPosition(1.2f) : new Vector3(13f, 0.05f, 2f);
+                    Vector3 point = destination != null ? destination.GetFrontInteractionPosition(1.2f) : DeliveryTruckVisuals.UnloadPosition;
                     Vector3 distance = point - data.staffObj.transform.position;
                     distance.y = 0f;
                     if (distance.sqrMagnitude > 0.45f * 0.45f)
@@ -2058,6 +2135,8 @@ namespace Farm2Shelf.Environment
             {
                 data.taskTimer -= deltaTime;
                 ResetLimbsToRest(data);
+                if (data.isUnloadingTruck && data.isFetchingFromTruck)
+                    data.staffObj.transform.rotation = Quaternion.LookRotation(Vector3.right);
 
                 if (data.taskTimer <= 0f)
                 {
@@ -2580,7 +2659,7 @@ namespace Farm2Shelf.Environment
                     return;
                 }
 
-                var pending = WholesaleTruckManager.Instance.IsTruckAtDockWaitingForUnload
+                var pending = WholesaleTruckManager.Instance != null && WholesaleTruckManager.Instance.IsTruckAtDockWaitingForUnload
                     ? WholesaleTruckManager.Instance.PendingTruckPackages
                     : GreenTruckDeliveryManager.Instance.PendingTruckPackages;
                 bool canUnload = false;
@@ -2601,7 +2680,7 @@ namespace Farm2Shelf.Environment
 
                     data.isUnloadingTruck = true;
                     data.isFetchingFromTruck = true;
-                    Vector3 truckDockPos = new Vector3(13.0f, 0.05f, 2.0f);
+                    Vector3 truckDockPos = DeliveryTruckVisuals.UnloadPosition;
 
                     data.waypoints = BuildStructuredStaffWaypoints(data.staffObj.transform.position, truckDockPos);
                     data.currentWaypointIndex = 1;
@@ -2855,81 +2934,157 @@ namespace Farm2Shelf.Environment
             ExecuteBreakRoomRestAndSeating(data, deltaTime);
         }
 
+        private bool TryChooseCleaningTask(StaffTaskData data)
+        {
+            var manager=StoreCleanlinessManager.Instance;
+            if(manager==null || Time.unscaledTime<data.nextCleaningSearch)return false;
+            data.nextCleaningSearch=Time.unscaledTime+1f;
+            GameObject best=null;Vector3 bestStand=default;List<Vector3> bestPath=null;
+            float bestDistance=float.PositiveInfinity;
+            var nearbyTrash=new List<GameObject>(manager.TrashItems);
+            Vector3 searchOrigin=data.staffObj.transform.position;
+            if(data.isSitting && data.assignedSofaSeatIndex>=0 && data.assignedSofaSeatIndex<activeSofaSeats.Count)
+                searchOrigin=GetSeatApproach(activeSofaSeats[data.assignedSofaSeatIndex]);
+            nearbyTrash.Sort((a,b)=>(a!=null?(a.transform.position-searchOrigin).sqrMagnitude:float.PositiveInfinity)
+                .CompareTo(b!=null?(b.transform.position-searchOrigin).sqrMagnitude:float.PositiveInfinity));
+            foreach(var trash in nearbyTrash)
+            {
+                if(trash==null || !trash.activeInHierarchy)continue;
+                bool claimed=false;
+                foreach(var worker in staffTaskList)
+                    if(worker!=null && worker!=data && worker.staffObj!=null && worker.targetTrashObj==trash &&
+                       !worker.isLeavingShift && worker.currentState!=StaffAIState.WalkingToLeftExit && worker.currentState!=StaffAIState.Despawned)
+                    {claimed=true;break;}
+                if(claimed)continue;
+                float distance=(trash.transform.position-searchOrigin).sqrMagnitude;
+                if(distance>=bestDistance)break; // Sorted: no more full path searches after the nearest reachable stain.
+                Vector3 toward=data.staffObj.transform.position-trash.transform.position;toward.y=0;
+                if(toward.sqrMagnitude<.01f)toward=Vector3.forward;
+                for(int slot=0;slot<8;slot++)
+                {
+                    Vector3 stand=trash.transform.position+Quaternion.Euler(0,slot*45f,0)*toward.normalized*.65f;
+                    stand.y=data.staffObj.transform.position.y;
+                    if(PedestrianNavigation.IsBlocked(stand))continue;
+                    // The brush must also reach the stain without crossing a cabinet/wall.
+                    Vector3 brushEdge=Vector3.Lerp(stand,trash.transform.position,.65f);
+                    if(!PedestrianNavigation.Clear(stand,brushEdge))continue;
+                    var route=PedestrianNavigation.Route(searchOrigin,stand);
+                    if(route==null)continue;
+                    best=trash;bestStand=stand;bestPath=route;bestDistance=distance;break;
+                }
+            }
+            if(best==null)return false;
+            FreeSofaSeat(data);data.isSitting=false;ResetLimbsToRest(data);
+            data.cleaningUnreachableSince=-1;data.targetTrashObj=best;data.cleaningJobActive=true;data.cleaningStand=bestStand;data.taskTimer=0;
+            data.waypoints=new List<Vector3>{data.staffObj.transform.position};
+            data.waypoints.AddRange(bestPath);data.currentWaypointIndex=1;
+            return true;
+        }
+
+        private static void ClearCleaningTool(StaffTaskData data)
+        {
+            if(data.cleaningTool!=null)Destroy(data.cleaningTool);
+            data.cleaningTool=null;
+        }
+
+        private void AnimateCleaning(StaffTaskData data)
+        {
+            ResetLimbsToRest(data);
+            Vector3 target=data.targetTrashObj.transform.position;
+            Vector3 forward=target-data.staffObj.transform.position;forward.y=0;
+            if(forward.sqrMagnitude>.001f)data.staffObj.transform.rotation=Quaternion.LookRotation(forward);
+            float sweep=Mathf.Sin((3f-data.taskTimer)*7f);
+            // Only arms work; feet remain planted next to the stain.
+            foreach(var limbs in new[]{data.leftLimbs,data.rightLimbs})
+                if(limbs!=null)foreach(var limb in limbs)
+                    if(limb!=null && limb.name.ToLowerInvariant().Contains("arm"))
+                        limb.localRotation=Quaternion.Euler(-38f+sweep*12f,0f,0f);
+            if(data.cleaningTool==null)
+            {
+                data.cleaningTool=new GameObject("Cleaner_Mop");
+                data.cleaningTool.transform.SetParent(data.staffObj.transform,false);
+                foreach(string part in new[]{"Handle","Head"})
+                {
+                    var obj=GameObject.CreatePrimitive(PrimitiveType.Cube);obj.name=part;
+                    obj.transform.SetParent(data.cleaningTool.transform,false);
+                    var col=obj.GetComponent<Collider>();col.enabled=false;Destroy(col);
+                }
+            }
+            Vector3 head=target+Vector3.up*.04f+data.staffObj.transform.right*sweep*.16f;
+            Vector3 hand=data.staffObj.transform.position+Vector3.up*.9f+data.staffObj.transform.forward*.25f;
+            Transform handle=data.cleaningTool.transform.Find("Handle");
+            handle.position=(head+hand)*.5f;
+            handle.rotation=Quaternion.FromToRotation(Vector3.up,hand-head);
+            handle.localScale=new Vector3(.025f,Vector3.Distance(head,hand),.025f);
+            Transform brush=data.cleaningTool.transform.Find("Head");
+            brush.position=head;brush.rotation=data.staffObj.transform.rotation;
+            brush.localScale=new Vector3(.32f,.045f,.12f);
+        }
+
         private void ExecuteCleanerTask(StaffTaskData data, float deltaTime)
         {
-            if (data.waypoints != null && data.currentWaypointIndex < data.waypoints.Count)
+            bool shopOpen=StoreStatusManager.Instance!=null && StoreStatusManager.Instance.IsOpen;
+            if(!shopOpen && data.cleaningJobActive)
             {
-                FollowWaypoints(data, deltaTime, onComplete: () => {
-                    data.taskTimer = 2.0f;
-                });
-                return;
+                data.targetTrashObj=null;data.cleaningJobActive=false;data.waypoints=null;data.taskTimer=0;
+                ClearCleaningTool(data);ResetLimbsToRest(data);
             }
-
-            if (data.taskTimer > 0f)
+            if(data.cleaningJobActive && data.targetTrashObj==null)
             {
-                data.taskTimer -= deltaTime;
-                float mopAngle = Mathf.Sin(Time.time * 12.0f) * 35.0f;
-                AnimateLimbs(data, mopAngle);
-
-                if (data.taskTimer <= 0f)
+                data.cleaningJobActive=false;data.waypoints=null;data.taskTimer=0;
+                ClearCleaningTool(data);ResetLimbsToRest(data);
+            }
+            if(data.targetTrashObj!=null)
+            {
+                var cleanerNavigation=data.staffObj.GetComponent<PedestrianNavigator>();
+                if(cleanerNavigation!=null && cleanerNavigation.Unreachable)
                 {
-                    if (data.targetTrashObj != null && StoreCleanlinessManager.Instance != null)
+                    if(data.cleaningUnreachableSince<0)data.cleaningUnreachableSince=Time.unscaledTime;
+                    if(Time.unscaledTime-data.cleaningUnreachableSince>2f)
                     {
-                        Vector3 trashPos = data.targetTrashObj.transform.position;
-                        StoreCleanlinessManager.Instance.CleanTrashItem(data.targetTrashObj);
-
-                        if (StoreQualityManager.Instance != null)
-                        {
-                            string reason = LocalizationManager.L("Quality_TrashCleaned", "Çöp Temizlendi!", "Trash Cleaned!");
-                            StoreQualityManager.Instance.AddQualityScore(5, trashPos, reason);
-                        }
+                        data.targetTrashObj=null;data.cleaningJobActive=false;data.waypoints=null;data.taskTimer=0;
+                        data.cleaningUnreachableSince=-1;data.nextCleaningSearch=Time.unscaledTime+.5f;
+                        ClearCleaningTool(data);ResetLimbsToRest(data);return;
                     }
-                    data.targetTrashObj = null;
                 }
-                return;
-            }
-
-            bool isStoreClosedNightCleaner = (StoreStatusManager.Instance != null && !StoreStatusManager.Instance.IsOpen) || (TimeManager.Instance != null && TimeManager.Instance.Hour >= 24);
-            if (isStoreClosedNightCleaner)
-            {
-                Vector3 restSpotNight = GetBreakRoomTargetPosition(data);
-                if (Vector3.Distance(data.staffObj.transform.position, restSpotNight) > 1.8f && (data.waypoints == null || data.currentWaypointIndex >= data.waypoints.Count))
+                else data.cleaningUnreachableSince=-1;
+                if(PedestrianNavigation.IsBlocked(data.cleaningStand))
                 {
-                    data.waypoints = BuildStructuredStaffWaypoints(data.staffObj.transform.position, restSpotNight);
-                    data.currentWaypointIndex = 1;
+                    data.targetTrashObj=null;data.waypoints=null;data.taskTimer=0;ClearCleaningTool(data);
                     return;
                 }
-
-                ExecuteBreakRoomRestAndSeating(data, deltaTime);
-                return;
-            }
-
-            if (StoreCleanlinessManager.Instance != null)
-            {
-                GameObject nearestTrash = StoreCleanlinessManager.Instance.GetNearestTrashItem(data.staffObj.transform.position, out float dist);
-                if (nearestTrash != null && dist < 35.0f)
+                if(data.waypoints!=null && data.currentWaypointIndex<data.waypoints.Count)
+                {FollowWaypoints(data,deltaTime,()=>data.taskTimer=0f);return;}
+                Vector3 delta=data.cleaningStand-data.staffObj.transform.position;delta.y=0;
+                if(delta.sqrMagnitude>.04f)
                 {
-                    FreeSofaSeat(data);
-                    data.isSitting = false;
-                    ResetLimbsToRest(data);
-                    data.targetTrashObj = nearestTrash;
-                    data.waypoints = BuildStructuredStaffWaypoints(data.staffObj.transform.position, nearestTrash.transform.position);
-                    data.currentWaypointIndex = 1;
-                    return;
+                    data.staffObj.transform.position=PedestrianNavigation.Move(data.staffObj,data.cleaningStand,WALK_SPEED*deltaTime);
+                    ResetLimbsToRest(data);return;
                 }
-            }
-
-            // Temizlenecek çöp yoksa Personel Dinlenme Odasındaki Mavi Koltuklara Geç veya Ayakta Bekle!
-            Vector3 restSpot = GetBreakRoomTargetPosition(data);
-
-            if (Vector3.Distance(data.staffObj.transform.position, restSpot) > 1.8f && (data.waypoints == null || data.currentWaypointIndex >= data.waypoints.Count))
-            {
-                data.waypoints = BuildStructuredStaffWaypoints(data.staffObj.transform.position, restSpot);
-                data.currentWaypointIndex = 1;
+                if(data.taskTimer<=0f)data.taskTimer=3f;
+                data.taskTimer-=deltaTime;AnimateCleaning(data);
+                if(data.taskTimer<=0f)
+                {
+                    Vector3 position=data.targetTrashObj.transform.position;
+                    if(StoreCleanlinessManager.Instance!=null)
+                    {
+                        StoreCleanlinessManager.Instance.CleanTrashItem(data.targetTrashObj);
+                        if(StoreQualityManager.Instance!=null)
+                            StoreQualityManager.Instance.AddQualityScore(5,position,LocalizationManager.L("Quality_TrashCleaned","Çöp Temizlendi!","Trash Cleaned!"));
+                    }
+                    data.targetTrashObj=null;ClearCleaningTool(data);ResetLimbsToRest(data);
+                }
                 return;
             }
-
-            ExecuteBreakRoomRestAndSeating(data, deltaTime);
+            ClearCleaningTool(data);data.taskTimer=0f;
+            // Work requires both the active shift (Update) and an open shop.
+            if(shopOpen && !data.isLeavingShift && TryChooseCleaningTask(data))return;
+            if(data.waypoints!=null && data.currentWaypointIndex<data.waypoints.Count)
+            {FollowWaypoints(data,deltaTime,null);return;}
+            Vector3 rest=GetBreakRoomTargetPosition(data);
+            if(Vector3.Distance(data.staffObj.transform.position,rest)>1.8f)
+            {data.waypoints=BuildStructuredStaffWaypoints(data.staffObj.transform.position,rest);data.currentWaypointIndex=1;return;}
+            ExecuteBreakRoomRestAndSeating(data,deltaTime);
         }
 
         private void ExecuteSecurityPatrolTask(StaffTaskData data, float deltaTime)
@@ -2950,7 +3105,7 @@ namespace Farm2Shelf.Environment
                     }
 
                     // Hırsızın peşine hızlı koşma (4.4 m/s)
-                    Vector3 nextPos = Vector3.MoveTowards(guardPos, thiefPos, 4.4f * deltaTime);
+                    Vector3 nextPos = PedestrianNavigation.Move(data.staffObj, thiefPos, 4.4f * deltaTime);
                     data.staffObj.transform.position = nextPos;
 
                     data.walkCycleTimer += deltaTime * 12.0f;
@@ -2988,7 +3143,7 @@ namespace Farm2Shelf.Environment
                 data.staffObj.transform.rotation = Quaternion.RotateTowards(data.staffObj.transform.rotation, targetRot, 360f * deltaTime);
             }
 
-            Vector3 nextPosNorm = Vector3.MoveTowards(currentPos, targetPatrolPos, 1.8f * 1.15f * deltaTime);
+            Vector3 nextPosNorm = PedestrianNavigation.Move(data.staffObj, targetPatrolPos, 1.8f * 1.15f * deltaTime);
             data.staffObj.transform.position = nextPosNorm;
 
             data.walkCycleTimer += deltaTime * 6.5f * 1.15f;
@@ -3014,8 +3169,11 @@ namespace Farm2Shelf.Environment
             }
 
             Vector3 currentPos = data.staffObj.transform.position;
+            while (data.currentWaypointIndex < data.waypoints.Count - 1 &&
+                PedestrianNavigation.IsBlocked(data.waypoints[data.currentWaypointIndex])) data.currentWaypointIndex++;
             Vector3 targetWaypoint = data.waypoints[data.currentWaypointIndex];
             Vector3 toTarget = targetWaypoint - currentPos;
+            toTarget.y = 0f;
 
             // Hedef Noktayı Kaydet
             if (data.waypoints != null && data.waypoints.Count > 0)
@@ -3024,13 +3182,10 @@ namespace Farm2Shelf.Environment
             }
 
             bool isFinalWaypoint = (data.currentWaypointIndex == data.waypoints.Count - 1);
-            bool physicalStockTransfer = data.staffMember.role == StaffRole.Reyoncu &&
-                !data.isGatheringForOnlineOrder && !data.isCarryingDeliveryBoxToMotorcycle &&
-                (data.isUnloadingTruck || data.isFetchingFromStorage || data.targetShelf1 != null || data.targetShelf2 != null);
-            float arrivalThreshold = isFinalWaypoint ? (physicalStockTransfer ? 0.35f : 0.95f) : 0.85f;
+            float arrivalThreshold = isFinalWaypoint ? 0.2f : 0.35f;
 
             // 1. VARMA KONTROLÜ
-            if (toTarget.magnitude < arrivalThreshold)
+            if (toTarget.magnitude < arrivalThreshold && PedestrianNavigation.Clear(currentPos, targetWaypoint))
             {
                 data.currentWaypointIndex++;
                 data.stuckTimer = 0f;
@@ -3044,42 +3199,15 @@ namespace Farm2Shelf.Environment
                 }
                 targetWaypoint = data.waypoints[data.currentWaypointIndex];
                 toTarget = targetWaypoint - currentPos;
-            }
-
-            // 2. YALNIZCA GERÇEKTEN DURAĞAN HALE GELDİĞİNDE (0.75 SANİYE TAKILDIĞINDA) ROTA YENİLE
-            if (Time.time - data.lastStuckCheckTime > 0.75f)
-            {
-                float movedDist = Vector3.Distance(currentPos, data.lastStuckCheckPos);
-                data.lastStuckCheckPos = currentPos;
-                data.lastStuckCheckTime = Time.time;
-
-                if (movedDist < 0.12f)
-                {
-                    data.stuckTimer += 0.75f;
-                    if (data.stuckTimer >= 0.75f && data.finalDestination != Vector3.zero)
-                    {
-                        List<Vector3> freshRoute = BuildStructuredStaffWaypoints(currentPos, data.finalDestination);
-                        if (freshRoute != null && freshRoute.Count > 1)
-                        {
-                            data.waypoints = freshRoute;
-                            data.currentWaypointIndex = 1;
-                            targetWaypoint = data.waypoints[data.currentWaypointIndex];
-                            toTarget = targetWaypoint - currentPos;
-                        }
-                        data.stuckTimer = 0f;
-                    }
-                }
-                else
-                {
-                    data.stuckTimer = 0f;
-                }
+                toTarget.y = 0f;
             }
 
             Vector3 moveDir = toTarget.normalized;
 
-            // 3. İLERLEME VE KAÇINMA YÖNÜ HESAPLAMA (14 Açılı Dairesel Kaçınma & Duvar Kayması)
+            // Follow a collision-cleared path around placed furniture and walls.
             float stepDist = Mathf.Min(WALK_SPEED * deltaTime, toTarget.magnitude);
-            Vector3 avoidanceDir = CalculateAvoidanceDirection(data.staffObj, currentPos, moveDir, stepDist);
+            Vector3 navigatedPosition = PedestrianNavigation.Move(data.staffObj, targetWaypoint, stepDist);
+            Vector3 avoidanceDir = navigatedPosition - currentPos;
 
             if (avoidanceDir != Vector3.zero)
             {
@@ -3087,16 +3215,23 @@ namespace Farm2Shelf.Environment
                 data.staffObj.transform.rotation = Quaternion.RotateTowards(data.staffObj.transform.rotation, targetRot, 360f * deltaTime);
             }
 
-            Vector3 nextPos = Vector3.MoveTowards(currentPos, currentPos + avoidanceDir, stepDist);
+            Vector3 nextPos = navigatedPosition;
             data.staffObj.transform.position = nextPos;
 
-            data.walkCycleTimer += deltaTime * 8.5f * 1.15f;
+            float travelled = (nextPos-currentPos).magnitude;
+            if (travelled < .0001f) { ResetLimbsToRest(data); return; }
+            data.walkCycleTimer += travelled / WALK_SPEED * 8.5f * 1.15f;
             float legAngle = Mathf.Sin(data.walkCycleTimer) * 26.0f;
             AnimateLimbs(data, legAngle);
         }
 
         private void StartExitRoute(StaffTaskData data)
         {
+            ReleaseServiceDeskSeat(data);
+            data.serviceDesk=null;
+            data.targetTrashObj=null;
+            data.cleaningJobActive=false;
+            ClearCleaningTool(data);
             FreeSofaSeat(data);
             Vector3 startPos = data.staffObj != null ? data.staffObj.transform.position : new Vector3(25.0f, 0.05f, 32.5f);
             List<Vector3> doorExitRoute = new List<Vector3> { startPos };
@@ -3186,7 +3321,9 @@ namespace Farm2Shelf.Environment
         private static void ReleaseServiceDeskSeat(StaffTaskData data)
         {
             if (data == null || !data.isSeatedAtServiceDesk || data.staffObj == null) return;
+            data.serviceDesk = null;
             Vector3 position = data.staffObj.transform.position;
+            position = data.serviceApproach;
             position.y = data.serviceDeskFloorY;
             data.staffObj.transform.position = position;
             data.isSeatedAtServiceDesk = false;

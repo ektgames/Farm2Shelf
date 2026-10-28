@@ -12,6 +12,7 @@ namespace Farm2Shelf.Core
         public string orderId;
         public string customerName;
         public string customerHandle;
+        public string destinationId;
         public string destinationNameTr;
         public string destinationNameEn;
         public Vector3 targetDoorstepPosition;
@@ -107,61 +108,7 @@ namespace Farm2Shelf.Core
         };
 
         // Gerçek Bina ve Yol Kenarı Teslimat Noktaları (Kuzey Apartmanları, Batı Sahil Villaları, Kasaba Evleri, Belediye, Kamu Merkezleri)
-        private readonly (string nameTr, string nameEn, Vector3 doorstepPos)[] deliveryDestinations = GardenNeighborhoodBuilder.AppendDeliveries(new (string nameTr, string nameEn, Vector3 doorstepPos)[]
-        {
-            // 1. KUZEY APARTMANLARI (4 Blok x 4 Sıra)
-            ("Kuzey Apartmanları A Blok No:4", "North Apts Block A Apt:4", new Vector3(-37.5f, 0.05f, 68.0f)),
-            ("Kuzey Apartmanları A Blok No:12", "North Apts Block A Apt:12", new Vector3(-37.5f, 0.05f, 128.0f)),
-            ("Kuzey Apartmanları B Blok No:6", "North Apts Block B Apt:6", new Vector3(0.0f, 0.05f, 68.0f)),
-            ("Kuzey Apartmanları B Blok No:15", "North Apts Block B Apt:15", new Vector3(0.0f, 0.05f, 158.0f)),
-            ("Kuzey Apartmanları C Blok No:8", "North Apts Block C Apt:8", new Vector3(0.0f, 0.05f, 98.0f)),
-            ("Kuzey Apartmanları C Blok No:14", "North Apts Block C Apt:14", new Vector3(0.0f, 0.05f, 128.0f)),
-            ("Kuzey Apartmanları D Blok No:2", "North Apts Block D Apt:2", new Vector3(37.5f, 0.05f, 68.0f)),
-            ("Kuzey Apartmanları D Blok No:11", "North Apts Block D Apt:11", new Vector3(37.5f, 0.05f, 128.0f)),
-
-            // 2. BATI SAHİL VİLLALARI (Ultra Lüks Bahçeli Villalar)
-            ("Batı Sahil Villası #1 (Palmiye)", "West Coast Villa #1 (Palm)", new Vector3(-112.0f, 0.05f, 22.0f)),
-            ("Batı Sahil Villası #3 (Lüks)", "West Coast Villa #3 (Luxury)", new Vector3(-150.0f, 0.05f, 22.0f)),
-            ("Batı Sahil Villası #6 (Panoramik)", "West Coast Villa #6 (Panoramic)", new Vector3(-150.0f, 0.05f, 65.0f)),
-            ("Batı Sahil Villası #9 (Bahçeli)", "West Coast Villa #9 (Garden)", new Vector3(-188.0f, 0.05f, 108.0f)),
-            ("Batı Sahil Villası #12 (Malikane)", "West Coast Villa #12 (Mansion)", new Vector3(-188.0f, 0.05f, 151.0f)),
-
-            // 3. KASABA KONUTLARI & MÜSTAKİL EVLER
-            ("Kasaba Konutları No:1 (Müstakil)", "Town House #1 (Detached)", new Vector3(-58.0f, 0.05f, -9.0f)),
-            ("Kasaba Konutları No:3 (Bahçeli)", "Town House #3 (Garden)", new Vector3(-32.0f, 0.05f, -9.0f)),
-            ("Kasaba Konutları No:5 (Çiçekli)", "Town House #5 (Floral)", new Vector3(32.0f, 0.05f, -9.0f)),
-            ("Kasaba Konutları No:7 (Güneşli)", "Town House #7 (Sunny)", new Vector3(58.0f, 0.05f, -9.0f)),
-            ("Kasaba Konutları No:2 (Güney Bahçe)", "Town House #2 (South Garden)", new Vector3(-58.0f, 0.05f, -55.0f)),
-            ("Kasaba Konutları No:6 (Güney Köşk)", "Town House #6 (South Villa)", new Vector3(32.0f, 0.05f, -55.0f)),
-
-            // 4. BELEDİYE & ŞEHİR KAMU MERKEZLERİ
-            ("Belediye Hizmet Binası Danışma", "Town Hall Front Desk", new Vector3(0.0f, 0.05f, -9.0f)),
-            ("Devlet Hastanesi Acil Servis", "State Hospital Emergency", new Vector3(-150.0f, 0.05f, -55.0f)),
-            ("Kasaba Merkez Kütüphanesi", "Town Central Library", new Vector3(-188.0f, 0.05f, -55.0f)),
-
-            // 5. YENİ GÜNEY BÖLGESİ (BÜYÜK CAMİ & KAFELER MAHALLESİ)
-            ("🌿 Botanik & Bahçe Kafe", "🌿 Botanic & Garden Cafe", new Vector3(75.0f, 0.05f, -69.0f)),
-            ("☕ Nostalji Kitap & Kahve Evi", "☕ Nostalgia Books & Coffee House", new Vector3(75.0f, 0.05f, -91.5f)),
-            ("🍰 Çiftlik Patisserie & Bistro", "🍰 Farm Patisserie & Bistro", new Vector3(75.0f, 0.05f, -114.0f)),
-            ("🕌 Büyük Kasaba Camii (Vakıf & İdare)", "🕌 Grand Town Mosque (Foundation & Admin)", new Vector3(0.0f, 0.05f, -91.5f)),
-            ("🕌 Cami Avlusu & Şadırvan Dinlenme Alanı", "🕌 Mosque Courtyard & Fountain Rest Area", new Vector3(0.0f, 0.05f, -62.0f)),
-
-            // 6. KUZEYDOĞU SİTELERİ & GÜNEYDOĞU SOKAKLAR
-            ("Kuzeydoğu Siteleri E Blok No:3 (Zambak)", "Northeast Residences E Apt:3 (Lily)", new Vector3(93.75f, 0.05f, 68.0f)),
-            ("Kuzeydoğu Siteleri E Blok No:9 (Lale)", "Northeast Residences E Apt:9 (Tulip)", new Vector3(93.75f, 0.05f, 98.0f)),
-            ("Kuzeydoğu Siteleri F Blok No:5 (Menekşe)", "Northeast Residences F Apt:5 (Violet)", new Vector3(93.75f, 0.05f, 128.0f)),
-            ("Kuzeydoğu Siteleri F Blok No:14 (Nergis)", "Northeast Residences F Apt:14 (Daffodil)", new Vector3(93.75f, 0.05f, 158.0f)),
-            ("Kuzeydoğu Siteleri G Blok No:2 (Ihlamur)", "Northeast Residences G Apt:2 (Linden)", new Vector3(131.25f, 0.05f, 68.0f)),
-            ("Kuzeydoğu Siteleri G Blok No:8 (Çınar)", "Northeast Residences G Apt:8 (Plane)", new Vector3(131.25f, 0.05f, 98.0f)),
-            ("Kuzeydoğu Siteleri H Blok No:7 (Akasya)", "Northeast Residences H Apt:7 (Acacia)", new Vector3(131.25f, 0.05f, 128.0f)),
-            ("Kuzeydoğu Siteleri H Blok No:16 (Söğüt)", "Northeast Residences H Apt:16 (Willow)", new Vector3(131.25f, 0.05f, 158.0f)),
-            ("Sarı Vadi Taksi Ofis Teslimatı", "Sunny Valley Cab Office Delivery", new Vector3(93.5f, 0.05f, 38.0f)),
-            ("Güneydoğu Parsel No:1 (Kafe Karşısı)", "Southeast Lot #1 (Cafe Opposite)", new Vector3(116.5f, 0.05f, -70.0f)),
-            ("Güneydoğu Parsel No:2 (Kafe Karşısı)", "Southeast Lot #2 (Cafe Opposite)", new Vector3(116.5f, 0.05f, -91.5f)),
-            ("Güneydoğu Parsel No:3 (Kafe Karşısı)", "Southeast Lot #3 (Cafe Opposite)", new Vector3(116.5f, 0.05f, -114.0f)),
-            ("Güneydoğu Parsel No:5 (Doğu Cadde)", "Southeast Lot #5 (East Avenue)", new Vector3(146.5f, 0.05f, -70.0f)),
-            ("Güneydoğu Parsel No:7 (Doğu Cadde)", "Southeast Lot #7 (East Avenue)", new Vector3(146.5f, 0.05f, -91.5f))
-        });
+        private readonly (string nameTr, string nameEn, Vector3 doorstepPos)[] deliveryDestinations = TownDeliveryCatalog.OnlineDestinations();
 
         private void Awake()
         {
@@ -329,6 +276,8 @@ namespace Farm2Shelf.Core
             order.destinationNameTr = dest.nameTr;
             order.destinationNameEn = dest.nameEn;
             order.targetDoorstepPosition = dest.doorstepPos;
+            order.destinationId = TownDeliveryCatalog.Resolve(null, dest.nameTr, dest.doorstepPos).id;
+            order.courierDeliveryFee = CourierRoadNetwork.DeliveryFee(dest.doorstepPos);
 
             // 1 ila 3 Çeşit Ürün ve 1'er veya 2'şer Adet
             int itemCount = UnityEngine.Random.Range(1, 3);
@@ -455,6 +404,7 @@ namespace Farm2Shelf.Core
                     orderId = order.orderId,
                     customerName = order.customerName,
                     customerHandle = order.customerHandle,
+                    destinationId = order.destinationId,
                     destinationNameTr = order.destinationNameTr,
                     destinationNameEn = order.destinationNameEn,
                     targetX = order.targetDoorstepPosition.x,
@@ -501,6 +451,7 @@ namespace Farm2Shelf.Core
                         orderId = data.orderId,
                         customerName = data.customerName,
                         customerHandle = data.customerHandle,
+                        destinationId = data.destinationId,
                         destinationNameTr = data.destinationNameTr,
                         destinationNameEn = data.destinationNameEn,
                         targetDoorstepPosition = new Vector3(data.targetX, data.targetY, data.targetZ),
@@ -512,6 +463,19 @@ namespace Farm2Shelf.Core
                         contractPartnerId = data.contractPartnerId,
                         contractOfferId = data.contractOfferId
                     };
+
+                    var address = TownDeliveryCatalog.Resolve(order.isTownContract ? order.contractPartnerId : order.destinationId,
+                        order.destinationNameTr, order.targetDoorstepPosition);
+                    if (address != null)
+                    {
+                        order.destinationId = address.id;
+                        order.destinationNameTr = address.nameTr;
+                        order.destinationNameEn = address.nameEn;
+                        order.targetDoorstepPosition = address.doorstepPos;
+                        if (order.isTownContract) order.contractPartnerId = address.id;
+                        // Keep the fee already promised on an existing order.
+                        if (data.courierDeliveryFee <= 0) order.courierDeliveryFee = CourierRoadNetwork.DeliveryFee(address.doorstepPos);
+                    }
 
                     if (data.productIds != null)
                     {

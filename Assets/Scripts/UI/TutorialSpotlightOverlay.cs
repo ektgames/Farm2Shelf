@@ -11,10 +11,11 @@ namespace Farm2Shelf.UI
         private Rect targetHole;
         private bool holeEnabled;
         private bool targetHoleEnabled;
+        private bool blockOutsideHole;
         private float strength = 0.62f;
         private readonly Vector3[] outerCorners = new Vector3[4];
         private readonly Vector3[] innerCorners = new Vector3[4];
-        public bool BlocksOutside => holeEnabled;
+        public bool BlocksOutside => targetHoleEnabled && blockOutsideHole;
 
         public void Initialize()
         {
@@ -32,10 +33,11 @@ namespace Farm2Shelf.UI
             SetVerticesDirty();
         }
 
-        public void SetTarget(Rect screenHole, bool enableHole)
+        public void SetTarget(Rect screenHole, bool enableHole, bool blockOutside = true)
         {
             targetHole = screenHole;
             targetHoleEnabled = enableHole;
+            blockOutsideHole = enableHole && blockOutside;
             if (!holeEnabled && enableHole) currentHole = screenHole;
             SetVerticesDirty();
         }
@@ -44,6 +46,7 @@ namespace Farm2Shelf.UI
         {
             currentHole = targetHole = screenHole;
             holeEnabled = targetHoleEnabled = enableHole;
+            blockOutsideHole = enableHole;
             SetVerticesDirty();
         }
 
@@ -51,7 +54,7 @@ namespace Farm2Shelf.UI
         {
             // Camera and free-placement steps must keep world gestures available.
             // During UI guidance only the current objective accepts input.
-            return isActiveAndEnabled && targetHoleEnabled && !targetHole.Contains(point);
+            return isActiveAndEnabled && BlocksOutside && !targetHole.Contains(point) && !currentHole.Contains(point);
         }
 
         public bool IsRaycastLocationValid(Vector2 screenPoint, Camera eventCamera)

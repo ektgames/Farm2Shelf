@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using Farm2Shelf.Utils;
 
 namespace Farm2Shelf.Environment
@@ -211,7 +211,7 @@ namespace Farm2Shelf.Environment
                 CreateBox(se, $"SE_AveWalk_L_{ax:0}", new Vector3(ax - 3.75f, 0.05f, -70.0f), new Vector3(1.5f, 0.20f, 108.0f), walkMat);
                 CreateBox(se, $"SE_AveWalk_R_{ax:0}", new Vector3(ax + 3.75f, 0.05f, -70.0f), new Vector3(1.5f, 0.20f, 108.0f), walkMat);
                 PlaceHorizontalSidewalkCrosswalk(se, ax, -124.0f, 2.0f, zebraMat);
-                PlaceHorizontalSidewalkCrosswalk(se, ax, -13.5f, 3.0f, zebraMat);
+                PlaceHorizontalSidewalkCrosswalk(se, ax, -22.5f, 3.0f, zebraMat);
             }
 
             CreateRoadX(se, "SE_Bottom_Street", 115.5f, bottomZ, 75.0f, roadMat, lineMat, true, avenues);

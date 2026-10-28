@@ -790,7 +790,7 @@ namespace Farm2Shelf.Environment
         public void OnPointerClick(UnityEngine.EventSystems.PointerEventData eventData)
         {
             if (eventData == null || eventData.dragging || eventData.button != UnityEngine.EventSystems.PointerEventData.InputButton.Left) return;
-            Farm2Shelf.Utils.TouchInputHelper.Dispatch3DClick(eventData.position);
+            Farm2Shelf.Utils.TouchInputHelper.DispatchPalletClick(eventData.position, true);
         }
     }
 }

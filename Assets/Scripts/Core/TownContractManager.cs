@@ -63,6 +63,7 @@ namespace Farm2Shelf.Core
         public string partnerId;
         public int payout;
         public int distanceMeters;
+        public int quotedDeliveryFee;
         public List<string> productIds = new List<string>();
         public List<int> quantities = new List<int>();
         public TownContractOfferStatus status = TownContractOfferStatus.Open;
@@ -80,7 +81,7 @@ namespace Farm2Shelf.Core
             }
         }
 
-        public int DistanceBonus => Mathf.Clamp(Mathf.RoundToInt(distanceMeters * 0.35f), 40, 140);
+        public int DistanceBonus => quotedDeliveryFee > 0 ? quotedDeliveryFee : 40 + Mathf.CeilToInt(distanceMeters * 0.35f);
     }
 
     [Serializable]
@@ -103,7 +104,7 @@ namespace Farm2Shelf.Core
     /// </summary>
     public class TownContractManager : MonoBehaviour
     {
-        public static readonly Vector3 StoreOrigin = new Vector3(6.0f, 0.05f, 6.0f);
+        public static readonly Vector3 StoreOrigin = CourierRoadNetwork.QuoteOrigin;
         public const int BoardSize = 5;
 
         private static TownContractManager instance;
@@ -135,6 +136,7 @@ namespace Farm2Shelf.Core
         private string lastNoteEn = "";
         private bool lastWasCorrect = true;
         private int lastBoardDay = -1;
+        public bool ShowDailyReminder { get; private set; } = true;
         private float startNextTimer;
 
         public IReadOnlyList<int> ContractMotorcycleSlots => contractMotorcycleSlots;
@@ -146,7 +148,7 @@ namespace Farm2Shelf.Core
         public string LastNoteEn => lastNoteEn;
         public bool LastWasCorrect => lastWasCorrect;
 
-        public static readonly TownContractPartner[] Catalog = GardenNeighborhoodBuilder.AppendContracts(new TownContractPartner[]
+        public static readonly TownContractPartner[] Catalog = TownDeliveryCatalog.Complete(GardenNeighborhoodBuilder.AppendContracts(new TownContractPartner[]
         {
             Make("apt_a", "Kuzey Apartmanları A Blok", "North Apartments Block A", "🏢", new Vector3(-37.5f, 0.05f, 68.0f), TownContractKind.Residential, 90, 3, FurnitureType.ProduceShelf, FurnitureType.Fridge, FurnitureType.Shelf),
             Make("apt_b", "Kuzey Apartmanları B Blok", "North Apartments Block B", "🏢", new Vector3(0.0f, 0.05f, 68.0f), TownContractKind.Residential, 90, 3, FurnitureType.ProduceShelf, FurnitureType.Fridge, FurnitureType.Shelf),
@@ -171,13 +173,13 @@ namespace Farm2Shelf.Core
             Make("villa_6", "Batı Sahil Villası #6 (Panoramik)", "West Coast Villa #6 (Panoramic)", "🏡", new Vector3(-150.0f, 0.05f, 65.0f), TownContractKind.Residential, 140, 2, FurnitureType.GourmetShelf, FurnitureType.Fridge, FurnitureType.ProduceShelf),
             Make("villa_9", "Batı Sahil Villası #9 (Bahçeli)", "West Coast Villa #9 (Garden)", "🏡", new Vector3(-188.0f, 0.05f, 108.0f), TownContractKind.Residential, 140, 2, FurnitureType.GourmetShelf, FurnitureType.Fridge, FurnitureType.ProduceShelf),
             Make("villa_12", "Batı Sahil Villası #12 (Malikane)", "West Coast Villa #12 (Mansion)", "🏡", new Vector3(-188.0f, 0.05f, 151.0f), TownContractKind.Residential, 160, 2, FurnitureType.GourmetShelf, FurnitureType.Fridge, FurnitureType.OrganicFridge),
-            Make("house_1", "Kasaba Konutları No:1", "Town House #1", "🏠", new Vector3(-58.0f, 0.05f, -9.0f), TownContractKind.Residential, 80, 2, FurnitureType.Shelf, FurnitureType.Fridge, FurnitureType.ProduceShelf),
+            Make("house_1", "Kasaba Konutları No:1", "Town House #1", "🏠", new Vector3(-58.0f, 0.05f, -22.5f), TownContractKind.Residential, 80, 2, FurnitureType.Shelf, FurnitureType.Fridge, FurnitureType.ProduceShelf),
             Make("house_2", "Kasaba Konutları No:2", "Town House #2", "🏠", new Vector3(-58.0f, 0.05f, -55.0f), TownContractKind.Residential, 80, 2, FurnitureType.Shelf, FurnitureType.Fridge, FurnitureType.ProduceShelf),
-            Make("house_3", "Kasaba Konutları No:3", "Town House #3", "🏠", new Vector3(-32.0f, 0.05f, -9.0f), TownContractKind.Residential, 80, 2, FurnitureType.Shelf, FurnitureType.Fridge, FurnitureType.ProduceShelf),
-            Make("house_5", "Kasaba Konutları No:5", "Town House #5", "🏠", new Vector3(32.0f, 0.05f, -9.0f), TownContractKind.Residential, 80, 2, FurnitureType.Shelf, FurnitureType.Fridge, FurnitureType.ProduceShelf),
+            Make("house_3", "Kasaba Konutları No:3", "Town House #3", "🏠", new Vector3(-32.0f, 0.05f, -22.5f), TownContractKind.Residential, 80, 2, FurnitureType.Shelf, FurnitureType.Fridge, FurnitureType.ProduceShelf),
+            Make("house_5", "Kasaba Konutları No:5", "Town House #5", "🏠", new Vector3(32.0f, 0.05f, -22.5f), TownContractKind.Residential, 80, 2, FurnitureType.Shelf, FurnitureType.Fridge, FurnitureType.ProduceShelf),
             Make("house_6", "Kasaba Konutları No:6", "Town House #6", "🏠", new Vector3(32.0f, 0.05f, -55.0f), TownContractKind.Residential, 80, 2, FurnitureType.Shelf, FurnitureType.Fridge, FurnitureType.ProduceShelf),
-            Make("house_7", "Kasaba Konutları No:7", "Town House #7", "🏠", new Vector3(58.0f, 0.05f, -9.0f), TownContractKind.Residential, 80, 2, FurnitureType.Shelf, FurnitureType.Fridge, FurnitureType.ProduceShelf),
-            Make("townhall", "Belediye Hizmet Binası", "Town Hall", "🏛️", new Vector3(0.0f, 0.05f, -9.0f), TownContractKind.Civic, 150, 4, FurnitureType.Shelf, FurnitureType.Fridge, FurnitureType.BakeryCounter),
+            Make("house_7", "Kasaba Konutları No:7", "Town House #7", "🏠", new Vector3(58.0f, 0.05f, -22.5f), TownContractKind.Residential, 80, 2, FurnitureType.Shelf, FurnitureType.Fridge, FurnitureType.ProduceShelf),
+            Make("townhall", "Belediye Hizmet Binası", "Town Hall", "🏛️", new Vector3(0.0f, 0.05f, -22.5f), TownContractKind.Civic, 150, 4, FurnitureType.Shelf, FurnitureType.Fridge, FurnitureType.BakeryCounter),
             Make("hospital", "Devlet Hastanesi", "State Hospital", "🏥", new Vector3(-150.0f, 0.05f, -55.0f), TownContractKind.Civic, 180, 4, FurnitureType.Fridge, FurnitureType.OrganicFridge, FurnitureType.ProduceShelf),
             Make("library", "Kasaba Merkez Kütüphanesi", "Town Central Library", "📚", new Vector3(-188.0f, 0.05f, -55.0f), TownContractKind.Civic, 110, 3, FurnitureType.BakeryCounter, FurnitureType.Fridge, FurnitureType.Shelf),
             Make("school", "Atatürk İlkokulu", "Ataturk Primary School", "🏫", new Vector3(-188.0f, 0.05f, -32.0f), TownContractKind.Civic, 160, 5, FurnitureType.BakeryCounter, FurnitureType.Fridge, FurnitureType.ProduceShelf),
@@ -192,7 +194,7 @@ namespace Farm2Shelf.Core
             Make("gas", "Benzin İstasyonu Mini Market", "Gas Station Mini Market", "⛽", new Vector3(-150.0f, 0.05f, -110.0f), TownContractKind.Leisure, 110, 3, FurnitureType.Shelf, FurnitureType.Fridge, FurnitureType.BakeryCounter),
             Make("arcade", "Eğlence Merkezi", "Entertainment Center", "🎮", new Vector3(-112.0f, 0.05f, -71.0f), TownContractKind.Leisure, 120, 3, FurnitureType.Fridge, FurnitureType.Freezer, FurnitureType.BakeryCounter),
             Make("stadium", "Şehir Stadyumu", "City Stadium", "🏟️", new Vector3(-112.0f, 0.05f, -102.0f), TownContractKind.Leisure, 150, 5, FurnitureType.Fridge, FurnitureType.BakeryCounter, FurnitureType.ProduceShelf)
-        });
+        }));
 
         private static TownContractPartner Make(string id, string tr, string en, string icon, Vector3 door, TownContractKind kind, int premium, int qty, params FurnitureType[] shelves)
         {
@@ -213,6 +215,7 @@ namespace Farm2Shelf.Core
         public static TownContractPartner GetPartner(string id)
         {
             if (string.IsNullOrEmpty(id)) return null;
+            id = TownDeliveryCatalog.CanonicalId(id);
             for (int i = 0; i < Catalog.Length; i++)
             {
                 if (Catalog[i].id == id) return Catalog[i];
@@ -266,6 +269,7 @@ namespace Farm2Shelf.Core
         private void HandleNewDayStarted(TimeManager.Season season, int day, int year)
         {
             RollDailyBoard(false);
+            ShowDailyReminder=true;
         }
 
         private void Update()
@@ -440,6 +444,7 @@ namespace Farm2Shelf.Core
 
             offer.status = TownContractOfferStatus.Queued;
             queueOfferIds.Add(offer.offerId);
+            ShowDailyReminder=false;
             lastNoteTr = "Kontrat sıraya alındı. Motor eklenince ilk işten başlar.";
             lastNoteEn = "Contract queued. The assigned bike starts with the first job.";
             lastWasCorrect = true;
@@ -548,7 +553,7 @@ namespace Farm2Shelf.Core
                 successCount++;
                 lastWasCorrect = true;
                 int contractPay = offer != null ? offer.payout : 80;
-                int distancePay = offer != null ? offer.DistanceBonus : Mathf.Clamp(order.courierDeliveryFee, 40, 140);
+                int distancePay = offer != null ? offer.DistanceBonus : Mathf.Max(40, order.courierDeliveryFee);
                 int localPay = usedLocal ? TownContractOffer.LocalGoodsBonus : 0;
                 PayContractIncome(partner, order, contractPay, distancePay, localPay);
 
@@ -614,6 +619,7 @@ namespace Farm2Shelf.Core
 
         public void RestoreFromSave(TownContractSaveData data)
         {
+            ShowDailyReminder=true;
             contractMotorcycleSlots.Clear();
             offers.Clear();
             queueOfferIds.Clear();
@@ -651,7 +657,21 @@ namespace Farm2Shelf.Core
                     {
                         if (data.offers[i] == null || string.IsNullOrEmpty(data.offers[i].offerId)) continue;
                         if (GetPartner(data.offers[i].partnerId) == null) continue;
-                        offers.Add(CloneOffer(data.offers[i]));
+                        var restored = CloneOffer(data.offers[i]);
+                        var partner = GetPartner(restored.partnerId);
+                        restored.partnerId = partner.id;
+                        if (restored.status == TownContractOfferStatus.Open)
+                        {
+                            restored.distanceMeters = MeasureDistanceMeters(partner.doorstepPos);
+                            restored.quotedDeliveryFee = CourierRoadNetwork.DeliveryFee(partner.doorstepPos);
+                            restored.payout = CalculatePayout(partner, restored);
+                        }
+                        else if (restored.quotedDeliveryFee <= 0)
+                        {
+                            // Preserve accepted legacy terms rather than repricing an active job.
+                            restored.quotedDeliveryFee = Mathf.Clamp(Mathf.RoundToInt(restored.distanceMeters * .35f), 40, 140);
+                        }
+                        offers.Add(restored);
                     }
                 }
 
@@ -678,6 +698,7 @@ namespace Farm2Shelf.Core
 
         public void ResetToDefaults()
         {
+            ShowDailyReminder=true;
             contractMotorcycleSlots.Clear();
             offers.Clear();
             queueOfferIds.Clear();
@@ -713,7 +734,7 @@ namespace Farm2Shelf.Core
 
         public static int MeasureDistanceMeters(Vector3 doorstep)
         {
-            return Mathf.Max(8, Mathf.RoundToInt(Vector3.Distance(StoreOrigin, doorstep)));
+            return CourierRoadNetwork.DistanceMeters(doorstep);
         }
 
         private void RollDailyBoard(bool force)
@@ -764,6 +785,7 @@ namespace Farm2Shelf.Core
             }
 
             lastBoardDay = today;
+            ShowDailyReminder=true;
             lastNoteTr = "Yeni gün: 5 yeni kontrat teklifi. Karlı görürsen sıraya al, istemezsen geç.";
             lastNoteEn = "New day: 5 fresh contract offers. Queue them if they look profitable, or skip.";
             OnContractsChanged?.Invoke();
@@ -792,6 +814,7 @@ namespace Farm2Shelf.Core
                 offerId = "KNT-" + UnityEngine.Random.Range(10000, 99999),
                 partnerId = partner.id,
                 distanceMeters = MeasureDistanceMeters(partner.doorstepPos),
+                quotedDeliveryFee = CourierRoadNetwork.DeliveryFee(partner.doorstepPos),
                 status = TownContractOfferStatus.Open
             };
 
@@ -863,6 +886,7 @@ namespace Farm2Shelf.Core
             order.contractOfferId = offer.offerId;
             order.customerName = partner.LocalizedName;
             order.customerHandle = "@" + partner.id;
+            order.destinationId = partner.id;
             order.destinationNameTr = partner.nameTr;
             order.destinationNameEn = partner.nameEn;
             order.targetDoorstepPosition = partner.doorstepPos;
@@ -966,6 +990,7 @@ namespace Farm2Shelf.Core
                 partnerId = src.partnerId,
                 payout = src.payout,
                 distanceMeters = src.distanceMeters,
+                quotedDeliveryFee = src.quotedDeliveryFee,
                 status = src.status,
                 productIds = src.productIds != null ? new List<string>(src.productIds) : new List<string>(),
                 quantities = src.quantities != null ? new List<int>(src.quantities) : new List<int>()

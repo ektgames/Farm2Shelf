@@ -73,6 +73,7 @@ namespace Farm2Shelf.Core
     public class ActiveLoanData
     {
         public string loanId;
+        public string offerId; // Stable offer identity; empty in legacy saves.
         public string title;
         public int principalAmount;
         public int dailyInstallment;
@@ -146,6 +147,10 @@ namespace Farm2Shelf.Core
 
         public List<ActiveLoanData> GetActiveLoans() => activeLoans;
 
+        public int CurrentOfferLevel => Mathf.Clamp(
+            Farm2Shelf.Environment.EnvironmentBuilder.Instance != null
+                ? Farm2Shelf.Environment.EnvironmentBuilder.Instance.CurrentUpgradeLevel : 1, 1, 3);
+
         public void RestoreActiveLoans(List<ActiveLoanData> loans)
         {
             activeLoans.Clear();
@@ -218,10 +223,59 @@ namespace Farm2Shelf.Core
             return offers;
         }
 
+        private static int GetLoanSlot(string offerId, int principalAmount)
+        {
+            // Offer IDs retain the same L1/L2/L3 slot across store tiers.
+            if (!string.IsNullOrEmpty(offerId))
+            {
+                for (int tier = 1; tier <= 3; tier++)
+                    for (int slot = 1; slot <= 3; slot++)
+                        if (offerId == $"LV{tier}_L{slot}") return slot;
+            }
+            // Legacy saves predate offerId; all original principals are unique.
+            switch (principalAmount)
+            {
+                case 5000: case 50000: case 150000: return 1;
+                case 10000: case 75000: case 200000: return 2;
+                case 15000: case 100000: case 250000: return 3;
+                default: return 0;
+            }
+        }
+
+        public bool HasActiveLoanForOffer(BankLoanOffer offer)
+        {
+            if (offer == null) return false;
+            int requestedSlot = GetLoanSlot(offer.offerId, offer.principalAmount);
+            foreach (var loan in activeLoans)
+            {
+                if (loan == null || loan.RemainingTotalRepayment <= 0) continue;
+                if ((requestedSlot > 0 && GetLoanSlot(loan.offerId, loan.principalAmount) == requestedSlot) ||
+                    loan.offerId == offer.offerId ||
+                    (string.IsNullOrEmpty(loan.offerId) && loan.principalAmount == offer.principalAmount))
+                    return true;
+            }
+            return false;
+        }
+
         public bool TakeLoan(BankLoanOffer offer)
         {
             if (offer == null || EconomyManager.Instance == null) return false;
+            // Revalidate against the current tier, even if an old UI callback survives an upgrade.
+            string requestedId = offer.offerId;
+            offer = GetOffersForStoreLevel(CurrentOfferLevel).Find(candidate => candidate.offerId == requestedId);
+            if (offer == null || HasActiveLoanForOffer(offer)) return false;
 
+            string dateStr = TimeManager.Instance != null ? TimeManager.Instance.GetFormattedDate() : "GÜN 1";
+            string loanId = "LOAN_" + UnityEngine.Random.Range(10000, 99999);
+
+            ActiveLoanData activeLoan = new ActiveLoanData(loanId, offer.title, offer.principalAmount, offer.dailyInstallment, offer.totalRepayment, offer.termDays, dateStr);
+            activeLoan.offerId = offer.offerId;
+            activeLoan.NormalizePaymentState();
+            if (TimeManager.Instance != null && TimeManager.Instance.Hour >= 24)
+                activeLoan.lastInstallmentDay = GetCurrentPaymentDay();
+            activeLoans.Add(activeLoan);
+
+            // Register first: credit/finance callbacks must see this offer as occupied.
             // Krediyi Çek ve Parayı Ekle
             if (EconomyManager.Instance != null)
             {
@@ -233,14 +287,7 @@ namespace Farm2Shelf.Core
                 FinanceManager.Instance.RecordIncome("Banka Kredisi", $"Banka Kredisi Çekildi ({offer.title})", offer.principalAmount);
             }
 
-            string dateStr = TimeManager.Instance != null ? TimeManager.Instance.GetFormattedDate() : "GÜN 1";
-            string loanId = "LOAN_" + UnityEngine.Random.Range(10000, 99999);
 
-            ActiveLoanData activeLoan = new ActiveLoanData(loanId, offer.title, offer.principalAmount, offer.dailyInstallment, offer.totalRepayment, offer.termDays, dateStr);
-            activeLoan.NormalizePaymentState();
-            if (TimeManager.Instance != null && TimeManager.Instance.Hour >= 24)
-                activeLoan.lastInstallmentDay = GetCurrentPaymentDay();
-            activeLoans.Add(activeLoan);
 
             OnBankLoansUpdated?.Invoke();
             Debug.Log($"[BankLoanManager] Kredi Çekildi: {offer.title} (+{offer.principalAmount:N0}C)");

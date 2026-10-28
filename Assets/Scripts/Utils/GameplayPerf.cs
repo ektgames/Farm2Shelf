@@ -96,6 +96,7 @@ namespace Farm2Shelf.Utils
 
         public static void InvalidateWalls()
         {
+            Farm2Shelf.Environment.PedestrianNavigation.Invalidate();
             nextWallScan = 0f;
         }
 

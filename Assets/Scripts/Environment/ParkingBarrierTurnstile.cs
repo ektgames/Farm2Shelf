@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.EventSystems;
 using Farm2Shelf.UI;
 
@@ -15,6 +15,8 @@ namespace Farm2Shelf.Environment
         [SerializeField] private float openAngle = 85f;
         [SerializeField] private float openSpeed = 4f;
         [SerializeField] private bool isOpen = false;
+
+        public bool IsFullyOpen => barrierArm == null || Quaternion.Angle(barrierArm.localRotation, openRotation) < 5f;
 
         private Quaternion closedRotation;
         private Quaternion openRotation;
@@ -85,26 +87,15 @@ namespace Farm2Shelf.Environment
 
         public void OpenBarrier()
         {
-            if (ModalManager.IsModalOpen) return;
             isOpen = true;
         }
 
         public void CloseBarrier()
         {
-            if (ModalManager.IsModalOpen) return;
             isOpen = false;
         }
 
-        private void OnTriggerEnter(Collider other)
-        {
-            if (ModalManager.IsModalOpen) return;
-            OpenBarrier();
-        }
-
-        private void OnTriggerExit(Collider other)
-        {
-            if (ModalManager.IsModalOpen) return;
-            CloseBarrier();
-        }
+        // Automatic vehicle ownership controls the arm. Pedestrians must not close it
+        // while a vehicle is still crossing the gate.
     }
 }

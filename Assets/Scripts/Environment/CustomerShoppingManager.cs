@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Farm2Shelf.Core;
@@ -25,6 +25,7 @@ namespace Farm2Shelf.Environment
         {
             None,
             DrivingToEntranceTurnstileApproach,
+            DrivingToShopViaUTurn,
             PassingThroughEntranceTurnstile,
             NavigatingParkingAisle,
             ParkingInSlot,
@@ -46,6 +47,12 @@ namespace Farm2Shelf.Environment
             public List<Vector3> waypoints;
             public int currentWaypointIndex;
             public float walkCycleTimer;
+            public PlacedFurnitureController queuedShelf, cachedTargetShelf;
+            public Vector3 cachedShelfWaypoint;
+            public float nextShelfLookup;
+            public Vector3 shelfWaitPoint;
+            public bool hasShelfWaitPoint;
+            public float nextShelfWaitSearch;
             public float stateWaitTimer;
             public PlacedFurnitureController activeArcade;
             public float arcadeSecondsRemaining;
@@ -68,6 +75,9 @@ namespace Farm2Shelf.Environment
             public float vehicleSpeed;
             public VehicleDrivePhase drivePhase;
             public float vehiclePhaseTimer;
+            public List<Vector3> parkingRoute;
+            public int parkingRouteIndex;
+            public float currentDriveSpeed;
 
             // Müşteri Hizmetleri Danışma Etkileşimi
             public bool visitedCustomerServiceDesk;
@@ -125,7 +135,10 @@ namespace Farm2Shelf.Environment
             public bool hasShoppedOnFoot;
         }
 
-        private readonly bool[] occupiedParkingSlots = new bool[30]; // Seviye 1 (10), Seviye 2 (16), Seviye 3 (22) araç kapasitesi
+        private readonly bool[] occupiedParkingSlots = new bool[30]; // Stable per-side reservation IDs; capacity comes from CustomerParkingLayout.
+        // One vehicle owns the shared manoeuvre area until fully parked or clear of the exit.
+        private ActiveCustomerData parkingManeuverOwner;
+        private readonly List<ActiveCustomerData> parkingManeuverQueue = new List<ActiveCustomerData>();
         private ParkingBarrierTurnstile entranceBarrier;
         private ParkingBarrierTurnstile exitBarrier;
 
@@ -152,6 +165,9 @@ namespace Farm2Shelf.Environment
                 }
             }
             activeCustomers.Clear();
+            parkingManeuverOwner = null;
+            parkingManeuverQueue.Clear();
+            shelfQueues.Clear();
             for (int i = 0; i < occupiedParkingSlots.Length; i++)
             {
                 occupiedParkingSlots[i] = false;
@@ -261,34 +277,18 @@ namespace Farm2Shelf.Environment
             SyncParkingOccupancy();
             slotPos = Vector3.zero;
             int level = (EnvironmentBuilder.Instance != null) ? EnvironmentBuilder.Instance.CurrentUpgradeLevel : 1;
-            int totalSlotsCount = (level == 1) ? 10 : ((level == 2) ? 16 : 22);
+            int totalSlotsCount = CustomerParkingLayout.Rows(level)*2;
             int slotsPerRow = totalSlotsCount / 2;
 
-            float totalZLength = (level == 1) ? 20.0f : ((level == 2) ? 29.0f : 38.0f);
-            float slotWidthX = 5.2f;
-            float zPitch = 2.8f;
-            float topPZ = (-3.0f + totalZLength) - 2.8f;
-
-            for (int i = 0; i < totalSlotsCount; i++)
+            // Stable IDs and positions: upgrades append bays, never reinterpret occupied bays.
+            for (int row = 0; row < slotsPerRow; row++)
             {
-                if (!occupiedParkingSlots[i])
+                for (int side = 0; side < 2; side++)
                 {
-                    if (i < slotsPerRow)
-                    {
-                        // Sol Sütun (P1..P5 Seviye 1 / P1..P8 Seviye 2 / P1..P11 Seviye 3)
-                        float pz = 1.0f + (i * zPitch);
-                        float px = -39.0f + (slotWidthX / 2f); // -36.4m
-                        slotPos = new Vector3(px, 0.05f, pz);
-                    }
-                    else
-                    {
-                        // Sağ Sütun (P6..P10 Seviye 1 / P9..P16 Seviye 2 / P12..P22 Seviye 3)
-                        int rightIndex = i - slotsPerRow;
-                        float pz = topPZ - ((slotsPerRow - 1 - rightIndex) * zPitch);
-                        float px = -15.0f - (slotWidthX / 2f); // -17.6m
-                        slotPos = new Vector3(px, 0.05f, pz);
-                    }
-                    return i;
+                    int id = side * 11 + row;
+                    if (occupiedParkingSlots[id]) continue;
+                    slotPos = CustomerParkingLayout.Slot(side,row);
+                    return id;
                 }
             }
             return -1;
@@ -1120,13 +1120,21 @@ namespace Farm2Shelf.Environment
 
         private void SpawnVehicleCustomer(int slotIndex, Vector3 slotPos, CustomerType selectedType)
         {
-            VehicleType carType = (VehicleType)Random.Range((int)VehicleType.SedanRed, (int)VehicleType.ConvertibleCyan + 1);
+            // The enum range also contains a 6.4 m city bus, which cannot fit a 5.2 m bay.
+            VehicleType[] parkingVehicles = { VehicleType.SedanRed, VehicleType.SedanBlue, VehicleType.SedanSilver,
+                VehicleType.SUVBlack, VehicleType.SUVWhite, VehicleType.SUVOrange,
+                VehicleType.MinibusYellow, VehicleType.MinibusDarkBlue,
+                VehicleType.CoupeSportYellow, VehicleType.CoupeSportRed, VehicleType.ConvertibleCyan };
+            VehicleType carType = parkingVehicles[Random.Range(0, parkingVehicles.Length)];
             GameObject carObj = ProceduralCarModelBuilder.CreateVehicleModel(carType, out List<Transform> wheels);
             carObj.transform.SetParent(customerParentGroup, false);
 
-            Vector3 startCarPos = new Vector3(50.0f, 0.05f, -7.5f);
+            bool oppositeApproach = Random.value < .45f;
+            Vector3 startCarPos = oppositeApproach ? new Vector3(-55f,.05f,MainBoulevard.EastInner)
+                : new Vector3(50f,.05f,MainBoulevard.WestOuter);
             carObj.transform.position = startCarPos;
-            carObj.transform.rotation = Quaternion.Euler(0f, -90f, 0f);
+            carObj.transform.rotation = Quaternion.Euler(0f, oppositeApproach ? 90f : -90f, 0f);
+            RoadTrafficAgent.Register(carObj.transform);
 
             GameObject custObj = ProceduralCustomerModelBuilder.CreateCustomerModel(selectedType, out List<Transform> leftLimbs, out List<Transform> rightLimbs);
             custObj.transform.SetParent(customerParentGroup, false);
@@ -1152,7 +1160,9 @@ namespace Farm2Shelf.Environment
                 parkingSlotIndex = slotIndex,
                 parkedSlotPos = slotPos,
                 vehicleSpeed = 9.5f,
-                drivePhase = VehicleDrivePhase.DrivingToEntranceTurnstileApproach,
+                drivePhase = oppositeApproach ? VehicleDrivePhase.DrivingToShopViaUTurn : VehicleDrivePhase.DrivingToEntranceTurnstileApproach,
+                parkingRoute = oppositeApproach ? MainBoulevard.ShopUTurnRoute(startCarPos) : null,
+                parkingRouteIndex = 1,
                 walkCycleTimer = Random.Range(0f, 5f),
                 stateWaitTimer = 0f,
                 isShopping = false,
@@ -1408,16 +1418,13 @@ namespace Farm2Shelf.Environment
 
             if (cData.hasVehicle)
             {
-                int level = (EnvironmentBuilder.Instance != null) ? EnvironmentBuilder.Instance.CurrentUpgradeLevel : 1;
-                int slotsPerRow = ((level == 1) ? 10 : ((level == 2) ? 16 : 22)) / 2;
-                bool isLeftSlot = (cData.parkingSlotIndex < slotsPerRow);
-                Vector3 driverDoor = cData.parkedSlotPos + (isLeftSlot ? Vector3.right * 1.5f : Vector3.left * 1.5f);
+                Vector3 driverDoor = ParkingDoor(cData.parkedSlotPos);
 
                 route.Add(new Vector3(-17.0f, 0.05f, -5.0f)); // Turnike Yaya Geçidi
                 route.Add(new Vector3(-17.0f, 0.05f, -0.5f)); // Turnike Geçiş Ara Noktası
                 route.Add(new Vector3(-17.0f, 0.05f, 1.5f));  // Turnike Giriş Boğazı
                 route.Add(new Vector3(-27.0f, 0.05f, 1.5f));  // Otopark Boğazı
-                route.Add(new Vector3(-27.0f, 0.05f, cData.parkedSlotPos.z)); // Otopark Orta Yolu
+                route.Add(new Vector3(-27.0f, 0.05f, driverDoor.z)); // Otopark Orta Yolu
                 route.Add(driverDoor); // Sürücü Kapısı (Biniş)
             }
             else
@@ -1453,16 +1460,13 @@ namespace Farm2Shelf.Environment
 
             if (cData.hasVehicle)
             {
-                int level = (EnvironmentBuilder.Instance != null) ? EnvironmentBuilder.Instance.CurrentUpgradeLevel : 1;
-                int slotsPerRow = ((level == 1) ? 10 : ((level == 2) ? 16 : 22)) / 2;
-                bool isLeftSlot = (cData.parkingSlotIndex < slotsPerRow);
-                Vector3 driverDoor = cData.parkedSlotPos + (isLeftSlot ? Vector3.right * 1.5f : Vector3.left * 1.5f);
+                Vector3 driverDoor = ParkingDoor(cData.parkedSlotPos);
 
                 exitWaypoints.Add(new Vector3(-17.0f, 0.05f, -5.0f)); // Turnike Yaya Geçidi
                 exitWaypoints.Add(new Vector3(-17.0f, 0.05f, -0.5f)); // Turnike Geçiş Ara Noktası
                 exitWaypoints.Add(new Vector3(-17.0f, 0.05f, 1.5f));  // Turnike Giriş Boğazı
                 exitWaypoints.Add(new Vector3(-27.0f, 0.05f, 1.5f));  // Otopark Boğazı
-                exitWaypoints.Add(new Vector3(-27.0f, 0.05f, cData.parkedSlotPos.z)); // Otopark Orta Yolu
+                exitWaypoints.Add(new Vector3(-27.0f, 0.05f, driverDoor.z)); // Otopark Orta Yolu
                 exitWaypoints.Add(driverDoor); // Sürücü Kapısı (Biniş)
             }
             else
@@ -1652,14 +1656,11 @@ namespace Farm2Shelf.Environment
             int customerTier = GetCustomerTier(selectedType);
             targetShelfCount = 1;
 
-            int level = (EnvironmentBuilder.Instance != null) ? EnvironmentBuilder.Instance.CurrentUpgradeLevel : 1;
-            int slotsPerRow = ((level == 1) ? 10 : ((level == 2) ? 16 : 22)) / 2;
-            bool isLeftSlot = (slotIndex < slotsPerRow);
 
             // Sürücü Kapısı İniş Noktası (Sol otopark için sağa x=-33.5m, Sağ otopark için sola x=-20.5m otopark orta yolu tarafına):
-            Vector3 driverDoorPos = slotPos + (isLeftSlot ? Vector3.right * 1.5f : Vector3.left * 1.5f);
+            Vector3 driverDoorPos = ParkingDoor(slotPos);
             route.Add(driverDoorPos);                             // 0. Sürücü Kapısı
-            route.Add(new Vector3(-27.0f, 0.05f, slotPos.z));     // 1. Otopark Orta Yolu
+            route.Add(new Vector3(-27.0f, 0.05f, driverDoorPos.z));     // 1. Otopark Orta Yolu
             route.Add(new Vector3(-27.0f, 0.05f, 1.5f));          // 2. Otopark Boğazı
             route.Add(new Vector3(-17.0f, 0.05f, 1.5f));          // 3. Turnike Giriş Boğazı
             route.Add(new Vector3(-17.0f, 0.05f, -0.5f));         // 4. Turnike Geçiş Ara Noktası (Duvara toslamayı %100 önler)
@@ -1685,7 +1686,7 @@ namespace Farm2Shelf.Environment
                 route.Add(new Vector3(-17.0f, 0.05f, -0.5f));
                 route.Add(new Vector3(-17.0f, 0.05f, 1.5f));
                 route.Add(new Vector3(-27.0f, 0.05f, 1.5f));
-                route.Add(new Vector3(-27.0f, 0.05f, slotPos.z));
+                route.Add(new Vector3(-27.0f, 0.05f, driverDoorPos.z));
                 route.Add(driverDoorPos);
                 willVisitServiceDesk = false;
                 return route;
@@ -1735,200 +1736,193 @@ namespace Farm2Shelf.Environment
             route.Add(new Vector3(-17.0f, 0.05f, -0.5f));
             route.Add(new Vector3(-17.0f, 0.05f, 1.5f));
             route.Add(new Vector3(-27.0f, 0.05f, 1.5f));
-            route.Add(new Vector3(-27.0f, 0.05f, slotPos.z));
+            route.Add(new Vector3(-27.0f, 0.05f, driverDoorPos.z));
             route.Add(driverDoorPos);
 
             return route;
+        }
+
+        private static Vector3 ParkingDoor(Vector3 slot)
+        {
+            // Driver's left door with enough room for a pedestrian between the marked bays.
+            return CustomerParkingLayout.Door(slot);
+        }
+
+        private bool AcquireParkingManeuver(ActiveCustomerData customer)
+        {
+            parkingManeuverQueue.RemoveAll(c => c == null || c.vehicleObj == null || !activeCustomers.Contains(c));
+            if (parkingManeuverOwner != null &&
+                (parkingManeuverOwner.vehicleObj == null || !activeCustomers.Contains(parkingManeuverOwner)))
+                parkingManeuverOwner = null;
+            if (parkingManeuverOwner == customer) return true;
+            if (!parkingManeuverQueue.Contains(customer)) parkingManeuverQueue.Add(customer);
+            if (parkingManeuverOwner != null || parkingManeuverQueue[0] != customer) return false;
+            parkingManeuverQueue.RemoveAt(0);
+            parkingManeuverOwner = customer;
+            return true;
+        }
+
+        private void ReleaseParkingManeuver(ActiveCustomerData customer)
+        {
+            parkingManeuverQueue.Remove(customer);
+            if (customer != null && customer.vehicleObj != null)
+                RoadTrafficAgent.ReleaseParkingExit(customer.vehicleObj.transform);
+            if (parkingManeuverOwner != customer) return;
+            parkingManeuverOwner = null;
+            if (entranceBarrier != null) entranceBarrier.CloseBarrier();
+            if (exitBarrier != null) exitBarrier.CloseBarrier();
+        }
+
+        // Round the corners in the open aisle; the last segment enters a bay straight.
+        private static List<Vector3> RoundedParkingRoute(params Vector3[] corners)
+        {
+            var path = new List<Vector3> { corners[0] };
+            for (int i = 1; i < corners.Length - 1; i++)
+            {
+                Vector3 incoming = corners[i] - corners[i - 1];
+                Vector3 outgoing = corners[i + 1] - corners[i];
+                float radius = Mathf.Min(2f, incoming.magnitude * .4f, outgoing.magnitude * .4f);
+                Vector3 start = corners[i] - incoming.normalized * radius;
+                Vector3 end = corners[i] + outgoing.normalized * radius;
+                path.Add(start);
+                for (int j = 1; j <= 16; j++)
+                {
+                    float t = j / 16f;
+                    path.Add((1f-t)*(1f-t)*start + 2f*(1f-t)*t*corners[i] + t*t*end);
+                }
+            }
+            path.Add(corners[corners.Length - 1]);
+            return path;
+        }
+
+        private bool FollowParkingRoute(ActiveCustomerData c, float dt, bool reverse = false)
+        {
+            if (c.parkingRoute == null || c.parkingRoute.Count == 0) return true;
+            Transform car = c.vehicleObj.transform;
+            while (c.parkingRouteIndex < c.parkingRoute.Count &&
+                Vector3.Distance(car.position, c.parkingRoute[c.parkingRouteIndex]) < .025f)
+                c.parkingRouteIndex++;
+            if (c.parkingRouteIndex >= c.parkingRoute.Count) return true;
+            Vector3 target = c.parkingRoute[c.parkingRouteIndex];
+            Vector3 direction = (target - car.position).normalized;
+            Quaternion heading = reverse ? Quaternion.Euler(0, c.parkedSlotPos.x < -27f ? -90f : 90f, 0)
+                : Quaternion.LookRotation(direction);
+            RoadTrafficAgent.SetRoute(car, reverse ? null : c.parkingRoute, c.parkingRouteIndex);
+            MoveVehicle(c, car.position, target, heading, dt, reverse);
+            return false;
         }
 
         private void UpdateVehicleCustomer(ActiveCustomerData cData, float deltaTime, int index)
         {
             if (cData == null || cData.vehicleObj == null)
             {
+                ReleaseParkingManeuver(cData);
                 if (cData != null) FreeParkingSlot(cData.parkingSlotIndex);
                 if (cData != null && cData.customerObj != null) Destroy(cData.customerObj);
-                if (cData != null && cData.vehicleObj != null) Destroy(cData.vehicleObj);
                 activeCustomers.RemoveAt(index);
                 return;
             }
-
-            if (entranceBarrier == null || exitBarrier == null)
-            {
-                FindParkingBarriers();
-            }
-
-            Vector3 currentCarPos = cData.vehicleObj.transform.position;
+            if (entranceBarrier == null || exitBarrier == null) FindParkingBarriers();
+            var roadAgent = RoadTrafficAgent.Register(cData.vehicleObj.transform);
+            if (roadAgent.Pending) return;
+            Transform car = cData.vehicleObj.transform;
             cData.vehiclePhaseTimer += deltaTime;
-
             switch (cData.drivePhase)
             {
+                case VehicleDrivePhase.DrivingToShopViaUTurn:
+                    if (!FollowParkingRoute(cData, deltaTime)) break;
+                    cData.parkingRoute = null;
+                    RoadTrafficAgent.SetRoute(car, null, 0);
+                    SetDrivePhase(cData, VehicleDrivePhase.DrivingToEntranceTurnstileApproach);
+                    break;
+
                 case VehicleDrivePhase.DrivingToEntranceTurnstileApproach:
-                    // 1. Ana Yolda İlerleme: Otoyoldan (Z = -7.5f) Giriş Turnikesi Şerit Merkezine (X = -15.5f, Z = -7.5f) Yanaşır (Batıya Bakar -90°)
-                    Vector3 entranceTurnNode = new Vector3(-15.5f, 0.05f, -7.5f);
-                    MoveVehicle(cData, currentCarPos, entranceTurnNode, Quaternion.Euler(0f, -90f, 0f), deltaTime);
-
-                    if (Vector3.Distance(currentCarPos, entranceTurnNode) < 0.4f)
-                    {
-                        cData.drivePhase = VehicleDrivePhase.PassingThroughEntranceTurnstile;
-                    }
-                    break;
-
-                case VehicleDrivePhase.PassingThroughEntranceTurnstile:
-                    // 2. Giriş Turnikesine Dönüş & Geçiş: Sağ Turnike Şeridinde Kuzeye Döner (0°) ve X = -15.5f Şeridinden Bariyer & Yaya Geçidini Geçerek Otopark Boğazına (Z = 1.5f) İlerler!
-                    Vector3 entranceTurnstileThroat = new Vector3(-15.5f, 0.05f, 1.5f);
-
-                    // Bariyer Açma/Kapama Tetiklemesi (Z = -6.5m ile 0.0m arası barrier açılır)
-                    if (currentCarPos.z >= -6.5f && currentCarPos.z <= 0.0f && entranceBarrier != null)
-                    {
-                        entranceBarrier.OpenBarrier();
-                    }
-                    else if (currentCarPos.z > 0.0f && entranceBarrier != null)
-                    {
-                        entranceBarrier.CloseBarrier();
-                    }
-
-                    MoveVehicle(cData, currentCarPos, entranceTurnstileThroat, Quaternion.Euler(0f, 0f, 0f), deltaTime);
-
-                    if (Vector3.Distance(currentCarPos, entranceTurnstileThroat) < 0.4f)
-                    {
-                        cData.drivePhase = VehicleDrivePhase.NavigatingParkingAisle;
-                    }
-                    break;
-
-                case VehicleDrivePhase.NavigatingParkingAisle:
-                    // 3. Otopark İç Koridoruna Manevra: Boğazdan (X = -15.5f, Z = 1.5f) Orta Yola (X = -27.0f, Z = slotPos.z) Geçiş Yapılır
-                    Vector3 aisleEntranceNode = new Vector3(-27.0f, 0.05f, 1.5f);
-                    Vector3 targetAisleNode = new Vector3(-27.0f, 0.05f, cData.parkedSlotPos.z);
-
-                    if (Vector3.Distance(currentCarPos, aisleEntranceNode) > 0.6f && currentCarPos.x > -25.5f)
-                    {
-                        MoveVehicle(cData, currentCarPos, aisleEntranceNode, Quaternion.Euler(0f, -90f, 0f), deltaTime);
-                    }
-                    else
-                    {
-                        float aisleAngle = (cData.parkedSlotPos.z >= 1.5f) ? 0f : 180f;
-                        MoveVehicle(cData, currentCarPos, targetAisleNode, Quaternion.Euler(0f, aisleAngle, 0f), deltaTime);
-
-                        if (Vector3.Distance(currentCarPos, targetAisleNode) < 0.4f)
-                        {
-                            cData.drivePhase = VehicleDrivePhase.ParkingInSlot;
-                        }
-                    }
+                    Vector3 waitingPoint = new Vector3(-10f, .05f, -7.5f);
+                    MoveVehicle(cData, car.position, waitingPoint, Quaternion.Euler(0,-90,0), deltaTime);
+                    if (Vector3.Distance(car.position, waitingPoint) > .03f) break;
+                    if (!AcquireParkingManeuver(cData)){roadAgent.NotifyTrafficWait();break;}
+                    cData.parkingRoute = RoundedParkingRoute(car.position,
+                        new Vector3(CustomerParkingLayout.EntryX,.05f,-7.5f), new Vector3(CustomerParkingLayout.EntryX,.05f,1.5f),
+                        new Vector3(-27f,.05f,1.5f), new Vector3(-27f,.05f,cData.parkedSlotPos.z), cData.parkedSlotPos);
+                    cData.parkingRouteIndex = 1;
+                    SetDrivePhase(cData, VehicleDrivePhase.ParkingInSlot);
                     break;
 
                 case VehicleDrivePhase.ParkingInSlot:
-                    // 4. Park Yerine Hizalanıp Durma (Sol Sütun: -90°, Sağ Sütun: 90°)
-                    int level = (EnvironmentBuilder.Instance != null) ? EnvironmentBuilder.Instance.CurrentUpgradeLevel : 1;
-                    int slotsPerRow = ((level == 1) ? 10 : ((level == 2) ? 16 : 22)) / 2;
-                    bool isLeftSlot = (cData.parkingSlotIndex < slotsPerRow);
-                    float targetAngle = isLeftSlot ? -90f : 90f;
-                    MoveVehicle(cData, currentCarPos, cData.parkedSlotPos, Quaternion.Euler(0f, targetAngle, 0f), deltaTime);
-
-                    if (Vector3.Distance(currentCarPos, cData.parkedSlotPos) < 0.3f)
+                    if (entranceBarrier != null)
                     {
-                        cData.vehicleObj.transform.position = cData.parkedSlotPos;
-                        cData.vehicleObj.transform.rotation = Quaternion.Euler(0f, targetAngle, 0f);
-
-                        // Müşteri aracını otoparka park etti: Farları otomatik KAPAT!
-                        if (cData.vehicleObj != null)
-                        {
-                            VehicleHeadlightController hCtrl = cData.vehicleObj.GetComponent<VehicleHeadlightController>();
-                            if (hCtrl != null) hCtrl.SetHeadlightsActive(false);
-                        }
-
-                        // Sürücü Araçtan İner (Sol otopark için sağa x=-33.5m, Sağ otopark için sola x=-20.5m otopark orta yolu tarafına):
-                        Vector3 driverDoorPos = cData.parkedSlotPos + (isLeftSlot ? Vector3.right * 1.5f : Vector3.left * 1.5f);
-                        if (cData.customerObj != null)
-                        {
-                            cData.customerObj.transform.position = driverDoorPos;
-                            cData.customerObj.SetActive(true);
-                        }
-
-                        cData.waypoints = BuildVehicleCustomerWalkingRoute(cData.parkedSlotPos, cData.parkingSlotIndex, out cData.isVisitingCustomerService, out cData.hasCartStand, out cData.targetShelfCount, cData.type, cData.targetBasketGoal);
-                        cData.currentWaypointIndex = (cData.waypoints != null && cData.waypoints.Count > 1) ? 1 : 0;
-                        cData.drivePhase = VehicleDrivePhase.EngineOffShoppingOnFoot;
+                        entranceBarrier.OpenBarrier();
+                        if (!entranceBarrier.IsFullyOpen) break;
                     }
+                    if (!FollowParkingRoute(cData, deltaTime)) break;
+                    cData.currentDriveSpeed = 0f;
+                    RoadTrafficAgent.SetRoute(car, null, 0);
+                    var lights = car.GetComponent<VehicleHeadlightController>();
+                    if (lights != null) lights.SetHeadlightsActive(false);
+                    cData.customerObj.transform.position = GetDriverDoorPosition(cData);
+                    cData.customerObj.SetActive(true);
+                    cData.waypoints = BuildVehicleCustomerWalkingRoute(cData.parkedSlotPos, cData.parkingSlotIndex,
+                        out cData.isVisitingCustomerService, out cData.hasCartStand, out cData.targetShelfCount, cData.type, cData.targetBasketGoal);
+                    cData.currentWaypointIndex = 1;
+                    SetDrivePhase(cData, VehicleDrivePhase.EngineOffShoppingOnFoot);
+                    ReleaseParkingManeuver(cData);
                     break;
 
                 case VehicleDrivePhase.EngineOffShoppingOnFoot:
                     if (cData.customerObj != null && cData.customerObj.activeInHierarchy)
                     {
                         Vector3 foot = cData.customerObj.transform.position;
-                        if (foot.x > -13.0f || foot.z < -3.5f)
-                            cData.hasShoppedOnFoot = true;
+                        if (foot.x > -13f || foot.z < -3.5f) cData.hasShoppedOnFoot = true;
                     }
-
                     UpdatePedestrianCustomer(cData, deltaTime, index);
-
-                    if (ShouldBoardParkedVehicle(cData))
-                    {
-                        BeginVehicleDeparture(cData);
-                    }
+                    if (ShouldBoardParkedVehicle(cData)) BeginVehicleDeparture(cData);
                     break;
 
                 case VehicleDrivePhase.ReversingOutSlot:
-                    // 6. Park Yerinden Çıkış: Otopark Orta Yoluna (X = -27.0f, Z = slotPos.z) Çıkıp Güneye (180°) Hizalanır
-                    Vector3 exitDrivewayPos = new Vector3(-27.0f, 0.05f, cData.parkedSlotPos.z);
-                    MoveVehicle(cData, currentCarPos, exitDrivewayPos, Quaternion.Euler(0f, 180f, 0f), deltaTime);
-
-                    if (Vector3.Distance(currentCarPos, exitDrivewayPos) < 0.85f || cData.vehiclePhaseTimer > 5.0f)
+                    if (cData.vehiclePhaseTimer < .8f) break; // Allow the driver to board before moving.
+                    if (!AcquireParkingManeuver(cData)){roadAgent.NotifyTrafficWait();break;}
+                    if (cData.parkingRoute == null)
                     {
-                        SetDrivePhase(cData, VehicleDrivePhase.DrivingToExitTurnstileApproach);
+                        cData.parkingRoute = new List<Vector3> { car.position, new Vector3(-27f,.05f,cData.parkedSlotPos.z) };
+                        cData.parkingRouteIndex = 1;
                     }
-                    break;
-
-                case VehicleDrivePhase.DrivingToExitTurnstileApproach:
-                    Vector3 aisleSouth = new Vector3(-27.0f, 0.05f, 1.5f);
-                    Vector3 exitTurnstileNode = new Vector3(-18.5f, 0.05f, 1.5f);
-                    if (Vector3.Distance(currentCarPos, aisleSouth) > 0.9f && currentCarPos.z > 2.2f)
-                    {
-                        MoveVehicle(cData, currentCarPos, aisleSouth, Quaternion.Euler(0f, 180f, 0f), deltaTime);
-                    }
-                    else
-                    {
-                        MoveVehicle(cData, currentCarPos, exitTurnstileNode, Quaternion.Euler(0f, 90f, 0f), deltaTime);
-                    }
-
-                    if (Vector3.Distance(currentCarPos, exitTurnstileNode) < 0.85f || cData.vehiclePhaseTimer > 6.0f)
-                    {
-                        SetDrivePhase(cData, VehicleDrivePhase.PassingThroughExitTurnstile);
-                    }
+                    // Keep the nose pointing into the bay until the entire car is in the open aisle.
+                    if (!FollowParkingRoute(cData, deltaTime, true)) break;
+                    cData.currentDriveSpeed = 0f;
+                    cData.parkingRoute = RoundedParkingRoute(car.position, new Vector3(-27f,.05f,0f),
+                        new Vector3(CustomerParkingLayout.ExitX,.05f,0f), new Vector3(CustomerParkingLayout.ExitX,.05f,-7.5f), new Vector3(-43f,.05f,-7.5f));
+                    cData.parkingRouteIndex = 1;
+                    SetDrivePhase(cData, VehicleDrivePhase.PassingThroughExitTurnstile);
                     break;
 
                 case VehicleDrivePhase.PassingThroughExitTurnstile:
-                    // 8. Çıkış Turnikesinden Geçiş: GÜNEYE BAKARAK (180°), X = -18.5f Çıkış Şeridinden Bariyer & Yaya Geçidini Geçer ve Z = -7.5f Otoyol Şeridine İner!
-                    Vector3 mainRoadExitJunction = new Vector3(-18.5f, 0.05f, -7.5f);
-
-                    // Bariyer Açma/Kapama Tetiklemesi (Z = 1.0m ile -4.5m arası barrier açılır)
-                    if (currentCarPos.z <= 1.0f && currentCarPos.z >= -4.5f && exitBarrier != null)
+                    if (car.position.z <= -1f && !RoadTrafficAgent.TryReserveParkingExit(car))
+                    {
+                        roadAgent.NotifyTrafficWait();
+                        cData.currentDriveSpeed = 0f;
+                        break;
+                    }
+                    if (exitBarrier != null)
                     {
                         exitBarrier.OpenBarrier();
+                        if (!exitBarrier.IsFullyOpen) break;
                     }
-                    else if (currentCarPos.z < -4.5f && exitBarrier != null)
-                    {
-                        exitBarrier.CloseBarrier();
-                    }
-
-                    MoveVehicle(cData, currentCarPos, mainRoadExitJunction, Quaternion.Euler(0f, 180f, 0f), deltaTime);
-
-                    if (Vector3.Distance(currentCarPos, mainRoadExitJunction) < 0.4f || currentCarPos.z <= -7.2f || cData.vehiclePhaseTimer > 6.0f)
-                    {
-                        SetDrivePhase(cData, VehicleDrivePhase.DrivingAwayWest);
-                    }
+                    if (!FollowParkingRoute(cData, deltaTime)) break;
+                    ReleaseParkingManeuver(cData);
+                    FreeParkingSlot(cData.parkingSlotIndex);
+                    cData.parkingSlotIndex = -1;
+                    cData.parkingRoute = new List<Vector3> { car.position, new Vector3(-180f,.05f,-7.5f) };
+                    cData.parkingRouteIndex = 1;
+                    SetDrivePhase(cData, VehicleDrivePhase.DrivingAwayWest);
                     break;
 
                 case VehicleDrivePhase.DrivingAwayWest:
-                    // 9. Ana Yolda Batıya Dönüş & Despawn: Otoyol Şeridinde (Z = -7.5f) Sağa Döner (Batıya -90°) ve Sürerek Ayrılır!
-                    Vector3 despawnRoadPos = new Vector3(-180.0f, 0.05f, -7.5f);
-                    MoveVehicle(cData, currentCarPos, despawnRoadPos, Quaternion.Euler(0f, -90f, 0f), deltaTime);
-
-                    if (Vector3.Distance(currentCarPos, despawnRoadPos) < 3.0f || currentCarPos.x <= -170.0f)
-                    {
-                        FreeParkingSlot(cData.parkingSlotIndex);
-                        if (cData.vehicleObj != null) Destroy(cData.vehicleObj);
-                        if (cData.customerObj != null) Destroy(cData.customerObj);
-                        activeCustomers.RemoveAt(index);
-                    }
+                    FollowParkingRoute(cData, deltaTime);
+                    if (car.position.x > -170f) break;
+                    ReleaseParkingManeuver(cData);
+                    Destroy(cData.vehicleObj);
+                    if (cData.customerObj != null) Destroy(cData.customerObj);
+                    activeCustomers.RemoveAt(index);
                     break;
             }
         }
@@ -1942,10 +1936,7 @@ namespace Farm2Shelf.Environment
 
         private static Vector3 GetDriverDoorPosition(ActiveCustomerData cData)
         {
-            int level = (EnvironmentBuilder.Instance != null) ? EnvironmentBuilder.Instance.CurrentUpgradeLevel : 1;
-            int slotsPerRow = ((level == 1) ? 10 : ((level == 2) ? 16 : 22)) / 2;
-            bool isLeftSlot = (cData.parkingSlotIndex < slotsPerRow);
-            return cData.parkedSlotPos + (isLeftSlot ? Vector3.right * 1.5f : Vector3.left * 1.5f);
+            return ParkingDoor(cData.parkedSlotPos);
         }
 
         private static bool ShouldBoardParkedVehicle(ActiveCustomerData cData)
@@ -1954,24 +1945,16 @@ namespace Farm2Shelf.Environment
             if (cData.drivePhase != VehicleDrivePhase.EngineOffShoppingOnFoot) return false;
             if (!cData.hasPaidAndExiting && !cData.hasShoppedOnFoot) return false;
 
-            Vector3 door = GetDriverDoorPosition(cData);
-            Vector3 pos = cData.customerObj != null ? cData.customerObj.transform.position : door;
-            float toDoor = Vector3.Distance(pos, door);
-            float toCar = Vector3.Distance(pos, cData.parkedSlotPos);
-            bool nearCar = toDoor < 2.6f || toCar < 3.4f;
-            bool inLot = pos.x < -14.0f;
-            bool endOfPath = cData.waypoints != null && cData.waypoints.Count > 0
-                && cData.currentWaypointIndex >= cData.waypoints.Count - 1;
-
-            if (cData.hasPaidAndExiting && (nearCar || (inLot && endOfPath) || (inLot && cData.stuckTimer > 2.4f)))
-                return true;
-            if (cData.hasShoppedOnFoot && nearCar && (cData.hasPaidAndExiting || endOfPath))
-                return true;
-            return false;
+            if (cData.customerObj == null) return false;
+            bool endOfPath = cData.waypoints != null && cData.currentWaypointIndex >= cData.waypoints.Count - 1;
+            return endOfPath && Vector3.Distance(cData.customerObj.transform.position, GetDriverDoorPosition(cData)) < .45f;
         }
 
         private static void BeginVehicleDeparture(ActiveCustomerData cData)
         {
+            if (!ShouldBoardParkedVehicle(cData)) return;
+            cData.parkingRoute = null;
+            cData.currentDriveSpeed = 0f;
             if (cData.customerObj != null) cData.customerObj.SetActive(false);
             if (cData.vehicleObj != null)
             {
@@ -1983,15 +1966,29 @@ namespace Farm2Shelf.Environment
             SetDrivePhase(cData, VehicleDrivePhase.ReversingOutSlot);
         }
 
-        private void MoveVehicle(ActiveCustomerData cData, Vector3 currentPos, Vector3 targetPos, Quaternion targetRot, float deltaTime)
+        private void MoveVehicle(ActiveCustomerData cData, Vector3 currentPos, Vector3 targetPos, Quaternion targetRot, float deltaTime, bool reverse = false)
         {
-            Vector3 diff = targetPos - currentPos;
-            if (diff.magnitude > 0.05f)
-            {
-                cData.vehicleObj.transform.position = Vector3.MoveTowards(currentPos, targetPos, cData.vehicleSpeed * deltaTime);
-                cData.vehicleObj.transform.rotation = Quaternion.Slerp(cData.vehicleObj.transform.rotation, targetRot, 10f * deltaTime);
-                if (cData.vehicleWheels != null) foreach (var w in cData.vehicleWheels) if (w != null) w.Rotate(Vector3.right * 600f * deltaTime, Space.Self);
-            }
+            Transform car = cData.vehicleObj.transform;
+            float distance = Vector3.Distance(currentPos, targetPos);
+            if (distance < .005f) { cData.currentDriveSpeed = 0f; return; }
+            car.rotation = RoadTrafficAgent.Rotate(car, Quaternion.RotateTowards(car.rotation, targetRot, 100f * deltaTime));
+            // No sideways sliding or rotation inside neighbouring parked cars.
+            if (Quaternion.Angle(car.rotation, targetRot) > 12f) { cData.currentDriveSpeed = 0f; return; }
+            float maxSpeed = reverse ? 1.4f :
+                (cData.drivePhase == VehicleDrivePhase.DrivingToEntranceTurnstileApproach ||
+                 cData.drivePhase == VehicleDrivePhase.DrivingAwayWest ||
+                 (cData.drivePhase == VehicleDrivePhase.DrivingToShopViaUTurn && Mathf.Abs(currentPos.x-MainBoulevard.TaxiTurnX)>16f)
+                    ? cData.vehicleSpeed : 2.5f);
+            bool lastSegment = cData.parkingRoute == null || cData.parkingRouteIndex >= cData.parkingRoute.Count - 1;
+            if (lastSegment) maxSpeed = Mathf.Min(maxSpeed, Mathf.Sqrt(4f * distance));
+            cData.currentDriveSpeed = Mathf.MoveTowards(cData.currentDriveSpeed, maxSpeed, 2.5f * deltaTime);
+            Vector3 requested = Vector3.MoveTowards(currentPos, targetPos, cData.currentDriveSpeed * deltaTime);
+            car.position = RoadTrafficAgent.Move(car, requested);
+            float travelled = Vector3.Distance(currentPos, car.position);
+            if (travelled < .0001f) cData.currentDriveSpeed = 0f;
+            if (cData.vehicleWheels != null)
+                foreach (var wheel in cData.vehicleWheels)
+                    if (wheel != null) wheel.Rotate(Vector3.right * (travelled * (reverse ? -1f : 1f) * 190f), Space.Self);
         }
 
         private readonly Dictionary<PlacedFurnitureController, List<ActiveCustomerData>> cashierQueues = new Dictionary<PlacedFurnitureController, List<ActiveCustomerData>>();
@@ -2159,6 +2156,54 @@ namespace Farm2Shelf.Environment
             return true;
         }
 
+        private readonly Dictionary<PlacedFurnitureController,List<ActiveCustomerData>> shelfQueues=new Dictionary<PlacedFurnitureController,List<ActiveCustomerData>>();
+        private bool WaitForShelfTurn(ActiveCustomerData customer,Vector3 target,float dt)
+        {
+            if(customer.hasPaidAndExiting || customer.isInCashierQueue)return false;
+            if(Time.unscaledTime>=customer.nextShelfLookup || (target-customer.cachedShelfWaypoint).sqrMagnitude>.001f)
+            {
+                customer.cachedTargetShelf=FindNearestShelfToPosition(target);
+                customer.cachedShelfWaypoint=target;customer.nextShelfLookup=Time.unscaledTime+.5f;
+            }
+            var shelf=customer.cachedTargetShelf;
+            if(shelf==null || (customer.visitedShelvesSet!=null && customer.visitedShelvesSet.Contains(shelf)))return false;
+            if(!shelfQueues.TryGetValue(shelf,out var queue)){queue=new List<ActiveCustomerData>();shelfQueues[shelf]=queue;}
+            Vector3 front=shelf.GetFrontInteractionPosition(.75f);
+            queue.RemoveAll(c=>c==null || c.customerObj==null || c.hasPaidAndExiting ||
+                (c.stateWaitTimer<=0 && (!TryGetCurrentWaypoint(c,out var waypoint) || (waypoint-front).sqrMagnitude>.0225f)));
+            if(!queue.Contains(customer))queue.Add(customer);
+            if(queue[0]==customer){customer.hasShelfWaitPoint=false;customer.queuedShelf=shelf;return false;}
+            if(customer.queuedShelf!=shelf){customer.queuedShelf=shelf;customer.hasShelfWaitPoint=false;}
+            if(customer.hasShelfWaitPoint && PedestrianNavigation.IsBlocked(customer.shelfWaitPoint))customer.hasShelfWaitPoint=false;
+            if(!customer.hasShelfWaitPoint && Time.unscaledTime>=customer.nextShelfWaitSearch)
+            {
+                customer.nextShelfWaitSearch=Time.unscaledTime+.5f;
+                for(int row=0;row<6 && !customer.hasShelfWaitPoint;row++)
+                    for(int column=0;column<4;column++)
+                    {
+                        float side=(column%2==0?-1f:1f)*(1.1f+(column/2)*.8f);
+                        Vector3 wait=front-shelf.transform.forward*(1.3f+row*.75f)+shelf.transform.right*side;
+                        if(PedestrianNavigation.IsBlocked(wait) || !PedestrianNavigation.Clear(front,wait))continue;
+                        bool occupied=false;
+                        foreach(var c in activeCustomers)
+                        {
+                            if(c==customer || c.customerObj==null)continue;
+                            if((c.hasShelfWaitPoint && (c.shelfWaitPoint-wait).sqrMagnitude<.49f) || (c.customerObj.transform.position-wait).sqrMagnitude<.36f){occupied=true;break;}
+                        }
+                        if(occupied)continue;
+                        customer.shelfWaitPoint=wait;customer.hasShelfWaitPoint=true;break;
+                    }
+            }
+            if(!customer.hasShelfWaitPoint){ResetLimbsToRest(customer);return true;}
+            Vector3 from=customer.customerObj.transform.position;
+            var next=PedestrianNavigation.Move(customer.customerObj,customer.shelfWaitPoint,WALK_SPEED*dt);
+            customer.customerObj.transform.position=next;Vector3 step=next-from;step.y=0;
+            if(step.sqrMagnitude>.000001f)
+            {customer.customerObj.transform.rotation=Quaternion.RotateTowards(customer.customerObj.transform.rotation,Quaternion.LookRotation(step),360f*dt);customer.walkCycleTimer+=step.magnitude*3f;AnimateHumanLimbs(customer,Mathf.Sin(customer.walkCycleTimer)*26f);}
+            else ResetLimbsToRest(customer);
+            return true;
+        }
+
         private void UpdatePedestrianCustomer(ActiveCustomerData cData, float deltaTime, int index)
         {
             if (cData.customerObj == null) return;
@@ -2265,7 +2310,7 @@ namespace Farm2Shelf.Environment
             {
                 Vector3 targetSlotPos = (cData.assignedCashier != null) ? GetCashierSlotWorldPosition(cData.assignedCashier, cData.queueSlotIndex) : Vector3.zero;
                 float distToSlot = (cData.assignedCashier != null) ? Vector3.Distance(currentPos, targetSlotPos) : 999f;
-                bool isAtCashierSlot = (cData.assignedCashier != null && distToSlot < 0.65f);
+                bool isAtCashierSlot = (cData.assignedCashier != null && distToSlot < 0.2f && PedestrianNavigation.Clear(currentPos, targetSlotPos));
 
                 if (isAtCashierSlot)
                 {
@@ -2350,7 +2395,7 @@ namespace Farm2Shelf.Environment
                 {
                     // Slota doğru adım at
                     Vector3 queueStepDir = (targetSlotPos - currentPos).normalized;
-                    cData.customerObj.transform.position = Vector3.MoveTowards(currentPos, targetSlotPos, WALK_SPEED * deltaTime);
+                    cData.customerObj.transform.position = PedestrianNavigation.Move(cData.customerObj, targetSlotPos, WALK_SPEED * deltaTime);
                     if (queueStepDir != Vector3.zero)
                     {
                         cData.customerObj.transform.rotation = Quaternion.RotateTowards(cData.customerObj.transform.rotation, Quaternion.LookRotation(queueStepDir), 360f * deltaTime);
@@ -2362,47 +2407,27 @@ namespace Farm2Shelf.Environment
             }
 
             if (!TryGetCurrentWaypoint(cData, out Vector3 targetWaypoint)) return;
+            if(WaitForShelfTurn(cData,targetWaypoint,deltaTime))return;
+            cData.hasShelfWaitPoint=false;
             Vector3 toTarget = targetWaypoint - currentPos;
             float distToTarget = toTarget.magnitude;
 
-            // Anti-Stuck & Duvar Kurtarma Koruyucusu (Müşteri yürürken bir noktada takılırsa açık alana kaydırılır ve ilerletilir; sırada beklerken tetiklenmez):
-            if (!cData.isInCashierQueue && cData.stateWaitTimer <= 0f && Vector3.Distance(currentPos, cData.lastTrackedPos) < 0.08f)
+            // An unreachable shopping stop is skipped without buying; queues and exits must wait safely.
+            var navigation = cData.customerObj.GetComponent<PedestrianNavigator>();
+            if (!cData.isInCashierQueue && !cData.hasPaidAndExiting && navigation != null && navigation.Unreachable)
             {
                 cData.stuckTimer += deltaTime;
-                if (cData.stuckTimer > 1.2f && cData.stuckTimer <= 2.2f)
+                if (cData.stuckTimer > 5f && cData.currentWaypointIndex < cData.waypoints.Count - 1)
                 {
-                    Vector3 nudgeDir = (targetWaypoint - currentPos).normalized;
-                    if (nudgeDir != Vector3.zero)
-                    {
-                        cData.customerObj.transform.position += nudgeDir * (1.2f * deltaTime);
-                    }
-                }
-                else if (cData.stuckTimer > 2.2f)
-                {
-                    cData.stuckTimer = 0f;
                     cData.currentWaypointIndex++;
-                    if (cData.currentWaypointIndex >= cData.waypoints.Count)
-                    {
-                        if (cData.hasVehicle)
-                        {
-                            BeginVehicleDeparture(cData);
-                            return;
-                        }
-
-                        Destroy(cData.customerObj);
-                        activeCustomers.RemoveAt(index);
-                        return;
-                    }
+                    cData.stuckTimer = 0f;
                     return;
                 }
             }
-            else
-            {
-                cData.stuckTimer = 0f;
-                cData.lastTrackedPos = currentPos;
-            }
-
-            if (distToTarget < (cData.hasPaidAndExiting ? 0.85f : 0.65f))
+            else cData.stuckTimer = 0f;
+            bool boardingWaypoint=cData.hasVehicle && cData.currentWaypointIndex==cData.waypoints.Count-1;
+            float arrivalDistance=boardingWaypoint?.20f:(cData.hasPaidAndExiting?.85f:.25f);
+            if (distToTarget < arrivalDistance && PedestrianNavigation.Clear(currentPos, targetWaypoint))
             {
                 if (!cData.hasPaidAndExiting && !cData.isInCashierQueue && ProcessAtmWaypoint(cData, targetWaypoint)) return;
                 if (cData.hasTrashBinDetour && !cData.hasPaidAndExiting && !cData.isInCashierQueue &&
@@ -2535,7 +2560,7 @@ namespace Farm2Shelf.Environment
                                 }
                             }
                             // 4. Raftan Alışveriş Yapma
-                            else if (!isAtServiceDesk && !cData.isInCashierQueue && (targetWaypoint.z > 0.5f))
+                            else if (!isAtServiceDesk && !cData.isInCashierQueue)
                             {
                                 PlacedFurnitureController targetShelf = FindNearestShelfToPosition(targetWaypoint);
                                 if (targetShelf != null && (cData.visitedShelvesSet == null || !cData.visitedShelvesSet.Contains(targetShelf)))
@@ -2553,8 +2578,10 @@ namespace Farm2Shelf.Environment
                             }
 
                             bool inStoreFloor = currentPos.x > -13.5f && currentPos.z > -3.2f;
-                            bool isApproachingCheckout = inStoreFloor
-                                && (targetWaypoint.z <= 2.0f || cData.currentWaypointIndex >= cData.waypoints.Count - 2);
+                            // A shelf near the entrance is still a shopping stop.
+                            // World Z cannot identify checkout: it repeatedly redirected
+                            // empty baskets to the same unvisited front-row shelf.
+                            bool isApproachingCheckout = inStoreFloor && IsCheckoutWaypoint(targetWaypoint);
                             if (isApproachingCheckout && !cData.isInCashierQueue)
                             {
                                 if (TryScheduleAtmVisit(cData)) return;
@@ -2700,20 +2727,14 @@ namespace Farm2Shelf.Environment
             float moveSpeed = cData.visitedCustomerServiceDesk ? (WALK_SPEED * 1.25f) : WALK_SPEED;
             Vector3 moveDir = toTarget.normalized;
             float stepDist = moveSpeed * deltaTime;
-            Vector3 avoidanceDir;
-            if (((Time.frameCount + index) & 1) == 0 && cData.lastAvoidDir.sqrMagnitude > 0.01f)
-            {
-                avoidanceDir = cData.lastAvoidDir;
-            }
-            else
-            {
-                avoidanceDir = GameplayPerf.SteerPedestrian(cData.customerObj, currentPos, moveDir, stepDist);
-                cData.lastAvoidDir = avoidanceDir;
-            }
+            Vector3 navigatedPosition = PedestrianNavigation.Move(cData.customerObj, targetWaypoint, stepDist);
+            Vector3 avoidanceDir = navigatedPosition - currentPos;
 
             if (avoidanceDir != Vector3.zero) cData.customerObj.transform.rotation = Quaternion.RotateTowards(cData.customerObj.transform.rotation, Quaternion.LookRotation(avoidanceDir), 360f * deltaTime);
-            cData.customerObj.transform.position = Vector3.MoveTowards(currentPos, currentPos + avoidanceDir, stepDist);
-            cData.walkCycleTimer += deltaTime * (cData.visitedCustomerServiceDesk ? 10.6f : 8.5f) * 1.15f;
+            cData.customerObj.transform.position = navigatedPosition;
+            float travelled = avoidanceDir.magnitude;
+            if (travelled < .0001f) { AnimateHumanLimbs(cData, 0f); return; }
+            cData.walkCycleTimer += travelled / moveSpeed * (cData.visitedCustomerServiceDesk ? 10.6f : 8.5f) * 1.15f;
             Camera cam = GameplayPerf.MainCamera;
             bool animateLimbs = cam == null || (currentPos - cam.transform.position).sqrMagnitude < 6400f || (Time.frameCount & 1) == 0;
             if (animateLimbs)
@@ -2722,11 +2743,26 @@ namespace Farm2Shelf.Environment
             }
         }
 
+        private static bool IsCheckoutWaypoint(Vector3 waypoint)
+        {
+            bool hasCashier = false;
+            foreach (var furniture in PlacedFurnitureController.AllPlacedFurniture)
+            {
+                if (furniture == null || furniture.FurnitureType != FurnitureType.Cashier) continue;
+                hasCashier = true;
+                if ((waypoint - furniture.GetFrontInteractionPosition(1.0f)).sqrMagnitude < .0225f) return true;
+            }
+            // Preserve the route builder's fallback when no checkout is installed.
+            return !hasCashier && (waypoint - new Vector3(-6.5f, .05f, 1.5f)).sqrMagnitude < .0225f;
+        }
+
         private PlacedFurnitureController FindNearestShelfToPosition(Vector3 pos)
         {
             var allFurniture = PlacedFurnitureController.AllPlacedFurniture;
             PlacedFurnitureController nearest = null;
-            float minDistance = 2.5f;
+            // Match the exact stop emitted by AddRandomShelfWaypoints/backup routes;
+            // a nearby foyer, service desk or checkout is not a shelf visit.
+            float minDistance = .15f;
             int count = allFurniture.Count;
 
             for (int i = 0; i < count; i++)
@@ -2735,7 +2771,7 @@ namespace Farm2Shelf.Environment
                 if (f == null) continue;
                 if (f.FurnitureType == FurnitureType.Shelf || f.FurnitureType == FurnitureType.Fridge || f.FurnitureType == FurnitureType.OrganicFridge || f.FurnitureType == FurnitureType.Freezer || f.FurnitureType == FurnitureType.BakeryCounter || f.FurnitureType == ProduceShelfType() || f.FurnitureType == FurnitureType.ProduceShelf || f.FurnitureType == FurnitureType.CosmeticShelf || f.FurnitureType == FurnitureType.ElectronicsShelf || f.FurnitureType == FurnitureType.ButcherCounter || f.FurnitureType == FurnitureType.GourmetShelf)
                 {
-                    float dist = Vector3.Distance(pos, f.GetFrontInteractionPosition(1.2f));
+                    float dist = Vector3.Distance(pos, f.GetFrontInteractionPosition(0.75f));
                     if (dist < minDistance)
                     {
                         minDistance = dist;

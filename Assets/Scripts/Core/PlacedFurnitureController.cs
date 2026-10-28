@@ -1030,7 +1030,22 @@ namespace Farm2Shelf.Core
         {
             if (FurnitureType == FurnitureType.Cashier)
                 return FurnitureModelBuilder.GetCashierCustomerPosition(transform);
-            return transform.position - transform.forward * offset;
+            offset = Mathf.Max(offset, PedestrianNavigation.Footprint(FurnitureType).y * 0.5f + PedestrianNavigation.Radius + 0.12f);
+            Vector3 preferred = transform.position - transform.forward * offset;
+            if (!PedestrianNavigation.IsBlocked(preferred)) return preferred;
+            // Preserve the marked shopping side, but allow a nearer/lateral stand
+            // when the old fixed offset lands inside the next row of furniture.
+            Vector2 size = PedestrianNavigation.Footprint(FurnitureType);
+            float minimum = size.y * .5f + PedestrianNavigation.Radius + .025f;
+            for (float distance = offset; distance >= minimum - .001f; distance -= .05f)
+                for (int slot = 0; slot <= 8; slot++)
+                {
+                    float lateral = slot == 0 ? 0f : ((slot + 1) / 2) * .15f * (slot % 2 == 0 ? -1f : 1f);
+                    if (Mathf.Abs(lateral) > Mathf.Max(0f, size.x * .5f - .15f)) continue;
+                    Vector3 candidate = transform.position - transform.forward * distance + transform.right * lateral;
+                    if (!PedestrianNavigation.IsBlocked(candidate)) return candidate;
+                }
+            return preferred;
         }
 
         public Quaternion GetFrontFacingRotation()

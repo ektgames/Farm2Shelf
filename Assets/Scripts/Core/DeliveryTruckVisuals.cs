@@ -11,6 +11,7 @@ namespace Farm2Shelf.Core
         public static readonly Vector3 StartPos = new Vector3(180f, 0.05f, -7.5f);
         public static readonly Vector3 JunctionPos = new Vector3(13.0f, 0.05f, -7.5f);
         public static readonly Vector3 DockPos = new Vector3(13.0f, 0.05f, 1.5f);
+        public static readonly Vector3 UnloadPosition = new Vector3(11.6f, 0.05f, 1.0f);
         public static readonly Vector3 DespawnPos = new Vector3(-340.0f, 0.05f, -7.5f);
         public static readonly Quaternion FacingWest = Quaternion.Euler(0f, -90f, 0f);
         public static readonly Quaternion FacingNorth = Quaternion.Euler(0f, 0f, 0f);

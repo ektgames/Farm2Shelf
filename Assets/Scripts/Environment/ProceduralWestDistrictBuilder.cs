@@ -113,23 +113,22 @@ namespace Farm2Shelf.Environment
             {
                 float qx = riverCenterX + (side * (riverWidth / 2f));
 
-                // Rıhtım Taş Sedde Duvarı
-                GameObject quayWall = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                quayWall.name = $"River_Quay_Wall_{(side > 0 ? "East" : "West")}";
-                quayWall.transform.SetParent(riverGroup.transform, false);
-                quayWall.transform.position = new Vector3(qx, -0.2f, riverCenterZ);
-                quayWall.transform.localScale = new Vector3(0.8f, 1.8f, riverLength);
-                quayWall.GetComponent<Renderer>().sharedMaterial = quayMat;
-                Object.Destroy(quayWall.GetComponent<Collider>());
-
-                // Rıhtım Üst Küpeştesi
-                GameObject quayCap = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                quayCap.name = $"River_Quay_Cap_{(side > 0 ? "East" : "West")}";
-                quayCap.transform.SetParent(riverGroup.transform, false);
-                quayCap.transform.position = new Vector3(qx, 0.72f, riverCenterZ);
-                quayCap.transform.localScale = new Vector3(1.0f, 0.15f, riverLength);
-                quayCap.GetComponent<Renderer>().sharedMaterial = quayMat;
-                Object.Destroy(quayCap.GetComponent<Collider>());
+                // Split the quay and its cap outside the complete bridge + sidewalk width.
+                // Continuous caps used to appear as two stone bars across all four lanes.
+                foreach(var interval in new[]{new Vector2(riverMinZ,MainBoulevard.SouthEdge-3f),new Vector2(MainBoulevard.NorthEdge+3f,riverMaxZ)})
+                {
+                    float length=interval.y-interval.x,mid=(interval.x+interval.y)*.5f;
+                    foreach(bool cap in new[]{false,true})
+                    {
+                        var part=GameObject.CreatePrimitive(PrimitiveType.Cube);
+                        part.name=cap?"River_Quay_Cap_Segment":"River_Quay_Wall_Segment";
+                        part.transform.SetParent(riverGroup.transform,false);
+                        part.transform.position=new Vector3(qx,cap?.72f:-.2f,mid);
+                        part.transform.localScale=new Vector3(cap?1f:.8f,cap?.15f:1.8f,length);
+                        part.GetComponent<Renderer>().sharedMaterial=quayMat;
+                        Object.Destroy(part.GetComponent<Collider>());
+                    }
+                }
 
                 // Emniyet Korkuluğu (Köprü geçişi Z: -15m ile -3m arası hariç)
                 float northLen = riverMaxZ - (-3f);
@@ -141,7 +140,7 @@ namespace Farm2Shelf.Environment
                 northRailing.GetComponent<Renderer>().sharedMaterial = railingMat;
                 Object.Destroy(northRailing.GetComponent<Collider>());
 
-                float southLen = (-15f) - riverMinZ;
+                float southLen = (-24f) - riverMinZ;
                 GameObject southRailing = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 southRailing.name = $"River_Railing_South_{(side > 0 ? "East" : "West")}";
                 southRailing.transform.SetParent(riverGroup.transform, false);
@@ -165,7 +164,7 @@ namespace Farm2Shelf.Environment
             }
 
             // 1.5 TEK ADET 2 ŞERİTLİ KAVİSLİ KÖPRÜ (Arch Bridge | Ortaya doğru yükselip inen)
-            BuildCurvedArchBridge(riverGroup.transform, new Vector3(riverCenterX, 0f, -9.0f), riverWidth);
+            BuildCurvedArchBridge(riverGroup.transform, new Vector3(riverCenterX, 0f, MainBoulevard.Center), riverWidth);
         }
 
         private static void BuildCurvedArchBridge(Transform parent, Vector3 centerPos, float riverSpan)
@@ -180,26 +179,25 @@ namespace Farm2Shelf.Environment
             Material stripeMat = GetMaterial("BridgeStripeMat", new Color(0.95f, 0.95f, 0.95f), 0.0f, 0.2f);
 
             float totalLength = riverSpan + 6.0f; // 28 metre toplam açıklık (X: -80m ile -108m arası)
-            float roadDeckWidth = 6.0f; // 2 Şerit Asfalt Genişliği
-            float sidewalkWidth = 1.5f; // Sağ ve Sol Yaya Kaldırımı
+            float roadDeckWidth = MainBoulevard.NorthEdge - MainBoulevard.SouthEdge; // Four lanes, same centres as the boulevard.
+            float sidewalkWidth = 3f; // Match both approach sidewalks.
             float bridgeWidth = roadDeckWidth + (2f * sidewalkWidth); // 9.0 metre tam köprü genişliği
-            int segments = 9;
+            int segments = 28;
             float segLen = totalLength / segments;
-            float maxArchHeight = 1.65f; // Köprü tepe kavis yüksekliği
 
             for (int i = 0; i < segments; i++)
             {
                 float t0 = (float)i / segments;
                 float t1 = (float)(i + 1) / segments;
-                float tMid = (float)(i + 0.5f) / segments;
 
                 float x0 = -totalLength / 2f + t0 * totalLength;
                 float x1 = -totalLength / 2f + t1 * totalLength;
                 float midX = (x0 + x1) / 2f;
 
-                float y0 = 0.05f + (4f * maxArchHeight * t0 * (1f - t0));
-                float y1 = 0.05f + (4f * maxArchHeight * t1 * (1f - t1));
-                float midY = 0.05f + (4f * maxArchHeight * tMid * (1f - tMid));
+                float y0 = CityTrafficManager.GetBridgeElevation(centerPos.x+x0, centerPos.z, out _) - .15f;
+                float y1 = CityTrafficManager.GetBridgeElevation(centerPos.x+x1, centerPos.z, out _) - .15f;
+                float midY = (y0+y1)*.5f;
+                float surfaceLength = Mathf.Sqrt((x1-x0)*(x1-x0)+(y1-y0)*(y1-y0));
 
                 float angleZ = Mathf.Atan2(y1 - y0, x1 - x0) * Mathf.Rad2Deg;
 
@@ -213,30 +211,41 @@ namespace Farm2Shelf.Environment
                 deck.name = "Deck";
                 deck.transform.SetParent(segObj.transform, false);
                 deck.transform.localPosition = Vector3.zero;
-                deck.transform.localScale = new Vector3(segLen + 0.1f, 0.30f, roadDeckWidth);
+                deck.transform.localScale = new Vector3(surfaceLength + 0.005f, 0.30f, roadDeckWidth);
                 deck.GetComponent<Renderer>().sharedMaterial = asphaltMat;
                 Object.Destroy(deck.GetComponent<Collider>());
 
-                // Orta Şerit Beyaz Çizgisi
-                GameObject stripe = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                stripe.name = "Lane_Stripe";
-                stripe.transform.SetParent(segObj.transform, false);
-                stripe.transform.localPosition = new Vector3(0f, 0.16f, 0f);
-                stripe.transform.localScale = new Vector3(segLen * 0.65f, 0.01f, 0.20f);
-                stripe.GetComponent<Renderer>().sharedMaterial = stripeMat;
-                Object.Destroy(stripe.GetComponent<Collider>());
+                // Four lanes; no raised median on the bridge. Double centre lines
+                // align with the tapered approaches; the deck has no planted or raised divider.
+                foreach (float offset in new[] { -4.5f, -1.5f, 1.5f, 4.5f })
+                {
+                    if(Mathf.Abs(offset)>2f && i%4>=2)continue;
+                    GameObject stripe = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    stripe.name = "Bridge_Lane_Stripe";
+                    stripe.transform.SetParent(segObj.transform, false);
+                    stripe.transform.localPosition = new Vector3(0f,.16f,offset);
+                    stripe.transform.localScale = new Vector3(surfaceLength+.005f,.01f,.13f);
+                    stripe.GetComponent<Renderer>().sharedMaterial = stripeMat;
+                    Object.Destroy(stripe.GetComponent<Collider>());
+                }
 
                 // Kavisli Köprü İçi Yaya Kaldırımları ve Korkuluklar
                 for (int dirZ = -1; dirZ <= 1; dirZ += 2)
                 {
+                    // The western street mouth reaches onto the bridge abutment.
+                    // Keep its widened turning apron free of bridge kerbs and railings.
+                    float walkBegin = Mathf.Max(x0, -107.5f - centerPos.x);
+                    if (walkBegin >= x1) continue;
+                    float walkLength = surfaceLength * (x1 - walkBegin) / (x1 - x0);
+                    float walkOffset = (walkBegin - x0) * .5f;
                     float zSide = dirZ * ((roadDeckWidth / 2f) + (sidewalkWidth / 2f));
 
                     // Kavisli Taş Kaldırım
                     GameObject sidewalk = GameObject.CreatePrimitive(PrimitiveType.Cube);
                     sidewalk.name = $"Bridge_Curved_Sidewalk_{dirZ}";
                     sidewalk.transform.SetParent(segObj.transform, false);
-                    sidewalk.transform.localPosition = new Vector3(0f, 0.10f, zSide);
-                    sidewalk.transform.localScale = new Vector3(segLen + 0.1f, 0.38f, sidewalkWidth);
+                    sidewalk.transform.localPosition = new Vector3(walkOffset, 0.10f, zSide);
+                    sidewalk.transform.localScale = new Vector3(walkLength + 0.005f, 0.38f, sidewalkWidth);
                     sidewalk.GetComponent<Renderer>().sharedMaterial = stoneMat;
                     Object.Destroy(sidewalk.GetComponent<Collider>());
 
@@ -244,8 +253,8 @@ namespace Farm2Shelf.Environment
                     GameObject curb = GameObject.CreatePrimitive(PrimitiveType.Cube);
                     curb.name = "Bridge_Sidewalk_Curb";
                     curb.transform.SetParent(segObj.transform, false);
-                    curb.transform.localPosition = new Vector3(0f, 0.20f, dirZ * (roadDeckWidth / 2f));
-                    curb.transform.localScale = new Vector3(segLen + 0.1f, 0.16f, 0.15f);
+                    curb.transform.localPosition = new Vector3(walkOffset, 0.20f, dirZ * (roadDeckWidth / 2f));
+                    curb.transform.localScale = new Vector3(walkLength + 0.005f, 0.16f, 0.15f);
                     curb.GetComponent<Renderer>().sharedMaterial = stoneMat;
                     Object.Destroy(curb.GetComponent<Collider>());
 
@@ -253,8 +262,8 @@ namespace Farm2Shelf.Environment
                     GameObject railing = GameObject.CreatePrimitive(PrimitiveType.Cube);
                     railing.name = $"Bridge_Railing_{dirZ}";
                     railing.transform.SetParent(segObj.transform, false);
-                    railing.transform.localPosition = new Vector3(0f, 0.58f, dirZ * ((bridgeWidth / 2f) - 0.06f));
-                    railing.transform.localScale = new Vector3(segLen + 0.1f, 0.65f, 0.12f);
+                    railing.transform.localPosition = new Vector3(walkOffset, 0.58f, dirZ * ((bridgeWidth / 2f) - 0.06f));
+                    railing.transform.localScale = new Vector3(walkLength + 0.005f, 0.65f, 0.12f);
                     railing.GetComponent<Renderer>().sharedMaterial = railingMat;
                     Object.Destroy(railing.GetComponent<Collider>());
                 }
@@ -266,8 +275,10 @@ namespace Farm2Shelf.Environment
                 GameObject pillar = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 pillar.name = $"Bridge_Arch_Pillar_{dirX}";
                 pillar.transform.SetParent(bridgeObj.transform, false);
-                pillar.transform.localPosition = new Vector3(dirX * 7.5f, 0.15f, 0f);
-                pillar.transform.localScale = new Vector3(1.8f, 1.6f, bridgeWidth + 0.4f);
+                const float supportWidth=1.8f, supportBase=-1.6f;
+                float supportTop=MainBoulevard.BridgeSupportTop(centerPos.x+dirX*7.5f,supportWidth)-centerPos.y;
+                pillar.transform.localPosition = new Vector3(dirX*7.5f,(supportBase+supportTop)*.5f,0f);
+                pillar.transform.localScale = new Vector3(supportWidth,supportTop-supportBase,bridgeWidth+.4f);
                 pillar.GetComponent<Renderer>().sharedMaterial = stoneMat;
                 Object.Destroy(pillar.GetComponent<Collider>());
             }
@@ -277,7 +288,7 @@ namespace Farm2Shelf.Environment
             {
                 for (int dirZ = -1; dirZ <= 1; dirZ += 2)
                 {
-                    BuildBridgePylonLamp(bridgeObj.transform, new Vector3(dirX * (totalLength / 2f - 0.5f), 0.2f, dirZ * (bridgeWidth / 2f)));
+                    BuildBridgePylonLamp(bridgeObj.transform, new Vector3(dirX < 0 ? -12f : totalLength / 2f - .5f, 0.2f, dirZ * (bridgeWidth / 2f)));
                 }
             }
         }
@@ -622,7 +633,7 @@ namespace Farm2Shelf.Environment
                 // Kuzey Ağaçları
                 BuildRiverPromenadeTree(extGroup, new Vector3(x, 0f, 2.5f));
                 // Güney Ağaçları
-                BuildRiverPromenadeTree(extGroup, new Vector3(x, 0f, -20.5f));
+                BuildRiverPromenadeTree(extGroup, new Vector3(x, 0f, MainBoulevard.SouthEdge-5.5f));
             }
 
             for (float x = startX - 25.0f; x >= endX + 25.0f; x -= 35.0f)
@@ -1653,13 +1664,13 @@ namespace Farm2Shelf.Environment
 
             // SOL SÜTUN (X = -207m):
             // [İLK OKUL] (Atatürk İlkokulu - Yola bakan, pencereli, kapılı, bayraklı ve tam hizalı)
-            BuildPrimarySchool(civicGroup.transform, new Vector3(-207.0f, 0f, -32.0f), new Vector2(30.0f, 38.0f));
+            BuildPrimarySchool(civicGroup.transform, new Vector3(-207.0f, 0f, -37.0f), new Vector2(30.0f, 28.0f));
             // [ŞEHİR KÜTÜPHANESİ & OKUMA/OYUN PARKI] (180 derece yola bakan, arka kapılı, taş yollu, salıncaklı, kaykaylı)
             BuildLibraryAndPark(civicGroup.transform, new Vector3(-207.0f, 0f, -90.0f), new Vector2(30.0f, 62.0f));
 
             // ORTA SÜTUN (X = -169m):
             // [HASTANE] (Devlet Hastanesi - Yola bakan, acil servis kanopili, helipadli ve yola bağlı)
-            BuildHospital(civicGroup.transform, new Vector3(-169.0f, 0f, -32.0f), new Vector2(30.0f, 38.0f));
+            BuildHospital(civicGroup.transform, new Vector3(-169.0f, 0f, -37.0f), new Vector2(30.0f, 28.0f));
             // [İTFAİYE] (Yola bakan, çift garaj kapılı, hortum kuleli, yola direkt bağlı)
             BuildFireStation(civicGroup.transform, new Vector3(-169.0f, 0f, -69.0f), new Vector2(30.0f, 20.0f));
             // [POLİS KARAKOLU] (Yan sokağa bakan, yola bağlı, beyaz direkli kırmızı bayraklı)
@@ -1669,7 +1680,7 @@ namespace Farm2Shelf.Environment
 
             // SAĞ SÜTUN (X = -131m - Nehir Kordonu):
             // [ŞEHİR BANKASI & ATM MERKEZİ] (Yola bakan, sütunlu, ATM'li, gece aydınlatmalı, yola bağlı)
-            BuildCityBank(civicGroup.transform, new Vector3(-131.0f, 0f, -32.0f), new Vector2(30.0f, 38.0f));
+            BuildCityBank(civicGroup.transform, new Vector3(-131.0f, 0f, -37.0f), new Vector2(30.0f, 28.0f));
             // [EĞLENCE MERKEZİ] (Yola bakan, neon ışıklı, oyun/arcade merkezli, yola bağlı)
             BuildEntertainmentCenter(civicGroup.transform, new Vector3(-131.0f, 0f, -71.0f), new Vector2(30.0f, 24.0f));
             // [ŞEHİR STADYUMU] (Çitlerle çevrili, ortasahalı, tam çizgili, kaliteli kaleli ve tribünlü)
@@ -1853,8 +1864,8 @@ namespace Farm2Shelf.Environment
             GameObject path = GameObject.CreatePrimitive(PrimitiveType.Cube);
             path.name = "School_Entrance_Walkway";
             path.transform.SetParent(schoolObj.transform, false);
-            path.transform.localPosition = new Vector3(0f, 0.01f, 10.0f);
-            path.transform.localScale = new Vector3(6.5f, 0.02f, 19.0f);
+            path.transform.localPosition = new Vector3(0f, 0.01f, 6.75f);
+            path.transform.localScale = new Vector3(6.5f, 0.02f, 12.5f);
             path.GetComponent<Renderer>().sharedMaterial = GetMaterial("SchoolWalkwayMat", new Color(0.85f, 0.84f, 0.80f), 0.1f, 0.3f);
             Object.Destroy(path.GetComponent<Collider>());
 
@@ -2666,8 +2677,8 @@ namespace Farm2Shelf.Environment
             GameObject walkway = GameObject.CreatePrimitive(PrimitiveType.Cube);
             walkway.name = "Hospital_Pedestrian_Walkway";
             walkway.transform.SetParent(hospObj.transform, false);
-            walkway.transform.localPosition = new Vector3(3.5f, 0.01f, 8.5f);
-            walkway.transform.localScale = new Vector3(4.5f, 0.02f, 15.0f);
+            walkway.transform.localPosition = new Vector3(3.5f, 0.01f, 7f);
+            walkway.transform.localScale = new Vector3(4.5f, 0.02f, 12f);
             walkway.GetComponent<Renderer>().sharedMaterial = GetMaterial("SchoolWalkwayMat", new Color(0.85f, 0.84f, 0.80f), 0.1f, 0.3f);
             Object.Destroy(walkway.GetComponent<Collider>());
 
@@ -3377,8 +3388,8 @@ namespace Farm2Shelf.Environment
             GameObject path = GameObject.CreatePrimitive(PrimitiveType.Cube);
             path.name = "Bank_Entrance_Walkway";
             path.transform.SetParent(bankObj.transform, false);
-            path.transform.localPosition = new Vector3(0f, 0.01f, 10.0f);
-            path.transform.localScale = new Vector3(7.5f, 0.02f, 19.0f);
+            path.transform.localPosition = new Vector3(0f, 0.01f, 6.75f);
+            path.transform.localScale = new Vector3(7.5f, 0.02f, 12.5f);
             path.GetComponent<Renderer>().sharedMaterial = plazaMat;
             Object.Destroy(path.GetComponent<Collider>());
 

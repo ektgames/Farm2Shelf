@@ -240,6 +240,7 @@ namespace Farm2Shelf.Core
         public int Minute => currentMinute;
         public int CurrentHour => currentHour;
         public int CurrentMinute => currentMinute;
+        public float MinuteOfDayPrecise => currentHour >= 24 ? 1440f : currentHour * 60f + currentMinute + Mathf.Clamp01(timer / Mathf.Max(.01f, realSecondsPerGameMinute));
         public int Day => currentDay;
         public Season CurrentSeason => currentSeason;
         public int Year => currentYear;

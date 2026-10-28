@@ -90,7 +90,8 @@ namespace Farm2Shelf.UI
                 bdRect.sizeDelta = Vector2.zero;
 
                 Image bdImg = backdrop.AddComponent<Image>();
-                bdImg.color = new Color(0.05f, 0.08f, 0.12f, 0.75f);
+                bdImg.color = new Color(0.05f, 0.08f, 0.12f, 0.25f);
+                bdImg.raycastTarget = false;
 
                 Button bdBtn = backdrop.AddComponent<Button>();
                 bdBtn.onClick.AddListener(CloseModal);

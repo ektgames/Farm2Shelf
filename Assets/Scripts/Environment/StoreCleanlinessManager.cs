@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Collections;
 using Farm2Shelf.Core;
 using UnityEngine;
@@ -10,6 +10,7 @@ namespace Farm2Shelf.Environment
         public static StoreCleanlinessManager Instance { get; private set; }
 
         private readonly List<GameObject> activeTrashItems = new List<GameObject>();
+        public IReadOnlyList<GameObject> TrashItems => activeTrashItems;
         private Transform trashParentGroup;
         public const float BinInteractionOffset = 0.75f;
         private const float BinRange = 6f;
@@ -101,6 +102,8 @@ namespace Farm2Shelf.Environment
 
             Vector3 spawnPos = customerPosition + new Vector3(Random.Range(-0.4f, 0.4f), 0.02f, Random.Range(-0.4f, 0.4f));
 
+            if (PedestrianNavigation.IsBlocked(spawnPos)) spawnPos = customerPosition;
+            if (PedestrianNavigation.IsBlocked(spawnPos)) return;
             GameObject trashObj = new GameObject("Customer_Trash_Puddle");
             trashObj.transform.SetParent(trashParentGroup, false);
             trashObj.transform.position = spawnPos;

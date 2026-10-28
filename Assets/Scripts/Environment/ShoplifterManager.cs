@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -428,28 +428,7 @@ namespace Farm2Shelf.Environment
             target.y = currentPos.y; // Y ekseni kilitli
             Vector3 dir = target - currentPos;
 
-            // Takılma (Anti-Stuck) Kontrolü:
-            if (Vector3.Distance(currentPos, data.lastPos) < 0.05f)
-            {
-                data.stuckTimer += dt;
-                if (data.stuckTimer > 2.5f)
-                {
-                    data.currentWaypointIndex++;
-                    data.stuckTimer = 0f;
-                    if (data.currentWaypointIndex >= data.waypoints.Count)
-                    {
-                        onReachEnd?.Invoke();
-                        return;
-                    }
-                }
-            }
-            else
-            {
-                data.lastPos = currentPos;
-                data.stuckTimer = 0f;
-            }
-
-            if (dir.magnitude < 0.55f)
+            if (dir.magnitude < 0.25f && PedestrianNavigation.Clear(currentPos, target))
             {
                 data.currentWaypointIndex++;
                 if (data.currentWaypointIndex >= data.waypoints.Count)
@@ -469,7 +448,7 @@ namespace Farm2Shelf.Environment
                 data.thiefObj.transform.rotation = Quaternion.RotateTowards(data.thiefObj.transform.rotation, targetRot, 400f * dt);
             }
 
-            data.thiefObj.transform.position = Vector3.MoveTowards(currentPos, target, speed * dt);
+            data.thiefObj.transform.position = PedestrianNavigation.Move(data.thiefObj, target, speed * dt);
 
             data.walkCycleTimer += dt * (speed * 2.6f);
             float legAngle = Mathf.Sin(data.walkCycleTimer) * 26.0f;

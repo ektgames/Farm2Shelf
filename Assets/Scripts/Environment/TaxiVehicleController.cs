@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Farm2Shelf.Core;
@@ -30,6 +30,14 @@ namespace Farm2Shelf.Environment
         private TaxiDuty duty = TaxiDuty.Parked;
         private Action onPathDone;
         private Transform passengerRoot;
+        private static TaxiVehicleController standManeuverOwner;
+        private bool enteredStand;
+        private void ReleaseStand()
+        {
+            if (standManeuverOwner == this) standManeuverOwner = null;
+            enteredStand = false;
+        }
+        private void OnDisable() => ReleaseStand();
 
         public void Setup(int slot, Vector3 parkPos, Quaternion parkRot, List<Transform> wheelList)
         {
@@ -39,18 +47,29 @@ namespace Farm2Shelf.Environment
             wheels.Clear();
             if (wheelList != null) wheels.AddRange(wheelList);
             SnapPark();
+            RoadTrafficAgent.Register(transform);
         }
 
         public void SnapPark()
         {
+            ReleaseStand();
+            if (GetComponent<RoadTrafficAgent>() != null) RoadTrafficAgent.SetRoute(transform, null, 0);
             ClearPassenger();
             duty = TaxiDuty.Parked;
             path.Clear();
             onPathDone = null;
             JobLabelTr = "";
             JobLabelEn = "";
-            transform.position = homePos;
-            transform.rotation = homeRot;
+            if (GetComponent<RoadTrafficAgent>() == null)
+            {
+                transform.position = homePos;
+                transform.rotation = homeRot;
+            }
+            else
+            {
+                transform.position = RoadTrafficAgent.Move(transform, homePos);
+                transform.rotation = RoadTrafficAgent.Rotate(transform, homeRot);
+            }
             SetHeadlights(false);
         }
 
@@ -61,11 +80,7 @@ namespace Farm2Shelf.Environment
             {
                 for (int i = 0; i < waypoints.Count; i++)
                 {
-                    if (!TaxiRoadRouter.IsCampusInterior(waypoints[i])
-                        && !TaxiRoadRouter.IsIllegalRiverPoint(waypoints[i]))
-                    {
-                        path.Add(waypoints[i]);
-                    }
+                    path.Add(waypoints[i]); // Never delete route corners: that creates diagonal shortcuts.
                 }
             }
 
@@ -135,12 +150,19 @@ namespace Farm2Shelf.Environment
             }
 
             Vector3 target = path[pathIndex];
+            if (TaxiRoadRouter.InStandLot(transform.position) || TaxiRoadRouter.InStandLot(target))
+            {
+                if (standManeuverOwner != null && standManeuverOwner != this) return;
+                standManeuverOwner = this;
+                enteredStand |= TaxiRoadRouter.InStandLot(transform.position);
+            }
+            RoadTrafficAgent.SetRoute(transform, path, pathIndex);
             float y = CityTrafficManager.GetBridgeElevation(target.x, target.z, out _);
             Vector3 flat = new Vector3(target.x, y, target.z);
             Vector3 to = flat - transform.position;
             to.y = 0f;
             float dist = to.magnitude;
-            if (dist < 1.15f)
+            if (dist < .02f)
             {
                 pathIndex++;
                 if (pathIndex >= path.Count) FinishPath();
@@ -148,24 +170,40 @@ namespace Farm2Shelf.Environment
             }
 
             Vector3 dir = to / dist;
-            Vector3 next = transform.position + dir * Mathf.Min(dist, speed * Time.deltaTime);
+            bool reversingIntoBay = duty == TaxiDuty.Returning &&
+                Mathf.Abs(target.x-homePos.x)<.05f && target.z<38f &&
+                transform.position.z<=38.05f && transform.position.z>=homePos.z-.05f &&
+                Mathf.Abs(transform.position.x-homePos.x)<.05f;
+            float travelSpeed=speed;
+            if(MainBoulevard.OnRoad(transform.position.z) && MainBoulevard.Opening(transform.position.x,4f) &&
+                (Mathf.Abs(dir.z)>.15f || Vector3.Angle(transform.forward,dir)>8f))
+                travelSpeed=Mathf.Min(travelSpeed,3.5f);
+            Vector3 next = transform.position + dir * Mathf.Min(dist, travelSpeed * Time.deltaTime);
             next.y = CityTrafficManager.GetBridgeElevation(next.x, next.z, out _);
             if (TaxiRoadRouter.IsCampusInterior(next) || TaxiRoadRouter.IsIllegalRiverPoint(next))
             {
-                pathIndex++;
-                return;
+                RoadTrafficAgent.Register(transform).NotifyTrafficWait();
+                return; // A blocked/invalid corner is not permission to skip to the next road.
             }
 
-            transform.position = next;
             if (dir.sqrMagnitude > 0.0001f)
             {
-                transform.rotation = Quaternion.Slerp(
+                transform.rotation = Farm2Shelf.Environment.RoadTrafficAgent.Rotate(transform, Quaternion.RotateTowards(
                     transform.rotation,
-                    Quaternion.LookRotation(dir, Vector3.up),
-                    Time.deltaTime * 7f);
+                    reversingIntoBay ? homeRot : Quaternion.LookRotation(dir, Vector3.up),
+                    Time.deltaTime * 360f));
+            }
+            // Complete the parking turn in the manoeuvring aisle, not between cars.
+            if (reversingIntoBay && Quaternion.Angle(transform.rotation,homeRot)>.5f) return;
+            Vector3 previousPosition=transform.position;
+            transform.position = RoadTrafficAgent.Move(transform, next);
+            if (standManeuverOwner == this)
+            {
+                enteredStand |= TaxiRoadRouter.InStandLot(transform.position);
+                if (enteredStand && !TaxiRoadRouter.InStandLot(transform.position)) ReleaseStand();
             }
 
-            float spin = speed * 80f * Time.deltaTime;
+            float spin = (transform.position-previousPosition).magnitude * 80f * (reversingIntoBay ? -1f : 1f);
             for (int i = 0; i < wheels.Count; i++)
             {
                 if (wheels[i] != null) wheels[i].Rotate(Vector3.right, spin, Space.Self);
@@ -180,7 +218,7 @@ namespace Farm2Shelf.Environment
             {
                 Vector3 d = path[i] - pos;
                 d.y = 0f;
-                if (d.magnitude > 1.15f) break;
+                if (d.magnitude > .02f) break;
                 i++;
             }
 
@@ -189,6 +227,7 @@ namespace Farm2Shelf.Environment
 
         private void FinishPath()
         {
+            ReleaseStand();
             Action done = onPathDone;
             onPathDone = null;
             if (duty == TaxiDuty.Returning)

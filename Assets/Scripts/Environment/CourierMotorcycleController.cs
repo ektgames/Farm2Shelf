@@ -35,7 +35,17 @@ namespace Farm2Shelf.Environment
 
         public List<OnlineCustomerOrder> LoadedOrders { get; private set; } = new List<OnlineCustomerOrder>();
         public bool IsDeliveryTripInProgress { get; private set; }
+        private bool TrafficReady => GetComponent<RoadTrafficAgent>() is RoadTrafficAgent agent && !agent.Pending;
 
+        // The parking frontage has only one clear aisle; reserve it during manoeuvres.
+        private static CourierMotorcycleController parkingAisleOwner;
+        private bool enteredParkingAisle;
+        private static bool InParkingAisle(Vector3 p) => p.x > 11f && p.x < 16f && p.z > -2f && p.z < 52f;
+        private void ReleaseParkingAisle()
+        {
+            if (parkingAisleOwner == this) parkingAisleOwner = null;
+            enteredParkingAisle = false;
+        }
         private Transform[] wheels;
         private Light headlight;
         private VehicleHeadlightController headlightRig;
@@ -47,12 +57,12 @@ namespace Farm2Shelf.Environment
         // Yol Koordinat Sabitleri (Trafik ve Teslimat Yolu Şeritleri - CityTrafficManager ile %100 Birebir Uyumlu)
         private const float LANE_OFFSET = 1.5f;                 // 6m genişliğindeki çift yönlü yolun tam şerit merkezi (1.5m)
         private const float SHOP_LANE_X = 13.0f;               // Dükkan yanı motor & teslimat yolu merkezi
-        private const float SHOP_LANE_NORTHBOUND_X = 13.5f;    // Dükkan yanı kuzeye gidiş şeridi
-        private const float SHOP_LANE_SOUTHBOUND_X = 12.5f;    // Dükkan yanı güneye iniş şeridi
+        private const float SHOP_LANE_NORTHBOUND_X = 14.7f;    // Reserved single aisle outside the parked bikes.
+        private const float SHOP_LANE_SOUTHBOUND_X = 14.7f;
 
-        private const float MAIN_ROAD_Z = -9.0f;               // Orta ana otoyol merkezi
-        private const float MAIN_ROAD_EASTBOUND_Z = -10.5f;    // Otoyol Doğuya gidiş şeridi (+X)
-        private const float MAIN_ROAD_WESTBOUND_Z = -7.5f;     // Otoyol Batıya gidiş şeridi (-X)
+        private const float MAIN_ROAD_Z = MainBoulevard.Center;               // Orta ana otoyol merkezi
+        private const float MAIN_ROAD_EASTBOUND_Z = MainBoulevard.EastOuter;    // Otoyol Doğuya gidiş şeridi (+X)
+        private const float MAIN_ROAD_WESTBOUND_Z = MainBoulevard.WestOuter;     // Otoyol Batıya gidiş şeridi (-X)
 
         private const float WEST_ROAD_X = -75.0f;              // Batı bağlantı caddesi merkezi
         private const float WEST_ROAD_NORTHBOUND_X = -73.5f;   // Batı yolu Kuzeye gidiş şeridi (+Z)
@@ -81,6 +91,7 @@ namespace Farm2Shelf.Environment
             HomeParkRotation = homeRot;
             transform.position = homePos;
             transform.rotation = homeRot;
+            RoadTrafficAgent.Register(transform);
             wheels = wheelRefs;
             headlight = headlightRef;
             DriverSeatMount = driverMount;
@@ -182,6 +193,7 @@ namespace Farm2Shelf.Environment
             }
 
             rider.transform.SetParent(DriverSeatMount, false);
+            if (rider.TryGetComponent<PedestrianNavigator>(out var walkingAgent)) walkingAgent.enabled = false;
             ApplyMountedRiderPose();
         }
 
@@ -280,6 +292,7 @@ namespace Farm2Shelf.Environment
 
                 CourierRiderObj.transform.localScale = Vector3.one;
                 CourierRiderObj.transform.SetParent(null);
+                if (CourierRiderObj.TryGetComponent<PedestrianNavigator>(out var walkingAgent)) walkingAgent.enabled = true;
                 CourierRiderObj = null;
             }
         }
@@ -289,7 +302,7 @@ namespace Farm2Shelf.Environment
         public bool CanTakeOrders()
         {
             if (!OnlineMarketOrderManager.CanReceiveNewOrders) return false;
-            return (CurrentState == MotorcycleState.ParkedInBay || CurrentState == MotorcycleState.WaitingForStocker)
+            return TrafficReady && (CurrentState == MotorcycleState.ParkedInBay || CurrentState == MotorcycleState.WaitingForStocker)
                 && AssignedCourier != null
                 && LoadedOrders.Count < 2;
         }
@@ -297,7 +310,7 @@ namespace Farm2Shelf.Environment
         public bool CanTakeContractOrder()
         {
             if (!OnlineMarketOrderManager.CanReceiveNewOrders) return false;
-            return (CurrentState == MotorcycleState.ParkedInBay)
+            return TrafficReady && (CurrentState == MotorcycleState.ParkedInBay)
                 && AssignedCourier != null
                 && (LoadedOrders == null || LoadedOrders.Count == 0);
         }
@@ -318,6 +331,7 @@ namespace Farm2Shelf.Environment
             if (OnlineMarketOrderManager.IsCourierDayClosed) return;
             if (LoadedOrders.Count == 0) return;
             if (IsDeliveryTripInProgress) return;
+            if (!TrafficReady) return;
             StopAllCoroutines();
             StartCoroutine(DeliveryTripRoutine());
         }
@@ -337,19 +351,23 @@ namespace Farm2Shelf.Environment
                 var order = LoadedOrders[i];
                 if (order == null) continue;
 
+                CurrentState=MotorcycleState.EnRouteDelivery;
                 Vector3 targetDoorstep = order.targetDoorstepPosition;
                 List<Vector3> routeWaypoints = BuildLegWaypoints(currentPos, targetDoorstep);
 
                 for (int w = 0; w < routeWaypoints.Count; w++)
                 {
+                    RoadTrafficAgent.SetRoute(transform, routeWaypoints, w);
                     yield return MoveToPosition(routeWaypoints[w], driveSpeed);
                 }
 
                 currentPos = routeWaypoints.Count > 0 ? routeWaypoints[routeWaypoints.Count - 1] : targetDoorstep;
 
-                // 2. BİNA ÖNÜNDE VE YOL KENARINDA TESLİMAT BEKLEMESİ (3.0 Saniye)
+                // Real ten-second handoff; pausing the game also pauses the handoff.
                 CurrentState = MotorcycleState.DeliveringAtDoorstep;
-                yield return new WaitForSeconds(3.0f);
+                float handoff=0f;
+                while(handoff<10f)
+                {if(Time.deltaTime>0f)handoff+=Time.unscaledDeltaTime;yield return null;}
 
                 // Teslimatı Tamamla ve Sonuçları İşle
                 if (OnlineMarketOrderManager.Instance != null)
@@ -366,20 +384,30 @@ namespace Farm2Shelf.Environment
             List<Vector3> returnWaypoints = BuildReturnWaypoints(currentPos);
             for (int r = 0; r < returnWaypoints.Count; r++)
             {
+                RoadTrafficAgent.SetRoute(transform, returnWaypoints, r);
                 yield return MoveToPosition(returnWaypoints[r], driveSpeed);
             }
 
             // Kendi sarı park yuvasına tam yanaş ve park rotasyonuna otur
-            yield return MoveToPosition(HomeParkPosition, 4.0f);
+            // Turn in the aisle, then reverse straight into the bay. Turning
+            // between the parked neighbours would sweep through their bodies.
+            while (Quaternion.Angle(transform.rotation, HomeParkRotation) > 2f)
+            {
+                transform.rotation = RoadTrafficAgent.Rotate(transform, Quaternion.RotateTowards(transform.rotation, HomeParkRotation, 150f * Time.deltaTime));
+                yield return null;
+            }
+            yield return MoveToPosition(HomeParkPosition, 2.0f, true);
 
             while (Quaternion.Angle(transform.rotation, HomeParkRotation) > 2f)
             {
-                transform.rotation = Quaternion.Slerp(transform.rotation, HomeParkRotation, 12f * Time.deltaTime);
+                transform.rotation = Farm2Shelf.Environment.RoadTrafficAgent.Rotate(transform, Quaternion.Slerp(transform.rotation, HomeParkRotation, 12f * Time.deltaTime));
                 yield return null;
             }
             transform.rotation = HomeParkRotation;
 
             CurrentState = MotorcycleState.ParkedInBay;
+            ReleaseParkingAisle();
+            RoadTrafficAgent.SetRoute(transform, null, 0);
             IsDeliveryTripInProgress = false;
 
             if (CourierManager.Instance != null)
@@ -388,13 +416,22 @@ namespace Farm2Shelf.Environment
             }
         }
 
+        private void OnDisable() => ReleaseParkingAisle();
+
         private void OnDestroy()
         {
+            ReleaseParkingAisle();
             IsDeliveryTripInProgress = false;
         }
 
-        private IEnumerator MoveToPosition(Vector3 targetPos, float speed)
+        private IEnumerator MoveToPosition(Vector3 targetPos, float speed, bool reverse = false)
         {
+            if (InParkingAisle(transform.position) || InParkingAisle(targetPos))
+            {
+                while (parkingAisleOwner != null && parkingAisleOwner != this) yield return null;
+                parkingAisleOwner = this;
+                enteredParkingAisle |= InParkingAisle(transform.position);
+            }
             Vector3 targetFlat = new Vector3(targetPos.x, 0f, targetPos.z);
 
             while (Vector3.Distance(new Vector3(transform.position.x, 0f, transform.position.z), targetFlat) > 0.15f)
@@ -402,17 +439,19 @@ namespace Farm2Shelf.Environment
                 Vector3 currentFlat = new Vector3(transform.position.x, 0f, transform.position.z);
                 Vector3 dir = (targetFlat - currentFlat).normalized;
 
-                if (dir != Vector3.zero)
+                if (!reverse && dir != Vector3.zero)
                 {
                     Quaternion targetRot = Quaternion.LookRotation(dir);
-                    transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, 14f * Time.deltaTime);
+                    transform.rotation = Farm2Shelf.Environment.RoadTrafficAgent.Rotate(transform, Quaternion.Slerp(transform.rotation, targetRot, 14f * Time.deltaTime));
                 }
 
                 // Şehir trafiğinde öndeki araca göre güvenli hız sınırlaması
                 float currentSpeed = speed;
+                if (MainBoulevard.OnRoad(transform.position.z) && MainBoulevard.Opening(transform.position.x) && Mathf.Abs(dir.z)>.15f)
+                    currentSpeed = Mathf.Min(currentSpeed,3f);
                 if (CityTrafficManager.Instance != null && dir != Vector3.zero)
                 {
-                    currentSpeed = CityTrafficManager.Instance.GetSpeedLimitInFront(transform.position, dir, 10.0f, speed);
+                    currentSpeed = CityTrafficManager.Instance.GetSpeedLimitInFront(transform.position, dir, 10.0f, currentSpeed);
                 }
 
                 Vector3 nextPos = Vector3.MoveTowards(transform.position, targetPos, currentSpeed * Time.deltaTime);
@@ -422,7 +461,13 @@ namespace Farm2Shelf.Environment
                 float bridgeY = CityTrafficManager.GetBridgeElevation(nextPos.x, nextPos.z, out slopeY);
                 nextPos.y = bridgeY;
 
-                transform.position = nextPos;
+                Vector3 beforeMove = transform.position;
+                transform.position = RoadTrafficAgent.Move(transform, nextPos);
+                if (parkingAisleOwner == this)
+                {
+                    enteredParkingAisle |= InParkingAisle(transform.position);
+                    if (enteredParkingAisle && !InParkingAisle(transform.position)) ReleaseParkingAisle();
+                }
 
                 // Tekerlekleri döndür
                 if (wheels != null)
@@ -431,7 +476,7 @@ namespace Farm2Shelf.Environment
                     {
                         if (wheels[i] != null)
                         {
-                            wheels[i].Rotate(Vector3.right, wheelSpinSpeed * Time.deltaTime, Space.Self);
+                            wheels[i].Rotate(Vector3.right, (transform.position-beforeMove).magnitude * wheelSpinSpeed / driveSpeed * (reverse ? -1f : 1f), Space.Self);
                         }
                     }
                 }
@@ -441,7 +486,7 @@ namespace Farm2Shelf.Environment
 
             float finalSlopeY;
             float finalY = CityTrafficManager.GetBridgeElevation(targetPos.x, targetPos.z, out finalSlopeY);
-            transform.position = new Vector3(targetPos.x, finalY, targetPos.z);
+            transform.position = RoadTrafficAgent.Move(transform, new Vector3(targetPos.x, finalY, targetPos.z));
         }
 
         #region Strict Road Graph Router (100% On-Road Navigation)
@@ -509,282 +554,11 @@ namespace Farm2Shelf.Environment
         /// </summary>
         private List<Vector3> BuildLegWaypoints(Vector3 start, Vector3 dest)
         {
-            List<Vector3> rawPoints = new List<Vector3>();
-
-            bool isStartAtShop = Mathf.Abs(start.x - SHOP_LANE_X) < 2.0f && start.z >= -2.0f && start.z <= 25.0f;
-            bool isDestNorth = dest.z >= 45.0f;
-            bool isDestWest = dest.x <= -95.0f;
-            bool isDestSouthDistrict = dest.z <= -58.0f;
-            bool isDestSouthKasabaPerimeter = dest.z > -58.0f && dest.z <= -45.0f;
-
-            bool isStartNorth = start.z >= 45.0f;
-            bool isStartWest = start.x <= -95.0f;
-            bool isStartSouthDistrict = start.z <= -58.0f;
-            bool isStartSouthKasabaPerimeter = start.z > -58.0f && start.z <= -45.0f;
-
-            if (isStartAtShop)
-            {
-                if (isDestNorth)
-                {
-                    // 1. Dükkandan Kuzey Mahallesine Gidiş:
-                    // Dükkan teslimat yolu kuzey şeridine çık
-                    rawPoints.Add(new Vector3(SHOP_LANE_NORTHBOUND_X, 0.05f, HomeParkPosition.z));
-                    rawPoints.Add(new Vector3(SHOP_LANE_NORTHBOUND_X, 0.05f, NORTH_ROAD_EASTBOUND_Z));
-
-                    float aveX = GetClosestNorthAvenueX(dest.x);
-
-                    if (aveX < SHOP_LANE_X)
-                    {
-                        // Batıya gidiş sağ şeridi (Z: 51.5)
-                        rawPoints.Add(new Vector3(13.0f, 0.05f, NORTH_ROAD_WESTBOUND_Z));
-                        rawPoints.Add(new Vector3(aveX + LANE_OFFSET, 0.05f, NORTH_ROAD_WESTBOUND_Z));
-                    }
-                    else
-                    {
-                        // Doğuya gidiş sağ şeridi (Z: 48.5)
-                        rawPoints.Add(new Vector3(13.0f, 0.05f, NORTH_ROAD_EASTBOUND_Z));
-                        rawPoints.Add(new Vector3(aveX - LANE_OFFSET, 0.05f, NORTH_ROAD_EASTBOUND_Z));
-                    }
-
-                    // Cadde üzerinde Kuzeye gidiş sağ şeridi (X = aveX + 1.5)
-                    rawPoints.Add(new Vector3(aveX + LANE_OFFSET, 0.05f, 53.0f));
-                    rawPoints.Add(new Vector3(aveX + LANE_OFFSET, 0.05f, dest.z));
-                }
-                else
-                {
-                    // 2. Dükkandan Güneye / Batıya / Kasabaya Çıkış:
-                    rawPoints.Add(new Vector3(SHOP_LANE_SOUTHBOUND_X, 0.05f, HomeParkPosition.z));
-
-                    if (isDestWest)
-                    {
-                        // Ana yola çıkış ve Batıya gidiş sağ şeridi (Z: -7.5)
-                        rawPoints.Add(new Vector3(SHOP_LANE_SOUTHBOUND_X, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                        rawPoints.Add(new Vector3(12.0f, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                        rawPoints.Add(new Vector3(WEST_ROAD_NORTHBOUND_X, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-
-                        // Köprüden Batıya geçiş
-                        AddBridgeWaypoints(rawPoints, false);
-
-                        float westAveX = GetClosestWestAvenueX(dest.x);
-
-                        if (dest.z > MAIN_ROAD_Z)
-                        {
-                            // Villalara Kuzeye gidiş sağ şeridi (X = westAveX + 1.5)
-                            rawPoints.Add(new Vector3(westAveX + LANE_OFFSET, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                            rawPoints.Add(new Vector3(westAveX + LANE_OFFSET, 0.05f, -6.0f));
-                            rawPoints.Add(new Vector3(westAveX + LANE_OFFSET, 0.05f, dest.z));
-                        }
-                        else
-                        {
-                            // Kamu binalarına Güneye iniş sağ şeridi (X = westAveX - 1.5)
-                            rawPoints.Add(new Vector3(westAveX - LANE_OFFSET, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                            rawPoints.Add(new Vector3(westAveX - LANE_OFFSET, 0.05f, -12.0f));
-                            rawPoints.Add(new Vector3(westAveX - LANE_OFFSET, 0.05f, dest.z));
-                        }
-                    }
-                    else if (isDestSouthDistrict)
-                    {
-                        if (dest.x >= 90.0f)
-                        {
-                            float seAve = GetClosestNorthAvenueX(dest.x);
-                            rawPoints.Add(new Vector3(SHOP_LANE_SOUTHBOUND_X, 0.05f, MAIN_ROAD_EASTBOUND_Z));
-                            rawPoints.Add(new Vector3(14.0f, 0.05f, MAIN_ROAD_EASTBOUND_Z));
-                            rawPoints.Add(new Vector3(seAve - LANE_OFFSET, 0.05f, MAIN_ROAD_EASTBOUND_Z));
-                            rawPoints.Add(new Vector3(seAve - LANE_OFFSET, 0.05f, -16.0f));
-                            rawPoints.Add(new Vector3(seAve - LANE_OFFSET, 0.05f, dest.z));
-                        }
-                        else if (dest.x >= 25.0f)
-                        {
-                            // Doğu Kafe Caddesi (X = 75.0m)
-                            rawPoints.Add(new Vector3(SHOP_LANE_SOUTHBOUND_X, 0.05f, MAIN_ROAD_EASTBOUND_Z));
-                            rawPoints.Add(new Vector3(14.0f, 0.05f, MAIN_ROAD_EASTBOUND_Z));
-                            rawPoints.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0.05f, MAIN_ROAD_EASTBOUND_Z));
-                            rawPoints.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0.05f, -12.0f));
-                            rawPoints.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0.05f, -54.0f));
-                            rawPoints.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0.05f, dest.z));
-                        }
-                        else
-                        {
-                            // Cami & Şadırvan (X = 0.0m)
-                            rawPoints.Add(new Vector3(SHOP_LANE_SOUTHBOUND_X, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                            rawPoints.Add(new Vector3(12.0f, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                            rawPoints.Add(new Vector3(WEST_ROAD_SOUTHBOUND_X, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                            rawPoints.Add(new Vector3(WEST_ROAD_SOUTHBOUND_X, 0.05f, -12.0f));
-                            rawPoints.Add(new Vector3(WEST_ROAD_SOUTHBOUND_X, 0.05f, -53.5f));
-                            rawPoints.Add(new Vector3(WEST_ROAD_NORTHBOUND_X, 0.05f, SOUTH_ROAD_EASTBOUND_Z));
-                            rawPoints.Add(new Vector3(SOUTH_MID_AVENUE_SOUTHBOUND_X, 0.05f, SOUTH_ROAD_EASTBOUND_Z));
-                            rawPoints.Add(new Vector3(SOUTH_MID_AVENUE_SOUTHBOUND_X, 0.05f, -60.0f));
-                            rawPoints.Add(new Vector3(SOUTH_MID_AVENUE_SOUTHBOUND_X, 0.05f, dest.z));
-                        }
-                    }
-                    else if (isDestSouthKasabaPerimeter)
-                    {
-                        if (dest.x < 0)
-                        {
-                            rawPoints.Add(new Vector3(SHOP_LANE_SOUTHBOUND_X, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                            rawPoints.Add(new Vector3(12.0f, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                            rawPoints.Add(new Vector3(WEST_ROAD_SOUTHBOUND_X, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                            rawPoints.Add(new Vector3(WEST_ROAD_SOUTHBOUND_X, 0.05f, -12.0f));
-                            rawPoints.Add(new Vector3(WEST_ROAD_SOUTHBOUND_X, 0.05f, -53.5f));
-                            rawPoints.Add(new Vector3(WEST_ROAD_NORTHBOUND_X, 0.05f, SOUTH_ROAD_EASTBOUND_Z));
-                            rawPoints.Add(new Vector3(dest.x, 0.05f, SOUTH_ROAD_EASTBOUND_Z));
-                        }
-                        else
-                        {
-                            rawPoints.Add(new Vector3(SHOP_LANE_SOUTHBOUND_X, 0.05f, MAIN_ROAD_EASTBOUND_Z));
-                            rawPoints.Add(new Vector3(14.0f, 0.05f, MAIN_ROAD_EASTBOUND_Z));
-                            rawPoints.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0.05f, MAIN_ROAD_EASTBOUND_Z));
-                            rawPoints.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0.05f, -12.0f));
-                            rawPoints.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0.05f, -54.0f));
-                            rawPoints.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0.05f, SOUTH_ROAD_WESTBOUND_Z));
-                            rawPoints.Add(new Vector3(dest.x, 0.05f, SOUTH_ROAD_WESTBOUND_Z));
-                        }
-                    }
-                    else if (dest.x >= 90.0f)
-                    {
-                        float seAve = GetClosestNorthAvenueX(dest.x);
-                        rawPoints.Add(new Vector3(SHOP_LANE_SOUTHBOUND_X, 0.05f, MAIN_ROAD_EASTBOUND_Z));
-                        rawPoints.Add(new Vector3(seAve - LANE_OFFSET, 0.05f, MAIN_ROAD_EASTBOUND_Z));
-                        rawPoints.Add(new Vector3(seAve + LANE_OFFSET, 0.05f, -6.0f));
-                        rawPoints.Add(new Vector3(seAve + LANE_OFFSET, 0.05f, dest.z));
-                    }
-                    else
-                    {
-                        // Otoyol kenarı konutlar & Belediye
-                        if (dest.x < SHOP_LANE_X)
-                        {
-                            rawPoints.Add(new Vector3(SHOP_LANE_SOUTHBOUND_X, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                            rawPoints.Add(new Vector3(dest.x, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                        }
-                        else
-                        {
-                            rawPoints.Add(new Vector3(SHOP_LANE_SOUTHBOUND_X, 0.05f, MAIN_ROAD_EASTBOUND_Z));
-                            rawPoints.Add(new Vector3(dest.x, 0.05f, MAIN_ROAD_EASTBOUND_Z));
-                        }
-                    }
-                }
-            }
-            else
-            {
-                // Bir teslimat adresinden diğerine geçiş (Çoklu sipariş aktarımı - Sadece ve sadece yollar)
-                if (isStartNorth)
-                {
-                    float startAveX = GetClosestNorthAvenueX(start.x);
-                    rawPoints.Add(new Vector3(startAveX - LANE_OFFSET, 0.05f, start.z));
-                    rawPoints.Add(new Vector3(startAveX - LANE_OFFSET, 0.05f, 53.0f));
-                    rawPoints.Add(new Vector3(startAveX - LANE_OFFSET, 0.05f, NORTH_ROAD_WESTBOUND_Z));
-                    rawPoints.Add(new Vector3(WEST_ROAD_SOUTHBOUND_X, 0.05f, NORTH_ROAD_WESTBOUND_Z));
-                    rawPoints.Add(new Vector3(WEST_ROAD_SOUTHBOUND_X, 0.05f, 45.0f));
-                    rawPoints.Add(new Vector3(WEST_ROAD_SOUTHBOUND_X, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                }
-                else if (isStartWest)
-                {
-                    float startWestAveX = GetClosestWestAvenueX(start.x);
-                    if (start.z > MAIN_ROAD_Z)
-                    {
-                        rawPoints.Add(new Vector3(startWestAveX - LANE_OFFSET, 0.05f, start.z));
-                        rawPoints.Add(new Vector3(startWestAveX - LANE_OFFSET, 0.05f, -6.0f));
-                    }
-                    else
-                    {
-                        rawPoints.Add(new Vector3(startWestAveX + LANE_OFFSET, 0.05f, start.z));
-                        rawPoints.Add(new Vector3(startWestAveX + LANE_OFFSET, 0.05f, -12.0f));
-                    }
-                    rawPoints.Add(new Vector3(startWestAveX, 0.05f, MAIN_ROAD_EASTBOUND_Z));
-                    AddBridgeWaypoints(rawPoints, true);
-                }
-                else if (start.x >= 90.0f)
-                {
-                    float seAve = GetClosestNorthAvenueX(start.x);
-                    rawPoints.Add(new Vector3(seAve - LANE_OFFSET, 0.05f, start.z));
-                    rawPoints.Add(new Vector3(seAve - LANE_OFFSET, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                }
-                else if (isStartSouthDistrict || isStartSouthKasabaPerimeter)
-                {
-                    if (start.x >= 90.0f)
-                    {
-                        float seAve = GetClosestNorthAvenueX(start.x);
-                        rawPoints.Add(new Vector3(seAve + LANE_OFFSET, 0.05f, start.z));
-                        rawPoints.Add(new Vector3(seAve + LANE_OFFSET, 0.05f, -16.0f));
-                        rawPoints.Add(new Vector3(seAve + LANE_OFFSET, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                    }
-                    else if (start.x >= 25.0f)
-                    {
-                        rawPoints.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0.05f, start.z));
-                        rawPoints.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0.05f, -12.0f));
-                        rawPoints.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                    }
-                    else
-                    {
-                        rawPoints.Add(new Vector3(SOUTH_MID_AVENUE_NORTHBOUND_X, 0.05f, start.z));
-                        rawPoints.Add(new Vector3(SOUTH_MID_AVENUE_NORTHBOUND_X, 0.05f, -58.0f));
-                        rawPoints.Add(new Vector3(4.0f, 0.05f, SOUTH_ROAD_EASTBOUND_Z));
-                        rawPoints.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0.05f, SOUTH_ROAD_EASTBOUND_Z));
-                        rawPoints.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0.05f, -53.0f));
-                        rawPoints.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0.05f, -12.0f));
-                        rawPoints.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                    }
-                }
-
-                // Hedef bölgeye giriş
-                if (isDestNorth)
-                {
-                    float destAveX = GetClosestNorthAvenueX(dest.x);
-                    rawPoints.Add(new Vector3(WEST_ROAD_NORTHBOUND_X, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                    rawPoints.Add(new Vector3(WEST_ROAD_NORTHBOUND_X, 0.05f, -4.5f));
-                    rawPoints.Add(new Vector3(WEST_ROAD_NORTHBOUND_X, 0.05f, 45.0f));
-                    rawPoints.Add(new Vector3(-70.5f, 0.05f, NORTH_ROAD_EASTBOUND_Z));
-                    rawPoints.Add(new Vector3(destAveX - LANE_OFFSET, 0.05f, NORTH_ROAD_EASTBOUND_Z));
-                    rawPoints.Add(new Vector3(destAveX + LANE_OFFSET, 0.05f, 53.0f));
-                    rawPoints.Add(new Vector3(destAveX + LANE_OFFSET, 0.05f, dest.z));
-                }
-                else if (isDestWest)
-                {
-                    rawPoints.Add(new Vector3(WEST_ROAD_NORTHBOUND_X, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                    AddBridgeWaypoints(rawPoints, false);
-
-                    float destWestAveX = GetClosestWestAvenueX(dest.x);
-                    if (dest.z > MAIN_ROAD_Z)
-                    {
-                        rawPoints.Add(new Vector3(destWestAveX + LANE_OFFSET, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                        rawPoints.Add(new Vector3(destWestAveX + LANE_OFFSET, 0.05f, -6.0f));
-                        rawPoints.Add(new Vector3(destWestAveX + LANE_OFFSET, 0.05f, dest.z));
-                    }
-                    else
-                    {
-                        rawPoints.Add(new Vector3(destWestAveX - LANE_OFFSET, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                        rawPoints.Add(new Vector3(destWestAveX - LANE_OFFSET, 0.05f, -12.0f));
-                        rawPoints.Add(new Vector3(destWestAveX - LANE_OFFSET, 0.05f, dest.z));
-                    }
-                }
-                else if (isDestSouthDistrict && dest.x >= 90.0f)
-                {
-                    float seAve = GetClosestNorthAvenueX(dest.x);
-                    rawPoints.Add(new Vector3(seAve - LANE_OFFSET, 0.05f, MAIN_ROAD_EASTBOUND_Z));
-                    rawPoints.Add(new Vector3(seAve - LANE_OFFSET, 0.05f, dest.z));
-                }
-                else if (dest.x >= 90.0f)
-                {
-                    float seAve = GetClosestNorthAvenueX(dest.x);
-                    rawPoints.Add(new Vector3(seAve + LANE_OFFSET, 0.05f, MAIN_ROAD_EASTBOUND_Z));
-                    rawPoints.Add(new Vector3(seAve + LANE_OFFSET, 0.05f, dest.z));
-                }
-                else
-                {
-                    rawPoints.Add(new Vector3(dest.x, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                }
-            }
-
-            List<Vector3> points = new List<Vector3>();
-            for (int i = 0; i < rawPoints.Count; i++)
-            {
-                Vector3 p = rawPoints[i];
-                if (points.Count == 0 || Vector3.Distance(points[points.Count - 1], p) > 0.35f)
-                {
-                    points.Add(p);
-                }
-            }
-
+            bool leavingStore = Mathf.Abs(start.x - SHOP_LANE_X) < 3f && start.z >= -2f && start.z <= 25f;
+            if (!leavingStore) return CourierRoadNetwork.BuildDeliveryRoute(start,dest);
+            Vector3 aisle = new Vector3(SHOP_LANE_NORTHBOUND_X, .05f, start.z);
+            var points = CourierRoadNetwork.BuildDeliveryRoute(aisle,dest);
+            points.Insert(0, start);
             return points;
         }
 
@@ -793,153 +567,8 @@ namespace Farm2Shelf.Environment
         /// </summary>
         private List<Vector3> BuildReturnWaypoints(Vector3 start)
         {
-            List<Vector3> rawPoints = new List<Vector3>();
-
-            bool isNorth = start.z >= 45.0f;
-            bool isWest = start.x <= -95.0f;
-            bool isSouthDistrict = start.z <= -58.0f;
-            bool isSouthKasabaPerimeter = start.z > -58.0f && start.z <= -45.0f;
-
-            if (isNorth)
-            {
-                // Kuzey mahalleden dönüş: Cadde üzerinde Güneye geliş sağ şeridi (X = aveX - 1.5)
-                float aveX = GetClosestNorthAvenueX(start.x);
-                rawPoints.Add(new Vector3(aveX - LANE_OFFSET, 0.05f, start.z));
-                rawPoints.Add(new Vector3(aveX - LANE_OFFSET, 0.05f, 53.0f));
-
-                if (aveX < SHOP_LANE_X)
-                {
-                    // Doğuya gidiş sağ şeridi (Z: 48.5)
-                    rawPoints.Add(new Vector3(aveX - LANE_OFFSET, 0.05f, NORTH_ROAD_EASTBOUND_Z));
-                    rawPoints.Add(new Vector3(SHOP_LANE_SOUTHBOUND_X, 0.05f, NORTH_ROAD_EASTBOUND_Z));
-                }
-                else
-                {
-                    // Batıya gidiş sağ şeridi (Z: 51.5)
-                    rawPoints.Add(new Vector3(aveX - LANE_OFFSET, 0.05f, NORTH_ROAD_WESTBOUND_Z));
-                    rawPoints.Add(new Vector3(SHOP_LANE_NORTHBOUND_X, 0.05f, NORTH_ROAD_WESTBOUND_Z));
-                }
-
-                // Dükkan teslimat yolundan Güneye iniş şeridi
-                rawPoints.Add(new Vector3(SHOP_LANE_SOUTHBOUND_X, 0.05f, 47.0f));
-                rawPoints.Add(new Vector3(SHOP_LANE_SOUTHBOUND_X, 0.05f, HomeParkPosition.z));
-            }
-            else if (isWest)
-            {
-                // Batı sahil/kamu bölgesinden dönüş:
-                float westAveX = GetClosestWestAvenueX(start.x);
-
-                if (start.z > MAIN_ROAD_Z)
-                {
-                    // Villalardan Güneye iniş sağ şeridi (X = westAveX - 1.5)
-                    rawPoints.Add(new Vector3(westAveX - LANE_OFFSET, 0.05f, start.z));
-                    rawPoints.Add(new Vector3(westAveX - LANE_OFFSET, 0.05f, -6.0f));
-                    rawPoints.Add(new Vector3(westAveX - LANE_OFFSET, 0.05f, MAIN_ROAD_EASTBOUND_Z));
-                }
-                else
-                {
-                    // Kamu binalarından Kuzeye çıkış sağ şeridi (X = westAveX + 1.5)
-                    rawPoints.Add(new Vector3(westAveX + LANE_OFFSET, 0.05f, start.z));
-                    rawPoints.Add(new Vector3(westAveX + LANE_OFFSET, 0.05f, -12.0f));
-                    rawPoints.Add(new Vector3(westAveX + LANE_OFFSET, 0.05f, MAIN_ROAD_EASTBOUND_Z));
-                }
-
-                // Köprüden Doğuya geçiş
-                AddBridgeWaypoints(rawPoints, true);
-
-                // Dükkan teslimat yolu sapağına yaklaşım ve Kuzeye çıkış
-                rawPoints.Add(new Vector3(SHOP_LANE_NORTHBOUND_X, 0.05f, MAIN_ROAD_EASTBOUND_Z));
-                rawPoints.Add(new Vector3(SHOP_LANE_NORTHBOUND_X, 0.05f, -6.0f));
-                rawPoints.Add(new Vector3(SHOP_LANE_NORTHBOUND_X, 0.05f, HomeParkPosition.z));
-            }
-            else if (start.x >= 90.0f)
-            {
-                float seAve = GetClosestNorthAvenueX(start.x);
-                rawPoints.Add(new Vector3(seAve - LANE_OFFSET, 0.05f, start.z));
-                rawPoints.Add(new Vector3(seAve - LANE_OFFSET, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                rawPoints.Add(new Vector3(SHOP_LANE_SOUTHBOUND_X, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                rawPoints.Add(new Vector3(SHOP_LANE_NORTHBOUND_X, 0.05f, -6.0f));
-                rawPoints.Add(new Vector3(SHOP_LANE_NORTHBOUND_X, 0.05f, HomeParkPosition.z));
-            }
-            else if (isSouthDistrict)
-            {
-                if (start.x >= 90.0f)
-                {
-                    float seAve = GetClosestNorthAvenueX(start.x);
-                    rawPoints.Add(new Vector3(seAve + LANE_OFFSET, 0.05f, start.z));
-                    rawPoints.Add(new Vector3(seAve + LANE_OFFSET, 0.05f, -16.0f));
-                    rawPoints.Add(new Vector3(seAve, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                    rawPoints.Add(new Vector3(SHOP_LANE_SOUTHBOUND_X, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                    rawPoints.Add(new Vector3(SHOP_LANE_NORTHBOUND_X, 0.05f, -6.0f));
-                    rawPoints.Add(new Vector3(SHOP_LANE_NORTHBOUND_X, 0.05f, HomeParkPosition.z));
-                }
-                else if (start.x >= 25.0f)
-                {
-                    // Doğu Kafe Caddesinden Kuzeye çıkış sağ şeridi (X: 76.5)
-                    rawPoints.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0.05f, start.z));
-                    rawPoints.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0.05f, -12.0f));
-                    rawPoints.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                    rawPoints.Add(new Vector3(SHOP_LANE_SOUTHBOUND_X, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                    rawPoints.Add(new Vector3(SHOP_LANE_NORTHBOUND_X, 0.05f, -6.0f));
-                    rawPoints.Add(new Vector3(SHOP_LANE_NORTHBOUND_X, 0.05f, HomeParkPosition.z));
-                }
-                else
-                {
-                    // Orta Bulvardan (Cami & Kafe Arası) Kuzeye çıkış sağ şeridi (X: +1.5)
-                    rawPoints.Add(new Vector3(SOUTH_MID_AVENUE_NORTHBOUND_X, 0.05f, start.z));
-                    rawPoints.Add(new Vector3(SOUTH_MID_AVENUE_NORTHBOUND_X, 0.05f, -58.0f));
-                    rawPoints.Add(new Vector3(4.0f, 0.05f, SOUTH_ROAD_EASTBOUND_Z));
-                    rawPoints.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0.05f, SOUTH_ROAD_EASTBOUND_Z));
-                    rawPoints.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0.05f, -53.0f));
-                    rawPoints.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0.05f, -12.0f));
-                    rawPoints.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                    rawPoints.Add(new Vector3(SHOP_LANE_SOUTHBOUND_X, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                    rawPoints.Add(new Vector3(SHOP_LANE_NORTHBOUND_X, 0.05f, -6.0f));
-                    rawPoints.Add(new Vector3(SHOP_LANE_NORTHBOUND_X, 0.05f, HomeParkPosition.z));
-                }
-            }
-            else if (isSouthKasabaPerimeter)
-            {
-                // Kasaba alt çevre yolundan dönüş
-                rawPoints.Add(new Vector3(start.x, 0.05f, SOUTH_ROAD_EASTBOUND_Z));
-                rawPoints.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0.05f, SOUTH_ROAD_EASTBOUND_Z));
-                rawPoints.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0.05f, -53.0f));
-                rawPoints.Add(new Vector3(EAST_ROAD_NORTHBOUND_X, 0.05f, -12.0f));
-                rawPoints.Add(new Vector3(EAST_ROAD_SOUTHBOUND_X, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                rawPoints.Add(new Vector3(SHOP_LANE_SOUTHBOUND_X, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                rawPoints.Add(new Vector3(SHOP_LANE_NORTHBOUND_X, 0.05f, -6.0f));
-                rawPoints.Add(new Vector3(SHOP_LANE_NORTHBOUND_X, 0.05f, HomeParkPosition.z));
-            }
-            else
-            {
-                // Otoyol kenarından dönüş
-                if (start.x < SHOP_LANE_X)
-                {
-                    rawPoints.Add(new Vector3(start.x, 0.05f, MAIN_ROAD_EASTBOUND_Z));
-                    rawPoints.Add(new Vector3(SHOP_LANE_NORTHBOUND_X, 0.05f, MAIN_ROAD_EASTBOUND_Z));
-                    rawPoints.Add(new Vector3(SHOP_LANE_NORTHBOUND_X, 0.05f, -6.0f));
-                    rawPoints.Add(new Vector3(SHOP_LANE_NORTHBOUND_X, 0.05f, HomeParkPosition.z));
-                }
-                else
-                {
-                    rawPoints.Add(new Vector3(start.x, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                    rawPoints.Add(new Vector3(SHOP_LANE_SOUTHBOUND_X, 0.05f, MAIN_ROAD_WESTBOUND_Z));
-                    rawPoints.Add(new Vector3(SHOP_LANE_NORTHBOUND_X, 0.05f, -6.0f));
-                    rawPoints.Add(new Vector3(SHOP_LANE_NORTHBOUND_X, 0.05f, HomeParkPosition.z));
-                }
-            }
-
-            List<Vector3> points = new List<Vector3>();
-            for (int i = 0; i < rawPoints.Count; i++)
-            {
-                Vector3 p = rawPoints[i];
-                if (points.Count == 0 || Vector3.Distance(points[points.Count - 1], p) > 0.35f)
-                {
-                    points.Add(p);
-                }
-            }
-
-            return points;
+            return CourierRoadNetwork.BuildRoute(start,
+                new Vector3(SHOP_LANE_NORTHBOUND_X, .05f, HomeParkPosition.z));
         }
 
         #endregion
