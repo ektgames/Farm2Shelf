@@ -107,7 +107,7 @@ namespace Farm2Shelf.Environment
         static Transform Box(Transform p,string n,Vector3 v,Vector3 s,Material m){return Shape(p,n,v,s,m,PrimitiveType.Cube,Quaternion.identity);}
         static Transform Cylinder(Transform p,string n,Vector3 v,Vector3 s,Material m,Quaternion q){return Shape(p,n,v,s,m,PrimitiveType.Cylinder,q);}
         static Transform Shape(Transform p,string n,Vector3 v,Vector3 s,Material m,PrimitiveType type,Quaternion q)
-        {var g=GameObject.CreatePrimitive(type);g.name=n;g.transform.SetParent(p,false);g.transform.localPosition=v;g.transform.localScale=s;g.transform.localRotation=q;g.GetComponent<Renderer>().sharedMaterial=m;var c=g.GetComponent<Collider>();c.enabled=false;Object.Destroy(c);return g.transform;}
+        {var g=GameObject.CreatePrimitive(type);g.name=n;g.transform.SetParent(p,false);g.transform.localPosition=v;g.transform.localScale=s;g.transform.localRotation=q;g.GetComponent<Renderer>().sharedMaterial=m;var c=g.GetComponent<Collider>();if(c!=null){c.enabled=false;Object.Destroy(c);}return g.transform;}
         static void Combine(Transform root)
         {
             var groups=new Dictionary<Material,List<CombineInstance>>();

@@ -160,7 +160,7 @@ namespace Farm2Shelf.Environment
             var part=GameObject.CreatePrimitive(PrimitiveType.Sphere);part.name=name;
             part.transform.SetParent(parent,false);part.transform.localPosition=position;part.transform.localScale=scale;
             part.GetComponent<Renderer>().sharedMaterial=material;
-            var collider=part.GetComponent<Collider>();collider.enabled=false;Object.Destroy(collider);return part;
+            var collider=part.GetComponent<Collider>();if(collider!=null){collider.enabled=false;Object.Destroy(collider);}return part;
         }
         private static Transform PlushJoint(Transform parent,string name,Vector3 position)
         {

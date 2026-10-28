@@ -27,7 +27,7 @@ namespace Farm2Shelf.Environment
         {
             var go=GameObject.CreatePrimitive(PrimitiveType.Cube);go.name=name;go.transform.SetParent(parent,false);
             go.transform.localPosition=position;go.transform.localScale=scale;go.GetComponent<Renderer>().sharedMaterial=material;
-            var collider=go.GetComponent<Collider>();collider.enabled=false;Object.Destroy(collider);return go;
+            var collider=go.GetComponent<Collider>();if(collider!=null){collider.enabled=false;Object.Destroy(collider);}return go;
         }
     }
 }

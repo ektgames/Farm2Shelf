@@ -23,6 +23,10 @@ namespace Farm2Shelf.Core
     {
         [Header("Otomatik Kurulum")]
         [SerializeField] private bool autoBuildOnStart = true;
+        public static bool IsWorldReady { get; private set; }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStartup() { IsWorldReady = false; }
 
         private void Awake()
         {
@@ -280,6 +284,7 @@ namespace Farm2Shelf.Core
             if (uiManagerObj.GetComponent<DailySpinWheelUI>() == null)
                 uiManagerObj.AddComponent<DailySpinWheelUI>();
             StartupStatus.SetStage("Intro and menu activation");
+            IsWorldReady = true;
         }
 
         private static void EnsureEventSystem()

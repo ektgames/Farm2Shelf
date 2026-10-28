@@ -386,7 +386,7 @@ namespace Farm2Shelf.Environment
             for(int i=0;i<count;i++)
             {
                 var o=GameObject.CreatePrimitive(PrimitiveType.Sphere);o.name="DecorEffect";o.transform.SetParent(transform,false);
-                var c=o.GetComponent<Collider>();c.enabled=false;Destroy(c);
+                var c=o.GetComponent<Collider>();if(c!=null){c.enabled=false;Destroy(c);}
                 var mat=new Material(Shader.Find("Universal Render Pipeline/Lit"));Color color=type==FurnitureType.HologramProjector?Color.HSVToRGB(i/(float)count,.72f,.65f):new Color(.18f,.6f,.72f);
                 mat.SetColor("_BaseColor",color);mat.EnableKeyword("_EMISSION");mat.SetColor("_EmissionColor",color*.45f);owned.Add(mat);
                 var r=o.GetComponent<Renderer>();r.sharedMaterial=mat;r.shadowCastingMode=ShadowCastingMode.Off;r.receiveShadows=false;

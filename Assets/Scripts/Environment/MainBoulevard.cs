@@ -346,8 +346,12 @@ namespace Farm2Shelf.Environment
         private static Transform Box(Transform p,string n,Vector3 v,Vector3 s,Material m) => Part(p,PrimitiveType.Cube,n,v,s,m);
         private static Transform Part(Transform p,PrimitiveType type,string n,Vector3 v,Vector3 s,Material m)
         {
-            var g=GameObject.CreatePrimitive(type);g.name=n;g.transform.SetParent(p,false);g.transform.localPosition=v;g.transform.localScale=s;
-            g.GetComponent<Renderer>().sharedMaterial=m;var c=g.GetComponent<Collider>();c.enabled=false;Object.Destroy(c);
+            // Decorative road parts never need physics. Player builds may omit a
+            // primitive's optional collider; do not create or dereference one.
+            var g=PrimitiveFactory.CreateVisual(type,n,p);
+            if(type==PrimitiveType.Cube)g.GetComponent<MeshFilter>().sharedMesh=PrimitiveFactory.GetReadableCubeMesh();
+            g.transform.localPosition=v;g.transform.localScale=s;
+            g.GetComponent<MeshRenderer>().sharedMaterial=m;
             return g.transform;
         }
         private static Mesh CombinePaint(Transform root,Material paint)

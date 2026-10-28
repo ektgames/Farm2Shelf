@@ -215,7 +215,7 @@ namespace Farm2Shelf.Environment
             go.transform.SetParent(parent,false); go.transform.localPosition=p; go.transform.localScale=size;
             go.GetComponent<Renderer>().sharedMaterial=material;
             var collider=go.GetComponent<Collider>();
-            if(!solid){collider.enabled=false;if(Application.isPlaying)Object.Destroy(collider);else Object.DestroyImmediate(collider);}
+            if(!solid && collider!=null){collider.enabled=false;if(Application.isPlaying)Object.Destroy(collider);else Object.DestroyImmediate(collider);}
             return go.transform;
         }
     }

@@ -28,6 +28,10 @@ namespace Farm2Shelf.Core
             instance = host.AddComponent<StartupStatus>();
             instance.CreateUI();
             Application.logMessageReceived += instance.Observe;
+            // Reuse the game's existing branded intro while the world is prepared.
+            var ui = GameObject.Find("UI_Manager");
+            if (ui == null) ui = new GameObject("UI_Manager");
+            if (ui.GetComponent<EKTReklamIntroManager>() == null) ui.AddComponent<EKTReklamIntroManager>();
         }
 
         private void CreateUI()
@@ -60,6 +64,7 @@ namespace Farm2Shelf.Core
             caption.transform.SetParent(copy.transform, false);
             copy.SetActive(false);
             UpdateDisplay();
+            panel.SetActive(false);
         }
 
         private Text Label(string text, Vector2 min, Vector2 max, int size)
@@ -111,7 +116,7 @@ namespace Farm2Shelf.Core
         {
             if (status == null) return;
             title.text = failure == null ? "FARM2SHELF" : "Başlatma tamamlanamadı / Startup incomplete";
-            status.text = failure ?? ("Yükleniyor / Loading\n" + stage);
+            status.text = failure ?? string.Empty;
             safe.Find("CopyError").gameObject.SetActive(failure != null);
         }
 

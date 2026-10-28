@@ -53,8 +53,9 @@ public static class MobileStartupRegressionProbe
             if (message == "[STARTUP] Render pipeline")
             {
                 var canvas = GameObject.Find("Startup_Status_Canvas");
-                loadingBeforeWorld = canvas != null && canvas.GetComponent<Canvas>() != null &&
-                    canvas.transform.Find("Loading").gameObject.activeInHierarchy && Time.frameCount >= 2;
+                loadingBeforeWorld = canvas != null &&
+                    !canvas.transform.Find("Loading").gameObject.activeInHierarchy &&
+                    Farm2Shelf.UI.EKTReklamIntroManager.IsIntroVisible && Time.frameCount >= 2;
             }
             if (message.StartsWith("[STARTUP] World:")) worldFrames.Add(Time.frameCount);
         }
@@ -64,17 +65,57 @@ public static class MobileStartupRegressionProbe
     }
     static void TickStartup()
     {
+        const string partRequest = "Temp/boulevard-part-check.request";
+        if (File.Exists(partRequest))
+        {
+            File.Delete(partRequest);
+            RunBoulevardPartCheck();
+        }
         if (!Application.isBatchMode || !SessionState.GetBool(StartupKey, false) || !EditorApplication.isPlaying) return;
         if (started == 0) started = EditorApplication.timeSinceStartup;
         if (EditorApplication.timeSinceStartup - started < 15) return;
         bool camera = Camera.main != null && Camera.main.GetComponent<Farm2Shelf.CameraSystem.IsometricCameraSetup>() != null;
         bool menu = Farm2Shelf.UI.MainMenuUI.IsMenuVisible;
         bool intro = Farm2Shelf.UI.EKTReklamIntroManager.HasIntroFinished;
-        File.AppendAllText("Logs/TrafficCompile/full-startup-check.txt", $"Camera={camera}, Menu={menu}, IntroFinished={intro}, Errors={errors}, LoadingBeforeWorld={loadingBeforeWorld}, WorldFrames={worldFrames.Count}\n");
+        File.AppendAllText("Logs/TrafficCompile/full-startup-check.txt", $"Camera={camera}, Menu={menu}, IntroFinished={intro}, Errors={errors}, BrandedIntroWithoutTechnicalPanel={loadingBeforeWorld}, WorldFrames={worldFrames.Count}\n");
         SessionState.SetBool(StartupKey, false);
         int code = camera && menu && intro && errors == 0 && loadingBeforeWorld && worldFrames.Count > 10 ? 0 : 1;
         EditorApplication.isPlaying = false;
         EditorApplication.delayCall += () => EditorApplication.Exit(code);
+    }
+    // Also usable in the open editor: creates only temporary visual test objects.
+    public static void RunBoulevardPartCheck()
+    {
+        const string report = "Logs/TrafficCompile/boulevard-part-check.txt";
+        Directory.CreateDirectory("Logs/TrafficCompile");
+        var root = new GameObject("BoulevardPartProbe") { hideFlags = HideFlags.HideAndDontSave };
+        Material material = null;
+        try
+        {
+            material = ShaderHelper.CreateLitMaterial(Color.gray, "ProbeMaterial");
+            var method = typeof(MainBoulevard).GetMethod("Part", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            int passed = 0;
+            foreach (var type in new[] { PrimitiveType.Cube, PrimitiveType.Cylinder, PrimitiveType.Sphere })
+            {
+                var part = (Transform)method.Invoke(null, new object[] { root.transform, type, "Probe", Vector3.one, Vector3.one * 2, material });
+                if (part.GetComponent<Collider>() != null || part.GetComponent<MeshFilter>().sharedMesh == null ||
+                    part.GetComponent<MeshRenderer>().sharedMaterial != material || part.localPosition != Vector3.one || part.localScale != Vector3.one * 2)
+                    throw new Exception("Invalid boulevard visual: " + type);
+                passed++;
+            }
+            var treeMethod = typeof(MainBoulevard).GetMethod("Tree", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            treeMethod.Invoke(null, new object[] { root.transform, 10f, material, material });
+            var tree = root.transform.Find("Median_Tree");
+            if (tree == null || tree.GetComponentsInChildren<MeshRenderer>().Length != 5 || tree.GetComponentsInChildren<Collider>().Length != 0)
+                throw new Exception("Median tree geometry or collider regression");
+            File.WriteAllText(report, $"PASS: {passed} primitive types and complete median tree; meshes/materials/transforms preserved; no collider access required.\n");
+        }
+        catch (Exception exception) { File.WriteAllText(report, "FAIL: " + exception + "\n"); }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(root);
+            if (material != null) UnityEngine.Object.DestroyImmediate(material);
+        }
     }
     public static void Run()
     {

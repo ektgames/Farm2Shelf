@@ -3007,7 +3007,7 @@ namespace Farm2Shelf.Environment
                 {
                     var obj=GameObject.CreatePrimitive(PrimitiveType.Cube);obj.name=part;
                     obj.transform.SetParent(data.cleaningTool.transform,false);
-                    var col=obj.GetComponent<Collider>();col.enabled=false;Destroy(col);
+                    var col=obj.GetComponent<Collider>();if(col!=null){col.enabled=false;Destroy(col);}
                 }
             }
             Vector3 head=target+Vector3.up*.04f+data.staffObj.transform.right*sweep*.16f;

@@ -377,6 +377,9 @@ namespace Farm2Shelf.UI
                     yield return null;
                 }
 
+                // A skip or the end of the animation must not expose a half-built world.
+                // Keep the existing logo visible until the staged startup has completed.
+                while (!Farm2ShelfBootstrapper.IsWorldReady) yield return null;
                 Debug.Log("[INTRO] Routine finished");
             }
             finally
