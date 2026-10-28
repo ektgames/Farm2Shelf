@@ -30,7 +30,8 @@ namespace Farm2Shelf.Environment
                 var surface = new Surface { renderer = renderer, wasForcedOff = renderer.forceRenderingOff };
                 // TextMesh owns its mesh; it is hidden with the doorway instead of rewritten.
                 var filter = renderer.GetComponent<MeshFilter>();
-                if (renderer.GetComponent<TextMesh>() == null && filter != null && filter.sharedMesh != null)
+                if (renderer.GetComponent<TextMesh>() == null && filter != null &&
+                    filter.sharedMesh != null && filter.sharedMesh.isReadable)
                 {
                     surface.filter = filter;
                     surface.original = filter.sharedMesh;

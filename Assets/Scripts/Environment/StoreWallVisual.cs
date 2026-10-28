@@ -45,7 +45,7 @@ namespace Farm2Shelf.Environment
             stone.color = new Color(.49f, .47f, .42f);
             if (stone.HasProperty("_Smoothness")) stone.SetFloat("_Smoothness", .2f);
 
-            Mesh cube = GetComponent<MeshFilter>().sharedMesh;
+            Mesh cube = Farm2Shelf.Utils.PrimitiveFactory.GetReadableCubeMesh();
             body = Part("Wall_Surface", cube, plaster);
             bool exterior = !name.StartsWith("Partition_") && !name.StartsWith("Staff_Partition_");
             if (exterior)

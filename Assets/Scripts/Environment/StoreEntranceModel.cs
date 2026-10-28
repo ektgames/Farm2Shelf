@@ -14,7 +14,7 @@ namespace Farm2Shelf.Environment
         public void Build(Mesh mesh, Material source, Transform left, Transform right,
             bool slideAlongX, float width, bool storefront)
         {
-            cube = mesh;
+            cube = Farm2Shelf.Utils.PrimitiveFactory.GetReadableCubeMesh();
             alongX = slideAlongX;
             Material aluminium = Finish(source, "Brushed aluminium", new Color(.57f, .62f, .66f), .75f, .62f);
             Material seal = Finish(source, "Door rubber seals", new Color(.035f, .045f, .05f), 0, .2f);

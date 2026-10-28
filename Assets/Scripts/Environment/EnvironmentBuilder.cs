@@ -1908,6 +1908,7 @@ namespace Farm2Shelf.Environment
 
             GameObject leftBody = GameObject.CreatePrimitive(PrimitiveType.Cube);
             leftBody.name = "Panel_Body";
+            leftBody.GetComponent<MeshFilter>().sharedMesh = PrimitiveFactory.GetReadableCubeMesh();
             leftBody.transform.SetParent(leftLeaf.transform);
             leftBody.transform.localPosition = Vector3.zero;
             leftBody.transform.localScale = new Vector3(leafW, 2.5f, leafD);
@@ -1920,6 +1921,7 @@ namespace Farm2Shelf.Environment
 
             GameObject rightBody = GameObject.CreatePrimitive(PrimitiveType.Cube);
             rightBody.name = "Panel_Body";
+            rightBody.GetComponent<MeshFilter>().sharedMesh = PrimitiveFactory.GetReadableCubeMesh();
             rightBody.transform.SetParent(rightLeaf.transform);
             rightBody.transform.localPosition = Vector3.zero;
             rightBody.transform.localScale = new Vector3(leafW, 2.5f, leafD);
