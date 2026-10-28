@@ -131,7 +131,14 @@ namespace Farm2Shelf.Environment
 
         public void BuildEnvironment()
         {
+            var steps = BuildEnvironmentSteps();
+            while (steps.MoveNext()) { }
+        }
+
+        public System.Collections.IEnumerator BuildEnvironmentSteps()
+        {
             StartupStatus.SetStage("World: activeWorldLabels.Clear");
+            yield return null;
             activeWorldLabels.Clear();
 
             // Sahnedeki eski harita kökünü temizle
@@ -143,58 +150,83 @@ namespace Farm2Shelf.Environment
             }
 
             StartupStatus.SetStage("World: CleanStrayObjectsInStoreArea");
+            yield return null;
             CleanStrayObjectsInStoreArea();
 
             environmentRoot = new GameObject("Farm2Shelf_Environment").transform;
 
             StartupStatus.SetStage("World: InitializeMaterials");
+            yield return null;
             InitializeMaterials();
             StartupStatus.SetStage("World: CreateGrassTerrain");
+            yield return null;
             CreateGrassTerrain();
             StartupStatus.SetStage("World: CreateRectangleRingRoadAndLanes");
+            yield return null;
             CreateRectangleRingRoadAndLanes();
             StartupStatus.SetStage("World: CreateNorthernApartmentDistrict");
+            yield return null;
             CreateNorthernApartmentDistrict();
+            StartupStatus.SetStage("World: NortheastTaxiDistrictBuilder");
+            yield return null;
             NortheastTaxiDistrictBuilder.Build(environmentRoot);
             StartupStatus.SetStage("World: CreateSidewalk");
+            yield return null;
             CreateSidewalk();
             StartupStatus.SetStage("World: CreateUnifiedBuilding");
+            yield return null;
             CreateUnifiedBuilding();
             StartupStatus.SetStage("World: CreateSingleLaneDeliveryRoad");
+            yield return null;
             CreateSingleLaneDeliveryRoad();
             StartupStatus.SetStage("World: CreateCustomerParkingLotAndTurnstile");
+            yield return null;
             CreateCustomerParkingLotAndTurnstile();
             StartupStatus.SetStage("World: CreateCleanFarmComplex");
+            yield return null;
             CreateCleanFarmComplex();
             StartupStatus.SetStage("World: CreateTownshipSystem");
+            yield return null;
             CreateTownshipSystem();
             StartupStatus.SetStage("World: CreateWestDistrictSystem");
+            yield return null;
             CreateWestDistrictSystem();
             StartupStatus.SetStage("World: CreateSouthDistrictSystem");
+            yield return null;
             CreateSouthDistrictSystem();
             StartupStatus.SetStage("World: CreateLightingAndDecorations");
+            yield return null;
             CreateLightingAndDecorations();
             StartupStatus.SetStage("World: CreateDenseTwoRowTreeBoundaryWall");
+            yield return null;
             CreateDenseTwoRowTreeBoundaryWall();
             StartupStatus.SetStage("World: BuildWorkshopBuilding");
+            yield return null;
             BuildWorkshopBuilding();
             StartupStatus.SetStage("World: RailwayStationBuilder.Build");
+            yield return null;
             RailwayStationBuilder.Build(environmentRoot);
             StartupStatus.SetStage("World: MainRoadSignals.Build");
+            yield return null;
             MainRoadSignals.Build(environmentRoot);
 
             StartupStatus.SetStage("World: CrosswalkVisualBuilder.CompleteMapConnections");
+            yield return null;
             CrosswalkVisualBuilder.CompleteMapConnections(environmentRoot);
             StartupStatus.SetStage("World: CrosswalkVisualBuilder.ClearOverlappingLaneMarkings");
+            yield return null;
             CrosswalkVisualBuilder.ClearOverlappingLaneMarkings(environmentRoot);
             StartupStatus.SetStage("World: MainBoulevard.Build");
+            yield return null;
             MainBoulevard.Build(environmentRoot);
 
             StartupStatus.SetStage("World: RefreshAll3DWorldLabels");
+            yield return null;
             RefreshAll3DWorldLabels();
 
             Debug.Log($"[Farm2Shelf] Seviye {currentUpgradeLevel} Harita Mimarisi ve Dükkan Alanı Başarıyla Yeniden Oluşturuldu!");
         }
+
 
 
         private void BuildWorkshopBuilding()

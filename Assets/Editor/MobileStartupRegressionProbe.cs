@@ -14,6 +14,8 @@ public static class MobileStartupRegressionProbe
     const string StartupKey = "Farm2Shelf.StartupProbe";
     static double started;
     static int errors;
+    static bool loadingBeforeWorld;
+    static readonly System.Collections.Generic.HashSet<int> worldFrames = new System.Collections.Generic.HashSet<int>();
     static MobileStartupRegressionProbe()
     {
         EditorApplication.update += TickStartup;
@@ -46,6 +48,16 @@ public static class MobileStartupRegressionProbe
     }
     static void RecordError(string message, string trace, LogType type)
     {
+        if (SessionState.GetBool(StartupKey, false))
+        {
+            if (message == "[STARTUP] Render pipeline")
+            {
+                var canvas = GameObject.Find("Startup_Status_Canvas");
+                loadingBeforeWorld = canvas != null && canvas.GetComponent<Canvas>() != null &&
+                    canvas.transform.Find("Loading").gameObject.activeInHierarchy && Time.frameCount >= 2;
+            }
+            if (message.StartsWith("[STARTUP] World:")) worldFrames.Add(Time.frameCount);
+        }
         if (!SessionState.GetBool(StartupKey, false) || (type != LogType.Exception && type != LogType.Error)) return;
         errors++;
         File.AppendAllText("Logs/TrafficCompile/full-startup-check.txt", message + "\n" + trace + "\n");
@@ -58,9 +70,9 @@ public static class MobileStartupRegressionProbe
         bool camera = Camera.main != null && Camera.main.GetComponent<Farm2Shelf.CameraSystem.IsometricCameraSetup>() != null;
         bool menu = Farm2Shelf.UI.MainMenuUI.IsMenuVisible;
         bool intro = Farm2Shelf.UI.EKTReklamIntroManager.HasIntroFinished;
-        File.AppendAllText("Logs/TrafficCompile/full-startup-check.txt", $"Camera={camera}, Menu={menu}, IntroFinished={intro}, Errors={errors}\n");
+        File.AppendAllText("Logs/TrafficCompile/full-startup-check.txt", $"Camera={camera}, Menu={menu}, IntroFinished={intro}, Errors={errors}, LoadingBeforeWorld={loadingBeforeWorld}, WorldFrames={worldFrames.Count}\n");
         SessionState.SetBool(StartupKey, false);
-        int code = camera && menu && intro && errors == 0 ? 0 : 1;
+        int code = camera && menu && intro && errors == 0 && loadingBeforeWorld && worldFrames.Count > 10 ? 0 : 1;
         EditorApplication.isPlaying = false;
         EditorApplication.delayCall += () => EditorApplication.Exit(code);
     }

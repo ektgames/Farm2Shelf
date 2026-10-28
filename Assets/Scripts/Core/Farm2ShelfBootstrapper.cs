@@ -26,22 +26,25 @@ namespace Farm2Shelf.Core
 
         private void Awake()
         {
-            try
+            if (!autoBuildOnStart) return;
+            StartupStatus.EnsureVisible();
+            GameSimulationTime.SetPaused(GameSimulationTime.PauseReason.Intro, true);
+            StartCoroutine(StartInFrames());
+        }
+
+        private System.Collections.IEnumerator StartInFrames()
+        {
+            // Let the loading canvas reach the display before generating any world geometry.
+            yield return null;
+            yield return null;
+            var steps = InitializeGameWorldSteps();
+            while (true)
             {
-                StartupStatus.SetStage("Render pipeline");
-                LightingPipelineBinder.Apply();
-                ConfigureMobilePerformance();
-                ShaderHelper.GetLitShader();
-                ShaderHelper.GetUnlitShader();
-                Farm2Shelf.Utils.PrimitiveFactory.Warmup();
-                if (autoBuildOnStart)
-                {
-                    InitializeGameWorld();
-                }
-            }
-            catch (System.Exception exception)
-            {
-                StartupStatus.Fail(exception);
+                bool more;
+                try { more = steps.MoveNext(); }
+                catch (System.Exception exception) { StartupStatus.Fail(exception); yield break; }
+                if (!more) break;
+                yield return null;
             }
         }
 
@@ -55,6 +58,18 @@ namespace Farm2Shelf.Core
 
         public static void InitializeGameWorld()
         {
+            var steps = InitializeGameWorldSteps();
+            while (steps.MoveNext()) { }
+        }
+
+        private static System.Collections.IEnumerator InitializeGameWorldSteps()
+        {
+            StartupStatus.SetStage("Render pipeline");
+            LightingPipelineBinder.Apply();
+            ConfigureMobilePerformance();
+            ShaderHelper.GetLitShader();
+            ShaderHelper.GetUnlitShader();
+            PrimitiveFactory.Warmup();
             StartupStatus.SetStage("Input and core managers");
             EnsureEventSystem();
 
@@ -184,8 +199,14 @@ namespace Farm2Shelf.Core
                 builder = envManager.AddComponent<EnvironmentBuilder>();
             }
 
+            // Keep services discoverable, but defer Start/Update until all roads and buildings exist.
+            var deferred = new System.Collections.Generic.List<MonoBehaviour>();
+            foreach (var service in managersObj.GetComponents<MonoBehaviour>())
+                if (service.enabled) { deferred.Add(service); service.enabled = false; }
             StartupStatus.SetStage("World generation");
-            builder.BuildEnvironment();
+            var world = builder.BuildEnvironmentSteps();
+            while (world.MoveNext()) yield return null;
+            foreach (var service in deferred) if (service != null) service.enabled = true;
 
             // 3. Kamera Kurulumu
             StartupStatus.SetStage("Isometric camera");
@@ -299,96 +320,6 @@ namespace Farm2Shelf.Core
     /// <summary>
     /// Sahne başlatıldığında otomatik olarak Bootstrapper bileşenini ekleyen runtime initializer.
     /// </summary>
-    // A startup failure must never leave a player staring at the default camera
-    // with no indication of what failed. This stops observing after the menu opens.
-    public sealed class StartupStatus : MonoBehaviour
-    {
-        private static StartupStatus instance;
-        private static string stage = "Before scene load";
-        private string failure;
-        private string details;
-        private float began;
-        private bool complete;
-        private Vector2 scroll;
-
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-        private static void Begin()
-        {
-            stage = "Before scene load";
-            var host = new GameObject("Startup_Status_Canvas");
-            instance = host.AddComponent<StartupStatus>();
-            DontDestroyOnLoad(host);
-            instance.began = Time.realtimeSinceStartup;
-            Application.logMessageReceived += instance.Observe;
-        }
-
-        public static void SetStage(string value)
-        {
-            stage = value;
-            Debug.Log("[STARTUP] " + value);
-        }
-
-        public static void Fail(System.Exception exception)
-        {
-            Debug.LogException(exception);
-            if (instance != null) instance.SaveFailure(exception.GetType().Name + ": " + exception.Message, exception.ToString());
-            GameSimulationTime.SetPaused(GameSimulationTime.PauseReason.MainMenu, true);
-        }
-
-        private void Observe(string message, string trace, LogType type)
-        {
-            if (!complete && type == LogType.Exception && failure == null) SaveFailure(message, trace);
-        }
-
-        private void SaveFailure(string message, string trace)
-        {
-            if (failure != null) return;
-            failure = stage + "\n" + message;
-            details = "Farm2Shelf " + Application.version + " | " + Application.buildGUID + "\n" +
-                SystemInfo.operatingSystem + " | " + SystemInfo.deviceModel + "\n" + failure + "\n" + trace;
-            try { System.IO.File.WriteAllText(System.IO.Path.Combine(Application.persistentDataPath, "startup-error.txt"), details); }
-            catch (System.Exception) { /* The on-screen report still works without disk access. */ }
-        }
-
-        private void Update()
-        {
-            if (complete) return;
-            if (MainMenuUI.IsMenuVisible && EKTReklamIntroManager.HasIntroFinished)
-            {
-                complete = true;
-                Application.logMessageReceived -= Observe;
-            }
-        }
-
-        private void OnDestroy() { Application.logMessageReceived -= Observe; }
-
-        private void OnGUI()
-        {
-            if (complete || (failure == null && Time.realtimeSinceStartup - began < 20f)) return;
-            Rect safe = Screen.safeArea;
-            if (safe.width <= 0 || safe.height <= 0) safe = new Rect(0, 0, Screen.width, Screen.height);
-            float scale = Mathf.Max(.5f, Mathf.Min(safe.width / 860f, safe.height / 420f));
-            Matrix4x4 saved = GUI.matrix;
-            int savedDepth = GUI.depth;
-            GUI.matrix = Matrix4x4.TRS(new Vector3(safe.x, Screen.height - safe.yMax, 0), Quaternion.identity, Vector3.one * scale);
-            float width = safe.width / scale, height = safe.height / scale;
-            var label = new GUIStyle(GUI.skin.label) { fontSize = 20, wordWrap = true };
-            label.normal.textColor = Color.white;
-            GUI.depth = -32000;
-            GUI.Box(new Rect(8, 8, width - 16, height - 16), GUIContent.none);
-            GUI.Label(new Rect(28, 20, width - 56, 60), "Başlatma tamamlanamadı / Startup incomplete", label);
-            scroll = GUI.BeginScrollView(new Rect(28, 80, width - 56, height - 165), scroll,
-                new Rect(0, 0, width - 84, Mathf.Max(height - 165, label.CalcHeight(new GUIContent(failure ?? stage), width - 84))));
-            GUI.Label(new Rect(0, 0, width - 84, Mathf.Max(500, label.CalcHeight(new GUIContent(failure ?? stage), width - 84))), failure ?? stage, label);
-            GUI.EndScrollView();
-            var button = new GUIStyle(GUI.skin.button) { fontSize = 20 };
-            if (GUI.Button(new Rect(28, height - 68, width - 56, 48), "Hata bilgisini kopyala / Copy error", button))
-                GUIUtility.systemCopyBuffer = details ?? ("Farm2Shelf " + Application.version + " | " + stage);
-            GUI.matrix = saved;
-            GUI.depth = savedDepth;
-        }
-    }
-
     public static class AutoBootstrapper
     {
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
