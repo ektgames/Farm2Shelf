@@ -8,8 +8,62 @@ using Farm2Shelf.Environment;
 using Farm2Shelf.Utils;
 
 // Explicit batch test: no scene/save changes and no duplicate Unity project.
+[InitializeOnLoad]
 public static class MobileStartupRegressionProbe
 {
+    const string StartupKey = "Farm2Shelf.StartupProbe";
+    static double started;
+    static int errors;
+    static MobileStartupRegressionProbe()
+    {
+        EditorApplication.update += TickStartup;
+        Application.logMessageReceived += RecordError;
+    }
+    public static void RunStartup()
+    {
+        if (!Application.isBatchMode) throw new InvalidOperationException("Batch mode only.");
+        Directory.CreateDirectory("Logs/TrafficCompile");
+        File.WriteAllText("Logs/TrafficCompile/full-startup-check.txt", "Full scene startup; no save slot opened\n");
+        SessionState.SetBool(StartupKey, true);
+        EditorSceneManager.OpenScene("Assets/Scenes/SampleScene.unity");
+        EditorApplication.isPlaying = true;
+    }
+    public static void RunStartupWithGpuOnlyMeshes()
+    {
+        SessionState.SetBool("Farm2Shelf.GpuOnlyProbe", true);
+        RunStartup();
+    }
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    static void SimulatePlayerMeshStorage()
+    {
+        if (!Application.isBatchMode || !SessionState.GetBool("Farm2Shelf.GpuOnlyProbe", false)) return;
+        foreach (var primitive in new[] { PrimitiveType.Cube, PrimitiveType.Sphere, PrimitiveType.Cylinder, PrimitiveType.Capsule })
+        {
+            var obj = GameObject.CreatePrimitive(primitive);
+            obj.GetComponent<MeshFilter>().sharedMesh.UploadMeshData(true);
+            UnityEngine.Object.DestroyImmediate(obj);
+        }
+    }
+    static void RecordError(string message, string trace, LogType type)
+    {
+        if (!SessionState.GetBool(StartupKey, false) || (type != LogType.Exception && type != LogType.Error)) return;
+        errors++;
+        File.AppendAllText("Logs/TrafficCompile/full-startup-check.txt", message + "\n" + trace + "\n");
+    }
+    static void TickStartup()
+    {
+        if (!Application.isBatchMode || !SessionState.GetBool(StartupKey, false) || !EditorApplication.isPlaying) return;
+        if (started == 0) started = EditorApplication.timeSinceStartup;
+        if (EditorApplication.timeSinceStartup - started < 15) return;
+        bool camera = Camera.main != null && Camera.main.GetComponent<Farm2Shelf.CameraSystem.IsometricCameraSetup>() != null;
+        bool menu = Farm2Shelf.UI.MainMenuUI.IsMenuVisible;
+        bool intro = Farm2Shelf.UI.EKTReklamIntroManager.HasIntroFinished;
+        File.AppendAllText("Logs/TrafficCompile/full-startup-check.txt", $"Camera={camera}, Menu={menu}, IntroFinished={intro}, Errors={errors}\n");
+        SessionState.SetBool(StartupKey, false);
+        int code = camera && menu && intro && errors == 0 ? 0 : 1;
+        EditorApplication.isPlaying = false;
+        EditorApplication.delayCall += () => EditorApplication.Exit(code);
+    }
     public static void Run()
     {
         if (!Application.isBatchMode) throw new InvalidOperationException("Batch mode only.");
