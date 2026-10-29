@@ -52,14 +52,19 @@ namespace Farm2Shelf.UI
                     } else Add(into,"tablet_back");
                     break;
                 case 3:
+                    if(tm.TutorialMotorcycles<2) { FocusShopping(phone,into,7); return; }
                     if(!OpenApp(phone,into,6,phone!=null && phone.IsOnlineMarketVisible)) return;
-                    if(!tm.HasAcceptedTownContract()) {
+                    if(!tm.FirstMotorcycleAssigned) {
+                        if(phone.ActiveOnlineMarketTab!=1) Add(into,"om_tab_1");
+                        else FocusRecruitment(into,"om_contract_motor_0");
+                    } else if(!tm.HasAcceptedTownContract()) {
                         if(phone.ActiveOnlineMarketTab!=1) Add(into,"om_tab_1");
                         else Add(into,"om_contracts_list");
-                    } else if(StaffManager.Instance!=null && StaffManager.Instance.GetCourierStaffList().Count<2) {
+                    } else if(!tm.CouriersHired) {
                         if(phone.ActiveOnlineMarketTab!=3) Add(into,"om_tab_3");
-                        else FocusRecruitment(into,StaffManager.Instance.GetCourierStaffList().Count+
-                            phone.GetPendingRecruitmentCount(2,StaffRole.Kurye)<2 ? "hire_role_Kurye":"hire_confirm_2");
+                        else if(tm.CourierGenderCount(true)+phone.GetPendingCourierCount(true)<2) FocusRecruitment(into,"hire_courier_female");
+                        else if(tm.CourierGenderCount(false)+phone.GetPendingCourierCount(false)<2) FocusRecruitment(into,"hire_courier_male");
+                        else FocusRecruitment(into,"hire_confirm_2");
                     } else {
                         if(phone.ActiveOnlineMarketTab!=4) Add(into,"om_tab_4");
                         else Add(into,"courier_shift_list");
@@ -189,14 +194,14 @@ namespace Farm2Shelf.UI
             string[] tr={
                 "Ahır, tarladan ve hayvanlarından gelen ürünlerin deposudur. Ahıra dokunarak envanteri aç. Buradan ürünleri mağazaya, atölyeye veya tren istasyonuna gönderebilirsin. Bilgiyi okuduktan sonra pencereyi kapat ve Devam'a bas.",
                 "Atölyede ham ürünlerini işleyerek daha değerli ürünler üretebilirsin. Makine, malzeme ve üretim kapasitesini birlikte planla. Hazırsan Devam'a bas.",
-                "Taksi durağı kasaba içindeki adreslere ulaşımı sağlar. Yeni mahalleler ve işletmeler kasabanın ulaşım ağının parçasıdır. Hazırsan Devam'a bas.",
+                "Taksi durağını satın alıp işletebilirsin. Taksiler kasabadaki yolcuları taşıyarak sana ek gelir sağlar. Filonu büyüterek işletmeni geliştirebilirsin. Hazırsan Devam'a bas.",
                 "Tren istasyonuna gönderdiğin ürünler burada bekler. Günlük tren 12.30'da yükü alır, 13.00'te ayrılır; haritadan çıkınca satış geliri hesabına geçer. İstasyonda bekleyen ürün ve fiyatlarını görebilirsin. Devam'a bas.",
                 "Mağazana geri döndük. Ekibin, reyonların ve çiftliğin hazır. Bir sonraki adımda kapıları müşterilerine açacaksın. Devam'a bas."
             };
             string[] en={
                 "The barn stores crops and animal products. Tap it to open inventory. Send goods to the store, workshop or railway station. Close the window after reading, then press Continue.",
                 "Workshops process raw materials into higher-value products. Plan machinery, ingredients and capacity together. Press Continue when ready.",
-                "The taxi stand connects addresses around town. New neighbourhoods and businesses are part of this transport network. Press Continue when ready.",
+                "You can purchase and run the taxi stand. Your taxis earn extra income by transporting passengers around town. Expand your fleet to grow the business. Press Continue when ready.",
                 "Dispatched goods wait at the station. The daily train collects them at 12:30 and departs at 13:00. Sales are paid when it leaves the map. The station lists waiting goods and prices. Press Continue.",
                 "Back at your store! Your team, shelves and farm are ready. Next you will open the doors to your customers. Press Continue."
             };

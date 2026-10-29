@@ -71,7 +71,12 @@ namespace Farm2Shelf.Core
             ShiftCount(group, role, false) >= each && ShiftCount(group, role, true) >= each;
         public bool StoreShiftsReady => RequiredStoreRoles.All(r => RoleShiftsReady(0, r, r == StaffRole.Reyoncu ? 2 : 1));
         public bool FarmersReady => RoleShiftsReady(1, StaffRole.Çiftçi);
-        public bool CouriersReady => RoleShiftsReady(2, StaffRole.Kurye);
+        public int TutorialMotorcycles => CourierManager.Instance != null ? CourierManager.Instance.OwnedMotorcycleCount : 0;
+        public bool FirstMotorcycleAssigned => TownContractManager.Instance != null && TownContractManager.Instance.IsSlotAssignedToContracts(0);
+        public int CourierGenderCount(bool female) => StaffManager.Instance == null ? 0 :
+            StaffManager.Instance.GetCourierStaffList().Count(s => s != null && s.isFemale == female);
+        public bool CouriersHired => CourierGenderCount(true) >= 2 && CourierGenderCount(false) >= 2;
+        public bool CouriersReady => CouriersHired && RoleShiftsReady(2, StaffRole.Kurye, 2);
         public int RecruitmentRemaining(int group, StaffRole role)
         {
             if (JourneyStep == 4 && group == 0)
@@ -80,7 +85,7 @@ namespace Farm2Shelf.Core
                 return Mathf.Max(0, target - GetStoreRoleCount(role));
             }
             if (JourneyStep == 3 && group == 2 && StaffManager.Instance != null)
-                return Mathf.Max(0, 2 - StaffManager.Instance.GetCourierStaffList().Count);
+                return Mathf.Max(0, 4 - StaffManager.Instance.GetCourierStaffList().Count);
             if (JourneyStep == 7 && group == 1) return Mathf.Max(0, 2 - GetFarmRoleCount(StaffRole.Çiftçi));
             return int.MaxValue;
         }
@@ -97,7 +102,7 @@ namespace Farm2Shelf.Core
             {
                 case 1: return DidPanCamera && DidZoomCamera && DidRotateCamera;
                 case 2: return ExploredAppsCount >= 8;
-                case 3: return HasAcceptedTownContract() && CouriersReady;
+                case 3: return TutorialMotorcycles >= 2 && FirstMotorcycleAssigned && HasAcceptedTownContract() && CouriersReady;
                 case 4: return StoreHired && StoreShiftsReady && EarlyRestockers >= 2;
                 case 5: return FurnitureBought && FurnitureInstalled;
                 case 6: return DidPlaceBulkOrder && StockedFurniture(FurnitureType.Shelf) >= 3 && StockedFurniture(FurnitureType.Fridge) >= 2;
@@ -157,7 +162,7 @@ namespace Farm2Shelf.Core
             string[] tr = { "",
                 "Haritayı kaydır, yakınlaştır/uzaklaştır ve kamerayı döndür.",
                 "EKT Tablet'i aç. Ana ekrandaki sekiz uygulamayı sırayla ziyaret et.",
-                "Online Market > Kontratlar: bir kontrat seç. İşe Alım: 2 kurye seçip onayla. Vardiyalar: biri sabah, biri akşam.",
+                "Alışveriş > Araçlar: 2 kurye motoru satın al. Online Market > Kontratlar: 1 numaralı motoru kontratlara ekle ve bir kontratı sıraya al. İşe Alım: 2 kadın, 2 erkek kurye seçip onayla. Vardiyalar: 2 sabah, 2 akşam.",
                 "2 kasiyer, 4 reyoncu, 2 temizlikçi, 2 güvenlik, 2 müşteri hizmetlisi ve 2 maskot seç; Onayla'ya bas. Her rolün yarısı sabah, yarısı akşam. Sabah vardiyasındaki iki reyoncuyu erken çağır.",
                 "Yalnızca listedeki mobilyalar bu göreve sayılır. Siparişi tamamla; teslimat paletinden her birini alıp kur. Diğer mobilyalar hedeflerin yerine geçmez.",
                 "Alışveriş > Toplu Sipariş. Ardından 3 normal rafın ve 2 normal buzdolabının dört sırasına ürün ata. Toplu ürün ataması da kullanılabilir; diğer reyonlar sonraya kalabilir.",
@@ -169,7 +174,7 @@ namespace Farm2Shelf.Core
             string[] en = { "",
                 "Pan the map, zoom in/out and rotate the camera.",
                 "Open EKT Tablet and visit its eight apps.",
-                "Online Market > Contracts: select a contract. Hire and confirm 2 couriers. Assign one morning and one evening shift.",
+                "Shopping > Vehicles: buy 2 courier motorcycles. Online Market > Contracts: assign motorcycle #1 and queue a contract. Hire and confirm 2 female and 2 male couriers. Assign 2 morning and 2 evening shifts.",
                 "Select and confirm 2 cashiers, 4 restockers, 2 cleaners, 2 security guards, 2 customer service staff and 2 mascots. Split each role equally between morning and evening. Call both morning restockers in early.",
                 "Only the listed furniture counts. Complete the order, then unpack and install each item from the delivery pallet. Other furniture cannot replace the targets.",
                 "Shopping > Bulk Order. Assign products to all four rows of 3 standard shelves and 2 standard fridges. Bulk assignment is allowed; other shelves can wait.",
@@ -188,7 +193,14 @@ namespace Farm2Shelf.Core
             var lines = new List<string>();
             if (step == 1) { lines.Add(Check(DidPanCamera, L("Kaydır", "Pan"))); lines.Add(Check(DidZoomCamera, L("Yakınlaştır", "Zoom"))); lines.Add(Check(DidRotateCamera, L("Döndür", "Rotate"))); }
             if (step == 2) lines.Add(Check(ExploredAppsCount >= 8, L("Uygulamalar", "Apps") + $" {ExploredAppsCount}/8"));
-            if (step == 3) { lines.Add(Check(HasAcceptedTownContract(), L("Kontrat seç", "Select a contract"))); lines.Add(Check(CouriersReady, L("Kuryeler: 1 sabah + 1 akşam", "Couriers: 1 morning + 1 evening"))); }
+            if (step == 3) {
+                lines.Add(Check(TutorialMotorcycles >= 2, L("Kurye motoru", "Courier motorcycles") + $" {Mathf.Min(TutorialMotorcycles, 2)}/2"));
+                lines.Add(Check(FirstMotorcycleAssigned, L("1 numaralı motoru kontratlara ekle", "Assign motorcycle #1 to contracts")));
+                lines.Add(Check(HasAcceptedTownContract(), L("Kontratı sıraya al", "Queue a contract")));
+                lines.Add(Check(CourierGenderCount(true) >= 2, L("Kadın kurye", "Female couriers") + $" {Mathf.Min(CourierGenderCount(true),2)}/2"));
+                lines.Add(Check(CourierGenderCount(false) >= 2, L("Erkek kurye", "Male couriers") + $" {Mathf.Min(CourierGenderCount(false),2)}/2"));
+                lines.Add(Check(CouriersReady, L("Vardiyalar: 2 sabah + 2 akşam", "Shifts: 2 morning + 2 evening")));
+            }
             if (step == 4) {
                 foreach (var role in RequiredStoreRoles) {
                     int each = role == StaffRole.Reyoncu ? 2 : 1;

@@ -2690,7 +2690,7 @@ namespace Farm2Shelf.UI
                     ? LocalizationManager.L("OM_BtnUnassignContractMoto", "Online Filoya Al", "Back to Online")
                     : LocalizationManager.L("OM_BtnAssignContractMoto", "Kontratlara Ekle", "Add to Contracts");
                 Color btnColor = assigned ? new Color(0.62f, 0.38f, 0.16f) : new Color(0.12f, 0.62f, 0.48f);
-                CreateOmLayoutButton(actions, btnLabel, btnColor, () =>
+                GameObject assignmentButton = CreateOmLayoutButton(actions, btnLabel, btnColor, () =>
                 {
                     if (mgr == null) return;
                     bool ok = assigned
@@ -2705,6 +2705,7 @@ namespace Farm2Shelf.UI
                     }
                     RefreshVirtualMarketViews();
                 });
+                TutorialFocusTarget.Tag(assignmentButton, "om_contract_motor_" + slotIdx);
             }
 
             if (!anyOwned)
